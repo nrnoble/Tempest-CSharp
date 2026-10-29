@@ -19,7 +19,7 @@ while (!Raylib.WindowShouldClose())
 {
     if (game.GameOver || game.LevelComplete)
         game.RunOneStep(restartPressed: input.RestartPressed());
-    else if (game.DeathTicks > 0)
+    else if (game.DeathTicks > 0 || game.IsExiting)
         game.RunOneStep();
     else
         game.RunOneStep(input.ReadPlayer());

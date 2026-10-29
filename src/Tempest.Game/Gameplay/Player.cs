@@ -1,3 +1,5 @@
+using Tempest.Game.Levels;
+
 namespace Tempest.Game.Gameplay;
 
 public sealed class Player
@@ -5,12 +7,16 @@ public sealed class Player
     public int EdgeIndex { get; private set; } = 7;
     public float EdgePosition { get; private set; } = 0.5f;
     public int Lives { get; set; } = 3;
+    public float Depth { get; private set; } = Level.Depth;
 
     public void ResetPosition()
     {
         EdgeIndex = 7;
         EdgePosition = 0.5f;
+        Depth = Level.Depth;
     }
+
+    public void AdvanceExit(float distance) => Depth = MathF.Max(0, Depth - distance);
 
     public void Move(float movement, int edgeCount)
     {

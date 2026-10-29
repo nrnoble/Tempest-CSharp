@@ -300,3 +300,35 @@ After the Level 1 Egg/hatching milestone is fully validated and committed:
 4. Continue using small, manually verified gameplay milestones.
 
 Do not begin later enemy types merely because scaffold files already exist. Introduce them according to verified Tempest level progression.
+
+## Level 1 Clear and Exit Zoom
+
+The final enemy kill now enters `LevelState.ExitDelay` on the same update,
+provided all 10 enemies are destroyed and reserve Eggs, active Eggs and active
+Flippers are exhausted. Shots are cleared. Movement, firing, restart and enemy
+simulation are ignored throughout the exit, with cursor capture unchanged.
+
+ExitDelay lasts exactly 21 subsequent updates. The transition update enters
+`ExitZoom`; active zoom movement starts on the following update. The occupied
+lane and lane position remain fixed, and the cleared tube and Blaster stay visible.
+
+Player depth starts at 400, with projected depth computed as
+`Level.Position + Level.Depth - Player.Depth`. Phase 1 reduces `Projection.ZOffset`
+by 2 and player depth by 3 each update while the offset is at least -40. Starting
+at 5, this takes 23 updates and leaves the offset at -41. Phase 2 increases
+`Projection.K` by 2, adds another 2 when the updated K exceeds 100, and reduces
+player depth by 3.2 each update. The existing claw proportions scale with depth;
+normal gameplay retains its established shape and near-rim placement.
+
+When player depth falls below 10, the game enters the existing `Complete` state,
+restores K to 70 and ZOffset to 5, and displays the existing Level Complete text.
+R replays Level 1 with normal depth, projection, Egg supply and exit counters;
+the established replay score/lives behavior is preserved. No Level 2 or bonus
+is implemented.
+
+Automated validation: 54 headless tests pass, with no failures or skipped tests.
+This includes exit eligibility, timing, phase changes, projection finiteness,
+final-shot precedence, replay and the established gameplay regressions.
+Manual visual validation is still required for recognizable cleared-level travel,
+Blaster scale and lane alignment, zoom smoothness/framing, the final projection
+restoration, message timing and physical spinner/cursor behavior after replay.

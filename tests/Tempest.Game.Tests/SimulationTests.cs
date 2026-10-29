@@ -10,6 +10,267 @@ namespace Tempest.Game.Tests;
 public sealed class SimulationTests
 {
     [Fact]
+    public void NormalPlayUsesEstablishedProjectionAndNearRimDepth()
+    {
+        TempestGame game = new();
+        VectorRenderer renderer = new(game);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(70, Projection.K);
+        Assert.Equal(5, Projection.ZOffset);
+        Assert.Equal(400, game.Player.Depth);
+        Assert.Equal(50, renderer.PlayerProjectedDepth);
+        Assert.Equal(20, renderer.PlayerClawHeight);
+        Step(game, 100);
+        Assert.Equal(70, Projection.K);
+        Assert.Equal(5, Projection.ZOffset);
+        Assert.Equal(400, game.Player.Depth);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ExitCannotStartWithReserveOrActiveEggs(bool reserveOnly)
+    {
+        TempestGame game = new();
+        if (reserveOnly)
+            game.CurrentLevel.ReturnSurvivorsToReserve();
+        Step(game, 49);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.False(game.LevelComplete);
+        Assert.Equal(400, game.Player.Depth);
+        if (reserveOnly)
+            Assert.Equal(10, game.CurrentLevel.ReserveEggs);
+        else
+            Assert.Equal(4, game.Eggs.Count);
+    }
+
+    [Fact]
+    public void ExitCannotStartWithTheFinalActiveFlipper()
+    {
+        TempestGame game = PrepareFinalEnemy();
+        Assert.Single(game.Flippers);
+        Assert.Equal(0, game.CurrentLevel.ReserveEggs);
+        Assert.Empty(game.Eggs);
+        Step(game, 50);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(9, game.CurrentLevel.EnemiesDestroyed);
+    }
+
+    [Fact]
+    public void ExitPhaseOneChangesOffsetAndDepthForExactlyTwentyThreeTicks()
+    {
+        TempestGame game = BeginExit();
+        Step(game, 21);
+        Assert.Equal(LevelState.ExitZoom, game.State);
+        for (int tick = 1; tick <= 23; tick++)
+        {
+            game.RunOneStep();
+            Assert.Equal(5 - tick * 2, Projection.ZOffset);
+            Assert.Equal(400 - tick * 3, game.Player.Depth);
+            Assert.Equal(70, Projection.K);
+        }
+        Assert.Equal(-41, Projection.ZOffset);
+        game.RunOneStep();
+        Assert.Equal(-41, Projection.ZOffset);
+        Assert.Equal(72, Projection.K);
+        Assert.InRange(game.Player.Depth, 327.799f, 327.801f);
+    }
+
+    [Fact]
+    public void ExitPhaseTwoAcceleratesKAfterOneHundred()
+    {
+        TempestGame game = BeginExit();
+        Step(game, 21 + 23);
+        for (int tick = 1; tick <= 15; tick++)
+        {
+            game.RunOneStep();
+            Assert.Equal(70 + tick * 2, Projection.K);
+            Assert.InRange(game.Player.Depth, 331 - tick * 3.2f - .001f, 331 - tick * 3.2f + .001f);
+        }
+        Assert.Equal(100, Projection.K);
+        game.RunOneStep();
+        Assert.Equal(104, Projection.K);
+        game.RunOneStep();
+        Assert.Equal(108, Projection.K);
+        Assert.Equal(-41, Projection.ZOffset);
+    }
+
+    [Fact]
+    public void ExitZoomIgnoresInputRestartAndFurtherClearTriggers()
+    {
+        TempestGame game = BeginExit();
+        int edge = game.Player.EdgeIndex;
+        float position = game.Player.EdgePosition;
+        PlayerInput input = new(true, 800, true, true);
+        int ticks = 0;
+        while (!game.LevelComplete && ticks++ < 200)
+        {
+            game.RunOneStep(input, restartPressed: true);
+            Assert.Equal(edge, game.Player.EdgeIndex);
+            Assert.Equal(position, game.Player.EdgePosition);
+            Assert.Empty(game.Shots);
+            Assert.Empty(game.Eggs);
+            Assert.Empty(game.Flippers);
+            Assert.Equal(0, game.CurrentLevel.ReserveEggs);
+            Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed);
+            Assert.Equal(0, game.DeathTicks);
+            Assert.False(game.GameOver);
+            Assert.Equal(3, game.Player.Lives);
+        }
+        Assert.True(game.LevelComplete);
+        Assert.Equal(145, ticks);
+    }
+
+    [Fact]
+    public void ZoomCompletesOnlyBelowTenThenRestoresProjectionAndFreezes()
+    {
+        TempestGame game = BeginExit();
+        Step(game, 21 + 23 + 100);
+        Assert.Equal(LevelState.ExitZoom, game.State);
+        Assert.InRange(game.Player.Depth, 10.99f, 11.01f);
+        game.RunOneStep();
+        Assert.Equal(LevelState.Complete, game.State);
+        Assert.InRange(game.Player.Depth, 7.79f, 7.81f);
+        Assert.Equal(70, Projection.K);
+        Assert.Equal(5, Projection.ZOffset);
+        float depth = game.Player.Depth;
+        Step(game, 50, new PlayerInput(true, 80, false, false));
+        Assert.Equal(depth, game.Player.Depth);
+        Assert.True(game.LevelComplete);
+        Assert.Empty(game.Shots);
+    }
+
+    [Fact]
+    public void ExitReplayRestoresProjectionDepthEggsAndCountersButKeepsScoreLives()
+    {
+        TempestGame game = BeginExit();
+        game.Score.Add(1500);
+        game.Player.Lives = 2;
+        FinishExit(game);
+        game.RunOneStep(restartPressed: true);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(400, game.Player.Depth);
+        Assert.Equal(70, Projection.K);
+        Assert.Equal(5, Projection.ZOffset);
+        Assert.Equal(4, game.Eggs.Count);
+        Assert.Equal(6, game.CurrentLevel.ReserveEggs);
+        Assert.Equal(1500, game.Score.Score);
+        Assert.Equal(2, game.Player.Lives);
+        AssertAccounting(game);
+        for (int enemyIndex = 0; enemyIndex < 10; enemyIndex++)
+            game.CurrentLevel.RecordEnemyDestroyed();
+        game.CurrentLevel.ResetAfterDeath();
+        game.RunOneStep();
+        Step(game, 20);
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        game.RunOneStep();
+        Assert.Equal(LevelState.ExitZoom, game.State);
+        Assert.Equal(400, game.Player.Depth);
+    }
+
+    [Fact]
+    public void UndestroyedFinalFlipperStillKillsPlayerAtCompletedPivot()
+    {
+        TempestGame game = PrepareFinalEnemy();
+        Step(game, 199);
+        game.Player.Move(-1, 16);
+        Step(game, 24 + 3);
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Assert.Equal(60, game.DeathTicks);
+        Assert.Equal(9, game.CurrentLevel.EnemiesDestroyed);
+        Assert.False(game.IsExiting);
+        AssertAccounting(game);
+        Step(game, 60);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(2, game.Player.Lives);
+        Assert.Equal(400, game.Player.Depth);
+        Assert.Single(game.Eggs);
+        AssertAccounting(game);
+    }
+
+    [Fact]
+    public void FinalPivotTickKillStartsExitInsteadOfKillingPlayer()
+    {
+        TempestGame game = PrepareFinalEnemy();
+        Step(game, 199);
+        game.Player.Move(-1, 16);
+        Step(game, 24);
+        Flipper flipper = Assert.Single(game.Flippers);
+        Assert.Equal(FlipperState.Flipping, flipper.State);
+        Assert.Equal(game.Player.EdgeIndex, flipper.DestinationEdge);
+        Step(game, 2);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(150, game.Score.Score);
+        Assert.Equal(0, game.DeathTicks);
+        Assert.Equal(3, game.Player.Lives);
+        Assert.Empty(game.Flippers);
+        Assert.Empty(game.Shots);
+    }
+
+    [Fact]
+    public void ExitRendererTracksPlayerDepthAndAllProjectedVerticesStayFinite()
+    {
+        TempestGame game = BeginExit();
+        VectorRenderer renderer = new(game);
+        IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
+        for (int tick = 0; tick < 146; tick++)
+        {
+            float expectedDepth = Level.Position + Level.Depth - game.Player.Depth;
+            Assert.Equal(expectedDepth, renderer.PlayerProjectedDepth);
+            renderer.GetPlayerEdge(points, out Vector2 first, out Vector2 second);
+            Assert.Equal(Projection.Project(points[game.Player.EdgeIndex].X,
+                points[game.Player.EdgeIndex].Y, expectedDepth, 400, -80), first);
+            Assert.True(float.IsFinite(first.X) && float.IsFinite(first.Y));
+            Assert.True(float.IsFinite(second.X) && float.IsFinite(second.Y));
+            Assert.True(float.IsFinite(renderer.PlayerClawHeight));
+            Assert.True(renderer.PlayerClawHeight > 0);
+            foreach (Vector2 point in points)
+            {
+                Vector2 near = Projection.Project(point.X, point.Y, Level.Position, 400, -80);
+                Vector2 far = Projection.Project(point.X, point.Y, Level.Position + Level.Depth, 400, -80);
+                Assert.True(float.IsFinite(near.X) && float.IsFinite(near.Y));
+                Assert.True(float.IsFinite(far.X) && float.IsFinite(far.Y));
+            }
+            game.RunOneStep();
+        }
+        Assert.True(game.LevelComplete);
+        Assert.True(renderer.PlayerClawHeight < 20);
+    }
+
+    [Fact]
+    public void ExitDelayWaitsTwentyOneUpdatesAndIgnoresInput()
+    {
+        TempestGame game = new();
+        for (int enemyIndex = 0; enemyIndex < 10; enemyIndex++)
+            game.CurrentLevel.RecordEnemyDestroyed();
+        game.CurrentLevel.ResetAfterDeath();
+        game.RunOneStep();
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        Assert.False(game.LevelComplete);
+        PlayerInput input = new(true, 80, true, true);
+        for (int tick = 0; tick < 20; tick++)
+        {
+            game.RunOneStep(input, restartPressed: true);
+            Assert.Equal(LevelState.ExitDelay, game.State);
+            Assert.Equal(7, game.Player.EdgeIndex);
+            Assert.Equal(0.5f, game.Player.EdgePosition);
+            Assert.Equal(400, game.Player.Depth);
+            Assert.Empty(game.Shots);
+        }
+        game.RunOneStep(input, restartPressed: true);
+        Assert.Equal(LevelState.ExitZoom, game.State);
+        Assert.Equal(400, game.Player.Depth);
+        Assert.Equal(70, Projection.K);
+        Assert.Equal(5, Projection.ZOffset);
+        game.RunOneStep(input, restartPressed: true);
+        Assert.Equal(397, game.Player.Depth);
+        Assert.Equal(3, Projection.ZOffset);
+        Assert.Empty(game.Shots);
+    }
+
+    [Fact]
     public void ProductionInitializationAndFirstTickRetainRenderFacingEggs()
     {
         TempestGame game = new();
@@ -347,7 +608,7 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void DestroyingLastEnemyCompletesLevelOnTheSameTick()
+    public void DestroyingLastEnemyStartsExitDelayOnTheSameTick()
     {
         TempestGame game = new();
         for (int enemyIndex = 0; enemyIndex < 9; enemyIndex++)
@@ -359,14 +620,15 @@ public sealed class SimulationTests
         Assert.Equal(7, Assert.Single(game.Flippers).EdgeIndex);
 
         int ticks = 0;
-        while (!game.LevelComplete && ticks < 100)
+        while (!game.IsExiting && ticks < 100)
         {
             game.RunOneStep(new PlayerInput(true, 0, false, false));
             ticks++;
-            Assert.Equal(game.CurrentLevel.EnemiesDestroyed == 10, game.LevelComplete);
+            Assert.Equal(game.CurrentLevel.EnemiesDestroyed == 10, game.State == LevelState.ExitDelay);
         }
 
-        Assert.True(game.LevelComplete);
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        Assert.False(game.LevelComplete);
         Assert.Empty(game.Flippers);
         Assert.Equal(150, game.Score.Score);
         Assert.Equal(0, game.DeathTicks);
@@ -382,6 +644,7 @@ public sealed class SimulationTests
         game.Score.Add(1500);
         game.Player.Lives = 2;
         game.RunOneStep();
+        FinishExit(game);
         Assert.True(game.LevelComplete);
         game.RunOneStep(new PlayerInput(true, 80, false, false));
         Assert.Empty(game.Shots);
@@ -648,11 +911,11 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void EntireEggWaveCanBeDestroyedWithSameTickFinalCompletion()
+    public void EntireEggWaveCanBeDestroyedWithSameTickExitThenCompletion()
     {
         TempestGame game = new();
         int previousDestroyed = 0;
-        for (int tick = 0; tick < 5000 && !game.LevelComplete && !game.GameOver; tick++)
+        for (int tick = 0; tick < 5000 && !game.IsExiting && !game.GameOver; tick++)
         {
             Flipper? target = game.Flippers.OrderByDescending(flipper => flipper.Height).FirstOrDefault();
             if (target is not null)
@@ -664,13 +927,44 @@ public sealed class SimulationTests
                 game.CurrentLevel.ReserveEggs + game.Eggs.Count + game.Flippers.Count);
             Assert.True(game.CurrentLevel.EnemiesDestroyed >= previousDestroyed);
             previousDestroyed = game.CurrentLevel.EnemiesDestroyed;
-            Assert.Equal(game.CurrentLevel.EnemiesDestroyed == 10, game.LevelComplete);
+            Assert.Equal(game.CurrentLevel.EnemiesDestroyed == 10, game.State == LevelState.ExitDelay);
         }
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        FinishExit(game);
         Assert.True(game.LevelComplete);
         Assert.Equal(1500, game.Score.Score);
         Assert.Equal(0, game.CurrentLevel.ReserveEggs);
         Assert.Empty(game.Eggs);
         Assert.Empty(game.Flippers);
+    }
+
+    private static TempestGame PrepareFinalEnemy()
+    {
+        TempestGame game = new();
+        for (int enemyIndex = 0; enemyIndex < 9; enemyIndex++)
+            game.CurrentLevel.RecordEnemyDestroyed();
+        game.CurrentLevel.ResetAfterDeath();
+        MakeReady(Assert.Single(game.Eggs), game.CurrentLevel);
+        game.RunOneStep();
+        return game;
+    }
+
+    private static TempestGame BeginExit()
+    {
+        TempestGame game = new();
+        for (int enemyIndex = 0; enemyIndex < 10; enemyIndex++)
+            game.CurrentLevel.RecordEnemyDestroyed();
+        game.CurrentLevel.ResetAfterDeath();
+        game.RunOneStep();
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        return game;
+    }
+
+    private static void FinishExit(TempestGame game)
+    {
+        for (int tick = 0; tick < 200 && !game.LevelComplete; tick++)
+            game.RunOneStep();
+        Assert.True(game.LevelComplete);
     }
 
     private static void AssertAccounting(TempestGame game)

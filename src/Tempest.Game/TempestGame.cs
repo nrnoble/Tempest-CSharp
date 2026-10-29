@@ -1,6 +1,7 @@
 using Tempest.Game.Gameplay;
 using Tempest.Game.Levels;
 using Tempest.Game.Systems;
+using Tempest.Game.Rendering;
 
 namespace Tempest.Game;
 
@@ -14,6 +15,7 @@ public sealed class TempestGame
     private readonly List<Shot> shots = [];
     private readonly List<Flipper> flippers = [];
     private int shotTimer = 3;
+    private int exitDelayTicks;
 
     public Player Player { get; } = new();
     public Level CurrentLevel { get; } = new();
@@ -22,8 +24,10 @@ public sealed class TempestGame
     public IReadOnlyList<Flipper> Flippers => flippers;
     public IReadOnlyList<Egg> Eggs => CurrentLevel.Eggs;
     public int DeathTicks { get; private set; }
-    public bool GameOver { get; private set; }
-    public bool LevelComplete { get; private set; }
+    public LevelState State => CurrentLevel.State;
+    public bool GameOver => State == LevelState.GameOver;
+    public bool LevelComplete => State == LevelState.Complete;
+    public bool IsExiting => State is LevelState.ExitDelay or LevelState.ExitZoom;
 
     public TempestGame() => ResetLevel();
 
@@ -39,7 +43,17 @@ public sealed class TempestGame
             if (restartPressed)
                 ResetLevel();
         }
-        else if (DeathTicks > 0)
+        else if (State == LevelState.ExitDelay)
+        {
+            exitDelayTicks++;
+            if (exitDelayTicks > 20)
+                CurrentLevel.State = LevelState.ExitZoom;
+        }
+        else if (State == LevelState.ExitZoom)
+        {
+            UpdateExitZoom();
+        }
+        else if (State == LevelState.PlayerDying)
         {
             UpdatePlayerDeath();
         }
@@ -47,6 +61,9 @@ public sealed class TempestGame
         {
             UpdatePlayer(input);
             UpdatePlayerShots();
+            if (CheckForLevelComplete())
+                return;
+
             CurrentLevel.UpdateEggRelease();
             CurrentLevel.UpdateEggs();
             HatchEggs();
@@ -60,13 +77,14 @@ public sealed class TempestGame
     {
         Score.Reset();
         Player.Lives = 3;
-        GameOver = false;
         ResetLevel();
     }
 
     private void ResetLevel()
     {
-        LevelComplete = false;
+        CurrentLevel.State = LevelState.Playing;
+        exitDelayTicks = 0;
+        RestoreProjection();
         DeathTicks = 0;
         CurrentLevel.Reset();
         ResetPlayerPosition();
@@ -80,6 +98,7 @@ public sealed class TempestGame
         shots.Clear();
         flippers.Clear();
         CurrentLevel.ResetAfterDeath();
+        CurrentLevel.State = LevelState.Playing;
     }
 
     private void ResetPlayerPosition()
@@ -97,7 +116,7 @@ public sealed class TempestGame
         Player.Lives--;
         if (Player.Lives <= 0)
         {
-            GameOver = true;
+            CurrentLevel.State = LevelState.GameOver;
             shots.Clear();
             flippers.Clear();
             CurrentLevel.ReturnSurvivorsToReserve();
@@ -109,10 +128,11 @@ public sealed class TempestGame
 
     private void KillPlayer()
     {
-        if (DeathTicks > 0 || GameOver)
+        if (State != LevelState.Playing)
             return;
 
         DeathTicks = PlayerDeathTicks;
+        CurrentLevel.State = LevelState.PlayerDying;
         shots.Clear();
     }
 
@@ -192,9 +212,42 @@ public sealed class TempestGame
         }
     }
 
-    private void CheckForLevelComplete()
+    private bool CheckForLevelComplete()
     {
-        if (CurrentLevel.IsComplete(flippers.Count))
-            LevelComplete = true;
+        if (State != LevelState.Playing || !CurrentLevel.IsComplete(flippers.Count))
+            return false;
+
+        CurrentLevel.State = LevelState.ExitDelay;
+        exitDelayTicks = 0;
+        shots.Clear();
+        return true;
+    }
+
+    private void UpdateExitZoom()
+    {
+        if (Projection.ZOffset >= -40)
+        {
+            Projection.ZOffset -= 2;
+            Player.AdvanceExit(3);
+        }
+        else
+        {
+            Projection.K += 2;
+            if (Projection.K > 100)
+                Projection.K += 2;
+            Player.AdvanceExit(3.2f);
+        }
+
+        if (Player.Depth < 10)
+        {
+            CurrentLevel.State = LevelState.Complete;
+            RestoreProjection();
+        }
+    }
+
+    private static void RestoreProjection()
+    {
+        Projection.K = 70;
+        Projection.ZOffset = 5;
     }
 }

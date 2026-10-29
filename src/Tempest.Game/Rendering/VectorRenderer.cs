@@ -13,6 +13,10 @@ public sealed class VectorRenderer
 
 	private readonly TempestGame game;
 	public IReadOnlyList<Egg> Eggs => game.Eggs;
+	public float PlayerProjectedDepth => Level.Position + Level.Depth - game.Player.Depth;
+	public float PlayerClawHeight => game.Player.Depth == Level.Depth
+		? 20
+		: 20 * ((Level.Position + 5) / 70) / ((PlayerProjectedDepth + Projection.ZOffset) / Projection.K);
 
 	public VectorRenderer(TempestGame game)
 	{
@@ -25,9 +29,12 @@ public sealed class VectorRenderer
 		Raylib.ClearBackground(Color.Black);
 
 		DrawTube(game.CurrentLevel.Definition.Points);
-		DrawEggs();
-		DrawPlayerShots(game.CurrentLevel.Definition.Points);
-		DrawFlippers(game.CurrentLevel.Definition.Points);
+		if (!game.IsExiting)
+		{
+			DrawEggs();
+			DrawPlayerShots(game.CurrentLevel.Definition.Points);
+			DrawFlippers(game.CurrentLevel.Definition.Points);
+		}
 
 		if (!game.GameOver)
 		{
@@ -204,7 +211,7 @@ public sealed class VectorRenderer
 
 		float xn = -dy / length;
 		float yn = dx / length;
-		const float clawHeight = 20;
+		float clawHeight = PlayerClawHeight;
 		Vector2 edgeVector = new(dx, dy);
 		Vector2 center = p2 - edgeVector * game.Player.EdgePosition;
 		Vector2 outer1 = center + new Vector2(xn, yn) * clawHeight;
@@ -222,15 +229,15 @@ public sealed class VectorRenderer
 		Raylib.DrawLineV(outer2, right2, Color.Yellow);
 	}
 
-	private void GetPlayerEdge(IReadOnlyList<Vector2> points, out Vector2 p1, out Vector2 p2)
+	public void GetPlayerEdge(IReadOnlyList<Vector2> points, out Vector2 p1, out Vector2 p2)
 	{
 		int next = NextEdge(game.Player.EdgeIndex, points.Count);
 		p1 = Projection.Project(
 			points[game.Player.EdgeIndex].X, points[game.Player.EdgeIndex].Y,
-			Level.Position, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+			PlayerProjectedDepth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
 		p2 = Projection.Project(
 			points[next].X, points[next].Y,
-			Level.Position, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+			PlayerProjectedDepth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
 	}
 
 	private void DrawPlayerExplosion(IReadOnlyList<Vector2> points)
