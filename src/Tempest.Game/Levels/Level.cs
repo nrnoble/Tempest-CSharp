@@ -1,4 +1,5 @@
 using System.Numerics;
+using Tempest.Game.Gameplay;
 
 namespace Tempest.Game.Levels;
 
@@ -8,52 +9,100 @@ public sealed class Level
     public const float Position = 50;
     public const int EnemyTotal = 10;
     private const int SpawnIntervalTicks = 50;
-    private const int MaximumActiveFlippers = 4;
+    private const int MaximumActiveEggs = 4;
+    private const int MaximumApproachingEggs = 2;
+    private const int HatchSelectionIntervalTicks = 50;
     private readonly int[] spawnLanes = [12, 4, 9, 1, 14, 6, 10, 2, 15, 7];
+    private readonly List<Egg> eggs = [];
     private int spawnTimer;
+    private int hatchSelectionTimer;
     private int nextSpawnLaneIndex;
 
     public LevelDefinition Definition { get; } = LevelLoader.LoadLevel1();
     public int EnemiesSpawned { get; private set; }
     public int EnemiesDestroyed { get; private set; }
+    public int ReserveEggs => EnemyTotal - EnemiesSpawned;
+    public int RemainingEnemies => EnemyTotal - EnemiesDestroyed;
+    public IReadOnlyList<Egg> Eggs => eggs;
     public LevelState State { get; set; } = LevelState.Begin;
     public bool Continuous { get; set; } = true;
 
+    public Level() => Reset();
+
     public void Reset()
     {
-        EnemiesSpawned = 0;
         EnemiesDestroyed = 0;
-        spawnTimer = 0;
-        nextSpawnLaneIndex = 0;
+        ResetAfterDeath();
     }
 
     public void ResetAfterDeath()
     {
+        ReturnSurvivorsToReserve();
+        for (int eggIndex = 0; eggIndex < MaximumActiveEggs && ReserveEggs > 0; eggIndex++)
+            ReleaseEgg();
+    }
+
+    public void ReturnSurvivorsToReserve()
+    {
+        eggs.Clear();
         spawnTimer = 0;
+        hatchSelectionTimer = 0;
         EnemiesSpawned = EnemiesDestroyed;
         nextSpawnLaneIndex = EnemiesDestroyed % spawnLanes.Length;
     }
 
     public void RecordEnemyDestroyed() => EnemiesDestroyed++;
 
-    public int? UpdateSpawning(int activeFlippers)
+    public void UpdateEggRelease()
     {
-        if (EnemiesSpawned >= EnemyTotal || activeFlippers >= MaximumActiveFlippers)
-            return null;
-
         spawnTimer++;
         if (spawnTimer < SpawnIntervalTicks)
+            return;
+
+        spawnTimer = 0;
+        if (ReserveEggs > 0 && eggs.Count < MaximumActiveEggs)
+            ReleaseEgg();
+    }
+
+    private void ReleaseEgg()
+    {
+        int lane = spawnLanes[nextSpawnLaneIndex % spawnLanes.Length];
+        // Alternate directions in release order to keep roaming repeatable.
+        int direction = nextSpawnLaneIndex % 2 == 0 ? 1 : -1;
+        nextSpawnLaneIndex++;
+        eggs.Add(new Egg(lane, direction));
+        EnemiesSpawned++;
+    }
+
+    public void UpdateEggs()
+    {
+        hatchSelectionTimer++;
+        if (hatchSelectionTimer >= HatchSelectionIntervalTicks)
+        {
+            hatchSelectionTimer = 0;
+            // Every 50 active ticks, select the oldest roaming Egg, with at most
+            // two in transit. This preserves the milestone's deterministic pacing.
+            if (eggs.Count(egg => egg.State != EggState.Roaming) < MaximumApproachingEggs)
+                eggs.FirstOrDefault(egg => egg.State == EggState.Roaming)?.BeginApproach();
+        }
+
+        foreach (Egg egg in eggs)
+            egg.Update(this);
+    }
+
+    public Flipper? HatchReadyEgg()
+    {
+        int eggIndex = eggs.FindIndex(egg => egg.State == EggState.ReadyToHatch);
+        if (eggIndex < 0)
             return null;
 
-        int lane = spawnLanes[nextSpawnLaneIndex % spawnLanes.Length];
-        nextSpawnLaneIndex++;
-        EnemiesSpawned++;
-        spawnTimer = 0;
-        return lane;
+        Egg egg = eggs[eggIndex];
+        eggs.RemoveAt(eggIndex);
+        return new Flipper(egg.EdgeIndex, 0);
     }
 
     public bool IsComplete(int activeFlippers) =>
-        EnemiesDestroyed == EnemyTotal && activeFlippers == 0;
+        EnemiesDestroyed == EnemyTotal && ReserveEggs == 0 && eggs.Count == 0 && activeFlippers == 0;
 
     public int NextEdge(int edge) => (edge + 1) % Definition.Points.Count;
     public int PreviousEdge(int edge) =>

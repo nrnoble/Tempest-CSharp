@@ -9,8 +9,10 @@ public sealed class VectorRenderer
 {
 	public const int ScreenWidth = 800;
 	public const int ScreenHeight = 600;
+	public const int EggPointSize = 3;
 
 	private readonly TempestGame game;
+	public IReadOnlyList<Egg> Eggs => game.Eggs;
 
 	public VectorRenderer(TempestGame game)
 	{
@@ -23,6 +25,7 @@ public sealed class VectorRenderer
 		Raylib.ClearBackground(Color.Black);
 
 		DrawTube(game.CurrentLevel.Definition.Points);
+		DrawEggs();
 		DrawPlayerShots(game.CurrentLevel.Definition.Points);
 		DrawFlippers(game.CurrentLevel.Definition.Points);
 
@@ -39,6 +42,32 @@ public sealed class VectorRenderer
 	}
 
 	private static int NextEdge(int edge, int edgeCount) => (edge + 1) % edgeCount;
+
+	public Vector2 ProjectEgg(Egg egg)
+	{
+		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
+		int next = NextEdge(egg.EdgeIndex, points.Count);
+		Vector2 midpoint = new(
+			(points[egg.EdgeIndex].X + points[next].X) / 2,
+			(points[egg.EdgeIndex].Y + points[next].Y) / 2);
+		float projectedDepth = Level.Position + Level.Depth - (egg.Height * 20);
+		return Projection.Project(midpoint.X, midpoint.Y, projectedDepth,
+			game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+	}
+
+	public void DrawEggs(Action<Vector2, Vector2> drawPoint)
+	{
+		foreach (Egg egg in Eggs)
+		{
+			Vector2 size = new(EggPointSize, EggPointSize);
+			drawPoint(ProjectEgg(egg) - Vector2.One, size);
+		}
+	}
+
+	private void DrawEggs()
+	{
+		DrawEggs((point, size) => Raylib.DrawRectangleV(point, size, Color.Red));
+	}
 
 	private void DrawTube(IReadOnlyList<Vector2> points)
 	{
@@ -227,7 +256,7 @@ public sealed class VectorRenderer
 		Raylib.DrawText($"LIVES {game.Player.Lives}", 10, 44, 20, Color.Yellow);
 		int remaining = Level.EnemyTotal - game.CurrentLevel.EnemiesDestroyed;
 		Raylib.DrawText($"FLIPPERS {remaining}", 10, 72, 18, Color.Red);
-		Raylib.DrawText($"ACTIVE {game.Flippers.Count}", 10, 96, 18, Color.Gray);
+		Raylib.DrawText($"ACTIVE {game.Eggs.Count + game.Flippers.Count}", 10, 96, 18, Color.Gray);
 
 		if (game.GameOver)
 		{

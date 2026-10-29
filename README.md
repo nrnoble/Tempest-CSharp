@@ -22,9 +22,19 @@ dotnet run --project src/Tempest.Game
 - `Systems/InputSystem.cs` samples Raylib input; `ScoreSystem.cs` owns the score.
 - `Rendering/VectorRenderer.cs` draws the tube, entities, explosion and HUD.
 
-The active tick order is player/firing, shots and shot collisions, spawning,
-Flipper updates, completed-pivot player collisions, then level completion.
+The active tick order is player/firing, shots and shot collisions, reserve Egg
+release, Egg updates, hatching, Flipper updates, completed-pivot player
+collisions, then level completion.
 The frame loop retains one simulation tick per frame at the existing 60 FPS target.
+
+Level 1 starts with four roaming Eggs and six in reserve. Reserve releases use
+a 50-tick interval and a four-active-Egg limit. Every 50 active ticks the oldest
+roaming Egg is selected to approach, with at most two approaching or ready to
+hatch. Release lanes and alternating roaming directions remain deterministic.
+Eggs hatch into Flippers without changing the remaining-enemy count. After a
+life loss, surviving enemies return to the Egg supply, with up to four released
+immediately; defeated enemies and score remain preserved. The HUD's ACTIVE
+counter includes both active Eggs and active Flippers.
 
 Tests run headlessly without initializing a Raylib window. Visual appearance,
 spinner feel and cursor capture still require manual gameplay testing.

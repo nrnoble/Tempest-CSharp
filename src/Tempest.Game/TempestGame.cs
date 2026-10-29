@@ -20,6 +20,7 @@ public sealed class TempestGame
     public ScoreSystem Score { get; } = new();
     public IReadOnlyList<Shot> Shots => shots;
     public IReadOnlyList<Flipper> Flippers => flippers;
+    public IReadOnlyList<Egg> Eggs => CurrentLevel.Eggs;
     public int DeathTicks { get; private set; }
     public bool GameOver { get; private set; }
     public bool LevelComplete { get; private set; }
@@ -46,7 +47,9 @@ public sealed class TempestGame
         {
             UpdatePlayer(input);
             UpdatePlayerShots();
-            UpdateEnemySpawning();
+            CurrentLevel.UpdateEggRelease();
+            CurrentLevel.UpdateEggs();
+            HatchEggs();
             UpdateFlippers();
             CheckFlippersAgainstPlayer();
             CheckForLevelComplete();
@@ -97,6 +100,7 @@ public sealed class TempestGame
             GameOver = true;
             shots.Clear();
             flippers.Clear();
+            CurrentLevel.ReturnSurvivorsToReserve();
             return;
         }
 
@@ -163,10 +167,10 @@ public sealed class TempestGame
         return false;
     }
 
-    private void UpdateEnemySpawning()
+    private void HatchEggs()
     {
-        if (CurrentLevel.UpdateSpawning(flippers.Count) is int lane)
-            flippers.Add(new Flipper(lane, 0));
+        while (CurrentLevel.HatchReadyEgg() is Flipper flipper)
+            flippers.Add(flipper);
     }
 
     private void UpdateFlippers()
