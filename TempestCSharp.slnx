@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Tempest.Game/Tempest.Game.csproj" />
+  <Project Path="tests/Tempest.Game.Tests/Tempest.Game.Tests.csproj" />
+</Solution>
