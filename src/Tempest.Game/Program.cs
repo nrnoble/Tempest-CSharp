@@ -28,23 +28,39 @@ const float flipperTurnSpeedDegrees = 8;
 const int flipperRimPauseTicks = 24;
 const int playerDeathTicks = 60;
 
+// Level 1 test wave. Incitti's Level 1 setup begins with 10 eggs/enemies.
+const int levelEnemyTotal = 10;
+const int spawnIntervalTicks = 50;
+const int maximumActiveFlippers = 4;
+
 int playerEdge = 7;
 float playerPosition = 0.5f;
 int lives = 3;
 int deathTicks = 0;
 bool gameOver = false;
+bool levelComplete = false;
 
 int shotTimer = 3;
 int score = 0;
+int enemiesSpawned = 0;
+int enemiesDestroyed = 0;
+int spawnTimer = 0;
+int nextSpawnLaneIndex = 0;
+
+// Deterministic lanes make this milestone repeatable while testing.
+int[] spawnLanes = [12, 4, 9, 1, 14, 6, 10, 2, 15, 7];
+
 List<PlayerShot> playerShots = [];
-FlipperTarget? flipper = new(edge: 12, height: 0);
+List<FlipperTarget> flippers = [];
 
 Projection.K = 70;
 Projection.ZOffset = 5;
 
-Raylib.InitWindow(screenWidth, screenHeight, "Tempest C# - Level 1");
+Raylib.InitWindow(screenWidth, screenHeight, "Tempest C# - Level 1 Multi-Flipper Test");
 Raylib.DisableCursor();
 Raylib.SetTargetFPS(60);
+
+ResetLevel();
 
 while (!Raylib.WindowShouldClose())
 {
@@ -52,6 +68,11 @@ while (!Raylib.WindowShouldClose())
     {
         if (Raylib.IsKeyPressed(KeyboardKey.R))
             ResetGame();
+    }
+    else if (levelComplete)
+    {
+        if (Raylib.IsKeyPressed(KeyboardKey.R))
+            ResetLevel();
     }
     else if (deathTicks > 0)
     {
@@ -61,11 +82,10 @@ while (!Raylib.WindowShouldClose())
     {
         UpdatePlayer();
         UpdatePlayerShots();
-        UpdateFlipper();
-        CheckFlipperAgainstPlayer();
-
-        if (Raylib.IsKeyPressed(KeyboardKey.R))
-            flipper = new FlipperTarget(edge: 12, height: 0);
+        UpdateEnemySpawning();
+        UpdateFlippers();
+        CheckFlippersAgainstPlayer();
+        CheckForLevelComplete();
     }
 
     Raylib.BeginDrawing();
@@ -73,7 +93,7 @@ while (!Raylib.WindowShouldClose())
 
     DrawTube(level1);
     DrawPlayerShots(level1);
-    DrawFlipper(level1);
+    DrawFlippers(level1);
 
     if (!gameOver)
     {
@@ -95,37 +115,58 @@ void ResetGame()
     score = 0;
     lives = 3;
     gameOver = false;
-    deathTicks = 0;
-    ResetRound();
+    ResetLevel();
 }
 
-void ResetRound()
+void ResetLevel()
+{
+    levelComplete = false;
+    deathTicks = 0;
+    enemiesSpawned = 0;
+    enemiesDestroyed = 0;
+    spawnTimer = 0;
+    nextSpawnLaneIndex = 0;
+    ResetPlayerPosition();
+    playerShots.Clear();
+    flippers.Clear();
+}
+
+void ResetAfterDeath()
+{
+    ResetPlayerPosition();
+    playerShots.Clear();
+    flippers.Clear();
+    spawnTimer = 0;
+
+    // Respawn only the enemies not yet destroyed. Previously spawned but
+    // surviving test Flippers return to the pending pool after a death.
+    enemiesSpawned = enemiesDestroyed;
+    nextSpawnLaneIndex = enemiesDestroyed % spawnLanes.Length;
+}
+
+void ResetPlayerPosition()
 {
     playerEdge = 7;
     playerPosition = 0.5f;
     shotTimer = 3;
-    playerShots.Clear();
-    flipper = new FlipperTarget(edge: 12, height: 0);
 }
 
 void UpdatePlayerDeath()
 {
     deathTicks--;
-
     if (deathTicks > 0)
         return;
 
     lives--;
-
     if (lives <= 0)
     {
         gameOver = true;
         playerShots.Clear();
-        flipper = null;
+        flippers.Clear();
         return;
     }
 
-    ResetRound();
+    ResetAfterDeath();
 }
 
 void KillPlayer()
@@ -146,7 +187,6 @@ void UpdatePlayer()
 
     if (Raylib.IsKeyDown(KeyboardKey.Left))
         movement -= playerSpeed;
-
     if (Raylib.IsKeyDown(KeyboardKey.Right))
         movement += playerSpeed;
 
@@ -183,168 +223,176 @@ void UpdatePlayerFiring()
 
 void UpdatePlayerShots()
 {
-    for (int i = playerShots.Count - 1; i >= 0; i--)
+    for (int shotIndex = playerShots.Count - 1; shotIndex >= 0; shotIndex--)
     {
-        PlayerShot shot = playerShots[i];
+        PlayerShot shot = playerShots[shotIndex];
         shot.Depth -= shotSpeed;
         shot.Rotation = (shot.Rotation + 15) % 360;
 
-        if (CheckShotAgainstFlipper(shot) || shot.Depth < 0)
-            playerShots.RemoveAt(i);
+        if (CheckShotAgainstFlippers(shot) || shot.Depth < 0)
+            playerShots.RemoveAt(shotIndex);
     }
 }
 
-bool CheckShotAgainstFlipper(PlayerShot shot)
+bool CheckShotAgainstFlippers(PlayerShot shot)
 {
-    if (flipper is null)
-        return false;
-
-    bool matchingEdge = shot.Edge == flipper.Edge;
-
-    if (flipper.State == FlipperState.Flipping)
-        matchingEdge = shot.Edge == flipper.SourceEdge ||
-                       shot.Edge == flipper.DestinationEdge;
-
-    if (!matchingEdge)
-        return false;
-
-    float separation = flipper.Height - shot.Depth;
-
-    if (separation <= 0 || separation >= 16)
-        return false;
-
-    score += 150;
-    flipper = null;
-    return true;
-}
-
-void UpdateFlipper()
-{
-    if (flipper is null)
-        return;
-
-    switch (flipper.State)
+    for (int i = flippers.Count - 1; i >= 0; i--)
     {
-        case FlipperState.Climbing:
-            flipper.Height += flipperClimbSpeed;
-            if (flipper.Height >= tubeDepth)
-            {
-                flipper.Height = tubeDepth;
-                BeginFlipperPause();
-            }
-            break;
+        FlipperTarget flipper = flippers[i];
+        bool matchingEdge = shot.Edge == flipper.Edge;
 
-        case FlipperState.Pausing:
-            flipper.PauseTicks--;
-            if (flipper.PauseTicks <= 0)
-                BeginFlipperPivot();
-            break;
+        if (flipper.State == FlipperState.Flipping)
+            matchingEdge = shot.Edge == flipper.SourceEdge ||
+                           shot.Edge == flipper.DestinationEdge;
 
-        case FlipperState.Flipping:
-            flipper.TurnAngle += flipperTurnSpeedDegrees;
-            if (flipper.TurnAngle >= flipper.TotalTurnAngle)
-                CompleteFlipperPivot();
-            break;
+        if (!matchingEdge)
+            continue;
+
+        float separation = flipper.Height - shot.Depth;
+        if (separation <= 0 || separation >= 16)
+            continue;
+
+        flippers.RemoveAt(i);
+        enemiesDestroyed++;
+        score += 150;
+        return true;
+    }
+
+    return false;
+}
+
+void UpdateEnemySpawning()
+{
+    if (enemiesSpawned >= levelEnemyTotal ||
+        flippers.Count >= maximumActiveFlippers)
+        return;
+
+    spawnTimer++;
+    if (spawnTimer < spawnIntervalTicks)
+        return;
+
+    int lane = spawnLanes[nextSpawnLaneIndex % spawnLanes.Length];
+    nextSpawnLaneIndex++;
+    flippers.Add(new FlipperTarget(lane, 0));
+    enemiesSpawned++;
+    spawnTimer = 0;
+}
+
+void UpdateFlippers()
+{
+    foreach (FlipperTarget flipper in flippers)
+    {
+        switch (flipper.State)
+        {
+            case FlipperState.Climbing:
+                flipper.Height += flipperClimbSpeed;
+                if (flipper.Height >= tubeDepth)
+                {
+                    flipper.Height = tubeDepth;
+                    BeginFlipperPause(flipper);
+                }
+                break;
+
+            case FlipperState.Pausing:
+                flipper.PauseTicks--;
+                if (flipper.PauseTicks <= 0)
+                    BeginFlipperPivot(flipper);
+                break;
+
+            case FlipperState.Flipping:
+                flipper.TurnAngle += flipperTurnSpeedDegrees;
+                if (flipper.TurnAngle >= flipper.TotalTurnAngle)
+                    CompleteFlipperPivot(flipper);
+                break;
+        }
     }
 }
 
-void CheckFlipperAgainstPlayer()
+void CheckFlippersAgainstPlayer()
 {
-    // Collision is resolved in CompleteFlipperPivot().
-    // Reaching the rim, pausing, and the entire visible pivot
-    // remain safe intervals during which the player can fire.
+    // A completed pivot marks collision. The whole visible pivot remains
+    // a shooting opportunity; CompleteFlipperPivot sets this flag only
+    // after the Flipper fully occupies the Blaster's lane.
+    foreach (FlipperTarget flipper in flippers)
+    {
+        if (!flipper.CompletedIntoPlayer)
+            continue;
+
+        flipper.CompletedIntoPlayer = false;
+        KillPlayer();
+        return;
+    }
 }
 
-void BeginFlipperPause()
+void BeginFlipperPause(FlipperTarget flipper)
 {
-    if (flipper is null)
-        return;
-
     flipper.State = FlipperState.Pausing;
     flipper.PauseTicks = flipperRimPauseTicks;
     flipper.TurnAngle = 0;
 }
 
-void BeginFlipperPivot()
+void BeginFlipperPivot(FlipperTarget flipper)
 {
-    if (flipper is null)
-        return;
-
     flipper.Direction = FindShortestDirection(flipper.Edge, playerEdge, level1.Length);
     flipper.SourceEdge = flipper.Edge;
     flipper.DestinationEdge = flipper.Direction > 0
         ? PreviousEdge(flipper.Edge, level1.Length)
         : NextEdge(flipper.Edge, level1.Length);
     flipper.TotalTurnAngle = CalculateEdgeTurnAngle(
-        flipper.SourceEdge,
-        flipper.DestinationEdge);
+        flipper.SourceEdge, flipper.DestinationEdge);
     flipper.TurnAngle = 0;
     flipper.State = FlipperState.Flipping;
 }
 
-void CompleteFlipperPivot()
+void CompleteFlipperPivot(FlipperTarget flipper)
 {
-    if (flipper is null)
-        return;
-
     flipper.Edge = flipper.DestinationEdge;
     flipper.SourceEdge = flipper.Edge;
     flipper.TurnAngle = 0;
     flipper.TotalTurnAngle = 0;
 
-    // The player survives throughout the visible flip and may
-    // destroy the Flipper at any point before this completion.
-    // A collision occurs only after the Flipper fully occupies
-    // the player's rim lane.
     if (flipper.Edge == playerEdge)
     {
-        KillPlayer();
+        flipper.CompletedIntoPlayer = true;
         return;
     }
 
-    BeginFlipperPause();
+    BeginFlipperPause(flipper);
+}
+
+void CheckForLevelComplete()
+{
+    if (enemiesDestroyed == levelEnemyTotal && flippers.Count == 0)
+        levelComplete = true;
 }
 
 int FindShortestDirection(int fromEdge, int toEdge, int edgeCount)
 {
     int clockwise = (toEdge - fromEdge + edgeCount) % edgeCount;
     int counterclockwise = (fromEdge - toEdge + edgeCount) % edgeCount;
-
-    if (clockwise < counterclockwise)
-        return -1;
-
-    return 1;
+    return clockwise < counterclockwise ? -1 : 1;
 }
 
 int NextEdge(int edge, int edgeCount) => (edge + 1) % edgeCount;
-
-int PreviousEdge(int edge, int edgeCount) =>
-    (edge - 1 + edgeCount) % edgeCount;
+int PreviousEdge(int edge, int edgeCount) => (edge - 1 + edgeCount) % edgeCount;
 
 float CalculateEdgeTurnAngle(int sourceEdge, int destinationEdge)
 {
     int sourceNext = NextEdge(sourceEdge, level1.Length);
     int destinationNext = NextEdge(destinationEdge, level1.Length);
-
     Vector2 sourceVector = level1[sourceNext] - level1[sourceEdge];
     Vector2 destinationVector = level1[destinationNext] - level1[destinationEdge];
-
     float sourceAngle = MathF.Atan2(sourceVector.Y, sourceVector.X);
     float destinationAngle = MathF.Atan2(destinationVector.Y, destinationVector.X);
     float difference = MathF.Abs(NormalizeAngleDegrees(
         (destinationAngle - sourceAngle) * 180 / MathF.PI));
-
     return difference > 180 ? 360 - difference : difference;
 }
 
 float NormalizeAngleDegrees(float angle)
 {
-    while (angle < 0)
-        angle += 360;
-
-    while (angle >= 360)
-        angle -= 360;
-
+    while (angle < 0) angle += 360;
+    while (angle >= 360) angle -= 360;
     return angle;
 }
 
@@ -400,11 +448,14 @@ void DrawRotatingShot(Vector2 center, float size, float rotation)
     }
 }
 
-void DrawFlipper(Vector2[] points)
+void DrawFlippers(Vector2[] points)
 {
-    if (flipper is null)
-        return;
+    foreach (FlipperTarget flipper in flippers)
+        DrawFlipper(points, flipper);
+}
 
+void DrawFlipper(Vector2[] points, FlipperTarget flipper)
+{
     int edge = flipper.State == FlipperState.Flipping
         ? flipper.SourceEdge
         : flipper.Edge;
@@ -417,18 +468,14 @@ void DrawFlipper(Vector2[] points)
         points[next].X, points[next].Y, projectedDepth, centerY, yOffset);
 
     if (flipper.State == FlipperState.Flipping)
-        ApplyFlipperPivot(ref p1, ref p2);
+        ApplyFlipperPivot(flipper, ref p1, ref p2);
 
     DrawFlipperShape(p1, p2, projectedDepth);
 }
 
-void ApplyFlipperPivot(ref Vector2 p1, ref Vector2 p2)
+void ApplyFlipperPivot(FlipperTarget flipper, ref Vector2 p1, ref Vector2 p2)
 {
-    if (flipper is null)
-        return;
-
     float angle = MathF.Min(flipper.TurnAngle, flipper.TotalTurnAngle);
-
     if (flipper.Direction > 0)
         p2 = RotatePoint(p2, p1, -angle);
     else
@@ -441,10 +488,9 @@ Vector2 RotatePoint(Vector2 point, Vector2 pivot, float degrees)
     float sin = MathF.Sin(radians);
     float cos = MathF.Cos(radians);
     Vector2 translated = point - pivot;
-    Vector2 rotated = new(
+    return pivot + new Vector2(
         translated.X * cos - translated.Y * sin,
         translated.X * sin + translated.Y * cos);
-    return pivot + rotated;
 }
 
 void DrawFlipperShape(Vector2 p1, Vector2 p2, float projectedDepth)
@@ -452,9 +498,7 @@ void DrawFlipperShape(Vector2 p1, Vector2 p2, float projectedDepth)
     float dx = p2.X - p1.X;
     float dy = p2.Y - p1.Y;
     float length = MathF.Sqrt(dx * dx + dy * dy);
-
-    if (length == 0)
-        return;
+    if (length == 0) return;
 
     float xn = -dy / length;
     float yn = dx / length;
@@ -483,21 +527,19 @@ void DrawPlayer(Vector2[] points)
     float dx = p2.X - p1.X;
     float dy = p2.Y - p1.Y;
     float length = MathF.Sqrt(dx * dx + dy * dy);
-
-    if (length == 0)
-        return;
+    if (length == 0) return;
 
     float xn = -dy / length;
     float yn = dx / length;
     const float clawHeight = 20;
-    Vector2 center = new(p2.X - dx * playerPosition,
-                         p2.Y - dy * playerPosition);
+    Vector2 edgeVector = new(dx, dy);
+    Vector2 center = p2 - edgeVector * playerPosition;
     Vector2 outer1 = center + new Vector2(xn, yn) * clawHeight;
     Vector2 outer2 = center + new Vector2(xn, yn) * clawHeight * .5f;
-    Vector2 left1 = p2 - new Vector2(dx, dy) * .2f;
-    Vector2 left2 = p2 - new Vector2(dx, dy) * .3f;
-    Vector2 right1 = p2 - new Vector2(dx, dy) * .7f;
-    Vector2 right2 = p2 - new Vector2(dx, dy) * .8f;
+    Vector2 left1 = p2 - edgeVector * .2f;
+    Vector2 left2 = p2 - edgeVector * .3f;
+    Vector2 right1 = p2 - edgeVector * .7f;
+    Vector2 right2 = p2 - edgeVector * .8f;
 
     Raylib.DrawLineV(left1, outer1, Color.Yellow);
     Raylib.DrawLineV(right1, outer1, Color.Yellow);
@@ -539,23 +581,31 @@ void DrawHud()
 {
     Raylib.DrawText(score.ToString(), 10, 10, 28, Color.Yellow);
     Raylib.DrawText($"LIVES {lives}", 10, 44, 20, Color.Yellow);
+    int remaining = levelEnemyTotal - enemiesDestroyed;
+    Raylib.DrawText($"FLIPPERS {remaining}", 10, 72, 18, Color.Red);
+    Raylib.DrawText($"ACTIVE {flippers.Count}", 10, 96, 18, Color.Gray);
 
     if (gameOver)
     {
-        const string text = "GAME OVER - PRESS R";
-        int width = Raylib.MeasureText(text, 32);
-        Raylib.DrawText(text, (screenWidth - width) / 2, 270, 32, Color.Red);
+        DrawCenteredText("GAME OVER - PRESS R", 270, 32, Color.Red);
         return;
     }
 
-    string status = deathTicks > 0
-        ? "PLAYER DESTROYED"
-        : flipper is null
-            ? "FLIPPER DESTROYED"
-            : flipper.State.ToString().ToUpperInvariant();
+    if (levelComplete)
+    {
+        DrawCenteredText("LEVEL 1 COMPLETE", 250, 36, Color.Yellow);
+        DrawCenteredText("PRESS R TO REPLAY", 296, 24, Color.Gray);
+        return;
+    }
 
-    Raylib.DrawText(status, 10, 72, 18, Color.Red);
-    Raylib.DrawText("R = RESPAWN FLIPPER", 10, screenHeight - 28, 18, Color.Gray);
+    if (deathTicks > 0)
+        Raylib.DrawText("PLAYER DESTROYED", 10, 120, 18, Color.Red);
+}
+
+void DrawCenteredText(string text, int y, int size, Color color)
+{
+    int width = Raylib.MeasureText(text, size);
+    Raylib.DrawText(text, (screenWidth - width) / 2, y, size, color);
 }
 
 sealed class PlayerShot
@@ -598,4 +648,5 @@ sealed class FlipperTarget
     public int Direction { get; set; }
     public float TurnAngle { get; set; }
     public float TotalTurnAngle { get; set; }
+    public bool CompletedIntoPlayer { get; set; }
 }
