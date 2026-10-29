@@ -1,0 +1,302 @@
+# Tempest C# Development Reference
+
+## Purpose
+
+This document is the durable development reference for the C# Tempest recreation. It exists so future AI sessions and coding agents do not need to reconstruct important gameplay decisions from chat history.
+
+The goal is to recreate the behavior and feel of the original Atari Tempest arcade game. Mark Incitti's BlitzMax `tempest.bmx` is an important implementation reference, but observed arcade behavior takes priority when the two differ or when an interpretation of the source produces behavior that does not match the arcade game.
+
+## Authority Order
+
+When deciding behavior, use this order:
+
+1. Observed original Atari Tempest arcade behavior, including manual comparison with real arcade controls and reliable gameplay footage.
+2. Mark Incitti's `tempest.bmx` implementation as an engineering reference.
+3. The current tested C# implementation.
+4. New assumptions only when the first three do not answer the question.
+
+Do not silently change established arcade behavior because another implementation seems cleaner.
+
+## Current Development Workflow
+
+- Develop and reason about gameplay behavior in small, testable milestones.
+- Use the VS Code coding agent for coordinated multi-file work.
+- Require `dotnet build` and `dotnet test` after significant changes.
+- Manually validate graphical and control behavior after automated tests pass.
+- Commit only known-good milestones to Git.
+- Do not rely on AI conversation history as the permanent project record.
+
+## Current Architecture
+
+The repository is organized under `src/Tempest.Game` and `tests/Tempest.Game.Tests`.
+
+Important areas include:
+
+- `Program.cs` - startup/composition and main frame loop only.
+- `TempestGame.cs` - high-level simulation/game orchestration.
+- `Gameplay/Player.cs` - player state and movement.
+- `Gameplay/Shot.cs` - player projectile state.
+- `Gameplay/Flipper.cs` - Flipper behavior/state.
+- `Gameplay/Egg.cs` - incoming enemy precursor state and hatching behavior.
+- `Levels/Level.cs` - Level 1 state, enemy reserve/accounting, and level progression data.
+- `Rendering/Projection.cs` - established perspective projection.
+- `Rendering/VectorRenderer.cs` - tube, player, projectile, enemy, Egg, and HUD drawing.
+- `Systems/InputSystem.cs` - input sampling.
+- `Systems/ScoreSystem.cs` - score state.
+- `tests/Tempest.Game.Tests/SimulationTests.cs` - headless simulation tests protecting established gameplay behavior.
+
+Existing scaffold files for later enemy and system types should be reused rather than creating duplicate concepts.
+
+## Known-Good Git Milestones
+
+Important confirmed commits in the history include:
+
+- `b024828` - Working Level 1 prototype with spinner, Flipper, scoring and lives.
+- `2c610ac` - Level 1 multi-Flipper wave and arcade-accurate rim collision.
+- `1e5ccbb` - Refactor prototype into game systems and add tests.
+- `597ca6b` - Remove an accidentally created file after the refactor.
+
+The Egg/hatching work should receive its own commit only after full manual validation.
+
+## Established Display and Projection
+
+Preserve unless intentionally revisited:
+
+- Window: 800 x 600.
+- `Projection.K = 70`.
+- `Projection.ZOffset = 5`.
+- Level 1 uses the established 16-segment circular tube geometry.
+- Level 1 tube rendering is blue.
+- Player Blaster is yellow.
+- Player shots are white.
+- Level 1 Flippers and incoming Egg/precursor points are red.
+
+Do not tune projection or Level 1 geometry casually. These were established early and have remained stable through subsequent gameplay work.
+
+## Player Controls
+
+### Arcade Spinner
+
+A real arcade spinner is connected to the development PC. Windows presents spinner rotation as horizontal mouse movement.
+
+The game uses relative mouse movement and captures/hides the cursor during gameplay so the spinner can rotate indefinitely without the OS cursor leaving the game window.
+
+Preserve:
+
+- Spinner horizontal direction.
+- Current spinner sensitivity unless deliberately recalibrating against the arcade experience.
+- Cursor capture during gameplay.
+- Left/right keyboard movement as a development fallback.
+
+Tempest is fundamentally designed around a spinner. Keyboard/mouse fallback may technically operate the game, but arcade-spinner behavior is a critical requirement.
+
+### Fire
+
+Firing currently accepts keyboard Ctrl and left mouse/arcade-button input. The existing maximum active player-shot limit and shot timing should remain unless intentionally changed from a verified source.
+
+## Confirmed Player Projectile Behavior
+
+Established prototype behavior includes:
+
+- Maximum of 10 simultaneous player shots.
+- Player shots travel inward/down the tube.
+- Shot movement uses the established 6-unit update rate.
+- Shots are rendered as rotating white vector shapes.
+- Shot collision must be processed before completed Flipper-to-player collision in the frame update order.
+
+## Flipper Behavior
+
+### Level 1 Climb
+
+For Level 1:
+
+- Flippers enter at the far end of a lane.
+- They climb toward the player at the established Level 1 rate of 2 units per update.
+- Level 1 Flippers do not perform mid-tube lane flipping.
+- On reaching the player rim, they pause and then pivot between adjacent rim segments while pursuing the player.
+- Rim pause is currently 24 update ticks.
+- Pivot speed is currently 8 degrees per update.
+- Destroying a Flipper awards 150 points.
+
+### Critical Arcade Rim-Collision Rule
+
+This behavior has been manually verified as matching the original arcade game and must not be "simplified" into ordinary overlap collision:
+
+- A Flipper reaching the outer/player rim does **not** immediately kill the Blaster.
+- A Flipper paused on the rim remains shootable.
+- A Flipper remains shootable during the entire visible pivot toward the Blaster.
+- The player can rapidly move the Blaster underneath a Flipper while that Flipper is visibly pivoting. Visual overlap during that pivot does not kill the Blaster.
+- The Blaster is destroyed only after the Flipper fully completes its pivot into the lane/location currently occupied by the Blaster.
+- If the player destroys the Flipper before pivot completion, the Blaster survives.
+
+Automated tests should continue protecting this behavior.
+
+## Lives and Player Death
+
+Established behavior includes:
+
+- Three lives at the beginning of the current game prototype.
+- A 60-tick player destruction state.
+- Gameplay resets after a lost life without resetting score.
+- Previously destroyed enemies must remain destroyed after losing a life.
+- Game Over occurs after the last life is lost.
+- Restart behavior must remain functional.
+
+Enemy reset/accounting after death must never duplicate or lose enemies.
+
+## Egg Terminology and Behavior
+
+### What "Egg" Means
+
+`Egg` is Mark Incitti's internal name for the tiny incoming enemy precursor seen traveling in distant space toward the far/lower rim of the web.
+
+Do **not** interpret `Egg` as a literal egg-shaped enemy.
+
+The expected visual/gameplay idea is:
+
+1. A very small incoming object is visible in distant space beyond the far end of the tube.
+2. Incoming objects move around in the distance while waiting to enter play.
+3. An incoming object approaches the far rim/web.
+4. At the web, the Egg/precursor hatches into its real enemy type.
+5. On Level 1, that enemy type is a Flipper.
+6. The resulting Flipper begins the normal established Flipper behavior.
+
+This presentation matches the developer's recollection of original Tempest gameplay; current Egg rendering is producing the expected visual behavior.
+
+### Incitti Egg Mechanics Used as Reference
+
+Important Level 1 Egg concepts from `tempest.bmx`:
+
+- Level 1 begins with a total enemy supply represented by 10 Eggs/enemies.
+- Four Eggs are initially active; the remainder are held for later release.
+- General enemy release timing uses 50 ticks on the first level setup.
+- A newly created Egg begins at height `-10`.
+- Incitti draws an Egg as a single Flipper-colored point.
+- While roaming, Egg movement operates on an eight-update cadence and moves between edges while changing negative height.
+- Roaming height is kept behind the web, roughly between `-20` and `-1` in the reference implementation.
+- No more than two Eggs are intended to be in the hatching process simultaneously.
+- An approaching Egg increases height toward zero.
+- At height zero, the Egg hatches into an enemy.
+- Level 1 enables Flippers while the later enemy categories are disabled, so Level 1 Eggs produce Flippers.
+
+Our C# implementation may use deterministic policies where needed to keep automated tests repeatable, but the visible pacing should still resemble the arcade game.
+
+### Egg Rendering
+
+The current intended projection relationship is:
+
+`projectedDepth = Level.Position + Level.Depth - (egg.Height * 20)`
+
+Because roaming Egg heights are negative, the incoming point is projected behind/beyond the far rim.
+
+Eggs are currently rendered as small red points. Do not invent literal egg artwork unless strong arcade evidence calls for it.
+
+## Enemy Accounting Invariant
+
+For the current Level 1 Egg/Flipper implementation, enemy accounting must remain coherent across release, hatching, kills, and lost lives.
+
+Before enemies are destroyed, the conceptual total is always 10 across:
+
+- Unreleased/reserve Eggs.
+- Active roaming/approaching Eggs.
+- Active Flippers produced by hatching.
+- Destroyed enemies.
+
+Hatching is a conversion, not a kill and not creation of an additional enemy.
+
+Previously destroyed enemies must never reappear following player death.
+
+Level completion must not occur merely because no Flipper is currently visible if reserve or active Eggs still exist.
+
+## Current Level 1 Completion Goal
+
+The level is complete only after the entire 10-enemy supply has been destroyed and no reserve Egg, active Egg, or active Flipper remains.
+
+The Level Complete, Game Over, score, and lives displays already exist and should be preserved while new gameplay systems are added.
+
+## Automated Testing Policy
+
+Automated tests are valuable but are not sufficient proof that graphical gameplay works.
+
+The Egg feature demonstrated this clearly: an early implementation passed its test suite but initially produced no visible Eggs in the running game because runtime integration still required correction.
+
+Therefore every significant gameplay feature needs both:
+
+1. Headless logic tests.
+2. Manual runtime validation in the actual Raylib game window.
+
+Important test areas include:
+
+- Spinner-independent pure simulation logic where practical.
+- Shot-before-collision update ordering.
+- Flipper pivot shootability.
+- Safe player movement beneath a pivoting Flipper.
+- Collision only at completed pivot.
+- Death timing and lives.
+- Enemy accounting.
+- Egg roaming/hatching behavior.
+- Level completion.
+
+Do not write automated tests that require opening or controlling a Raylib window unless there is a deliberate future decision to add an appropriate integration-test harness.
+
+## Manual Validation Checklist
+
+After significant code changes, manually check:
+
+1. Tube geometry and projection look unchanged unless the feature intentionally changes them.
+2. Physical arcade spinner direction and sensitivity remain correct.
+3. Cursor stays captured during gameplay.
+4. Arcade fire button works.
+5. Player shots move and render correctly.
+6. Flippers climb correctly.
+7. Flippers remain shootable on the rim and throughout pivots.
+8. Blaster can pass beneath a pivoting Flipper safely.
+9. Completed pivot into the occupied lane destroys the player.
+10. Incoming Egg/precursor points appear in distant space and hatch into Flippers.
+11. Lives, reset, Game Over, restart, and Level Complete remain correct.
+12. Rendering remains smooth during rapid spinner movement and multiple enemies.
+
+## External Gameplay Reference
+
+A useful visual gameplay reference supplied during development is the YouTube video titled:
+
+`TEMPEST (ARCADE - FULL GAME)`
+
+URL:
+
+`https://www.youtube.com/watch?v=AiTgA3ZOoSo&t=198s`
+
+The user identified approximately 23 seconds as the beginning of Level 0 gameplay in that video. Use it as a presentation/gameplay reference, not as a substitute for source analysis or hands-on arcade knowledge.
+
+## Git and AI-Agent Safety
+
+Before large AI-agent changes:
+
+1. Ensure the working tree is clean.
+2. Make a known-good commit.
+3. Instruct the coding agent not to commit or push.
+4. Require `dotnet build`, `dotnet test`, `git diff --check`, and `git status --short` at completion.
+5. Inspect every changed path before committing.
+6. Manually run the game and validate behavior.
+7. Commit only after manual validation succeeds.
+
+A previous VS Code agent task accidentally created an unrelated root-level file with a malformed filename. It was removed in commit `597ca6b`. Future coding-agent prompts should explicitly prohibit scratch, memory, prompt, report, or task-wording files outside legitimate project paths.
+
+## Important Development Principle
+
+Do not blindly translate Incitti's implementation.
+
+Use Incitti's code to understand mechanics and constants, then compare the result with observed arcade behavior. If a literal source interpretation produces behavior that conflicts with confirmed arcade behavior, investigate and preserve the arcade behavior.
+
+The Flipper rim-collision timing is the current canonical example of this principle.
+
+## Next Development Direction
+
+After the Level 1 Egg/hatching milestone is fully validated and committed:
+
+1. Preserve this document and update it with the resulting Git checkpoint and final automated test count.
+2. Review Level 1 pacing against arcade gameplay.
+3. Decide whether the next feature should be a missing Level 1 mechanic or the transition/zoom behavior after clearing the level before implementing later enemy categories.
+4. Continue using small, manually verified gameplay milestones.
+
+Do not begin later enemy types merely because scaffold files already exist. Introduce them according to verified Tempest level progression.
