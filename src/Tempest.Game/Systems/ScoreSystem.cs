@@ -4,6 +4,7 @@ public sealed class ScoreSystem
 {
     public int Score { get; private set; }
     public void Add(int points) => Score += points;
+    public void Reset() => Score = 0;
 
     public static int CalculateLevelBonus(int board, int color)
     {
