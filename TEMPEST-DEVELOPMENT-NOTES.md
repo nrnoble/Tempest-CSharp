@@ -332,3 +332,53 @@ final-shot precedence, replay and the established gameplay regressions.
 Manual visual validation is still required for recognizable cleared-level travel,
 Blaster scale and lane alignment, zoom smoothness/framing, the final projection
 restoration, message timing and physical spinner/cursor behavior after replay.
+
+## Spiker and Spike Development Milestone
+
+Normal Level 1 remains Flipper-only with its validated input, collision order
+and exit sequence. The explicit `--spiker-test` application argument selects a
+development wave on the same geometry; it does not implement arcade progression.
+Use `dotnet run --project src/Tempest.Game -- --spiker-test` to launch it.
+
+The scenario starts height-60 spikes on all 16 lanes and uses the existing
+ten-enemy Egg supply. Only Spikers and Flippers are eligible. Spiker selection
+uses the source's negative-result bias, four-Spiker limit and active-enemies-plus-
+Eggs restriction (reserve is excluded). Assigned Spiker speed is fixed at 3 for
+this development wave: the fractional-argument coercion of BlitzMax's
+`Rand(2.5,4.5)` is still unverified, so no claim of matching that distribution is
+made. Tests inject Random to control selection and retreat decisions.
+
+Spikers initialize without moving, build outward, and reuse their lane's spike.
+The source-specific assignment `spike.Height = spiker.Height - 4` is preserved,
+including possible brief shortening. Missing spikes are recreated at the
+builder's current height. Retreat uses speed times 0.90 and returns one pending
+Egg on removal, without a defeat or points. Spiker shots score 50; spike shots
+score 1 and subtract 10 height, deleting at zero or below. Spikes persist through
+builder death, retreat and life loss. Replay/full restart restores initial spikes.
+
+Development-wave shot targets retain insertion order, including replacement
+spikes created after their builders; they are not sorted by proximity. Normal
+Level 1 retains its existing reverse Flipper collision scan. Spikers update in
+creation order. The spiral follows the reference geometry and rotates 45 degrees
+per simulation update (one update per displayed game frame); spikes are green
+lines with white tips using the established projection.
+
+Residual spikes do not count as enemies or block clear. This scenario uses the
+first spike-enabled reference avoidance interval: 151 updates, followed by the
+21-update delay and the established zoom. Movement and firing are allowed while
+alive in those states; shots originate at current player depth. Locally, travel
+processes depth, existing shots, spike hazards, then player input. A same-lane
+spike with height greater than player depth triggers reverse zoom. The source's
+K-minus-4/offset-plus-1 restoration and depth snap are preserved; the game always
+waits for the full 60-tick life loss before retrying, rather than allowing a short
+reverse zoom to cancel the loss. Spike-free Level 1 controls/timing are unchanged.
+
+Automated validation: 81 tests passed, zero failed/skipped. Includes production
+mixed-wave completion, insertion-order collisions, retreat accounting, spike
+persistence, reverse-zoom retry/Game Over/replay, and finite render submissions.
+The optional retreat bullet, other enemies, bonuses, audio and multi-level
+progression are intentionally omitted. Manual comparison is still required for
+spiral appearance/rotation, spike growth/damage feel, initial spikes, scoring,
+avoidance timing and reverse-zoom presentation against original Atari Tempest.
+Physical spinner, cursor capture, Flipper regressions and normal exit visuals
+also require manual rechecking. Automated tests did not open a game window.

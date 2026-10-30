@@ -17,6 +17,7 @@ public sealed class Player
     }
 
     public void AdvanceExit(float distance) => Depth = MathF.Max(0, Depth - distance);
+    public void ResetDepth() => Depth = Level.Depth;
 
     public void Move(float movement, int edgeCount)
     {

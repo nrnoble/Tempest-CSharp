@@ -39,6 +39,30 @@ counter includes both active Eggs and active Flippers.
 Tests run headlessly without initializing a Raylib window. Visual appearance,
 spinner feel and cursor capture still require manual gameplay testing.
 
+## Spiker development wave
+
+Normal startup still runs the validated Flipper-only Level 1. To explicitly run
+the development scenario on the same tube:
+
+```powershell
+dotnet run --project src/Tempest.Game -- --spiker-test
+```
+
+This is not arcade Level 1 progression. It retains the ten-enemy supply, starts
+height-60 green spikes on every lane, and enables Spikers alongside Flippers.
+Spikers use an assigned development speed of 3; hatch/retreat decisions vary
+between runs. Green spirals build persistent green spikes with white tips.
+Spikers award 50 points; spike hits award 1 point and shorten the spike by 10.
+The final hatch selections exclude Spikers when active enemies plus Eggs fall
+below four, following the source's end-of-wave restriction.
+
+After the last kill, this scenario permits movement and firing during a
+151-update avoidance interval, the 21-update exit delay, and zoom. Avoid or
+shoot remaining spikes. Hitting one during travel costs one life and reverses
+the zoom before an exit retry; spikes persist. R replays after completion and
+restarts after Game Over. Omit the flag to return to normal Level 1. No bullets,
+other enemy types, next level, bonus, or audio are implemented.
+
 ## Reference mapping
 - `tempest.bmx` -> gameplay and state behavior
 - `transformfunctions.bmx` -> `Rendering/Projection.cs`

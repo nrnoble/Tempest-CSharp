@@ -10,6 +10,498 @@ namespace Tempest.Game.Tests;
 public sealed class SimulationTests
 {
     [Fact]
+    public void FullDevelopmentWaveCanBeDefeatedAndExitedWithEnemyAccountingIntact()
+    {
+        SpikerRandom random = new();
+        TempestGame game = new(true, random);
+        bool sawSpiker = false;
+        bool sawFlipper = false;
+        for (int tick = 0; tick < 12000 && !game.GameOver && !game.LevelComplete; tick++)
+        {
+            sawSpiker |= game.Spikers.Count > 0;
+            sawFlipper |= game.Flippers.Count > 0;
+            if (sawSpiker)
+                random.ChooseSpikers = false;
+            Enemy? target = game.Flippers.Cast<Enemy>().Concat(game.Spikers)
+                .OrderByDescending(enemy => enemy.Height).FirstOrDefault();
+            if (target is not null)
+                game.Player.Move(target.EdgeIndex - game.Player.EdgeIndex, 16);
+            else if (game.IsExiting)
+            {
+                int safeLane = Enumerable.Range(0, 16)
+                    .OrderBy(lane => game.Spikes.FirstOrDefault(spike => spike.EdgeIndex == lane)?.Height ?? 0)
+                    .First();
+                game.Player.Move(safeLane - game.Player.EdgeIndex, 16);
+            }
+            game.RunOneStep(new PlayerInput(true, 0, false, false));
+            AssertSpikerAccounting(game);
+            Assert.True(game.Score.Score >= game.CurrentLevel.EnemiesDestroyed * 50);
+        }
+        Assert.True(sawSpiker);
+        Assert.True(sawFlipper);
+        Assert.True(game.LevelComplete,
+            $"State={game.State}, lives={game.Player.Lives}, destroyed={game.CurrentLevel.EnemiesDestroyed}, " +
+            $"reserve={game.CurrentLevel.ReserveEggs}, eggs={game.Eggs.Count}, flippers={game.Flippers.Count}, spikers={game.Spikers.Count}");
+        Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Empty(game.Spikers);
+        Assert.Empty(game.Flippers);
+        Assert.Equal(0, game.CurrentLevel.ReserveEggs);
+    }
+
+    [Fact]
+    public void SpikerDevelopmentSelectionIsExplicitAndDefaultLevelOneIsUnchanged()
+    {
+        Assert.False(Tempest.Game.Debug.DebugController.UseSpikerWave([]));
+        Assert.True(Tempest.Game.Debug.DebugController.UseSpikerWave(["--spiker-test"]));
+        TempestGame normal = new();
+        Assert.Empty(normal.Spikes);
+        Assert.Empty(normal.Spikers);
+        TempestGame development = new(true, new SpikerRandom());
+        Assert.Equal(16, development.Spikes.Count);
+        Assert.All(development.Spikes, spike => Assert.Equal(60, spike.Height));
+        Assert.Equal(4, development.Eggs.Count);
+        Assert.Equal(6, development.CurrentLevel.ReserveEggs);
+        AssertSpikerAccounting(development);
+    }
+
+    [Fact]
+    public void SpikerHatchesOnEggLaneWithNoMovementOnFirstUpdate()
+    {
+        TempestGame game = new(true, new SpikerRandom());
+        Egg egg = game.Eggs[0];
+        int lane = egg.EdgeIndex;
+        MakeReady(egg, game.CurrentLevel);
+        game.RunOneStep();
+        Spiker spiker = Assert.Single(game.Spikers);
+        Assert.Equal(lane, spiker.EdgeIndex);
+        Assert.Equal(0, spiker.Height);
+        Assert.Equal(SpikerState.Building, spiker.State);
+        game.RunOneStep();
+        Assert.Equal(3, spiker.Height);
+        Assert.Equal(lane, spiker.EdgeIndex);
+        AssertSpikerAccounting(game);
+    }
+
+    [Fact]
+    public void SpikerInitialUpdateDoesNotCreateSpikeAndNextUpdateCreatesAtOwnHeight()
+    {
+        Level level = new();
+        Spiker spiker = new(3, 5);
+        Assert.Equal(SpikerState.Initializing, spiker.State);
+        spiker.Update(level, () => false);
+        Assert.Equal(0, spiker.Height);
+        Assert.Empty(level.Spikes);
+        spiker.Update(level, () => false);
+        Spike spike = Assert.Single(level.Spikes);
+        Assert.Equal(3, spike.EdgeIndex);
+        Assert.Equal(5, spike.Height);
+        spiker.Update(level, () => false);
+        Assert.Same(spike, Assert.Single(level.Spikes));
+        Assert.Equal(10, spiker.Height);
+        Assert.Equal(6, spike.Height);
+    }
+
+    [Fact]
+    public void SpikerExistingSpikeAssignmentCanShortenAndDoesNotAlwaysGrow()
+    {
+        Level level = new();
+        Spike spike = level.CreateSpike(2, 60);
+        Spiker spiker = new(2, 3);
+        for (int tick = 0; tick < 21; tick++)
+            spiker.Update(level, () => false);
+        Assert.Equal(60, spiker.Height);
+        Assert.Equal(60, spike.Height);
+        spiker.Update(level, () => false);
+        Assert.Same(spike, Assert.Single(level.Spikes));
+        Assert.Equal(63, spiker.Height);
+        Assert.Equal(59, spike.Height);
+        Assert.Equal(3, spiker.Growth);
+    }
+
+    [Theory]
+    [InlineData(true, SpikerState.Retreating)]
+    [InlineData(false, SpikerState.Building)]
+    public void SpikerRetreatDecisionOccursOnlyAfterMoreThanOneHundredGrowth(bool retreat, SpikerState expected)
+    {
+        Level level = new();
+        level.CreateSpike(0, 0);
+        Spiker spiker = new(0, 5);
+        spiker.Update(level, () => throw new InvalidOperationException());
+        for (int tick = 0; tick < 20; tick++)
+            spiker.Update(level, () => throw new InvalidOperationException());
+        Assert.Equal(100, spiker.Growth);
+        int decisions = 0;
+        spiker.Update(level, () => { decisions++; return retreat; });
+        Assert.Equal(1, decisions);
+        Assert.Equal(105, spiker.Growth);
+        Assert.Equal(expected, spiker.State);
+    }
+
+    [Fact]
+    public void SpikerUpperThresholdRetreatsOnFollowingUpdateAndRemovesAfterCrossingZero()
+    {
+        Level level = new();
+        Spiker spiker = new(1, 3);
+        spiker.Update(level, () => false);
+        for (int tick = 0; tick < 132; tick++)
+            spiker.Update(level, () => false);
+        Assert.Equal(396, spiker.Height);
+        Assert.Equal(SpikerState.Building, spiker.State);
+        spiker.Update(level, () => false);
+        Assert.Equal(396, spiker.Height);
+        Assert.Equal(SpikerState.Retreating, spiker.State);
+        Spike spike = Assert.Single(level.Spikes);
+        float spikeHeight = spike.Height;
+        spiker.Update(level, () => false);
+        Assert.InRange(spiker.Height, 393.299f, 393.301f);
+        while (spiker.Height > 0)
+            spiker.Update(level, () => false);
+        Assert.Equal(SpikerState.Retreating, spiker.State);
+        spiker.Update(level, () => false);
+        Assert.Equal(SpikerState.ReturnedToReserve, spiker.State);
+        Assert.Equal(0, spiker.Height);
+        Assert.Equal(spikeHeight, spike.Height);
+    }
+
+    [Fact]
+    public void SpikerRuntimeRetreatReturnsExactlyOneReserveEnemyAndPreservesSpike()
+    {
+        TempestGame game = HatchDevelopmentSpiker();
+        Spiker spiker = Assert.Single(game.Spikers);
+        Spike spike = game.Spikes.Single(candidate => candidate.EdgeIndex == spiker.EdgeIndex);
+        for (int tick = 0; tick < 133; tick++)
+            spiker.Update(game.CurrentLevel, () => false);
+        while (spiker.Height > 0)
+            spiker.Update(game.CurrentLevel, () => false);
+        int reserve = game.CurrentLevel.ReserveEggs;
+        game.RunOneStep();
+        Assert.Empty(game.Spikers);
+        Assert.Equal(reserve + 1, game.CurrentLevel.ReserveEggs);
+        Assert.Equal(0, game.Score.Score);
+        Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Contains(spike, game.Spikes);
+        AssertSpikerAccounting(game);
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(-1, true)]
+    [InlineData(1, false)]
+    public void SpikerAndSpikeUseSameLaneStrictDepthComparisons(float difference, bool expected)
+    {
+        Level level = new();
+        Spiker spiker = new(4, 3);
+        spiker.Update(level, () => false);
+        spiker.Update(level, () => false);
+        Spike spike = Assert.Single(level.Spikes);
+        Shot shot = new() { EdgeIndex = 4, Height = spiker.Height + difference };
+        Assert.Equal(expected, spiker.IsHitBy(shot));
+        Assert.Equal(expected, spike.IsHitBy(shot));
+        Shot wrongLane = new() { EdgeIndex = 5, Height = 0 };
+        Assert.False(spiker.IsHitBy(wrongLane));
+        Assert.False(spike.IsHitBy(wrongLane));
+    }
+
+    [Fact]
+    public void SpikerShotConsumesShotAwardsFiftyAndKeepsSpike()
+    {
+        TempestGame game = HatchDevelopmentSpiker();
+        Spiker spiker = game.Spikers[0];
+        for (int tick = 0; tick < 132; tick++)
+            spiker.Update(game.CurrentLevel, () => false);
+        Spike spike = game.Spikes.Single(candidate => candidate.EdgeIndex == spiker.EdgeIndex);
+        spike.Height = 60;
+        game.Player.Move(spiker.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Assert.Empty(game.Shots);
+        Assert.Empty(game.Spikers);
+        Assert.Equal(50, game.Score.Score);
+        Assert.Equal(1, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Contains(spike, game.Spikes);
+        Assert.Equal(60, spike.Height);
+        AssertSpikerAccounting(game);
+    }
+
+    [Theory]
+    [InlineData(400, 390, false)]
+    [InlineData(10, 0, true)]
+    [InlineData(5, -5, true)]
+    public void SpikeShotShortensExactlyTenAwardsOneAndDeletesWhenDepleted(float height, float expected, bool deleted)
+    {
+        TempestGame game = new(true, new SpikerRandom());
+        Spike spike = game.Spikes.Single(candidate => candidate.EdgeIndex == game.Player.EdgeIndex);
+        spike.Height = height;
+        float initialDepth = height > 394 ? 400 : height + 5;
+        game.Player.AdvanceExit(400 - initialDepth);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Assert.Equal(expected, spike.Height);
+        Assert.Equal(1, game.Score.Score);
+        Assert.Empty(game.Shots);
+        Assert.Equal(deleted, !game.Spikes.Contains(spike));
+        Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SpikerVersusSpikePriorityFollowsInsertionNotProximity(bool replacement)
+    {
+        TempestGame game = HatchDevelopmentSpiker();
+        Spiker spiker = game.Spikers[0];
+        for (int tick = 0; tick < 132; tick++)
+            spiker.Update(game.CurrentLevel, () => false);
+        Spike initial = game.Spikes.Single(candidate => candidate.EdgeIndex == spiker.EdgeIndex);
+        initial.Height = replacement ? 1 : 395;
+        game.Player.Move(spiker.EdgeIndex - game.Player.EdgeIndex, 16);
+        if (replacement)
+        {
+            // Deplete the initial spike through production shots, then recreate after the Spiker.
+            game.Player.AdvanceExit(394);
+            game.RunOneStep(new PlayerInput(true, 0, false, false));
+            game.Player.ResetDepth();
+            game.CurrentLevel.CreateSpike(spiker.EdgeIndex, 395);
+            Step(game, 2);
+            game.Player.AdvanceExit(400 - (spiker.Height + 5));
+        }
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Assert.Empty(game.Shots);
+        if (replacement)
+        {
+            Assert.Empty(game.Spikers);
+            Assert.Equal(51, game.Score.Score);
+        }
+        else
+        {
+            Assert.Single(game.Spikers);
+            Assert.Equal(1, game.Score.Score);
+            Assert.Equal(385, initial.Height);
+        }
+    }
+
+    [Fact]
+    public void DevelopmentWaveCanContainBothTypesAndKeepsAccountingAcrossDeath()
+    {
+        SpikerRandom random = new();
+        TempestGame game = new(true, random);
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        random.ChooseSpikers = false;
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Assert.Single(game.Spikers);
+        Assert.Single(game.Flippers);
+        AssertSpikerAccounting(game);
+        Spike spike = game.Spikes[0];
+        spike.Height = 100;
+        game.Player.Move(spike.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.Player.AdvanceExit(350);
+        game.RunOneStep();
+        Assert.Equal(LevelState.ReverseZoom, game.State);
+        Assert.Empty(game.Spikers);
+        Assert.Empty(game.Flippers);
+        AssertSpikerAccounting(game);
+        Step(game, 60);
+        Assert.Equal(2, game.Player.Lives);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Contains(spike, game.Spikes);
+        Assert.Equal(100, spike.Height);
+        AssertSpikerAccounting(game);
+    }
+
+    [Fact]
+    public void DevelopmentLastEnemiesAreFlippersSoRetreatCannotPreventCompletion()
+    {
+        TempestGame game = new(true, new SpikerRandom());
+        for (int index = 0; index < 8; index++)
+            game.CurrentLevel.RecordEnemyDestroyed();
+        game.CurrentLevel.ResetAfterDeath();
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Assert.Empty(game.Spikers);
+        Assert.Single(game.Flippers);
+        AssertSpikerAccounting(game);
+    }
+
+    [Fact]
+    public void ResidualSpikesAllowClearAndAvoidanceLastsOneHundredFiftyOneUpdates()
+    {
+        TempestGame game = BeginSpikerExit();
+        Assert.Equal(16, game.Spikes.Count);
+        Step(game, 150);
+        Assert.Equal(LevelState.AvoidSpikes, game.State);
+        game.RunOneStep();
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        Step(game, 20);
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        game.RunOneStep();
+        Assert.Equal(LevelState.ExitZoom, game.State);
+        Assert.Empty(game.Spikers);
+        Assert.Empty(game.Eggs);
+        Assert.Equal(0, game.CurrentLevel.ReserveEggs);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SpikeExitAllowsMovementAndShotsFromTravelDepth(bool zoom)
+    {
+        TempestGame game = BeginSpikerExit();
+        if (zoom)
+            Step(game, 151 + 21 + 10);
+        float depth = game.Player.Depth;
+        int lane = game.Player.EdgeIndex;
+        game.RunOneStep(new PlayerInput(true, 80, false, false), restartPressed: true);
+        Assert.Equal(lane + 1, game.Player.EdgeIndex);
+        Assert.Equal(zoom ? depth - 3 : depth, Assert.Single(game.Shots).Height);
+        Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed);
+        Assert.True(game.SpikeExitControlsEnabled);
+    }
+
+    [Fact]
+    public void SpikeTravelCollisionUsesStrictDepthAndLaneAndCostsOneLifeBeforeRetry()
+    {
+        TempestGame game = BeginSpikerExit();
+        Step(game, 151 + 21);
+        Spike spike = game.Spikes.Single(candidate => candidate.EdgeIndex == game.Player.EdgeIndex);
+        spike.Height = 397;
+        game.RunOneStep();
+        Assert.Equal(LevelState.ExitZoom, game.State);
+        Assert.Equal(397, game.Player.Depth);
+        game.RunOneStep();
+        Assert.Equal(LevelState.ReverseZoom, game.State);
+        Assert.Equal(60, game.DeathTicks);
+        Step(game, 59);
+        Assert.Equal(3, game.Player.Lives);
+        Assert.Equal(1, game.DeathTicks);
+        game.RunOneStep();
+        Assert.Equal(2, game.Player.Lives);
+        Assert.Equal(LevelState.AvoidSpikes, game.State);
+        Assert.Equal(400, game.Player.Depth);
+        Assert.Contains(spike, game.Spikes);
+        Assert.Equal(397, spike.Height);
+        Assert.Equal(70, Projection.K);
+        Assert.Equal(5, Projection.ZOffset);
+        AssertSpikerAccounting(game);
+        game.Player.Move(1, 16);
+        foreach (Spike other in game.Spikes.Where(other => other != spike))
+            other.Height = 0;
+        for (int tick = 0; tick < 400 && !game.LevelComplete; tick++)
+            game.RunOneStep();
+        Assert.True(game.LevelComplete);
+        Assert.Equal(2, game.Player.Lives);
+    }
+
+    [Fact]
+    public void SpikeReverseZoomKeepsDeathDepthUntilOffsetRestoresAndHandlesGameOver()
+    {
+        TempestGame game = BeginSpikerExit();
+        game.Player.Lives = 1;
+        Step(game, 151 + 21 + 100);
+        Spike spike = game.Spikes.Single(candidate => candidate.EdgeIndex == game.Player.EdgeIndex);
+        spike.Height = game.Player.Depth;
+        game.RunOneStep();
+        Assert.Equal(LevelState.ReverseZoom, game.State);
+        float depth = game.Player.Depth;
+        Step(game, 46);
+        Assert.Equal(depth, game.Player.Depth);
+        game.RunOneStep();
+        Assert.Equal(400, game.Player.Depth);
+        Step(game, 13);
+        Assert.True(game.GameOver);
+        Assert.Equal(0, game.Player.Lives);
+        Step(game, 100);
+        Assert.Equal(0, game.Player.Lives);
+        game.RunOneStep(restartPressed: true);
+        Assert.Equal(3, game.Player.Lives);
+        Assert.All(game.Spikes, candidate => Assert.Equal(60, candidate.Height));
+        AssertSpikerAccounting(game);
+    }
+
+    [Fact]
+    public void DevelopmentReplayRestoresInitialSpikesAndEggsButPreservesScoreAndLives()
+    {
+        TempestGame game = BeginSpikerExit();
+        foreach (Spike spike in game.Spikes)
+            spike.Height = 0;
+        game.Score.Add(501);
+        game.Player.Lives = 2;
+        Step(game, 400);
+        Assert.True(game.LevelComplete);
+        game.RunOneStep(restartPressed: true);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.All(game.Spikes, spike => Assert.Equal(60, spike.Height));
+        Assert.Equal(501, game.Score.Score);
+        Assert.Equal(2, game.Player.Lives);
+        Assert.Equal(400, game.Player.Depth);
+        AssertSpikerAccounting(game);
+    }
+
+    [Fact]
+    public void SpikerAndSpikeRenderSubmissionsAreFiniteRotateAndPersistDuringExit()
+    {
+        TempestGame game = HatchDevelopmentSpiker();
+        VectorRenderer renderer = new(game);
+        List<(Vector2, Vector2)> first = [];
+        renderer.DrawSpikers((start, end) => first.Add((start, end)));
+        Assert.Equal(14, first.Count);
+        game.RunOneStep();
+        List<(Vector2, Vector2)> second = [];
+        renderer.DrawSpikers((start, end) => second.Add((start, end)));
+        Assert.NotEqual(first[1], second[1]);
+        foreach ((Vector2 start, Vector2 end) in first.Concat(second))
+        {
+            AssertFinite(start);
+            AssertFinite(end);
+        }
+        game = BeginSpikerExit();
+        renderer = new VectorRenderer(game);
+        for (int tick = 0; tick < 400 && !game.GameOver; tick++)
+        {
+            int lines = 0;
+            int tips = 0;
+            renderer.DrawSpikes((start, end) => { AssertFinite(start); AssertFinite(end); lines++; },
+                tip => { AssertFinite(tip); tips++; });
+            Assert.Equal(16, lines);
+            Assert.Equal(16, tips);
+            game.RunOneStep();
+        }
+    }
+
+    private static void AssertFinite(Vector2 point) =>
+        Assert.True(float.IsFinite(point.X) && float.IsFinite(point.Y));
+
+    private static void AssertSpikerAccounting(TempestGame game) =>
+        Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed + game.CurrentLevel.ReserveEggs +
+            game.Eggs.Count + game.Flippers.Count + game.Spikers.Count);
+
+    private static TempestGame HatchDevelopmentSpiker()
+    {
+        TempestGame game = new(true, new SpikerRandom());
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Assert.Single(game.Spikers);
+        return game;
+    }
+
+    private static TempestGame BeginSpikerExit()
+    {
+        TempestGame game = new(true, new SpikerRandom());
+        for (int index = 0; index < 10; index++)
+            game.CurrentLevel.RecordEnemyDestroyed();
+        game.CurrentLevel.ResetAfterDeath();
+        game.RunOneStep();
+        Assert.Equal(LevelState.AvoidSpikes, game.State);
+        return game;
+    }
+
+    private sealed class SpikerRandom : Random
+    {
+        public bool ChooseSpikers { get; set; } = true;
+        public override int Next(int minValue, int maxValue) => ChooseSpikers ? minValue : maxValue - 1;
+        public override double NextDouble() => 0;
+    }
+
+    [Fact]
     public void NormalPlayUsesEstablishedProjectionAndNearRimDepth()
     {
         TempestGame game = new();

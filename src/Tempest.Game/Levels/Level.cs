@@ -14,6 +14,7 @@ public sealed class Level
     private const int HatchSelectionIntervalTicks = 50;
     private readonly int[] spawnLanes = [12, 4, 9, 1, 14, 6, 10, 2, 15, 7];
     private readonly List<Egg> eggs = [];
+    private readonly List<Spike> spikes = [];
     private int spawnTimer;
     private int hatchSelectionTimer;
     private int nextSpawnLaneIndex;
@@ -24,16 +25,39 @@ public sealed class Level
     public int ReserveEggs => EnemyTotal - EnemiesSpawned;
     public int RemainingEnemies => EnemyTotal - EnemiesDestroyed;
     public IReadOnlyList<Egg> Eggs => eggs;
+    public IReadOnlyList<Spike> Spikes => spikes;
+    public event Action<Spike>? SpikeCreated;
+    public bool SpikerDevelopmentWave { get; }
     public LevelState State { get; set; } = LevelState.Begin;
     public bool Continuous { get; set; } = true;
 
-    public Level() => Reset();
+    public Level(bool spikerDevelopmentWave = false)
+    {
+        SpikerDevelopmentWave = spikerDevelopmentWave;
+        Reset();
+    }
 
     public void Reset()
     {
         EnemiesDestroyed = 0;
+        spikes.Clear();
+        if (SpikerDevelopmentWave)
+            for (int lane = 0; lane < Definition.Points.Count; lane++)
+                CreateSpike(lane, 60);
         ResetAfterDeath();
     }
+
+    public Spike CreateSpike(int lane, float height)
+    {
+        Spike spike = new() { EdgeIndex = lane, Height = height };
+        spikes.Add(spike);
+        SpikeCreated?.Invoke(spike);
+        return spike;
+    }
+
+    public void RemoveSpike(Spike spike) => spikes.Remove(spike);
+
+    public void ReturnEnemyToReserve() => EnemiesSpawned--;
 
     public void ResetAfterDeath()
     {
@@ -90,15 +114,18 @@ public sealed class Level
             egg.Update(this);
     }
 
-    public Flipper? HatchReadyEgg()
+    public Flipper? HatchReadyEgg() => (Flipper?)HatchReadyEnemy(lane => new Flipper(lane, 0));
+
+    public Enemy? HatchReadyEnemy(Func<int, Enemy> createEnemy)
     {
         int eggIndex = eggs.FindIndex(egg => egg.State == EggState.ReadyToHatch);
         if (eggIndex < 0)
             return null;
 
         Egg egg = eggs[eggIndex];
+        Enemy enemy = createEnemy(egg.EdgeIndex);
         eggs.RemoveAt(eggIndex);
-        return new Flipper(egg.EdgeIndex, 0);
+        return enemy;
     }
 
     public bool IsComplete(int activeFlippers) =>

@@ -10,6 +10,7 @@ public sealed class VectorRenderer
 	public const int ScreenWidth = 800;
 	public const int ScreenHeight = 600;
 	public const int EggPointSize = 3;
+	private static readonly Color SpikerColor = new(0, 255, 0, 255);
 
 	private readonly TempestGame game;
 	public IReadOnlyList<Egg> Eggs => game.Eggs;
@@ -29,11 +30,18 @@ public sealed class VectorRenderer
 		Raylib.ClearBackground(Color.Black);
 
 		DrawTube(game.CurrentLevel.Definition.Points);
+		DrawSpikes((start, end) => Raylib.DrawLineV(start, end, SpikerColor),
+			point => Raylib.DrawPixelV(point, Color.White));
 		if (!game.IsExiting)
 		{
 			DrawEggs();
 			DrawPlayerShots(game.CurrentLevel.Definition.Points);
 			DrawFlippers(game.CurrentLevel.Definition.Points);
+			DrawSpikers((start, end) => Raylib.DrawLineV(start, end, SpikerColor));
+		}
+		else if (game.SpikeExitControlsEnabled)
+		{
+			DrawPlayerShots(game.CurrentLevel.Definition.Points);
 		}
 
 		if (!game.GameOver)
@@ -49,6 +57,44 @@ public sealed class VectorRenderer
 	}
 
 	private static int NextEdge(int edge, int edgeCount) => (edge + 1) % edgeCount;
+
+	private Vector2 ProjectLane(int lane, float depth)
+	{
+		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
+		Vector2 midpoint = (points[lane] + points[NextEdge(lane, points.Count)]) / 2;
+		return Projection.Project(midpoint.X, midpoint.Y, depth,
+			game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+	}
+
+	public void DrawSpikes(Action<Vector2, Vector2> drawLine, Action<Vector2> drawTip)
+	{
+		foreach (Spike spike in game.Spikes)
+		{
+			Vector2 start = ProjectLane(spike.EdgeIndex, Level.Position + Level.Depth);
+			Vector2 tip = ProjectLane(spike.EdgeIndex, Level.Position + Level.Depth - spike.Height);
+			drawLine(start, tip);
+			drawTip(tip);
+		}
+	}
+
+	public void DrawSpikers(Action<Vector2, Vector2> drawLine)
+	{
+		foreach (Spiker spiker in game.Spikers)
+		{
+			float depth = Level.Position + Level.Depth - spiker.Height;
+			Vector2 center = ProjectLane(spiker.EdgeIndex, depth);
+			float scale = 22 / ((depth + Projection.ZOffset) / Projection.K) + 2;
+			for (int segment = 0; segment >= -13; segment--)
+			{
+				float angle1 = (spiker.Rotation + segment * 60) * MathF.PI / 180;
+				float angle2 = (spiker.Rotation + (segment + 1) * 60) * MathF.PI / 180;
+				Vector2 first = new(MathF.Sin(angle1), MathF.Cos(angle1));
+				Vector2 second = new(MathF.Sin(angle2), MathF.Cos(angle2));
+				drawLine(center + first * segment * scale / 16,
+					center + second * (segment + 1) * scale / 16);
+			}
+		}
+	}
 
 	public Vector2 ProjectEgg(Egg egg)
 	{
@@ -262,8 +308,9 @@ public sealed class VectorRenderer
 		Raylib.DrawText(game.Score.Score.ToString(), 10, 10, 28, Color.Yellow);
 		Raylib.DrawText($"LIVES {game.Player.Lives}", 10, 44, 20, Color.Yellow);
 		int remaining = Level.EnemyTotal - game.CurrentLevel.EnemiesDestroyed;
-		Raylib.DrawText($"FLIPPERS {remaining}", 10, 72, 18, Color.Red);
-		Raylib.DrawText($"ACTIVE {game.Eggs.Count + game.Flippers.Count}", 10, 96, 18, Color.Gray);
+		string enemyLabel = game.CurrentLevel.SpikerDevelopmentWave ? "ENEMIES" : "FLIPPERS";
+		Raylib.DrawText($"{enemyLabel} {remaining}", 10, 72, 18, Color.Red);
+		Raylib.DrawText($"ACTIVE {game.Eggs.Count + game.Flippers.Count + game.Spikers.Count}", 10, 96, 18, Color.Gray);
 
 		if (game.GameOver)
 		{
