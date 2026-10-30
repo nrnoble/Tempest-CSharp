@@ -29,7 +29,8 @@ public sealed class Spiker : Enemy
     public float Rotation { get; private set; }
     public SpikerState State { get; private set; }
 
-    public void Update(Level level, Func<bool> shouldRetreat)
+    public EnemyBullet? Update(Level level, Func<bool> shouldRetreat,
+        Func<int, int, int>? randomInclusive = null)
     {
         Rotation = (Rotation + 45) % 360;
         switch (State)
@@ -52,8 +53,13 @@ public sealed class Spiker : Enemy
                         spike.Height = Height - 4;
                         Growth += Speed;
                         if (Growth > 100 && shouldRetreat())
+                        {
                             State = SpikerState.Retreating;
-                        // The optional retreat bullet is deliberately outside this milestone.
+                            // Incitti's independent second roll fires only on this random
+                            // growth-driven retreat, not on the upper-height retreat.
+                            if (randomInclusive is not null && randomInclusive(0, 100) > 70)
+                                return new EnemyBullet(EdgeIndex, Height);
+                        }
                     }
                 }
                 else
@@ -72,6 +78,8 @@ public sealed class Spiker : Enemy
                 }
                 break;
         }
+
+        return null;
     }
 
     public bool IsHitBy(Shot shot) => shot.EdgeIndex == EdgeIndex && shot.Height < Height;

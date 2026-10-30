@@ -471,7 +471,17 @@ public sealed class TempestGame
         for (int index = 0; index < spikers.Count; index++)
         {
             Spiker spiker = spikers[index];
-            spiker.Update(CurrentLevel, () => random.NextDouble() * 120 > 88);
+            EnemyBullet? bullet = spiker.Update(CurrentLevel,
+                () => random.NextDouble() * 120 > 88,
+                enemyBulletsTest ? NextRandomInclusive : null);
+            if (bullet is not null)
+            {
+                // Enemy bullets were already advanced this tick, so this one first moves next
+                // tick. It remains independent of the Spiker's retreat/removal lifecycle.
+                enemyBullets.Add(bullet);
+                developmentCollisionOrder.Add(bullet);
+            }
+
             if (spiker.State != SpikerState.ReturnedToReserve)
                 continue;
 

@@ -1583,6 +1583,100 @@ public sealed class SimulationTests
         Assert.Equal(expected, spiker.State);
     }
 
+    [Theory]
+    [InlineData(70, false)]
+    [InlineData(71, true)]
+    public void SpikerFiresAtMostOnceOnlyOnSuccessfulGrowthRetreatDecision(int decision, bool fires)
+    {
+        Level level = new();
+        level.CreateSpike(4, 0);
+        Spiker spiker = new(4, 5);
+        spiker.Update(level, () => false);
+        for (int tick = 0; tick < 20; tick++)
+            spiker.Update(level, () => false);
+
+        int firingDecisions = 0;
+        EnemyBullet? bullet = spiker.Update(level, () => true, (minimum, maximum) =>
+        {
+            Assert.Equal(0, minimum);
+            Assert.Equal(100, maximum);
+            firingDecisions++;
+            return decision;
+        });
+
+        Assert.Equal(SpikerState.Retreating, spiker.State);
+        Assert.Equal(1, firingDecisions);
+        if (fires)
+        {
+            Assert.NotNull(bullet);
+            Assert.Equal(4, bullet!.EdgeIndex);
+            Assert.Equal(105, bullet.Height);
+        }
+        else
+        {
+            Assert.Null(bullet);
+        }
+
+        for (int tick = 0; tick < 10; tick++)
+            Assert.Null(spiker.Update(level, () => throw new InvalidOperationException(),
+                (_, _) => throw new InvalidOperationException()));
+        Assert.Equal(1, firingDecisions);
+    }
+
+    [Fact]
+    public void SpikerTestAloneStaysSilentAtRandomRetreat()
+    {
+        (TempestGame game, SpikerBulletModeRandom random) =
+            PrepareSpikerRetreatTransition(decision: 100, enemyBulletsTest: false);
+        Assert.Empty(game.EnemyBullets);
+        Assert.Equal(0, random.FiringDecisionDraws);
+    }
+
+    [Fact]
+    public void CombinedSpikerAndEnemyBulletFlagsRegisterOneIndependentRetreatBullet()
+    {
+        (TempestGame game, SpikerBulletModeRandom random) =
+            PrepareSpikerRetreatTransition(decision: 71, enemyBulletsTest: true);
+        Spiker spiker = Assert.Single(game.Spikers);
+        EnemyBullet bullet = Assert.Single(game.EnemyBullets);
+        Assert.Equal(spiker.EdgeIndex, bullet.EdgeIndex);
+        Assert.Equal(spiker.Height, bullet.Height);
+        Assert.Equal(1, random.FiringDecisionDraws);
+
+        float creationHeight = bullet.Height;
+        game.RunOneStep();
+        Assert.Equal(creationHeight + 3, bullet.Height);
+
+        for (int tick = 0; tick < 80 && game.Spikers.Contains(spiker); tick++)
+            game.RunOneStep();
+        Assert.DoesNotContain(spiker, game.Spikers);
+        Assert.Contains(bullet, game.EnemyBullets);
+
+        int destroyedBeforeShot = game.CurrentLevel.EnemiesDestroyed;
+        int remainingBeforeShot = game.CurrentLevel.RemainingEnemies;
+        game.Player.Move(bullet.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot shot = Assert.Single(game.Shots);
+        shot.Height = bullet.Height - 7;
+        game.RunOneStep();
+        Assert.Empty(game.EnemyBullets);
+        Assert.Equal(25, game.Score.Score);
+        Assert.Equal(destroyedBeforeShot, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(remainingBeforeShot, game.CurrentLevel.RemainingEnemies);
+    }
+
+    [Fact]
+    public void SpikerRetreatBulletUsesExistingLifeResetCleanup()
+    {
+        TempestGame game = PrepareSpikerRetreatTransition(decision: 71, enemyBulletsTest: true).Game;
+        Assert.Single(game.EnemyBullets);
+        // Enter the established reset boundary directly so the Spiker-created bullet is still active.
+        game.CurrentLevel.State = LevelState.PlayerDying;
+        game.RunOneStep();
+        Assert.Equal(2, game.Player.Lives);
+        Assert.Empty(game.EnemyBullets);
+    }
+
     [Fact]
     public void SpikerUpperThresholdRetreatsOnFollowingUpdateAndRemovesAfterCrossingZero()
     {
@@ -2057,6 +2151,20 @@ public sealed class SimulationTests
         return game;
     }
 
+    private static (TempestGame Game, SpikerBulletModeRandom Random) PrepareSpikerRetreatTransition(
+        int decision, bool enemyBulletsTest)
+    {
+        SpikerBulletModeRandom random = new(decision);
+        TempestGame game = new(true, random, enemyBulletsTest: enemyBulletsTest);
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Spiker spiker = Assert.Single(game.Spikers);
+        for (int tick = 0; tick < 100 && spiker.State == SpikerState.Building; tick++)
+            game.RunOneStep();
+        Assert.Equal(SpikerState.Retreating, spiker.State);
+        return (game, random);
+    }
+
     private static TempestGame BeginSpikerExit()
     {
         TempestGame game = new(true, new SpikerRandom());
@@ -2090,6 +2198,29 @@ public sealed class SimulationTests
         public bool ChooseSpikers { get; set; } = true;
         public override int Next(int minValue, int maxValue) => ChooseSpikers ? minValue : maxValue - 1;
         public override double NextDouble() => 0;
+    }
+
+    private sealed class SpikerBulletModeRandom(int firingDecision) : Random
+    {
+        private int spikerSelections;
+
+        public int FiringDecisionDraws { get; private set; }
+
+        public override int Next(int minValue, int maxValue)
+        {
+            if (minValue == -6 && maxValue == 2)
+                return spikerSelections++ == 0 ? minValue : maxValue - 1;
+
+            if (minValue == 0 && maxValue == 101)
+            {
+                FiringDecisionDraws++;
+                return firingDecision;
+            }
+
+            return minValue;
+        }
+
+        public override double NextDouble() => .75;
     }
 
     private sealed class BulletRandom : Random
