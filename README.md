@@ -93,6 +93,37 @@ bullets unless both flags are supplied. Enabled Flippers receive 1-3 rounds,
 fire from their lane during climbs or after pause transitions, and bullets travel
 toward the rim. Shoot bullets for 25 points or move off their lane near the rim.
 
+## Tanker development wave
+
+Tankers are not included in normal Level 1. Run the controlled one-Tanker wave:
+
+```powershell
+dotnet run --project src/Tempest.Game -- --tanker-test --lives 10
+```
+
+The selected Tanker carries two Flippers. It climbs in one lane, then releases
+them on opposite adjacent lanes; shooting it awards 200 points and releases the
+same live cargo. `--tanker-test` cannot be combined with `--spiker-test`. Add
+`--enemy-bullets-test` only to enable the existing Flipper bullets; Tankers do not
+fire in this milestone.
+
+## Tanker development wave
+
+Tankers are not included in normal Level 1. To run the controlled single-Tanker
+wave with an extended life count:
+
+```powershell
+dotnet run --project src/Tempest.Game -- --tanker-test --lives 10
+```
+
+The scenario starts one Tanker carrying two Flippers; other original wave slots
+remain Flippers. The Tanker climbs on one lane and releases two live Flippers on
+opposite adjacent lanes near the rim. Shoot the Tanker for 200 points, or let it
+release naturally for no Tanker score. Children remain independently shootable.
+Tankers fire no bullets in this milestone; existing Flipper bullets are enabled
+only by additionally passing `--enemy-bullets-test`. `--tanker-test` cannot be
+combined with `--spiker-test`.
+
 ## Reference mapping
 - `tempest.bmx` -> gameplay and state behavior
 - `transformfunctions.bmx` -> `Rendering/Projection.cs`

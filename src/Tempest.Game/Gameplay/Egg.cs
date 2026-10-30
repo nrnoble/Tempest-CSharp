@@ -7,15 +7,25 @@ public enum EggState
     ReadyToHatch
 }
 
+/// <summary>
+/// Spawn-in stage before an enemy hatches. Roaming: bobs below the rim while sliding lanes.
+/// Approaching: rises to height 0, then ReadyToHatch. Cadence (every 8th update) is from Incitti.
+/// OriginalSlotId/CargoUnitId carry Tanker-ledger identity through a fresh-Egg restart; they are
+/// -1 for ordinary Level 1 Eggs.
+/// </summary>
 public sealed class Egg
 {
-    public Egg(int edgeIndex = 0, int movementDirection = 1)
+    public Egg(int edgeIndex = 0, int movementDirection = 1, int originalSlotId = -1, int cargoUnitId = -1)
     {
         EdgeIndex = edgeIndex;
         MovementDirection = movementDirection;
+        OriginalSlotId = originalSlotId;
+        CargoUnitId = cargoUnitId;
     }
 
     public int EdgeIndex { get; private set; }
+    public int OriginalSlotId { get; }
+    public int CargoUnitId { get; }
     public float Height { get; private set; } = -10;
     public int UpdateCounter { get; private set; }
     public int MovementDirection { get; }

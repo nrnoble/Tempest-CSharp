@@ -419,6 +419,51 @@ comparison remains required for Flipper bullet cadence/ammunition, visible scale
 and speed, rim hit reach, score display and arcade hit feel. The original source
 is an engineering reference, not confirmation of arcade accuracy.
 
+## Tanker Cargo Development Milestone
+
+Normal Level 1 and `--spiker-test` remain unchanged. The mutually exclusive
+`--tanker-test` scenario creates exactly one deterministic Tanker from original
+Egg slot 0; the other nine original slots hatch as ordinary Flippers. Run it with:
+
+```powershell
+dotnet run --project src/Tempest.Game -- --tanker-test --lives 10
+```
+
+The Tanker is fixed to its hatch lane, starts at height 10, carries two latent
+Flipper units, and uses a documented development climb speed of 1.85. It releases
+only after updated height exceeds 385. Natural release awards no Tanker score;
+shooting the Tanker requires same lane and shot depth strictly below its height,
+consumes that shot, awards 200, and releases live cargo. Neither path changes
+ordinary Flipper behavior. Cargo appears on opposite adjacent lanes at release
+height, starts in the existing Flipping state with calculated geometry and
+opposing directions, and advances beginning on the next simulation update.
+
+Tanker mode keeps a separate original-slot ledger and materialized cargo-unit
+ledger; it does not change `Level.EnemyTotal`, normal `EnemiesDestroyed`, or the
+normal/Spiker ten-unit invariant. Original slot 0 is stable across resets. Before
+release it returns as one Tanker Egg after a life loss, still carrying two latent
+units. After release the Tanker slot stays resolved and surviving cargo snapshots
+return as pending cargo Flippers, not Eggs. Level clear waits for every original
+slot and materialized cargo unit to resolve, and for all active/pending entities
+to be gone. The Tanker HUD separately displays unresolved original slots, cargo
+units (including latent cargo) and active objects.
+
+The shared development shot list retains insertion order: a Tanker is tested
+before cargo appended after its destruction; the consuming shot cannot hit those
+new children. Normal Level 1 keeps its existing collision path. Existing
+Flipper-fired bullets can be explicitly enabled with
+`--tanker-test --enemy-bullets-test`; this does not enable Tanker-fired bullets.
+Tanker bullets, Super Zapper, zap timing, stillborn cargo, other carrier types and
+full progression are deferred.
+
+Automated validation: at the completion of the Tanker cargo milestone, 142 headless
+tests passed, zero failed/skipped (per the Tanker implementation report; later
+milestones changed the suite total). Manual
+arcade comparison remains required for Tanker geometry/color/scale, 1.85 speed,
+release point, child placement and pivot appearance, score/pacing, player danger,
+and reset/exit presentation. This scenario uses an intentionally deterministic
+slot and cargo-side choice; it is a development test, not normal arcade progression.
+
 ## Flipper Enemy Bullet Development Milestone
 
 Normal Level 1 still does not fire EnemyBullets. The opt-in `--enemy-bullets-test`
@@ -454,3 +499,56 @@ Automated validation: 111 headless tests passed, zero failed/skipped. Manual
 comparison remains required for Flipper bullet cadence/ammunition, visible scale
 and speed, rim hit reach, score display, and arcade hit feel. The original source
 is an engineering reference, not confirmation of arcade accuracy.
+
+## Tanker Cargo Development Milestone
+
+Normal Level 1 and `--spiker-test` remain unchanged. The mutually exclusive
+`--tanker-test` scenario deterministically assigns original Egg slot 0 to one
+Tanker; all other original slots hatch into ordinary Flippers. Run it with:
+
+```powershell
+dotnet run --project src/Tempest.Game -- --tanker-test --lives 10
+```
+
+The Tanker is fixed to its lane, starts at height 10, carries two latent Flippers,
+and uses a documented development climb speed of 1.85. It releases only after
+updated height is strictly greater than 385. Natural release awards no Tanker
+score. A same-lane shot strictly below its height destroys it for 200 points and
+releases the same two live Flippers. Children start at release height on opposite
+adjacent lanes, in Flipping state with calculated geometry and opposing
+directions. Their first update is deferred to the next tick.
+
+Tanker mode adds a separate original-slot/cargo ledger and does not change
+`Level.EnemyTotal`, `EnemiesDestroyed`, or the existing normal/Spiker accounting
+invariants. Before release, a Tanker survivor returns as one Egg with two latent
+cargo units. After release, the Tanker slot stays resolved and each surviving
+cargo Flipper is restored as pending cargo, not an Egg or another Tanker. Clear
+requires all original slots and materialized cargo units resolved and no active
+or reserve entities. Tanker HUD rows distinguish unresolved ORIGINAL slots,
+latent/materialized CARGO units, and ACTIVE entities.
+
+Shot targets in tanker mode use the existing development insertion order. Tanker
+is inserted when its Egg hatches; released cargo appends after carrier removal.
+The consuming shot cannot hit newly created children. Normal Level 1 retains its
+existing collision path. Existing Flipper bullets can be explicitly enabled by
+combining `--enemy-bullets-test`; they never originate from Tankers. Tanker
+bullets, Super Zapper, zap/stillborn cargo, other enemy types and full progression
+are deferred.
+
+Automated validation: at the completion of the Tanker cargo milestone, 142 headless
+tests passed, zero failed/skipped (per the Tanker implementation report; later
+milestones changed the suite total). Manual
+comparison remains necessary for Tanker line-art appearance, color and scale,
+1.85 speed, release timing, cargo placement/pivots, player danger, score and
+death/reset/exit presentation. This is a deterministic development scenario, not
+normal Level 3 arcade progression.
+
+
+## SUSPECTED / NOT YET REPRODUCED: converging rim Flippers
+
+Reported by the project owner: two Flippers on the rim approaching each other from
+opposite directions may converge on the same lane and stay synchronized, so they
+look like a single Flipper. The original Atari game is reported not to do this.
+This has NOT been reproduced in the C# game and NOT source-analyzed against Incitti
+or the arcade. No gameplay change has been made. Investigate (reproduce first,
+then compare with Incitti's pivot lane selection) before changing behavior.

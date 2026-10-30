@@ -1,5 +1,10 @@
 namespace Tempest.Game.Gameplay;
 
+/// <summary>
+/// Development-only (<c>--enemy-bullets-test</c>) Flipper bullet. Travels up its lane at 3 per tick;
+/// a player shot below it destroys it (25 points). Bullets are not enemies for level accounting and
+/// are discarded on death/reset. Constants are Incitti-derived and unvalidated.
+/// </summary>
 public sealed class EnemyBullet : Enemy
 {
     public EnemyBullet(int edgeIndex, float height)

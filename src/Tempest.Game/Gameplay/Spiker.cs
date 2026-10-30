@@ -10,6 +10,11 @@ public enum SpikerState
     ReturnedToReserve
 }
 
+/// <summary>
+/// Spiker: builds a persistent spike up its lane, then retreats. Not counted as one of the level's
+/// enemies in normal accounting. Speed, rotation step and the Depth-4 build limit come from Incitti
+/// and are not yet compared to the arcade.
+/// </summary>
 public sealed class Spiker : Enemy
 {
     public Spiker(int edgeIndex = 0, float speed = 3)

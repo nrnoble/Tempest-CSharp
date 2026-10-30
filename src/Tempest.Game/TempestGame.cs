@@ -5,9 +5,20 @@ using Tempest.Game.Rendering;
 
 namespace Tempest.Game;
 
+/// <summary>
+/// Owns the fixed 60 Hz gameplay simulation: player, shots, enemies, collision order,
+/// death/reset handling and wave accounting. It has no rendering dependencies; the
+/// renderer only reads the public state exposed here.
+/// </summary>
+/// <remarks>
+/// Three opt-in development scenarios (Spiker, enemy bullets, Tanker) layer on top of the
+/// normal Level 1 path. Normal Level 1 keeps its original accounting and shot path;
+/// do not generalize it casually, because the existing regression tests pin it.
+/// </remarks>
 public sealed class TempestGame
 {
     public const double SimulationStepSeconds = 1.0 / 60.0;
+    // Length of the death sequence in simulation updates; a life is deducted on the last one.
     public const int PlayerDeathTicks = 60;
     private const float PlayerSpeed = 0.05f;
     private const float SpinnerSensitivity = 0.0125f;
@@ -15,11 +26,26 @@ public sealed class TempestGame
     private readonly List<Shot> shots = [];
     private readonly List<EnemyBullet> enemyBullets = [];
     private readonly List<Flipper> flippers = [];
+    // Cargo released by a player shot waits here so the same shot and the same update cannot affect it.
+    private readonly List<Flipper> shotReleasedCargoPendingActivation = [];
     private readonly List<Spiker> spikers = [];
+    private readonly List<Tanker> tankers = [];
+    // Incitti resolves shot collisions in object-creation order, not nearest depth, so development
+    // scenarios record spawn order here. Spikes survive life loss; enemies and bullets do not.
     private readonly List<object> developmentCollisionOrder = [];
+    // Tanker scenario ledger. Original wave slots (0..EnemyTotal-1) and Tanker cargo units are
+    // tracked separately: cargo is added on top of the normal ten-unit wave and has its own IDs.
+    // An unresolved ID survives a life loss; the runtime enemy object does not.
+    private readonly HashSet<int> unresolvedOriginalSlots = [];
+    private readonly HashSet<int> destroyedOriginalSlots = [];
+    private readonly HashSet<int> escapedOriginalSlots = [];
+    private readonly HashSet<int> unresolvedCargoUnits = [];
+    private readonly HashSet<int> resolvedCargoUnits = [];
     private readonly Random random;
     private readonly int startingLives;
     private readonly bool enemyBulletsTest;
+    private readonly bool tankerTest;
+    private int nextCargoUnitId;
     private int shotTimer = 3;
     private int exitDelayTicks;
 
@@ -31,10 +57,30 @@ public sealed class TempestGame
     public IReadOnlyList<Flipper> Flippers => flippers;
     public IReadOnlyList<Egg> Eggs => CurrentLevel.Eggs;
     public IReadOnlyList<Spiker> Spikers => spikers;
+    public IReadOnlyList<Tanker> Tankers => tankers;
     public IReadOnlyList<Spike> Spikes => CurrentLevel.Spikes;
     public bool SpikeExitControlsEnabled => CurrentLevel.SpikerDevelopmentWave &&
         State is LevelState.AvoidSpikes or LevelState.ExitDelay or LevelState.ExitZoom;
     public bool EnemyBulletsTest => enemyBulletsTest;
+    public bool TankerTest => tankerTest;
+    public int TankerOriginalSlotsRemaining => unresolvedOriginalSlots.Count;
+    public int TankerOriginalSlotsDestroyed => destroyedOriginalSlots.Count;
+    public int TankerOriginalSlotsEscaped => escapedOriginalSlots.Count;
+    public int TankerOriginalSlotsResolved => destroyedOriginalSlots.Count + escapedOriginalSlots.Count;
+    public int TankerLatentCargoUnits => tankers.Sum(tanker => tanker.LatentCargoCount) +
+        (tankerTest && unresolvedOriginalSlots.Contains(0) && tankers.All(tanker => tanker.OriginalSlotId != 0)
+            ? Tanker.CarriedFlipperCount
+            : 0);
+    public int TankerCargoUnitsRemaining => unresolvedCargoUnits.Count + TankerLatentCargoUnits;
+    public int TankerMaterializedCargoUnits => unresolvedCargoUnits.Count + resolvedCargoUnits.Count;
+    public int TankerCargoUnitsResolved => resolvedCargoUnits.Count;
+    public int ActiveTankerCargoFlippers => flippers.Count(flipper => flipper.IsTankerCargo);
+    public int PendingTankerCargoUnits => Math.Max(0, unresolvedCargoUnits.Count - ActiveTankerCargoFlippers);
+    public int ActiveTankerOriginalEnemies =>
+        tankers.Count + flippers.Count(flipper => !flipper.IsTankerCargo);
+    public int TankerAccountingTotal => destroyedOriginalSlots.Count + escapedOriginalSlots.Count +
+        unresolvedOriginalSlots.Count + unresolvedCargoUnits.Count + resolvedCargoUnits.Count;
+    public int TankerActiveTotal => Eggs.Count + tankers.Count + flippers.Count + spikers.Count;
     public int DeathTicks { get; private set; }
     public LevelState State => CurrentLevel.State;
     public bool GameOver => State == LevelState.GameOver;
@@ -43,13 +89,17 @@ public sealed class TempestGame
         LevelState.AvoidSpikes or LevelState.ReverseZoom;
 
     public TempestGame(bool spikerDevelopmentWave = false, Random? random = null,
-        int startingLives = Player.DefaultStartingLives, bool enemyBulletsTest = false)
+        int startingLives = Player.DefaultStartingLives, bool enemyBulletsTest = false,
+        bool tankerTest = false)
     {
+        if (spikerDevelopmentWave && tankerTest)
+            throw new ArgumentException("Tanker and Spiker development waves cannot be combined.");
         this.random = random ?? Random.Shared;
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
         this.enemyBulletsTest = enemyBulletsTest;
+        this.tankerTest = tankerTest;
         Player = new Player(this.startingLives);
-        CurrentLevel = new Level(spikerDevelopmentWave);
+        CurrentLevel = new Level(spikerDevelopmentWave, tankerTest);
         CurrentLevel.SpikeCreated += spike => developmentCollisionOrder.Add(spike);
         ResetLevel();
     }
@@ -90,6 +140,9 @@ public sealed class TempestGame
         }
         else
         {
+            // Order matters. Player firing and shot-versus-enemy collision run before enemy updates
+            // and before any enemy-to-player collision, so a shot that destroys a Flipper on the
+            // last safe tick saves the player. Do not move the player-collision checks earlier.
             UpdatePlayer(input);
             UpdatePlayerShots();
             UpdateEnemyBullets();
@@ -100,6 +153,9 @@ public sealed class TempestGame
             CurrentLevel.UpdateEggs();
             HatchEggs();
             UpdateFlippers();
+            UpdateTankers();
+            // Runs after UpdateFlippers/UpdateTankers so shot-released cargo skips this tick's update.
+            ActivateShotReleasedCargo();
             UpdateSpikers();
             CheckFlippersAgainstPlayer();
             CheckEnemyBulletsAgainstPlayer();
@@ -127,15 +183,64 @@ public sealed class TempestGame
         shots.Clear();
         enemyBullets.Clear();
         flippers.Clear();
+        shotReleasedCargoPendingActivation.Clear();
         spikers.Clear();
+        tankers.Clear();
+        ResetTankerLedger();
     }
 
-    private void ResetAfterDeath()
+    private void ResetTankerLedger()
     {
+        unresolvedOriginalSlots.Clear();
+        destroyedOriginalSlots.Clear();
+        escapedOriginalSlots.Clear();
+        unresolvedCargoUnits.Clear();
+        resolvedCargoUnits.Clear();
+        nextCargoUnitId = 0;
+        if (tankerTest)
+            for (int slotId = 0; slotId < Level.EnemyTotal; slotId++)
+                unresolvedOriginalSlots.Add(slotId);
+    }
+
+    private void ResetTankerScenarioAfterDeath()
+    {
+        // Gather surviving cargo identities before the runtime objects are discarded below.
+        HashSet<int> cargoUnitsToReenter = CurrentLevel.PendingTankerCargoUnitIds.ToHashSet();
+        foreach (Egg cargoEgg in Eggs.Where(egg => egg.CargoUnitId >= 0))
+            cargoUnitsToReenter.Add(cargoEgg.CargoUnitId);
+        foreach (Flipper cargo in flippers.Where(flipper => flipper.IsTankerCargo))
+            if (unresolvedCargoUnits.Contains(cargo.CargoUnitId))
+                cargoUnitsToReenter.Add(cargo.CargoUnitId);
+
         ResetPlayerPosition();
         shots.Clear();
         enemyBullets.Clear();
         flippers.Clear();
+        shotReleasedCargoPendingActivation.Clear();
+        spikers.Clear();
+        tankers.Clear();
+        developmentCollisionOrder.Clear();
+        // A life loss rebuilds unresolved enemies as fresh Eggs, never resumed enemy objects.
+        CurrentLevel.RestoreTankerEntries(unresolvedOriginalSlots, cargoUnitsToReenter);
+        CurrentLevel.State = LevelState.Playing;
+    }
+
+    private void ResetAfterDeath()
+    {
+        // Ordinary life loss: every active enemy, shot and bullet is discarded and unresolved
+        // enemies re-enter as fresh Eggs. Destroyed enemies stay destroyed and score is kept.
+        // Spikes are level geometry and persist.
+        if (tankerTest)
+        {
+            ResetTankerScenarioAfterDeath();
+            return;
+        }
+
+        ResetPlayerPosition();
+        shots.Clear();
+        enemyBullets.Clear();
+        flippers.Clear();
+        shotReleasedCargoPendingActivation.Clear();
         spikers.Clear();
         developmentCollisionOrder.RemoveAll(target => target is not Spike);
         CurrentLevel.ResetAfterDeath();
@@ -157,13 +262,18 @@ public sealed class TempestGame
         Player.Lives--;
         if (Player.Lives <= 0)
         {
+            // Game Over clears the field; unlike an ordinary life loss nothing re-enters until restart,
+            // which goes through ResetGame (score and lives reset).
             CurrentLevel.State = LevelState.GameOver;
             shots.Clear();
             enemyBullets.Clear();
             flippers.Clear();
+            shotReleasedCargoPendingActivation.Clear();
             spikers.Clear();
+            tankers.Clear();
             developmentCollisionOrder.RemoveAll(target => target is not Spike);
-            CurrentLevel.ReturnSurvivorsToReserve();
+            if (!tankerTest)
+                CurrentLevel.ReturnSurvivorsToReserve();
             return;
         }
 
@@ -172,6 +282,8 @@ public sealed class TempestGame
 
     private void KillPlayer()
     {
+        // Single entry to the death lifecycle; the Playing guard prevents a second lethal event in
+        // the same update from restarting the sequence or deducting another life.
         if (State != LevelState.Playing)
             return;
 
@@ -210,7 +322,7 @@ public sealed class TempestGame
         {
             Shot shot = shots[shotIndex];
             shot.Update();
-            bool hit = (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest)
+            bool hit = (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest || tankerTest)
                 ? shot.Height >= 0 && CheckShotAgainstDevelopmentTargets(shot)
                 : CheckShotAgainstFlippers(shot);
             if (hit || shot.Height < 0)
@@ -236,15 +348,39 @@ public sealed class TempestGame
 
     private void HatchEggs()
     {
-        while (CurrentLevel.HatchReadyEnemy(CreateHatchedEnemy) is Enemy enemy)
+        while ((tankerTest
+            ? CurrentLevel.HatchReadyEnemyWithIdentity(CreateTankerWaveEnemy)
+            : CurrentLevel.HatchReadyEnemy(CreateHatchedEnemy)) is Enemy enemy)
         {
             if (enemy is Flipper flipper)
                 flippers.Add(flipper);
             else if (enemy is Spiker spiker)
                 spikers.Add(spiker);
-            if (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest)
+            else if (enemy is Tanker tanker)
+                tankers.Add(tanker);
+            if (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest || tankerTest)
                 developmentCollisionOrder.Add(enemy);
         }
+    }
+
+    private Enemy CreateTankerWaveEnemy(Egg egg)
+    {
+        if (egg.CargoUnitId >= 0)
+        {
+            // Released cargo returns as separate fresh Flipper entrants, not as a new Tanker.
+            Flipper cargo = Flipper.CreateFreshTankerCargo(egg.EdgeIndex, egg.CargoUnitId);
+            if (enemyBulletsTest)
+                cargo.SetBulletAmmunition(random.Next(1, 4));
+            return cargo;
+        }
+
+        if (egg.OriginalSlotId == CurrentLevel.TankerSlotId && unresolvedOriginalSlots.Contains(egg.OriginalSlotId))
+            return new Tanker(egg.EdgeIndex, egg.OriginalSlotId);
+
+        Enemy enemy = CreateHatchedEnemy(egg.EdgeIndex);
+        if (enemy is Flipper flipper)
+            flipper.SetOriginalSlotId(egg.OriginalSlotId);
+        return enemy;
     }
 
     private Enemy CreateHatchedEnemy(int lane)
@@ -262,6 +398,8 @@ public sealed class TempestGame
     private bool CheckShotAgainstDevelopmentTargets(Shot shot)
     {
         // Incitti tests insertion order, not nearest depth. Level 1 keeps its old path.
+        // A hit consumes the shot (return true), so a shot that destroys a Tanker can never also
+        // hit the cargo created by that same release.
         foreach (object target in developmentCollisionOrder)
         {
             switch (target)
@@ -286,10 +424,27 @@ public sealed class TempestGame
                     developmentCollisionOrder.Remove(enemyBullet);
                     Score.Add(25);
                     return true;
+                case Tanker tanker when tanker.IsHitBy(shot):
+                    tankers.Remove(tanker);
+                    developmentCollisionOrder.Remove(tanker);
+                    ResolveOriginalSlotDestroyed(tanker.OriginalSlotId);
+                    Score.Add(200);
+                    ReleaseTankerCargo(tanker, TankerReleaseKind.PlayerShotDestruction);
+                    return true;
                 case Flipper flipper when flipper.IsHitBy(shot):
                     flippers.Remove(flipper);
                     developmentCollisionOrder.Remove(flipper);
-                    CurrentLevel.RecordEnemyDestroyed();
+                    if (tankerTest)
+                    {
+                        if (flipper.IsTankerCargo)
+                            ResolveCargoUnit(flipper.CargoUnitId);
+                        else
+                            ResolveOriginalSlotDestroyed(flipper.OriginalSlotId);
+                    }
+                    else
+                    {
+                        CurrentLevel.RecordEnemyDestroyed();
+                    }
                     Score.Add(150);
                     return true;
             }
@@ -299,6 +454,8 @@ public sealed class TempestGame
 
     private void UpdateSpikers()
     {
+        // A retreating Spiker returns its enemy to the reserve instead of destroying it, so the
+        // unit is conserved for later re-entry. Its spikes remain on the tube.
         for (int index = 0; index < spikers.Count; index++)
         {
             Spiker spiker = spikers[index];
@@ -310,6 +467,68 @@ public sealed class TempestGame
             developmentCollisionOrder.Remove(spiker);
             CurrentLevel.ReturnEnemyToReserve();
         }
+    }
+
+    private void UpdateTankers()
+    {
+        // A Tanker that climbs past the release threshold escapes its original slot (no score)
+        // and hands its cargo to the field. Tanker bullets are intentionally deferred.
+        for (int index = 0; index < tankers.Count; index++)
+        {
+            Tanker tanker = tankers[index];
+            if (tanker.UpdateForDevelopment() != TankerUpdateResult.NaturalCargoRelease)
+                continue;
+
+            tankers.RemoveAt(index--);
+            developmentCollisionOrder.Remove(tanker);
+            ResolveOriginalSlotEscaped(tanker.OriginalSlotId);
+            ReleaseTankerCargo(tanker, TankerReleaseKind.Natural);
+        }
+    }
+
+    private void ReleaseTankerCargo(Tanker tanker, TankerReleaseKind releaseKind)
+    {
+        // Natural and shot release both create exactly two cargo Flippers with fresh cargo IDs.
+        // They are added after this tick's Flipper update, so their first update is next tick.
+        // Natural release awards no score; the 200 points for a shot kill are awarded by the caller.
+        TankerReleaseResult result = tanker.ReleaseFlipperCargo(
+            CurrentLevel, firstSideDirection: 1, releaseKind);
+        foreach (TankerCargoSpawn spawn in result.Cargo)
+        {
+            int cargoUnitId = nextCargoUnitId++;
+            unresolvedCargoUnits.Add(cargoUnitId);
+            int ammunition = enemyBulletsTest ? random.Next(1, 4) : 0;
+            Flipper flipper = Flipper.CreateTankerCargo(CurrentLevel, spawn, cargoUnitId, ammunition);
+            if (releaseKind == TankerReleaseKind.PlayerShotDestruction)
+                // The shot that killed the Tanker is already consumed; deferring activation keeps
+                // the new cargo out of the development collision list until the next update.
+                shotReleasedCargoPendingActivation.Add(flipper);
+            else
+            {
+                flippers.Add(flipper);
+                developmentCollisionOrder.Add(flipper);
+            }
+        }
+    }
+
+    private void ResolveOriginalSlotDestroyed(int originalSlotId)
+    {
+        if (originalSlotId < 0 || !unresolvedOriginalSlots.Remove(originalSlotId))
+            return;
+        destroyedOriginalSlots.Add(originalSlotId);
+    }
+
+    private void ResolveOriginalSlotEscaped(int originalSlotId)
+    {
+        if (originalSlotId < 0 || !unresolvedOriginalSlots.Remove(originalSlotId))
+            return;
+        escapedOriginalSlots.Add(originalSlotId);
+    }
+
+    private void ResolveCargoUnit(int cargoUnitId)
+    {
+        if (unresolvedCargoUnits.Remove(cargoUnitId))
+            resolvedCargoUnits.Add(cargoUnitId);
     }
 
     private void UpdateFlippers()
@@ -325,6 +544,16 @@ public sealed class TempestGame
             if (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest)
                 developmentCollisionOrder.Add(bullet);
         }
+    }
+
+    private void ActivateShotReleasedCargo()
+    {
+        foreach (Flipper flipper in shotReleasedCargoPendingActivation)
+        {
+            flippers.Add(flipper);
+            developmentCollisionOrder.Add(flipper);
+        }
+        shotReleasedCargoPendingActivation.Clear();
     }
 
     private int NextRandomInclusive(int minimum, int maximum) =>
@@ -364,6 +593,9 @@ public sealed class TempestGame
 
     private void CheckFlippersAgainstPlayer()
     {
+        // CompletedIntoPlayer is raised by the Flipper both for a direct rim arrival in the occupied
+        // lane and for a pivot that completes into it. It is consumed here so the Flipper never
+        // touches game state. Runs after player-shot collision, so a same-tick kill saves the player.
         foreach (Flipper flipper in flippers)
         {
             if (!flipper.CompletedIntoPlayer)
@@ -377,7 +609,14 @@ public sealed class TempestGame
 
     private bool CheckForLevelComplete()
     {
-        if (State != LevelState.Playing || !CurrentLevel.IsComplete(flippers.Count + spikers.Count))
+        // Normal Level 1 uses the conservation check in Level.IsComplete. The Tanker scenario
+        // has a dynamic ledger (cargo adds units), so it requires every slot and cargo unit resolved.
+        bool complete = tankerTest
+            ? unresolvedOriginalSlots.Count == 0 && unresolvedCargoUnits.Count == 0 &&
+              CurrentLevel.ReserveEggs == 0 && Eggs.Count == 0 && tankers.Count == 0 &&
+              flippers.Count == 0 && spikers.Count == 0
+            : CurrentLevel.IsComplete(flippers.Count + spikers.Count);
+        if (State != LevelState.Playing || !complete)
             return false;
 
         CurrentLevel.State = CurrentLevel.SpikerDevelopmentWave ? LevelState.AvoidSpikes : LevelState.ExitDelay;
@@ -390,6 +629,8 @@ public sealed class TempestGame
 
     private void UpdateExitZoom(bool completeWhenFinished = true)
     {
+        // Two phases: first pull the camera back (ZOffset) while the player rides down the tube,
+        // then increase projection K to rush the tube past. Constants are frame-based values from the reference.
         if (Projection.ZOffset >= -40)
         {
             Projection.ZOffset -= 2;
@@ -450,6 +691,8 @@ public sealed class TempestGame
 
     private void CheckSpikesAgainstPlayer()
     {
+        // Development-only: touching a spike during or after the wave starts a reverse zoom instead
+        // of the normal death sequence. Spikes are not enemies and never count toward accounting.
         if (!CurrentLevel.SpikerDevelopmentWave || DeathTicks > 0 ||
             State is not (LevelState.Playing or LevelState.AvoidSpikes or LevelState.ExitDelay or LevelState.ExitZoom))
             return;

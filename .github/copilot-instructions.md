@@ -21,3 +21,14 @@ Initial milestone:
 4. Fire player shots.
 5. Add one Flipper.
 6. Add collision and scoring.
+
+Maintainability:
+- Code must be maintainable by a developer returning to the project years later without access to AI conversation history. Add concise comments explaining class responsibilities, gameplay state machines, non-obvious algorithms, arcade-specific rules, important ordering requirements, unusual constants, and design decisions whose purpose is not evident from the code itself. Prefer comments explaining why over comments restating what the C# statement does. Do not add comments to trivial properties, obvious assignments, simple loops, or self-explanatory code.
+- Comments must distinguish established arcade behavior, behavior derived from Incitti, development-only behavior, and approximations needing arcade comparison.
+
+Process:
+- Do not replace a working implementation merely because another design is cleaner; design changes need demonstrated benefit.
+- Identify disagreements among arcade, Incitti and the C# implementation explicitly.
+- Avoid broad refactoring during bug fixes.
+- Preserve validated behavior unless a change is explicitly authorized.
+- Report any genuine instruction conflict rather than resolving it silently.

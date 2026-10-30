@@ -1,6 +1,11 @@
 using System.Numerics;
 namespace Tempest.Game.Rendering;
 
+/// <summary>
+/// Perspective projection shared by all rendering. Larger z shrinks x/y by K/z. ZOffset keeps z
+/// positive at the near rim; K and ZOffset are animated by the exit/reverse zoom effects.
+/// Global mutable state, so zoom code must restore it when finished.
+/// </summary>
 public static class Projection
 {
     public const float Width = 800;

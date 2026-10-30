@@ -1,5 +1,9 @@
 namespace Tempest.Game.Gameplay;
 
+/// <summary>
+/// Spike left behind by a Spiker. Shots shorten it by 10; it hurts a player in its lane whose depth
+/// is below the spike tip. Spikes persist across life loss and are not enemies for accounting.
+/// </summary>
 public sealed class Spike
 {
     public int EdgeIndex { get; init; }

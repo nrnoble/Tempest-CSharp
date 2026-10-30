@@ -9,6 +9,809 @@ namespace Tempest.Game.Tests;
 
 public sealed class SimulationTests
 {
+    // --- Tanker development scenario (--tanker-test): flags, slot identity, climb and release ---
+
+    [Fact]
+    public void TankerTestFlagKeepsNormalAndSpikerModesSeparateAndRejectsConflict()
+    {
+        string[] tankerArgs = ["--tanker-test", "--lives", "10"];
+        Assert.True(Tempest.Game.Debug.DebugController.UseTankerTest(tankerArgs));
+        Assert.False(Tempest.Game.Debug.DebugController.HasConflictingScenarios(tankerArgs));
+        Assert.Equal(10, Tempest.Game.Debug.DebugController.GetStartingLives(tankerArgs));
+        Assert.True(Tempest.Game.Debug.DebugController.UseEnemyBulletsTest(
+            ["--tanker-test", "--enemy-bullets-test"]));
+        Assert.True(Tempest.Game.Debug.DebugController.HasConflictingScenarios(
+            ["--tanker-test", "--spiker-test"]));
+        Assert.Throws<ArgumentException>(() => new TempestGame(true, tankerTest: true));
+
+        TempestGame normal = new();
+        Assert.False(normal.TankerTest);
+        Assert.False(normal.CurrentLevel.TankerDevelopmentWave);
+        Assert.Empty(normal.Tankers);
+        Assert.Empty(normal.Spikes);
+        TempestGame spiker = new(true, new SpikerRandom());
+        Assert.False(spiker.TankerTest);
+        Assert.True(spiker.CurrentLevel.SpikerDevelopmentWave);
+        TempestGame tankerGame = new(startingLives: 10, tankerTest: true);
+        Assert.True(tankerGame.TankerTest);
+        Assert.Equal(10, tankerGame.Player.Lives);
+        Assert.Equal(4, tankerGame.Eggs.Count);
+        Assert.Equal(6, tankerGame.CurrentLevel.ReserveEggs);
+        Assert.Empty(tankerGame.Tankers);
+        Assert.Equal(10, tankerGame.TankerOriginalSlotsRemaining);
+    }
+
+    [Fact]
+    public void TankerScenarioEnemyBulletOptionAppliesToFlippersOnly()
+    {
+        TempestGame game = CreateTankerWave(enemyBulletsTest: true,
+            random: new BulletRandom(2, []));
+        Tanker tanker = Assert.Single(game.Tankers);
+        Egg ordinaryEgg = Assert.Single(game.Eggs, egg => egg.OriginalSlotId == 1);
+        MakeReady(ordinaryEgg, game.CurrentLevel);
+        game.RunOneStep();
+        Flipper ordinary = Assert.Single(game.Flippers, flipper => !flipper.IsTankerCargo);
+        Assert.Equal(2, ordinary.BulletAmmunition);
+        Assert.Equal(TankerState.Climbing, tanker.State);
+        Assert.Empty(game.EnemyBullets);
+        Assert.Equal(2, tanker.LatentCargoCount);
+    }
+
+    [Fact]
+    public void TankerWaveHatchesStableOriginalSlotZeroExactlyOnce()
+    {
+        TempestGame game = CreateTankerWave();
+        Tanker tanker = Assert.Single(game.Tankers);
+        Assert.Equal(0, tanker.OriginalSlotId);
+        Assert.InRange(tanker.EdgeIndex, 0, 15);
+        Assert.InRange(tanker.Height, 11.84f, 11.86f);
+        Assert.Equal(TankerState.Climbing, tanker.State);
+        Assert.Equal(2, tanker.LatentCargoCount);
+        Assert.Equal(1, game.ActiveTankerOriginalEnemies);
+        Assert.Equal(10, game.TankerOriginalSlotsRemaining);
+        Assert.Equal(2, game.TankerCargoUnitsRemaining);
+        Assert.Equal(10, game.TankerAccountingTotal);
+        Assert.Empty(game.Spikers);
+    }
+
+    [Fact]
+    public void NonTankerOriginalEggSlotsContinueToHatchOrdinaryFlippers()
+    {
+        TempestGame game = CreateTankerWave();
+        Egg ordinaryEgg = Assert.Single(game.Eggs, egg => egg.OriginalSlotId == 1);
+        MakeReady(ordinaryEgg, game.CurrentLevel);
+        game.RunOneStep();
+        Flipper flipper = Assert.Single(game.Flippers, candidate => !candidate.IsTankerCargo);
+        Assert.Equal(1, flipper.OriginalSlotId);
+        Assert.Equal(FlipperState.Climbing, flipper.State);
+        Assert.Single(game.Tankers);
+        Assert.Equal(2, game.TankerLatentCargoUnits);
+        Assert.Equal(10, game.TankerAccountingTotal);
+    }
+
+    [Fact]
+    public void TankerFixedSpeedKeepsLaneAndReleasesStrictlyAbove385()
+    {
+        Tanker tanker = new(7, 0, climbSpeed: 1);
+        Assert.Equal(10, tanker.Height);
+        Assert.Equal(TankerState.Climbing, tanker.State);
+        Assert.Equal(2, tanker.LatentCargoCount);
+        for (int tick = 0; tick < 375; tick++)
+            Assert.Equal(TankerUpdateResult.Active, tanker.UpdateForDevelopment());
+        Assert.Equal(385, tanker.Height);
+        Assert.Equal(TankerState.Climbing, tanker.State);
+        Assert.Equal(7, tanker.EdgeIndex);
+        Assert.Equal(TankerUpdateResult.NaturalCargoRelease, tanker.UpdateForDevelopment());
+        Assert.Equal(386, tanker.Height);
+        Assert.Equal(TankerState.CargoReleasePending, tanker.State);
+    }
+
+    [Fact]
+    public void TankerUsesDocumentedDevelopmentSpeedAndNeverDirectlyHitsPlayer()
+    {
+        Tanker tanker = new(7, 0);
+        Assert.Equal(1.85f, tanker.ClimbSpeed, 5);
+        Assert.False(tanker.HitsPlayer(new Player()));
+        Assert.Equal(TankerUpdateResult.Active, tanker.UpdateForDevelopment());
+        Assert.InRange(tanker.Height, 11.849f, 11.851f);
+        Assert.Equal(7, tanker.EdgeIndex);
+    }
+
+    [Theory]
+    [InlineData(0, 15, 1, 14, 2)]
+    [InlineData(15, 14, 0, 13, 1)]
+    [InlineData(6, 5, 7, 4, 8)]
+    public void TankerCargoUsesOppositeAdjacentLanesAndDirectionsOnContinuousTube(
+        int tankerLane, int expectedFirstLane, int expectedSecondLane,
+        int expectedFirstDestination, int expectedSecondDestination)
+    {
+        Level level = new();
+        Tanker tanker = CreatePendingTanker(tankerLane);
+        TankerReleaseResult result = tanker.ReleaseFlipperCargo(level, 1, TankerReleaseKind.Natural);
+        Assert.Equal(TankerReleaseKind.Natural, result.Kind);
+        Assert.Equal(2, result.Cargo.Count);
+        Assert.Equal(expectedFirstLane, result.Cargo[0].SourceLane);
+        Assert.Equal(expectedSecondLane, result.Cargo[1].SourceLane);
+        Assert.Equal(expectedFirstDestination, result.Cargo[0].DestinationLane);
+        Assert.Equal(expectedSecondDestination, result.Cargo[1].DestinationLane);
+        Assert.Equal(1, result.Cargo[0].Direction);
+        Assert.Equal(-1, result.Cargo[1].Direction);
+        Assert.Equal(tanker.Height, result.Cargo[0].Height);
+        Assert.Equal(tanker.Height, result.Cargo[1].Height);
+        Assert.Equal(TankerState.CargoReleased, tanker.State);
+        Assert.Equal(0, tanker.LatentCargoCount);
+        Assert.Empty(tanker.ReleaseFlipperCargo(level, 1, TankerReleaseKind.PlayerShotDestruction).Cargo);
+    }
+
+    [Fact]
+    public void TankerCargoFlippersStartInCalculatedPivotAndPreserveOrdinaryConstructor()
+    {
+        Level level = new();
+        Tanker tanker = CreatePendingTanker(0);
+        TankerCargoSpawn[] cargo = tanker.ReleaseFlipperCargo(level, 1, TankerReleaseKind.Natural).Cargo.ToArray();
+        Flipper first = Flipper.CreateTankerCargo(level, cargo[0], 10);
+        Flipper second = Flipper.CreateTankerCargo(level, cargo[1], 11);
+        Assert.Equal(FlipperState.Flipping, first.State);
+        Assert.Equal(FlipperState.Flipping, second.State);
+        Assert.Equal(cargo[0].SourceLane, first.EdgeIndex);
+        Assert.Equal(cargo[0].SourceLane, first.SourceEdge);
+        Assert.Equal(cargo[0].DestinationLane, first.DestinationEdge);
+        Assert.Equal(cargo[0].Direction, first.Direction);
+        Assert.Equal(level.CalculateEdgeTurnAngle(first.SourceEdge, first.DestinationEdge), first.TotalTurnAngle);
+        Assert.Equal(0, first.TurnAngle);
+        Assert.Equal(0, second.TurnAngle);
+        Assert.Equal(-first.Direction, second.Direction);
+        Assert.Equal(tanker.Height, first.Height);
+        Assert.Equal(tanker.Height, second.Height);
+        Assert.Equal(10, first.CargoUnitId);
+        Assert.Equal(11, second.CargoUnitId);
+        Assert.Equal(15, first.SourceEdge);
+        Assert.Equal(1, second.SourceEdge);
+        Assert.Equal(14, first.DestinationEdge);
+        Assert.Equal(2, second.DestinationEdge);
+        Assert.Equal(1, first.Direction);
+        Assert.Equal(-1, second.Direction);
+        Assert.Equal(FlipperState.Climbing, new Flipper(4, 0).State);
+
+        float height = first.Height;
+        first.Update(level, 8);
+        Assert.Equal(height + 2, first.Height);
+        Assert.Equal(8, first.TurnAngle);
+    }
+
+    [Fact]
+    public void CargoPivotDoesNotKillPlayerBeforeCargoReachesTheRim()
+    {
+        Level level = new();
+        Tanker tanker = CreatePendingTanker(0);
+        TankerCargoSpawn cargo = tanker.ReleaseFlipperCargo(level, 1, TankerReleaseKind.Natural).Cargo[0];
+        Flipper flipper = Flipper.CreateTankerCargo(level, cargo, 0);
+        int ticks = 0;
+        while (flipper.State == FlipperState.Flipping && ticks++ < 10)
+            flipper.Update(level, cargo.DestinationLane);
+        Assert.True(flipper.Height < Level.Depth);
+        Assert.False(flipper.CompletedIntoPlayer);
+        Assert.Equal(FlipperState.Pausing, flipper.State);
+    }
+
+    // --- Flipper rim-arrival collision/timing regressions (direct climb into the player lane) ---
+
+    [Fact]
+    public void ClimbingFlipperReachingRimInPlayerLaneSignalsLethalCollision()
+    {
+        Level level = new();
+        Flipper flipper = new(5, Level.Depth - 1);
+        flipper.Update(level, 5);
+        Assert.Equal(Level.Depth, flipper.Height);
+        Assert.True(flipper.CompletedIntoPlayer);
+        Assert.NotEqual(FlipperState.Pausing, flipper.State);
+    }
+
+    [Fact]
+    public void ClimbingFlipperReachingRimInAnotherLaneStillPauses()
+    {
+        Level level = new();
+        Flipper flipper = new(5, Level.Depth - 1);
+        flipper.Update(level, 6);
+        Assert.False(flipper.CompletedIntoPlayer);
+        Assert.Equal(FlipperState.Pausing, flipper.State);
+    }
+
+    [Fact]
+    public void DirectRimArrivalKillsPlayerOnceAndShotOnFinalTickWinsInstead()
+    {
+        TempestGame game = CreateTankerWave();
+        Flipper flipper = HatchOneOrdinaryTankerWaveFlipper(game);
+        int lives = game.Player.Lives;
+        game.Player.Move(flipper.EdgeIndex - game.Player.EdgeIndex, 16);
+        ForceClimbToJustBelowRim(flipper, game);
+        game.Player.Move(flipper.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep();
+        Assert.Equal(LevelState.PlayerDying, game.State);
+
+        game = CreateTankerWave();
+        flipper = HatchOneOrdinaryTankerWaveFlipper(game);
+        lives = game.Player.Lives;
+        game.Player.Move(flipper.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot shot = Assert.Single(game.Shots);
+        ForceClimbToJustBelowRim(flipper, game);
+        shot.Height = flipper.Height - 5;
+        game.RunOneStep();
+        Assert.DoesNotContain(flipper, game.Flippers);
+        Assert.NotEqual(LevelState.PlayerDying, game.State);
+        Assert.Equal(lives, game.Player.Lives);
+    }
+
+    private static void ForceClimbToJustBelowRim(Flipper flipper, TempestGame game)
+    {
+        for (int tick = 0; flipper.Height < Level.Depth - 2 && tick < 1000; tick++)
+            flipper.Update(game.CurrentLevel, -1);
+    }
+
+    [Fact]
+    public void DirectRimArrivalRunsFullDeathLifecycleAndRestartsUnresolvedEnemiesAsFreshEggs()
+    {
+        TempestGame game = CreateTankerWave();
+        DestroyOriginalFlipperSlot(game, 1);
+        Egg egg = FindOrReleaseOriginalEgg(game, 2)!;
+        MakeReady(egg, game.CurrentLevel);
+        game.RunOneStep();
+        Flipper flipper = Assert.Single(game.Flippers, candidate => candidate.OriginalSlotId == 2);
+        Egg[] oldEggs = game.Eggs.ToArray();
+        Flipper[] oldFlippers = game.Flippers.ToArray();
+        int score = game.Score.Score;
+        int lives = game.Player.Lives;
+        Assert.True(score > 0);
+        Assert.Equal(1, game.TankerOriginalSlotsDestroyed);
+
+        ForceClimbToJustBelowRim(flipper, game);
+        game.Player.Move(flipper.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep();
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Assert.Equal(TempestGame.PlayerDeathTicks, game.DeathTicks);
+        Assert.Equal(lives, game.Player.Lives);
+
+        Step(game, 59);
+        Assert.Equal(1, game.DeathTicks);
+        Assert.Equal(lives, game.Player.Lives);
+        game.RunOneStep();
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(lives - 1, game.Player.Lives);
+
+        Assert.Equal(score, game.Score.Score);
+        Assert.Equal(1, game.TankerOriginalSlotsDestroyed);
+        Assert.Equal(9, game.TankerOriginalSlotsRemaining);
+        Assert.Empty(game.Flippers);
+        Assert.Empty(game.Tankers);
+        Assert.DoesNotContain(game.Eggs, fresh => oldEggs.Contains(fresh));
+        Assert.Equal(game.Eggs.Count, game.Eggs.Select(fresh => fresh.OriginalSlotId).Distinct().Count());
+        Assert.DoesNotContain(game.Eggs, fresh => fresh.OriginalSlotId == 1);
+        Assert.Contains(game.Eggs, fresh => fresh.OriginalSlotId == 0);
+        Assert.All(game.Eggs, fresh =>
+        {
+            Assert.Equal(-10, fresh.Height);
+            Assert.Equal(EggState.Roaming, fresh.State);
+        });
+        Assert.DoesNotContain(oldFlippers, game.Flippers.Contains);
+        Assert.Equal(9, game.Eggs.Count + game.CurrentLevel.ReserveEggs);
+        Assert.Equal(2, game.TankerLatentCargoUnits);
+        AssertTankerAccounting(game);
+    }
+
+    // --- Tanker shot/natural release, cargo ledger, death/restart and rendering regressions ---
+
+    [Theory]
+    [InlineData(7, 385, true)]
+    [InlineData(7, 386, false)]
+    [InlineData(6, 385, false)]
+    public void TankerShotRequiresSameLaneAndStrictShotDepthBelowTanker(int shotLane, float shotHeight, bool expected)
+    {
+        Tanker tanker = CreatePendingTanker(7);
+        Assert.Equal(expected, tanker.IsHitBy(new Shot { EdgeIndex = shotLane, Height = shotHeight }));
+    }
+
+    [Fact]
+    public void TankerPlayerShotScores200AndReleasesExactlyTwoLiveCargoFlippers()
+    {
+        TempestGame game = CreateTankerWave();
+        Tanker tanker = Assert.Single(game.Tankers);
+        game.Player.Move(tanker.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot shot = Assert.Single(game.Shots);
+        shot.Height = tanker.Height + 5;
+        game.RunOneStep();
+
+        Assert.Empty(game.Tankers);
+        Assert.Empty(game.Shots);
+        Assert.Equal(200, game.Score.Score);
+        Assert.Equal(1, game.TankerOriginalSlotsDestroyed);
+        Assert.Equal(0, game.TankerOriginalSlotsEscaped);
+        Assert.Equal(9, game.TankerOriginalSlotsRemaining);
+        Assert.Equal(2, game.TankerCargoUnitsRemaining);
+        Assert.Equal(2, game.TankerMaterializedCargoUnits);
+        Assert.Equal(2, game.ActiveTankerCargoFlippers);
+        Assert.Equal(2, game.Flippers.Count(flipper => flipper.IsTankerCargo));
+        Assert.Equal(0, game.PendingTankerCargoUnits);
+        Assert.Equal(12, game.TankerAccountingTotal);
+        Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
+        Assert.All(game.Flippers.Where(flipper => flipper.IsTankerCargo), flipper =>
+        {
+            Assert.Equal(FlipperState.Flipping, flipper.State);
+            Assert.Equal(tanker.Height, flipper.Height);
+        });
+        Level shotLevel = game.CurrentLevel;
+        Assert.Equal(new[] { shotLevel.PreviousEdge(tanker.EdgeIndex), shotLevel.NextEdge(tanker.EdgeIndex) },
+            game.Flippers.Where(flipper => flipper.IsTankerCargo).Select(flipper => flipper.EdgeIndex));
+        Assert.Equal(new[] { shotLevel.PreviousEdge(shotLevel.PreviousEdge(tanker.EdgeIndex)),
+                shotLevel.NextEdge(shotLevel.NextEdge(tanker.EdgeIndex)) },
+            game.Flippers.Where(flipper => flipper.IsTankerCargo).Select(flipper => flipper.DestinationEdge));
+        Assert.Empty(game.Spikers);
+    }
+
+    [Fact]
+    public void TankerNaturalReleaseEscapesWithoutCarrierScoreAndCreatesTwoCargoFlippers()
+    {
+        TempestGame game = CreateTankerWave();
+        Tanker tanker = Assert.Single(game.Tankers);
+        while (tanker.State == TankerState.Climbing)
+            tanker.UpdateForDevelopment();
+        float releaseHeight = tanker.Height;
+        game.RunOneStep();
+        Assert.Empty(game.Tankers);
+        Assert.Equal(0, game.Score.Score);
+        Assert.Equal(0, game.TankerOriginalSlotsDestroyed);
+        Assert.Equal(1, game.TankerOriginalSlotsEscaped);
+        Assert.Equal(9, game.TankerOriginalSlotsRemaining);
+        Assert.Equal(2, game.TankerCargoUnitsRemaining);
+        Assert.Equal(12, game.TankerAccountingTotal);
+        Assert.Equal(2, game.ActiveTankerCargoFlippers);
+        Assert.Equal(2, game.Flippers.Count(flipper => flipper.IsTankerCargo));
+        Assert.All(game.Flippers.Where(flipper => flipper.IsTankerCargo),
+            flipper => Assert.Equal(releaseHeight, flipper.Height));
+
+        Flipper[] cargo = game.Flippers.Where(flipper => flipper.IsTankerCargo).ToArray();
+        Assert.NotSame(cargo[0], cargo[1]);
+        Assert.NotEqual(cargo[0].CargoUnitId, cargo[1].CargoUnitId);
+        Level level = game.CurrentLevel;
+        int lane = tanker.EdgeIndex;
+        Assert.Equal(new[] { level.PreviousEdge(lane), level.NextEdge(lane) },
+            cargo.Select(child => child.EdgeIndex));
+        Assert.Equal(new[] { level.PreviousEdge(level.PreviousEdge(lane)), level.NextEdge(level.NextEdge(lane)) },
+            cargo.Select(child => child.DestinationEdge));
+        foreach (Flipper child in cargo)
+            for (int tick = 0; child.State == FlipperState.Flipping && tick < 10; tick++)
+                child.Update(level, 0);
+
+        Assert.Equal(2, game.ActiveTankerCargoFlippers);
+        Assert.Equal(new[] { level.PreviousEdge(level.PreviousEdge(lane)), level.NextEdge(level.NextEdge(lane)) },
+            cargo.Select(child => child.EdgeIndex));
+        Assert.NotEqual(cargo[0].EdgeIndex, cargo[1].EdgeIndex);
+        Assert.DoesNotContain(cargo, child => child.EdgeIndex == lane);
+        Assert.True(cargo[0].IsHitBy(new Shot { EdgeIndex = cargo[0].EdgeIndex, Height = cargo[0].Height - 1 }));
+        Assert.True(cargo[1].IsHitBy(new Shot { EdgeIndex = cargo[1].EdgeIndex, Height = cargo[1].Height - 1 }));
+        Assert.False(cargo[0].IsHitBy(new Shot { EdgeIndex = cargo[1].EdgeIndex, Height = cargo[0].Height - 1 }));
+    }
+
+    [Fact]
+    public void TankerHitConsumesShotBeforeCargoCanBeHitByThatShot()
+    {
+        TempestGame game = CreateTankerWave();
+        Assert.Equal(6, game.CurrentLevel.ReserveEggs);
+        Tanker tanker = Assert.Single(game.Tankers);
+        game.Player.Move(tanker.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot shot = Assert.Single(game.Shots);
+        shot.Height = tanker.Height + 5;
+        game.RunOneStep();
+        Assert.Empty(game.Shots);
+        Assert.Equal(200, game.Score.Score);
+        Assert.Equal(2, game.ActiveTankerCargoFlippers);
+        Assert.Equal(0, game.TankerCargoUnitsResolved);
+        Assert.Equal(2, game.Flippers.Count(flipper => flipper.IsTankerCargo));
+        Assert.All(game.Flippers.Where(flipper => flipper.IsTankerCargo),
+            flipper => Assert.Equal(tanker.Height, flipper.Height));
+    }
+
+    [Fact]
+    public void TankerAndCargoCanBothScoreWhenShotThenChildrenAreDestroyed()
+    {
+        TempestGame game = CreateTankerWave();
+        Tanker tanker = Assert.Single(game.Tankers);
+        game.Player.Move(tanker.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot shot = Assert.Single(game.Shots);
+        shot.Height = tanker.Height + 5;
+        game.RunOneStep();
+        Flipper cargo = game.Flippers.First(flipper => flipper.IsTankerCargo);
+        Step(game, 1);
+        game.Player.Move(cargo.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        shot = Assert.Single(game.Shots);
+        shot.Height = cargo.Height - 5;
+        game.RunOneStep();
+        Assert.Equal(350, game.Score.Score);
+        Assert.Equal(1, game.TankerCargoUnitsResolved);
+        Assert.Equal(1, game.TankerCargoUnitsRemaining);
+        Assert.Equal(12, game.TankerAccountingTotal);
+    }
+
+    [Fact]
+    public void TankerDeathBeforeReleaseRestoresOneStableOriginalSlotEggAndLatentCargo()
+    {
+        TempestGame game = CreateTankerWave();
+        Flipper ordinary = HatchOneOrdinaryTankerWaveFlipper(game);
+        ForceFlipperPivotIntoPlayer(game, ordinary);
+        game.RunOneStep();
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Assert.Equal(60, game.DeathTicks);
+        Step(game, 60);
+        Assert.Equal(2, game.Player.Lives);
+        Assert.Empty(game.Tankers);
+        Assert.Contains(game.Eggs, egg => egg.OriginalSlotId == 0);
+        Assert.Equal(2, game.TankerLatentCargoUnits);
+        Assert.Equal(0, game.TankerMaterializedCargoUnits);
+        Assert.Equal(10, game.TankerAccountingTotal);
+        Assert.Equal(6, game.CurrentLevel.ReserveEggs);
+    }
+
+    [Fact]
+    public void DeathWithThreeUnresolvedOriginalSlotsRebuildsOnlyFreshEggEntrants()
+    {
+        TempestGame game = CreateTankerWave(startingLives: 100);
+        Tanker tanker = Assert.Single(game.Tankers);
+        ShootTanker(game, tanker);
+        foreach (Flipper cargo in game.Flippers.Where(flipper => flipper.IsTankerCargo).ToArray())
+            ShootDevelopmentFlipper(game, cargo);
+
+        for (int slotId = 1; slotId <= 6; slotId++)
+            DestroyOriginalFlipperSlot(game, slotId);
+
+        Egg survivingEgg = FindOrReleaseOriginalEgg(game, 7)!;
+        MakeReady(survivingEgg, game.CurrentLevel);
+        game.RunOneStep();
+        Flipper survivor = Assert.Single(game.Flippers, flipper => flipper.OriginalSlotId == 7);
+        Step(game, 15);
+        Assert.InRange(survivor.Height, 2, Level.Depth - 1);
+        Egg[] oldEggs = game.Eggs.ToArray();
+        Flipper[] oldFlippers = game.Flippers.ToArray();
+        int score = game.Score.Score;
+        Assert.Equal(3, game.TankerOriginalSlotsRemaining);
+        Assert.Equal(0, game.TankerCargoUnitsRemaining);
+        Assert.Equal(100, game.Player.Lives);
+
+        ForceFlipperPivotIntoPlayer(game, survivor);
+        game.RunOneStep();
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Step(game, 60);
+
+        Assert.Equal(99, game.Player.Lives);
+        Assert.Equal(score, game.Score.Score);
+        Assert.Empty(game.Tankers);
+        Assert.Empty(game.Flippers);
+        Assert.Equal(3, game.Eggs.Count);
+        Assert.Equal(0, game.CurrentLevel.ReserveEggs);
+        Assert.Equal(new[] { 7, 8, 9 }, game.Eggs.Select(egg => egg.OriginalSlotId).Order());
+        Assert.Equal(7, game.TankerOriginalSlotsDestroyed);
+        Assert.Equal(2, game.TankerCargoUnitsResolved);
+        Assert.All(game.Eggs, egg =>
+        {
+            Assert.DoesNotContain(egg, oldEggs);
+            Assert.DoesNotContain(oldFlippers, flipper => flipper.EdgeIndex == egg.EdgeIndex &&
+                Math.Abs(flipper.Height - egg.Height) < 1);
+            Assert.Equal(-10, egg.Height);
+            Assert.Equal(0, egg.UpdateCounter);
+            Assert.Equal(EggState.Roaming, egg.State);
+        });
+        AssertTankerAccounting(game);
+    }
+
+    [Fact]
+    public void CargoEggIdentitySurvivesASecondDeathBeforeHatching()
+    {
+        TempestGame game = CreateTankerWave(startingLives: 5);
+        Tanker tanker = Assert.Single(game.Tankers);
+        while (tanker.State == TankerState.Climbing)
+            tanker.UpdateForDevelopment();
+        game.RunOneStep();
+        Flipper cargo = game.Flippers.First(flipper => flipper.IsTankerCargo);
+        ShootDevelopmentFlipper(game, cargo);
+        Flipper survivor = game.Flippers.Single(flipper => flipper.IsTankerCargo);
+        ForceFlipperPivotIntoPlayer(game, survivor);
+        game.RunOneStep();
+        Step(game, 60);
+
+        Egg firstLifeCargoEgg = Assert.Single(game.Eggs, egg => egg.CargoUnitId >= 0);
+        int cargoId = firstLifeCargoEgg.CargoUnitId;
+        Assert.Equal(1, game.TankerCargoUnitsResolved);
+        Assert.Equal(1, game.TankerCargoUnitsRemaining);
+        Assert.Equal(1, game.PendingTankerCargoUnits);
+        AssertTankerAccounting(game);
+
+        Flipper ordinary = HatchOneOrdinaryTankerWaveFlipper(game);
+        ForceFlipperPivotIntoPlayer(game, ordinary);
+        game.RunOneStep();
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Step(game, 60);
+
+        Egg secondLifeCargoEgg = Assert.Single(game.Eggs, egg => egg.CargoUnitId >= 0);
+        Assert.NotSame(firstLifeCargoEgg, secondLifeCargoEgg);
+        Assert.Equal(cargoId, secondLifeCargoEgg.CargoUnitId);
+        Assert.Equal(-10, secondLifeCargoEgg.Height);
+        Assert.Equal(EggState.Roaming, secondLifeCargoEgg.State);
+        Assert.Equal(1, game.TankerCargoUnitsResolved);
+        Assert.Equal(1, game.TankerCargoUnitsRemaining);
+        Assert.Equal(1, game.PendingTankerCargoUnits);
+        AssertTankerAccounting(game);
+    }
+
+    [Fact]
+    public void CargoLifeResetRestoresSurvivingCargoWithoutReturningResolvedUnits()
+    {
+        TempestGame game = CreateTankerWave(enemyBulletsTest: true,
+            random: new BulletRandom(2, [3, 2]));
+        Tanker tanker = Assert.Single(game.Tankers);
+        while (tanker.State == TankerState.Climbing)
+            tanker.UpdateForDevelopment();
+        game.RunOneStep();
+        Assert.Equal(0, game.Score.Score);
+        Assert.Equal(1, game.TankerOriginalSlotsEscaped);
+        Assert.Empty(game.Tankers);
+
+        Flipper cargoToDestroy = game.Flippers.First(flipper => flipper.IsTankerCargo);
+        ShootDevelopmentFlipper(game, cargoToDestroy);
+        Assert.Equal(1, game.TankerCargoUnitsResolved);
+        Flipper survivingCargo = Assert.Single(game.Flippers, flipper => flipper.IsTankerCargo);
+        float formerHeight = survivingCargo.Height;
+        int formerLane = survivingCargo.EdgeIndex;
+        ForceFlipperPivotIntoPlayer(game, survivingCargo);
+        game.RunOneStep();
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Step(game, 60);
+        Assert.Equal(2, game.Player.Lives);
+        Assert.Equal(1, game.TankerCargoUnitsResolved);
+        Assert.Equal(1, game.TankerCargoUnitsRemaining);
+        Assert.Empty(game.Flippers);
+        Assert.Equal(0, game.ActiveTankerCargoFlippers);
+        Assert.Equal(1, game.PendingTankerCargoUnits);
+        Egg cargoEgg = Assert.Single(game.Eggs, egg => egg.CargoUnitId >= 0);
+        Assert.Equal(-10, cargoEgg.Height);
+        Assert.Equal(0, cargoEgg.UpdateCounter);
+        Assert.Equal(EggState.Roaming, cargoEgg.State);
+        Assert.NotEqual(formerLane, cargoEgg.EdgeIndex);
+        Assert.NotEqual((int)formerHeight, (int)cargoEgg.Height);
+        Assert.Equal(9, game.TankerOriginalSlotsRemaining);
+        Assert.Equal(12, game.TankerAccountingTotal);
+        Assert.DoesNotContain(game.Eggs, egg => egg.OriginalSlotId == 0);
+        Assert.Empty(game.Tankers);
+        Assert.Equal(150, game.Score.Score);
+
+        MakeReady(cargoEgg, game.CurrentLevel);
+        game.RunOneStep();
+        Flipper freshCargo = Assert.Single(game.Flippers, flipper => flipper.IsTankerCargo);
+        Assert.NotSame(survivingCargo, freshCargo);
+        Assert.Equal(FlipperState.Climbing, freshCargo.State);
+        Assert.Equal(2, freshCargo.Height);
+        Assert.Equal(survivingCargo.CargoUnitId, freshCargo.CargoUnitId);
+        Assert.InRange(freshCargo.BulletAmmunition, 1, 3);
+        Assert.Equal(15, freshCargo.BulletTimer);
+        Assert.NotEqual((int)formerHeight, (int)freshCargo.Height);
+        AssertTankerAccounting(game);
+    }
+
+    [Fact]
+    public void TankerDevelopmentOriginalEggAndCargoAccountingRemainCoherent()
+    {
+        TempestGame game = CreateTankerWave();
+        AssertTankerAccounting(game);
+        Tanker tanker = Assert.Single(game.Tankers);
+        game.Player.Move(tanker.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot shot = Assert.Single(game.Shots);
+        shot.Height = tanker.Height + 5;
+        game.RunOneStep();
+        AssertTankerAccounting(game);
+        Assert.False(game.LevelComplete);
+        Assert.Equal(2, game.TankerCargoUnitsRemaining);
+    }
+
+    [Fact]
+    public void CompleteTankerScenarioResolvesDynamicOriginalAndCargoLedgerThenReplays()
+    {
+        TempestGame game = new(startingLives: 100, tankerTest: true);
+        int previousResolvedCargo = 0;
+        for (int tick = 0; tick < 30000 && !game.LevelComplete && !game.GameOver; tick++)
+        {
+            Enemy? target = game.Tankers.Cast<Enemy>()
+                .Concat(game.Flippers)
+                .OrderByDescending(enemy => enemy.Height)
+                .FirstOrDefault();
+            if (target is not null)
+                game.Player.Move(target.EdgeIndex - game.Player.EdgeIndex, 16);
+
+            game.RunOneStep(new PlayerInput(true, 0, false, false));
+            AssertTankerAccounting(game);
+            Assert.True(game.TankerCargoUnitsResolved >= previousResolvedCargo);
+            previousResolvedCargo = game.TankerCargoUnitsResolved;
+        }
+
+        Assert.True(game.LevelComplete,
+            $"state={game.State}, lives={game.Player.Lives}, original={game.TankerOriginalSlotsRemaining}, " +
+            $"cargo={game.TankerCargoUnitsRemaining}, activeTankers={game.Tankers.Count}, " +
+            $"activeFlippers={game.Flippers.Count}, eggs={game.Eggs.Count}, reserve={game.CurrentLevel.ReserveEggs}");
+        Assert.Equal(10, game.TankerOriginalSlotsResolved);
+        Assert.Equal(10, game.TankerOriginalSlotsDestroyed + game.TankerOriginalSlotsEscaped);
+        Assert.Equal(2, game.TankerCargoUnitsResolved);
+        Assert.Equal(0, game.TankerCargoUnitsRemaining);
+        Assert.Equal(0, game.CurrentLevel.ReserveEggs);
+        Assert.Empty(game.Eggs);
+        Assert.Empty(game.Flippers);
+        Assert.Empty(game.Tankers);
+
+        int score = game.Score.Score;
+        int lives = game.Player.Lives;
+        game.RunOneStep(restartPressed: true);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(score, game.Score.Score);
+        Assert.Equal(lives, game.Player.Lives);
+        Assert.Equal(10, game.TankerOriginalSlotsRemaining);
+        Assert.Equal(2, game.TankerLatentCargoUnits);
+        Assert.Equal(0, game.TankerMaterializedCargoUnits);
+        Assert.Equal(4, game.Eggs.Count);
+        Assert.Equal(6, game.CurrentLevel.ReserveEggs);
+        AssertTankerAccounting(game);
+    }
+
+    [Fact]
+    public void TankerScenarioGameOverRestartRestoresInitialLedger()
+    {
+        TempestGame game = CreateTankerWave(startingLives: 1);
+        Flipper ordinary = HatchOneOrdinaryTankerWaveFlipper(game);
+        ForceFlipperPivotIntoPlayer(game, ordinary);
+        game.RunOneStep();
+        Step(game, 60);
+        Assert.True(game.GameOver);
+        game.RunOneStep(restartPressed: true);
+        Assert.False(game.GameOver);
+        Assert.Equal(10, game.TankerOriginalSlotsRemaining);
+        Assert.Equal(0, game.TankerOriginalSlotsDestroyed);
+        Assert.Equal(0, game.TankerOriginalSlotsEscaped);
+        Assert.Equal(2, game.TankerLatentCargoUnits);
+        Assert.Equal(4, game.Eggs.Count);
+        Assert.Equal(6, game.CurrentLevel.ReserveEggs);
+        Assert.Equal(10, game.TankerAccountingTotal);
+        Assert.Equal(1, game.Player.Lives);
+    }
+
+    [Fact]
+    public void TankerProjectionDrawsStableFiniteMagentaGlyphAndCargoUsesFlipperRendering()
+    {
+        TempestGame game = CreateTankerWave();
+        Tanker tanker = Assert.Single(game.Tankers);
+        VectorRenderer renderer = new(game);
+        Vector2 expected = ProjectTanker(game, tanker);
+        Assert.Equal(expected, renderer.ProjectTankerCenter(tanker));
+        List<(Vector2 Start, Vector2 End)> first = [];
+        List<(Vector2 Start, Vector2 End)> second = [];
+        renderer.DrawTankers((start, end) => first.Add((start, end)));
+        renderer.DrawTankers((start, end) => second.Add((start, end)));
+        Assert.Equal(16, first.Count);
+        Assert.Equal(first, second);
+        foreach ((Vector2 start, Vector2 end) in first)
+        {
+            Assert.True(float.IsFinite(start.X) && float.IsFinite(start.Y));
+            Assert.True(float.IsFinite(end.X) && float.IsFinite(end.Y));
+        }
+
+        TankerCargoSpawn[] cargo = tanker.ReleaseFlipperCargo(game.CurrentLevel, 1, TankerReleaseKind.Natural).Cargo.ToArray();
+        Flipper released = Flipper.CreateTankerCargo(game.CurrentLevel, cargo[0], 0);
+        Assert.Equal(FlipperState.Flipping, released.State);
+    }
+
+    [Fact]
+    public void TankerScenarioFlagsAreIndependentAndMutuallyExclusiveWithSpikerMode()
+    {
+        string[] tankerArgs = ["--tanker-test", "--lives", "10"];
+        Assert.True(Tempest.Game.Debug.DebugController.UseTankerTest(tankerArgs));
+        Assert.False(Tempest.Game.Debug.DebugController.HasConflictingScenarios(tankerArgs));
+        Assert.Equal(10, Tempest.Game.Debug.DebugController.GetStartingLives(tankerArgs));
+        Assert.True(Tempest.Game.Debug.DebugController.UseEnemyBulletsTest(
+            ["--tanker-test", "--enemy-bullets-test"]));
+        Assert.True(Tempest.Game.Debug.DebugController.HasConflictingScenarios(
+            ["--tanker-test", "--spiker-test"]));
+        Assert.Throws<ArgumentException>(() => new TempestGame(true, tankerTest: true));
+
+        TempestGame normal = new();
+        Assert.False(normal.TankerTest);
+        Assert.False(normal.CurrentLevel.TankerDevelopmentWave);
+        Assert.Empty(normal.Tankers);
+        Assert.Empty(normal.CurrentLevel.Spikes);
+        TempestGame spiker = new(true, new SpikerRandom());
+        Assert.False(spiker.TankerTest);
+        Assert.True(spiker.CurrentLevel.SpikerDevelopmentWave);
+        TempestGame tanker = new(startingLives: 10, tankerTest: true);
+        Assert.True(tanker.TankerTest);
+        Assert.False(tanker.CurrentLevel.SpikerDevelopmentWave);
+        Assert.Equal(10, tanker.Player.Lives);
+        Assert.Equal(4, tanker.Eggs.Count);
+        Assert.Equal(6, tanker.CurrentLevel.ReserveEggs);
+        Assert.Empty(tanker.Tankers);
+        Assert.Equal(10, tanker.TankerOriginalSlotsRemaining);
+    }
+
+    [Fact]
+    public void TankerStartsAtHeightTenOnStableOriginalEggLaneAndCarriesTwoLatentFlippers()
+    {
+        TempestGame game = CreateTankerWave();
+        Tanker tanker = Assert.Single(game.Tankers);
+        Assert.Equal(0, tanker.OriginalSlotId);
+        Assert.InRange(tanker.EdgeIndex, 0, 15);
+        Assert.InRange(tanker.Height, 11.84f, 11.86f);
+        Assert.Equal(TankerState.Climbing, tanker.State);
+        Assert.Equal(2, tanker.LatentCargoCount);
+        Assert.Empty(game.Spikers);
+        Assert.Equal(10, game.TankerAccountingTotal);
+        Assert.Equal(10, game.TankerOriginalSlotsRemaining);
+        Assert.Equal(1, game.ActiveTankerOriginalEnemies);
+        Assert.Equal(2, game.TankerCargoUnitsRemaining);
+        Assert.Equal(0, game.TankerOriginalSlotsDestroyed);
+        Assert.Equal(0, game.TankerOriginalSlotsEscaped);
+        Assert.False(tanker.HitsPlayer(game.Player));
+    }
+
+    [Fact]
+    public void TankerMovesAtFixedSpeedOnItsLaneAndDoesNotReleaseAt385()
+    {
+        Tanker tanker = new(4, 0, climbSpeed: 1);
+        Assert.Equal(10, tanker.Height);
+        Assert.Equal(TankerState.Climbing, tanker.State);
+        for (int tick = 0; tick < 375; tick++)
+            Assert.Equal(TankerUpdateResult.Active, tanker.UpdateForDevelopment());
+        Assert.Equal(385, tanker.Height);
+        Assert.Equal(TankerState.Climbing, tanker.State);
+        Assert.Equal(TankerUpdateResult.NaturalCargoRelease, tanker.UpdateForDevelopment());
+        Assert.Equal(386, tanker.Height);
+        Assert.Equal(TankerState.CargoReleasePending, tanker.State);
+        Assert.Equal(4, tanker.EdgeIndex);
+    }
+
+    [Fact]
+    public void TankerUsesDevelopmentSpeedApproximationAndCannotDirectlyHitPlayer()
+    {
+        Tanker tanker = new(7, 0);
+        Assert.Equal(1.85f, tanker.ClimbSpeed, 5);
+        Assert.False(tanker.HitsPlayer(new Player()));
+        Assert.Equal(TankerUpdateResult.Active, tanker.UpdateForDevelopment());
+        Assert.InRange(tanker.Height, 11.849f, 11.851f);
+        Assert.Equal(7, tanker.EdgeIndex);
+    }
+
+
+    [Fact]
+    public void TankerRendererUsesFiniteMagentaGlyphAtProjectedLaneDepth()
+    {
+        TempestGame game = CreateTankerWave();
+        Tanker tanker = Assert.Single(game.Tankers);
+        VectorRenderer renderer = new(game);
+        Vector2 expected = Projection.Project(
+            (game.CurrentLevel.Definition.Points[tanker.EdgeIndex].X +
+             game.CurrentLevel.Definition.Points[(tanker.EdgeIndex + 1) % 16].X) / 2,
+            (game.CurrentLevel.Definition.Points[tanker.EdgeIndex].Y +
+             game.CurrentLevel.Definition.Points[(tanker.EdgeIndex + 1) % 16].Y) / 2,
+            Level.Position + Level.Depth - tanker.Height, 400, -80);
+        Assert.Equal(expected, renderer.ProjectTankerCenter(tanker));
+        List<(Vector2 Start, Vector2 End)> lines = [];
+        renderer.DrawTankers((start, end) => lines.Add((start, end)));
+        Assert.Equal(16, lines.Count);
+        Assert.All(lines, line =>
+        {
+            Assert.True(float.IsFinite(line.Start.X) && float.IsFinite(line.Start.Y));
+            Assert.True(float.IsFinite(line.End.X) && float.IsFinite(line.End.Y));
+        });
+    }
+
+    // --- Enemy-bullet development scenario (--enemy-bullets-test) ---
+
     [Fact]
     public void EnemyBulletFlagIsIndependentAndNormalAndSpikerLaunchesDoNotFire()
     {
@@ -215,9 +1018,11 @@ public sealed class SimulationTests
         Assert.Equal(3, game.Player.Lives);
         game.RunOneStep();
         Assert.Equal(2, game.Player.Lives);
+
         Assert.Equal(125, game.Score.Score);
         Assert.Empty(game.EnemyBullets);
         Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
+
         Assert.Equal(4, game.Eggs.Count);
         Assert.Equal(6, game.CurrentLevel.ReserveEggs);
         AssertSpikerAccounting(game);
@@ -228,6 +1033,7 @@ public sealed class SimulationTests
     {
         TempestGame game = PrepareBulletGame(1, 76);
         Flipper flipper = Assert.Single(game.Flippers);
+
         EnemyBullet bullet = Assert.Single(game.EnemyBullets);
         game.Player.Move(flipper.EdgeIndex - game.Player.EdgeIndex, 16);
         game.RunOneStep(new PlayerInput(true, 0, false, false));
@@ -241,10 +1047,12 @@ public sealed class SimulationTests
         game.RunOneStep();
         Assert.Equal(LevelState.ExitDelay, game.State);
         Assert.Empty(game.EnemyBullets);
+
         Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed);
     }
 
     [Fact]
+
     public void BulletDevelopmentDoesNotChangeNormalOrSpikerFlipperAmmunition()
     {
         TempestGame normal = new();
@@ -268,6 +1076,7 @@ public sealed class SimulationTests
         VectorRenderer renderer = new(game);
         EnemyBullet bullet = Assert.Single(game.EnemyBullets);
         List<(Vector2 Start, Vector2 End)> lines = [];
+
         renderer.DrawEnemyBullets((start, end) => lines.Add((start, end)));
         Assert.Equal(8, lines.Count);
         foreach ((Vector2 start, Vector2 end) in lines)
@@ -283,6 +1092,8 @@ public sealed class SimulationTests
         Assert.InRange(renderer.ProjectEnemyBullet(bullet).X, 0, 800);
         Assert.InRange(renderer.ProjectEnemyBullet(bullet).Y, 0, 600);
     }
+
+    // --- Configurable starting lives (--lives) ---
 
     [Fact]
     public void StartingLivesDefaultRemainsThree()
@@ -356,10 +1167,13 @@ public sealed class SimulationTests
         game.Score.Add(125);
         Step(game, 63);
         Assert.False(game.GameOver);
+
         Assert.Equal(9, game.Player.Lives);
         Assert.Equal(125, game.Score.Score);
         Assert.Equal(LevelState.Playing, game.State);
     }
+
+    // --- Spiker/spike development scenario (--spiker-test) and spike-exit regressions ---
 
     [Fact]
     public void FullDevelopmentWaveCanBeDefeatedAndExitedWithEnemyAccountingIntact()
@@ -368,6 +1182,7 @@ public sealed class SimulationTests
         TempestGame game = new(true, random);
         bool sawSpiker = false;
         bool sawFlipper = false;
+
         for (int tick = 0; tick < 12000 && !game.GameOver && !game.LevelComplete; tick++)
         {
             sawSpiker |= game.Spikers.Count > 0;
@@ -702,9 +1517,6 @@ public sealed class SimulationTests
             Step(game, 151 + 21 + 10);
         float depth = game.Player.Depth;
         int lane = game.Player.EdgeIndex;
-        game.RunOneStep(new PlayerInput(true, 80, false, false), restartPressed: true);
-        Assert.Equal(lane + 1, game.Player.EdgeIndex);
-        Assert.Equal(zoom ? depth - 3 : depth, Assert.Single(game.Shots).Height);
         Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed);
         Assert.True(game.SpikeExitControlsEnabled);
     }
@@ -730,6 +1542,7 @@ public sealed class SimulationTests
         Assert.Equal(LevelState.AvoidSpikes, game.State);
         Assert.Equal(400, game.Player.Depth);
         Assert.Contains(spike, game.Spikes);
+        Assert.Equal(0, game.CurrentLevel.ReserveEggs);
         Assert.Equal(397, spike.Height);
         Assert.Equal(70, Projection.K);
         Assert.Equal(5, Projection.ZOffset);
@@ -819,8 +1632,124 @@ public sealed class SimulationTests
         }
     }
 
+    // --- Shared helpers and deterministic Random test doubles ---
+
     private static void AssertFinite(Vector2 point) =>
         Assert.True(float.IsFinite(point.X) && float.IsFinite(point.Y));
+
+    private static TempestGame CreateTankerWave(
+        int startingLives = 3, bool enemyBulletsTest = false, Random? random = null)
+    {
+        TempestGame game = new(startingLives: startingLives, random: random,
+            enemyBulletsTest: enemyBulletsTest, tankerTest: true);
+        Egg tankerEgg = Assert.Single(game.Eggs, egg => egg.OriginalSlotId == 0);
+        MakeReady(tankerEgg, game.CurrentLevel);
+        game.RunOneStep();
+        Assert.Single(game.Tankers);
+        return game;
+    }
+
+    private static Tanker CreatePendingTanker(int lane)
+    {
+        Tanker tanker = new(lane, 0, climbSpeed: 1);
+        while (tanker.State == TankerState.Climbing)
+            tanker.UpdateForDevelopment();
+        Assert.Equal(386, tanker.Height);
+        return tanker;
+    }
+
+    private static Egg? FindOrReleaseOriginalEgg(TempestGame game, int slotId)
+    {
+        for (int tick = 0; tick < 5000; tick++)
+        {
+            Egg? egg = game.Eggs.FirstOrDefault(candidate => candidate.OriginalSlotId == slotId);
+            if (egg is not null)
+                return egg;
+            game.RunOneStep();
+        }
+        return null;
+    }
+
+    private static void DestroyOriginalFlipperSlot(TempestGame game, int slotId)
+    {
+        int remainingBefore = game.TankerOriginalSlotsRemaining;
+        for (int attempt = 0; attempt < 4 && game.TankerOriginalSlotsRemaining == remainingBefore; attempt++)
+        {
+            Flipper? flipper = game.Flippers.FirstOrDefault(candidate => candidate.OriginalSlotId == slotId);
+            if (flipper is null)
+            {
+                Egg? egg = FindOrReleaseOriginalEgg(game, slotId);
+                Assert.NotNull(egg);
+                MakeReady(egg!, game.CurrentLevel);
+                game.RunOneStep();
+                flipper = game.Flippers.FirstOrDefault(candidate => candidate.OriginalSlotId == slotId);
+            }
+            if (flipper is not null)
+                ShootDevelopmentFlipper(game, flipper);
+        }
+        Assert.Equal(remainingBefore - 1, game.TankerOriginalSlotsRemaining);
+    }
+
+    private static void ShootTanker(TempestGame game, Tanker tanker)
+    {
+        game.Player.Move(tanker.EdgeIndex - game.Player.EdgeIndex, 16);
+        for (int tick = 0; tick < 6 && game.Shots.Count == 0; tick++)
+            game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot shot = Assert.Single(game.Shots);
+        shot.Height = tanker.Height + 5;
+        game.RunOneStep();
+        Assert.DoesNotContain(tanker, game.Tankers);
+    }
+
+    private static Flipper HatchOneOrdinaryTankerWaveFlipper(TempestGame game)
+    {
+        Egg egg = Assert.Single(game.Eggs, candidate => candidate.OriginalSlotId == 1);
+        MakeReady(egg, game.CurrentLevel);
+        game.RunOneStep();
+        return Assert.Single(game.Flippers, flipper => !flipper.IsTankerCargo);
+    }
+
+    private static void ForceFlipperPivotIntoPlayer(TempestGame game, Flipper flipper)
+    {
+        int ticks = 0;
+        while (!flipper.CompletedIntoPlayer && ticks++ < 2000)
+        {
+            if (flipper.State == FlipperState.Flipping)
+                game.Player.Move(flipper.DestinationEdge - game.Player.EdgeIndex, 16);
+            flipper.Update(game.CurrentLevel, game.Player.EdgeIndex);
+        }
+        Assert.True(flipper.CompletedIntoPlayer);
+    }
+
+    private static void ShootDevelopmentFlipper(TempestGame game, Flipper flipper)
+    {
+        game.Player.Move(flipper.EdgeIndex - game.Player.EdgeIndex, 16);
+        for (int tick = 0; tick < 6 && game.Shots.Count == 0; tick++)
+            game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot shot = Assert.Single(game.Shots);
+        shot.Height = flipper.Height + 5;
+        game.RunOneStep();
+        Assert.DoesNotContain(flipper, game.Flippers);
+    }
+
+    private static void AssertTankerAccounting(TempestGame game)
+    {
+        Assert.Equal(Level.EnemyTotal, game.TankerOriginalSlotsDestroyed + game.TankerOriginalSlotsEscaped +
+            game.TankerOriginalSlotsRemaining);
+        Assert.Equal(Level.EnemyTotal + game.TankerMaterializedCargoUnits, game.TankerAccountingTotal);
+        Assert.Equal(game.TankerCargoUnitsResolved + game.TankerCargoUnitsRemaining,
+            game.TankerMaterializedCargoUnits + game.TankerLatentCargoUnits);
+        Assert.InRange(game.CurrentLevel.ReserveEggs, 0, Level.EnemyTotal);
+        Assert.InRange(game.TankerOriginalSlotsRemaining, 0, Level.EnemyTotal);
+        Assert.InRange(game.TankerCargoUnitsRemaining, 0, 2);
+    }
+
+    private static Vector2 ProjectTanker(TempestGame game, Tanker tanker)
+    {
+        IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
+        Vector2 center = (points[tanker.EdgeIndex] + points[(tanker.EdgeIndex + 1) % points.Count]) / 2;
+        return Projection.Project(center.X, center.Y, Level.Position + Level.Depth - tanker.Height, 400, -80);
+    }
 
     private static TempestGame PrepareBulletGame(int ammunition, params int[] firingDecisions)
     {
@@ -884,6 +1813,8 @@ public sealed class SimulationTests
             return Math.Clamp(values.Dequeue(), minValue, maxValue - 1);
         }
     }
+
+    // --- Normal Level 1 exit/zoom, projection and production rendering regressions ---
 
     [Fact]
     public void NormalPlayUsesEstablishedProjectionAndNearRimDepth()
@@ -1048,9 +1979,9 @@ public sealed class SimulationTests
     public void UndestroyedFinalFlipperStillKillsPlayerAtCompletedPivot()
     {
         TempestGame game = PrepareFinalEnemy();
-        Step(game, 199);
+        Step(game, 190);
         game.Player.Move(-1, 16);
-        Step(game, 24 + 3);
+        Step(game, 9 + 24 + 3);
         Assert.Equal(LevelState.PlayerDying, game.State);
         Assert.Equal(60, game.DeathTicks);
         Assert.Equal(9, game.CurrentLevel.EnemiesDestroyed);
@@ -1068,9 +1999,9 @@ public sealed class SimulationTests
     public void FinalPivotTickKillStartsExitInsteadOfKillingPlayer()
     {
         TempestGame game = PrepareFinalEnemy();
-        Step(game, 199);
+        Step(game, 190);
         game.Player.Move(-1, 16);
-        Step(game, 24);
+        Step(game, 9 + 24);
         Flipper flipper = Assert.Single(game.Flippers);
         Assert.Equal(FlipperState.Flipping, flipper.State);
         Assert.Equal(game.Player.EdgeIndex, flipper.DestinationEdge);
@@ -1231,6 +2162,8 @@ public sealed class SimulationTests
         Assert.Equal(2, flipper.Height);
     }
 
+    // --- Player movement, input and player-shot basics ---
+
     [Fact]
     public void PlayerPreservesExactBoundaryAndWrapsBothDirections()
     {
@@ -1293,6 +2226,8 @@ public sealed class SimulationTests
         game.RunOneStep();
         Assert.Empty(game.Shots);
     }
+
+    // --- Normal Level 1 spawn sequence, collision, death and replay regressions ---
 
     [Fact]
     public void SpawnSequenceAndIntervalAreDeterministic()
@@ -1541,6 +2476,8 @@ public sealed class SimulationTests
     {
         Assert.Equal(expected, new Level().FindShortestDirection(source, target));
     }
+
+    // --- Egg lifecycle and normal ten-unit accounting regressions ---
 
     [Fact]
     public void NewEggStartsRoamingBehindTheWeb()

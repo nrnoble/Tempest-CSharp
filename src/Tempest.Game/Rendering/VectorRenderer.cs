@@ -5,16 +5,33 @@ using Tempest.Game.Levels;
 
 namespace Tempest.Game.Rendering;
 
+/// <summary>
+/// Draws the simulation as Atari-style vector line art via Raylib. Depth convention: gameplay
+/// Height runs from 0 (far end of the tube) up to Level.Depth (near rim), so every entity converts
+/// to projection depth as Level.Position + Level.Depth - Height; smaller projected depth is closer
+/// to the camera and therefore draws larger, which gives approach scaling without per-entity size
+/// tables. Glyph shapes/scales are Incitti-derived and await manual arcade comparison.
+/// Most Draw*/Project* members take line/point callbacks or are public so headless tests can
+/// capture the exact submitted geometry. Those tests can prove submissions are finite and placed
+/// at the expected lanes/depths, but not native framebuffer output or arcade visual fidelity.
+/// </summary>
 public sealed class VectorRenderer
 {
 	public const int ScreenWidth = 800;
 	public const int ScreenHeight = 600;
 	public const int EggPointSize = 3;
 	private static readonly Color SpikerColor = new(0, 255, 0, 255);
+	private static readonly Color TankerColor = new(255, 0, 255, 255);
 
 	private readonly TempestGame game;
 	public IReadOnlyList<Egg> Eggs => game.Eggs;
+	// During normal play Player.Depth == Level.Depth, so this is Level.Position (the near rim).
+	// During exit travel Player.Depth shrinks toward 0, moving the projected player down the tube.
 	public float PlayerProjectedDepth => Level.Position + Level.Depth - game.Player.Depth;
+	// Claw height is a fixed 20 px at the rim; once exit travel changes the player's depth it is
+	// rescaled by the same projection ratio so the claw shrinks consistently with the tube. The
+	// (Level.Position + 5) / 70 factor re-derives the rim-sized claw from the normal-play
+	// projection constants (ZOffset 5, K 70) so the two branches agree at the start of travel.
 	public float PlayerClawHeight => game.Player.Depth == Level.Depth
 		? 20
 		: 20 * ((Level.Position + 5) / 70) / ((PlayerProjectedDepth + Projection.ZOffset) / Projection.K);
@@ -30,6 +47,9 @@ public sealed class VectorRenderer
 		Raylib.ClearBackground(Color.Black);
 
 		DrawTube(game.CurrentLevel.Definition.Points);
+		// Spikes stay visible (and lethal) during exit travel; all other enemies are hidden once
+		// the exit starts. Player shots remain visible only in the spike-exit scenario, where the
+		// player may still fire while travelling.
 		DrawSpikes((start, end) => Raylib.DrawLineV(start, end, SpikerColor),
 			point => Raylib.DrawPixelV(point, Color.White));
 		if (!game.IsExiting)
@@ -38,6 +58,7 @@ public sealed class VectorRenderer
 			DrawPlayerShots(game.CurrentLevel.Definition.Points);
 			DrawFlippers(game.CurrentLevel.Definition.Points);
 			DrawSpikers((start, end) => Raylib.DrawLineV(start, end, SpikerColor));
+			DrawTankers((start, end) => Raylib.DrawLineV(start, end, TankerColor));
 			if (game.EnemyBulletsTest)
 				DrawEnemyBullets((start, end) => Raylib.DrawLineV(start, end, Color.White));
 		}
@@ -60,12 +81,55 @@ public sealed class VectorRenderer
 
 	private static int NextEdge(int edge, int edgeCount) => (edge + 1) % edgeCount;
 
+	public Vector2 ProjectTankerCenter(Tanker tanker) =>
+		ProjectLane(tanker.EdgeIndex, Level.Position + Level.Depth - tanker.Height);
+
+	// Tanker: magenta diamond-with-lattice line glyph (Incitti-derived) at the lane midpoint.
+	// Scale uses a 26-unit base plus a 1 px floor so the glyph never collapses at the far end.
+	public void DrawTankers(Action<Vector2, Vector2> drawLine)
+	{
+		foreach (Tanker tanker in game.Tankers)
+		{
+			Vector2 center = ProjectTankerCenter(tanker);
+			float depth = Level.Position + Level.Depth - tanker.Height;
+			float scale = 26 / ((depth + Projection.ZOffset) / Projection.K) + 1;
+			float third = scale / 3;
+			Vector2 top = center + new Vector2(0, -scale);
+			Vector2 bottom = center + new Vector2(0, scale);
+			Vector2 left = center + new Vector2(-scale, 0);
+			Vector2 right = center + new Vector2(scale, 0);
+			Vector2 topThird = center + new Vector2(0, -third);
+			Vector2 bottomThird = center + new Vector2(0, third);
+			Vector2 leftThird = center + new Vector2(-third, 0);
+			Vector2 rightThird = center + new Vector2(third, 0);
+
+			drawLine(topThird, left);
+			drawLine(top, rightThird);
+			drawLine(bottom, leftThird);
+			drawLine(bottomThird, right);
+			drawLine(bottom, right);
+			drawLine(bottom, left);
+			drawLine(top, right);
+			drawLine(top, left);
+			drawLine(bottomThird, rightThird);
+			drawLine(bottomThird, leftThird);
+			drawLine(topThird, rightThird);
+			drawLine(topThird, leftThird);
+			drawLine(bottomThird, center);
+			drawLine(topThird, center);
+			drawLine(rightThird, center + new Vector2(scale, 0));
+			drawLine(leftThird, center + new Vector2(-scale, 0));
+		}
+	}
+
 	public Vector2 ProjectEnemyBullet(EnemyBullet bullet)
 	{
 		Vector2 center = ProjectLane(bullet.EdgeIndex, Level.Position + Level.Depth - bullet.Height);
 		return center;
 	}
 
+	// Enemy bullet: 8 radial white lines (45° apart) around the lane midpoint, spinning with the
+	// bullet's own Rotation. Uses a 6-unit base size; compare DrawPlayerShots, which uses 4.
 	public void DrawEnemyBullets(Action<Vector2, Vector2> drawLine)
 	{
 		foreach (EnemyBullet bullet in game.EnemyBullets)
@@ -82,6 +146,8 @@ public sealed class VectorRenderer
 		}
 	}
 
+	// Projects the midpoint of a lane (the segment between adjacent rim points) at a given depth.
+	// Shared by every entity that renders centered on a lane rather than on a tube edge line.
 	private Vector2 ProjectLane(int lane, float depth)
 	{
 		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
@@ -90,6 +156,8 @@ public sealed class VectorRenderer
 			game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
 	}
 
+	// Spike: green line anchored at the far web growing toward the rim, with a single white pixel
+	// marking the live tip the player can shoot.
 	public void DrawSpikes(Action<Vector2, Vector2> drawLine, Action<Vector2> drawTip)
 	{
 		foreach (Spike spike in game.Spikes)
@@ -101,6 +169,10 @@ public sealed class VectorRenderer
 		}
 	}
 
+	// Spiker: green spiral approximated by 14 chord segments, 60° apart, with radius growing
+	// outward per segment (segment indexes run 0..-13 so the spiral winds inward to the center).
+	// Rotation advances 45° per simulation update in the gameplay code; the renderer only reads it.
+	// Scale uses a 22-unit base plus a 2 px floor (Incitti-derived constants).
 	public void DrawSpikers(Action<Vector2, Vector2> drawLine)
 	{
 		foreach (Spiker spiker in game.Spikers)
@@ -120,6 +192,9 @@ public sealed class VectorRenderer
 		}
 	}
 
+	// Egg heights are negative while roaming (0 means ready to hatch at the web), so the ×20
+	// amplification pushes the projected depth beyond Level.Depth: Eggs visibly bob behind and
+	// deeper than the far web until they approach and hatch.
 	public Vector2 ProjectEgg(Egg egg)
 	{
 		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
@@ -170,6 +245,9 @@ public sealed class VectorRenderer
 		}
 	}
 
+	// Player shot: white rotating 8-radial star like EnemyBullet, but with a smaller 4-unit base
+	// size. Shot.Height decreases as it travels away from the player, so projected depth grows and
+	// the star naturally shrinks into the tube.
 	private void DrawPlayerShots(IReadOnlyList<Vector2> points)
 	{
 		foreach (Shot shot in game.Shots)
@@ -206,6 +284,9 @@ public sealed class VectorRenderer
 
 	private void DrawFlipper(IReadOnlyList<Vector2> points, Flipper flipper)
 	{
+		// While flipping, the glyph is anchored to the source lane and ApplyFlipperPivot swings
+		// one endpoint toward the destination. Drawing at EdgeIndex instead would make the Flipper
+		// jump lanes the instant the simulation retargets it, losing the signature hinge motion.
 		int edge = flipper.State == FlipperState.Flipping
 			? flipper.SourceEdge
 			: flipper.EdgeIndex;
@@ -223,6 +304,9 @@ public sealed class VectorRenderer
 		DrawFlipperShape(p1, p2, projectedDepth);
 	}
 
+	// Rotates the trailing endpoint of the source lane about the leading endpoint by the pivot
+	// progress so far. TurnAngle grows each update toward TotalTurnAngle; interpolating between
+	// the lanes (rather than snapping) is what makes the Flipper appear to cartwheel edge-to-edge.
 	private void ApplyFlipperPivot(Flipper flipper, ref Vector2 p1, ref Vector2 p2)
 	{
 		float angle = MathF.Min(flipper.TurnAngle, flipper.TotalTurnAngle);
@@ -243,6 +327,8 @@ public sealed class VectorRenderer
 			translated.X * sin + translated.Y * cos);
 	}
 
+	// Flipper body: six red lines forming the bow-tie glyph between the two projected lane
+	// endpoints. Fractions along the edge and the normal-based height are Incitti-derived.
 	private void DrawFlipperShape(Vector2 p1, Vector2 p2, float projectedDepth)
 	{
 		float dx = p2.X - p1.X;
@@ -299,6 +385,8 @@ public sealed class VectorRenderer
 		Raylib.DrawLineV(outer2, right2, Color.Yellow);
 	}
 
+	// Public (rather than private like the other player helpers) so headless tests can verify the
+	// player's projected edge during normal play and exit travel without a graphics window.
 	public void GetPlayerEdge(IReadOnlyList<Vector2> points, out Vector2 p1, out Vector2 p2)
 	{
 		int next = NextEdge(game.Player.EdgeIndex, points.Count);
@@ -310,6 +398,8 @@ public sealed class VectorRenderer
 			PlayerProjectedDepth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
 	}
 
+	// Death burst: 8 asymmetric radials (short inner tail, long outer ray) expanding over the
+	// fixed 60-tick death freeze.
 	private void DrawPlayerExplosion(IReadOnlyList<Vector2> points)
 	{
 		GetPlayerEdge(points, out Vector2 p1, out Vector2 p2);
@@ -331,10 +421,19 @@ public sealed class VectorRenderer
 	{
 		Raylib.DrawText(game.Score.Score.ToString(), 10, 10, 28, Color.Yellow);
 		Raylib.DrawText($"LIVES {game.Player.Lives}", 10, 44, 20, Color.Yellow);
-		int remaining = Level.EnemyTotal - game.CurrentLevel.EnemiesDestroyed;
-		string enemyLabel = game.CurrentLevel.SpikerDevelopmentWave ? "ENEMIES" : "FLIPPERS";
-		Raylib.DrawText($"{enemyLabel} {remaining}", 10, 72, 18, Color.Red);
-		Raylib.DrawText($"ACTIVE {game.Eggs.Count + game.Flippers.Count + game.Spikers.Count}", 10, 96, 18, Color.Gray);
+		if (game.TankerTest)
+		{
+			Raylib.DrawText($"ORIGINAL {game.TankerOriginalSlotsRemaining}", 10, 72, 18, Color.Red);
+			Raylib.DrawText($"CARGO {game.TankerCargoUnitsRemaining}", 10, 96, 18, TankerColor);
+			Raylib.DrawText($"ACTIVE {game.TankerActiveTotal}", 10, 120, 18, Color.Gray);
+		}
+		else
+		{
+			int remaining = Level.EnemyTotal - game.CurrentLevel.EnemiesDestroyed;
+			string enemyLabel = game.CurrentLevel.SpikerDevelopmentWave ? "ENEMIES" : "FLIPPERS";
+			Raylib.DrawText($"{enemyLabel} {remaining}", 10, 72, 18, Color.Red);
+			Raylib.DrawText($"ACTIVE {game.Eggs.Count + game.Flippers.Count + game.Spikers.Count}", 10, 96, 18, Color.Gray);
+		}
 
 		if (game.GameOver)
 		{
@@ -350,7 +449,7 @@ public sealed class VectorRenderer
 		}
 
 		if (game.DeathTicks > 0)
-			Raylib.DrawText("PLAYER DESTROYED", 10, 120, 18, Color.Red);
+			Raylib.DrawText("PLAYER DESTROYED", 10, game.TankerTest ? 144 : 120, 18, Color.Red);
 	}
 
 	private void DrawCenteredText(string text, int y, int size, Color color)
