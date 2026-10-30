@@ -4,9 +4,16 @@ namespace Tempest.Game.Gameplay;
 
 public sealed class Player
 {
+    public const int DefaultStartingLives = 3;
+
+    public Player(int startingLives = DefaultStartingLives)
+    {
+        Lives = startingLives > 0 ? startingLives : DefaultStartingLives;
+    }
+
     public int EdgeIndex { get; private set; } = 7;
     public float EdgePosition { get; private set; } = 0.5f;
-    public int Lives { get; set; } = 3;
+    public int Lives { get; set; }
     public float Depth { get; private set; } = Level.Depth;
 
     public void ResetPosition()

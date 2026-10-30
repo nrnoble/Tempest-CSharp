@@ -10,6 +10,83 @@ namespace Tempest.Game.Tests;
 public sealed class SimulationTests
 {
     [Fact]
+    public void StartingLivesDefaultRemainsThree()
+    {
+        Assert.Equal(3, Player.DefaultStartingLives);
+        Assert.Equal(3, new Player().Lives);
+        Assert.Equal(3, new TempestGame().Player.Lives);
+        Assert.Equal(3, Tempest.Game.Debug.DebugController.GetStartingLives([]));
+    }
+
+    [Fact]
+    public void LivesCommandLineOptionWorksAloneAndWithSpikerWave()
+    {
+        string[] livesArguments = ["--lives", "10"];
+        Assert.Equal(10, Tempest.Game.Debug.DebugController.GetStartingLives(livesArguments));
+        Assert.Equal(10, new TempestGame(startingLives:
+            Tempest.Game.Debug.DebugController.GetStartingLives(livesArguments)).Player.Lives);
+
+        string[] combinedArguments = ["--spiker-test", "--lives", "20"];
+        TempestGame game = new(
+            Tempest.Game.Debug.DebugController.UseSpikerWave(combinedArguments),
+            startingLives: Tempest.Game.Debug.DebugController.GetStartingLives(combinedArguments));
+        Assert.Equal(20, game.Player.Lives);
+        Assert.True(game.CurrentLevel.SpikerDevelopmentWave);
+    }
+
+    [Theory]
+    [InlineData("invalid")]
+    [InlineData("0")]
+    [InlineData("-3")]
+    [InlineData("999999999999999999")]
+    public void InvalidLivesCommandLineValuesFallBackToThree(string value)
+    {
+        string[] arguments = ["--lives", value];
+        Assert.Equal(Player.DefaultStartingLives,
+            Tempest.Game.Debug.DebugController.GetStartingLives(arguments));
+        Assert.Equal(Player.DefaultStartingLives,
+            new TempestGame(startingLives:
+                Tempest.Game.Debug.DebugController.GetStartingLives(arguments)).Player.Lives);
+    }
+
+    [Fact]
+    public void MissingLivesValueFallsBackToThree()
+    {
+        string[] arguments = ["--lives"];
+        Assert.Equal(Player.DefaultStartingLives,
+            Tempest.Game.Debug.DebugController.GetStartingLives(arguments));
+        Assert.Equal(Player.DefaultStartingLives,
+            new TempestGame(startingLives:
+                Tempest.Game.Debug.DebugController.GetStartingLives(arguments)).Player.Lives);
+    }
+
+    [Fact]
+    public void GameOverRestartRestoresSelectedStartingLives()
+    {
+        TempestGame game = PreparePivotWithStartingLives(10);
+        game.Player.Lives = 1;
+        Step(game, 63);
+        Assert.True(game.GameOver);
+        Assert.Equal(0, game.Player.Lives);
+        game.RunOneStep(restartPressed: true);
+        Assert.False(game.GameOver);
+        Assert.Equal(10, game.Player.Lives);
+        Assert.Equal(0, game.Score.Score);
+    }
+
+    [Fact]
+    public void LifeLossStillSubtractsExactlyOneFromSelectedStartingLives()
+    {
+        TempestGame game = PreparePivotWithStartingLives(10);
+        game.Score.Add(125);
+        Step(game, 63);
+        Assert.False(game.GameOver);
+        Assert.Equal(9, game.Player.Lives);
+        Assert.Equal(125, game.Score.Score);
+        Assert.Equal(LevelState.Playing, game.State);
+    }
+
+    [Fact]
     public void FullDevelopmentWaveCanBeDefeatedAndExitedWithEnemyAccountingIntact()
     {
         SpikerRandom random = new();
@@ -1469,8 +1546,11 @@ public sealed class SimulationTests
     }
 
     private static TempestGame PreparePivot()
+        => PreparePivotWithStartingLives(Player.DefaultStartingLives);
+
+    private static TempestGame PreparePivotWithStartingLives(int startingLives)
     {
-        TempestGame game = new();
+        TempestGame game = new(startingLives: startingLives);
         Egg egg = game.Eggs[0];
         MakeReady(egg, game.CurrentLevel);
         game.RunOneStep();

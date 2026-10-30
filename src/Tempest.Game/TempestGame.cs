@@ -17,10 +17,11 @@ public sealed class TempestGame
     private readonly List<Spiker> spikers = [];
     private readonly List<object> developmentCollisionOrder = [];
     private readonly Random random;
+    private readonly int startingLives;
     private int shotTimer = 3;
     private int exitDelayTicks;
 
-    public Player Player { get; } = new();
+    public Player Player { get; }
     public Level CurrentLevel { get; }
     public ScoreSystem Score { get; } = new();
     public IReadOnlyList<Shot> Shots => shots;
@@ -37,9 +38,12 @@ public sealed class TempestGame
     public bool IsExiting => State is LevelState.ExitDelay or LevelState.ExitZoom or
         LevelState.AvoidSpikes or LevelState.ReverseZoom;
 
-    public TempestGame(bool spikerDevelopmentWave = false, Random? random = null)
+    public TempestGame(bool spikerDevelopmentWave = false, Random? random = null,
+        int startingLives = Player.DefaultStartingLives)
     {
         this.random = random ?? Random.Shared;
+        this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
+        Player = new Player(this.startingLives);
         CurrentLevel = new Level(spikerDevelopmentWave);
         CurrentLevel.SpikeCreated += spike => developmentCollisionOrder.Add(spike);
         ResetLevel();
@@ -100,7 +104,7 @@ public sealed class TempestGame
     private void ResetGame()
     {
         Score.Reset();
-        Player.Lives = 3;
+        Player.Lives = startingLives;
         ResetLevel();
     }
 

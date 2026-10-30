@@ -12,7 +12,8 @@ Raylib.InitWindow(VectorRenderer.ScreenWidth, VectorRenderer.ScreenHeight,
 Raylib.DisableCursor();
 Raylib.SetTargetFPS(60);
 
-TempestGame game = new(DebugController.UseSpikerWave(args));
+TempestGame game = new(DebugController.UseSpikerWave(args),
+    startingLives: DebugController.GetStartingLives(args));
 InputSystem input = new();
 VectorRenderer renderer = new(game);
 
