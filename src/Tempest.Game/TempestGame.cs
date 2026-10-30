@@ -375,7 +375,19 @@ public sealed class TempestGame
         }
 
         if (egg.OriginalSlotId == CurrentLevel.TankerSlotId && unresolvedOriginalSlots.Contains(egg.OriginalSlotId))
-            return new Tanker(egg.EdgeIndex, egg.OriginalSlotId);
+        {
+            // Tankers fire only when --tanker-test is combined with --enemy-bullets-test, mirroring
+            // how that flag arms Flippers; --tanker-test alone stays the silent cargo scenario.
+            // Incitti Tanker.Create: hasbullets = Rand(1,2), bullettime = 16 + Rand(64); the random
+            // offset staggers the first shot instead of firing on a fixed early tick. Every hatch
+            // draws fresh values, including the fresh Egg after a life loss, so firing state is
+            // deliberately recreated rather than preserved across lives.
+            return enemyBulletsTest
+                ? new Tanker(egg.EdgeIndex, egg.OriginalSlotId,
+                    bulletAmmunition: NextRandomInclusive(1, 2),
+                    bulletTimer: 16 + NextRandomInclusive(1, 64))
+                : new Tanker(egg.EdgeIndex, egg.OriginalSlotId);
+        }
 
         Enemy enemy = CreateHatchedEnemy(egg.EdgeIndex);
         if (enemy is Flipper flipper)
@@ -472,11 +484,23 @@ public sealed class TempestGame
     private void UpdateTankers()
     {
         // A Tanker that climbs past the release threshold escapes its original slot (no score)
-        // and hands its cargo to the field. Tanker bullets are intentionally deferred.
+        // and hands its cargo to the field.
         for (int index = 0; index < tankers.Count; index++)
         {
             Tanker tanker = tankers[index];
-            if (tanker.UpdateForDevelopment() != TankerUpdateResult.NaturalCargoRelease)
+            TankerUpdateResult result = tanker.UpdateForDevelopment(
+                enemyBulletsTest ? NextRandomInclusive : null, out EnemyBullet? bullet);
+            if (bullet is not null)
+            {
+                // UpdateEnemyBullets already ran this tick, so a bullet created here first moves
+                // next tick (same policy as Flipper bullets). It joins the insertion-ordered
+                // development collision list at its creation point and lives independently of the
+                // Tanker afterwards: destroying or releasing the Tanker never removes it.
+                enemyBullets.Add(bullet);
+                developmentCollisionOrder.Add(bullet);
+            }
+
+            if (result != TankerUpdateResult.NaturalCargoRelease)
                 continue;
 
             tankers.RemoveAt(index--);

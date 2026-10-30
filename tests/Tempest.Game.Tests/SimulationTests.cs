@@ -42,19 +42,298 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void TankerScenarioEnemyBulletOptionAppliesToFlippersOnly()
+    public void CombinedTankerAndBulletFlagsArmBothTankerAndFlippers()
     {
+        // Queue: Tanker ammunition 2, timer offset 64, ordinary Flipper ammunition 3.
         TempestGame game = CreateTankerWave(enemyBulletsTest: true,
-            random: new BulletRandom(2, []));
+            random: new BulletRandom(2, [64, 3]));
         Tanker tanker = Assert.Single(game.Tankers);
+        Assert.Equal(2, tanker.BulletAmmunition);
+        // 16 + 64 source-backed initial timer, minus the hatch-tick countdown.
+        Assert.Equal(79, tanker.BulletTimer);
         Egg ordinaryEgg = Assert.Single(game.Eggs, egg => egg.OriginalSlotId == 1);
         MakeReady(ordinaryEgg, game.CurrentLevel);
         game.RunOneStep();
         Flipper ordinary = Assert.Single(game.Flippers, flipper => !flipper.IsTankerCargo);
-        Assert.Equal(2, ordinary.BulletAmmunition);
+        Assert.Equal(3, ordinary.BulletAmmunition);
         Assert.Equal(TankerState.Climbing, tanker.State);
+        Assert.Equal(78, tanker.BulletTimer);
         Assert.Empty(game.EnemyBullets);
         Assert.Equal(2, tanker.LatentCargoCount);
+    }
+
+    // --- Tanker firing (--tanker-test combined with --enemy-bullets-test) ---
+
+    [Fact]
+    public void TankerTestAloneKeepsTankerUnarmedAndSilent()
+    {
+        TempestGame game = CreateTankerWave();
+        Tanker tanker = Assert.Single(game.Tankers);
+        Assert.Equal(0, tanker.BulletAmmunition);
+        Assert.Equal(Tanker.BulletTimerResetTicks, tanker.BulletTimer);
+        Step(game, 60);
+        Assert.Empty(game.EnemyBullets);
+        Assert.Equal(0, tanker.BulletAmmunition);
+        Assert.Equal(Tanker.BulletTimerResetTicks, tanker.BulletTimer);
+    }
+
+    [Fact]
+    public void TankerFiringTimerDecrementsResetsAndUsesStrictDecisionBoundary()
+    {
+        Tanker tanker = new(5, 0, climbSpeed: 1, bulletAmmunition: 1, bulletTimer: 2);
+        Assert.Equal(1, tanker.BulletAmmunition);
+        Assert.Equal(2, tanker.BulletTimer);
+
+        int decision = 75;
+        Assert.Equal(TankerUpdateResult.Active,
+            tanker.UpdateForDevelopment((_, _) => decision, out EnemyBullet? bullet));
+        Assert.Null(bullet);
+        Assert.Equal(1, tanker.BulletTimer);
+        tanker.UpdateForDevelopment((_, _) => decision, out bullet);
+        Assert.Null(bullet);
+        Assert.Equal(0, tanker.BulletTimer);
+
+        // Expiry resets to exactly 16; a decision of 75 fails and costs no ammunition.
+        tanker.UpdateForDevelopment((_, _) => decision, out bullet);
+        Assert.Null(bullet);
+        Assert.Equal(16, tanker.BulletTimer);
+        Assert.Equal(1, tanker.BulletAmmunition);
+
+        // A decision of 76 fires on the next expiry, consuming exactly one ammunition unit.
+        decision = 76;
+        for (int tick = 0; tick < 16; tick++)
+        {
+            tanker.UpdateForDevelopment((_, _) => decision, out bullet);
+            Assert.Null(bullet);
+        }
+        tanker.UpdateForDevelopment((_, _) => decision, out bullet);
+        Assert.NotNull(bullet);
+        Assert.Equal(5, bullet!.EdgeIndex);
+        Assert.Equal(tanker.Height, bullet.Height);
+        Assert.Equal(0, tanker.BulletAmmunition);
+        Assert.Equal(16, tanker.BulletTimer);
+
+        // Exhausted ammunition freezes the timer and never fires again.
+        for (int tick = 0; tick < 40; tick++)
+        {
+            tanker.UpdateForDevelopment((_, _) => 100, out bullet);
+            Assert.Null(bullet);
+        }
+        Assert.Equal(16, tanker.BulletTimer);
+    }
+
+    [Fact]
+    public void UnarmedTankerNeverRunsTimerOrDrawsDecisions()
+    {
+        Tanker tanker = new(3, 0, climbSpeed: 1);
+        Assert.Equal(0, tanker.BulletAmmunition);
+        for (int tick = 0; tick < 50; tick++)
+        {
+            tanker.UpdateForDevelopment(
+                (_, _) => throw new InvalidOperationException("unarmed Tanker must not draw"),
+                out EnemyBullet? bullet);
+            Assert.Null(bullet);
+        }
+        Assert.Equal(Tanker.BulletTimerResetTicks, tanker.BulletTimer);
+    }
+
+    [Theory]
+    [InlineData(369, true)]   // post-climb 379: strictly below the ceiling, eligible
+    [InlineData(370, false)]  // post-climb exactly 380: not eligible
+    [InlineData(371, false)]  // post-climb 381: above the ceiling, not eligible
+    public void TankerFiringRequiresPostClimbHeightStrictlyBelow380(float climbSpeed, bool fires)
+    {
+        Tanker tanker = new(4, 0, climbSpeed: climbSpeed, bulletAmmunition: 1, bulletTimer: 0);
+        Assert.Equal(TankerUpdateResult.Active,
+            tanker.UpdateForDevelopment((_, _) => 100, out EnemyBullet? bullet));
+        Assert.Equal(10 + climbSpeed, tanker.Height);
+        if (fires)
+        {
+            Assert.NotNull(bullet);
+            // Climb advances before the firing evaluation: the bullet starts at the post-climb height.
+            Assert.Equal(379, bullet!.Height);
+            Assert.Equal(4, bullet.EdgeIndex);
+            Assert.Equal(0, tanker.BulletAmmunition);
+        }
+        else
+        {
+            Assert.Null(bullet);
+            Assert.Equal(1, tanker.BulletAmmunition);
+            // The height gate skips the countdown entirely, matching Incitti's outer height check.
+            Assert.Equal(0, tanker.BulletTimer);
+        }
+    }
+
+    [Fact]
+    public void TankerCannotFireOncePendingOrAfterCargoRelease()
+    {
+        // One oversized climb jumps straight past both the firing ceiling and the release threshold.
+        Tanker tanker = new(6, 0, climbSpeed: 376, bulletAmmunition: 2, bulletTimer: 0);
+        Assert.Equal(TankerUpdateResult.NaturalCargoRelease,
+            tanker.UpdateForDevelopment((_, _) => 100, out EnemyBullet? bullet));
+        Assert.Null(bullet);
+        Assert.Equal(TankerState.CargoReleasePending, tanker.State);
+        Assert.Equal(TankerUpdateResult.NaturalCargoRelease,
+            tanker.UpdateForDevelopment((_, _) => 100, out bullet));
+        Assert.Null(bullet);
+
+        tanker.ReleaseFlipperCargo(new Level(), 1, TankerReleaseKind.Natural);
+        Assert.Equal(TankerState.CargoReleased, tanker.State);
+        Assert.Equal(TankerUpdateResult.Active,
+            tanker.UpdateForDevelopment((_, _) => 100, out bullet));
+        Assert.Null(bullet);
+        Assert.Equal(2, tanker.BulletAmmunition);
+        Assert.Equal(0, tanker.BulletTimer);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void ArmedTankerUsesControlledInclusiveAmmunitionAndTimerOffset(int ammunition)
+    {
+        TempestGame game = CreateTankerWave(enemyBulletsTest: true,
+            random: new BulletRandom(ammunition, [7]));
+        Tanker tanker = Assert.Single(game.Tankers);
+        Assert.Equal(ammunition, tanker.BulletAmmunition);
+        Assert.InRange(tanker.BulletAmmunition, 1, 2);
+        // 16 + controlled offset 7, minus the hatch-tick countdown.
+        Assert.Equal(22, tanker.BulletTimer);
+    }
+
+    [Fact]
+    public void TankerDecisionBoundaryMatchesFlipperConventionInGame()
+    {
+        // Queue: ammunition 1, offset 1, then decisions 75 (fail) and 76 (fire).
+        TempestGame game = CreateTankerWave(enemyBulletsTest: true,
+            random: new BulletRandom(1, [1, 75, 76]));
+        Tanker tanker = Assert.Single(game.Tankers);
+        Step(game, 17);
+        Assert.Empty(game.EnemyBullets);
+        Assert.Equal(1, tanker.BulletAmmunition);
+        Step(game, 16);
+        Assert.Empty(game.EnemyBullets);
+        game.RunOneStep();
+        Assert.Single(game.EnemyBullets);
+        Assert.Equal(0, tanker.BulletAmmunition);
+    }
+
+    [Fact]
+    public void TankerFiresFromLaneAtPostClimbHeightThroughGameUpdate()
+    {
+        TempestGame game = PrepareTankerBulletGame();
+        Tanker tanker = Assert.Single(game.Tankers);
+        EnemyBullet bullet = Assert.Single(game.EnemyBullets);
+        Assert.Equal(tanker.EdgeIndex, bullet.EdgeIndex);
+        Assert.Equal(tanker.Height, bullet.Height);
+        Assert.Equal(16, tanker.BulletTimer);
+        // The bullet is a projectile, not an enemy: ledger totals are untouched by its creation.
+        Assert.Equal(10, game.TankerAccountingTotal);
+        Assert.Equal(0, game.Score.Score);
+        AssertTankerAccounting(game);
+    }
+
+    [Fact]
+    public void TankerBulletSurvivesTankerShotDestructionAndIsWorthTwentyFive()
+    {
+        TempestGame game = PrepareTankerBulletGame();
+        Tanker tanker = Assert.Single(game.Tankers);
+        EnemyBullet bullet = Assert.Single(game.EnemyBullets);
+        ShootTanker(game, tanker);
+        // Destroying the Tanker never removes an already-fired bullet.
+        Assert.Contains(bullet, game.EnemyBullets);
+        Assert.Equal(200, game.Score.Score);
+        Assert.Equal(1, game.TankerOriginalSlotsDestroyed);
+
+        game.Player.Move(bullet.EdgeIndex - game.Player.EdgeIndex, 16);
+        for (int tick = 0; tick < 6 && game.Shots.Count == 0; tick++)
+            game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot shot = Assert.Single(game.Shots);
+        shot.Height = bullet.Height - 1;
+        game.RunOneStep();
+        Assert.Empty(game.EnemyBullets);
+        Assert.Equal(225, game.Score.Score);
+        // Shooting the bullet resolves no enemy unit: slot and cargo accounting are unchanged.
+        Assert.Equal(1, game.TankerOriginalSlotsDestroyed);
+        Assert.Equal(0, game.TankerCargoUnitsResolved);
+        AssertTankerAccounting(game);
+    }
+
+    [Fact]
+    public void TankerBulletSurvivesNaturalCargoRelease()
+    {
+        TempestGame game = PrepareTankerBulletGame();
+        Tanker tanker = Assert.Single(game.Tankers);
+        EnemyBullet bullet = Assert.Single(game.EnemyBullets);
+        // Fast-forward the Tanker to its release point outside the game loop (established test
+        // pattern); the parameterless update never draws or fires.
+        while (tanker.State == TankerState.Climbing)
+            tanker.UpdateForDevelopment();
+        game.RunOneStep();
+        Assert.Empty(game.Tankers);
+        Assert.Equal(1, game.TankerOriginalSlotsEscaped);
+        Assert.Equal(2, game.Flippers.Count(flipper => flipper.IsTankerCargo));
+        // Natural release never removes an already-fired bullet.
+        Assert.Contains(bullet, game.EnemyBullets);
+        AssertTankerAccounting(game);
+    }
+
+    [Fact]
+    public void LifeLossClearsTankerBulletsAndRearmsFreshTankerWithNewValues()
+    {
+        // Queue: first Tanker ammo 1 and offset 1, decision 100 (fire), ordinary Flipper ammo 1,
+        // then fresh ammo 2 and offset 5 for the Tanker rebuilt after the life loss.
+        TempestGame game = CreateTankerWave(enemyBulletsTest: true,
+            random: new BulletRandom(1, [1, 100, 1, 2, 5]));
+        Tanker firstTanker = Assert.Single(game.Tankers);
+        Step(game, 16);
+        game.RunOneStep();
+        Assert.Single(game.EnemyBullets);
+
+        Flipper ordinary = HatchOneOrdinaryTankerWaveFlipper(game);
+        ForceFlipperPivotIntoPlayer(game, ordinary);
+        game.RunOneStep();
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Assert.Single(game.EnemyBullets);
+        Step(game, 60);
+        Assert.Equal(2, game.Player.Lives);
+        // Active bullets clear through the established life-reset behavior.
+        Assert.Empty(game.EnemyBullets);
+        Assert.Empty(game.Tankers);
+
+        Egg tankerEgg = Assert.Single(game.Eggs, egg => egg.OriginalSlotId == 0);
+        MakeReady(tankerEgg, game.CurrentLevel);
+        game.RunOneStep();
+        Tanker freshTanker = Assert.Single(game.Tankers);
+        // The rebuilt Tanker draws fresh source-backed values; firing state is never preserved.
+        Assert.NotSame(firstTanker, freshTanker);
+        Assert.Equal(2, freshTanker.BulletAmmunition);
+        Assert.Equal(20, freshTanker.BulletTimer);
+        AssertTankerAccounting(game);
+    }
+
+    [Fact]
+    public void CombinedModeCompletesWithBulletsAndClearsResidualsAtExit()
+    {
+        TempestGame game = new(startingLives: 100, tankerTest: true, enemyBulletsTest: true,
+            random: new TankerBulletModeRandom());
+        bool bulletSeen = false;
+        for (int tick = 0; tick < 30000 && !game.LevelComplete && !game.GameOver; tick++)
+        {
+            Enemy? target = game.Tankers.Cast<Enemy>().Concat(game.Flippers)
+                .OrderByDescending(enemy => enemy.Height).FirstOrDefault();
+            if (target is not null)
+                game.Player.Move(target.EdgeIndex - game.Player.EdgeIndex, 16);
+            game.RunOneStep(new PlayerInput(true, 0, false, false));
+            bulletSeen |= game.EnemyBullets.Count > 0;
+            AssertTankerAccounting(game);
+        }
+
+        Assert.True(game.LevelComplete,
+            $"state={game.State}, lives={game.Player.Lives}, original={game.TankerOriginalSlotsRemaining}, " +
+            $"cargo={game.TankerCargoUnitsRemaining}, bullets={game.EnemyBullets.Count}");
+        Assert.True(bulletSeen);
+        // Residual bullets never block completion and clear through the established exit path.
+        Assert.Empty(game.EnemyBullets);
     }
 
     [Fact]
@@ -1789,6 +2068,23 @@ public sealed class SimulationTests
         return game;
     }
 
+    // Hatches the development Tanker armed with exactly one bullet and the minimal timer offset
+    // (16 + 1), then steps until the first firing decision succeeds.
+    private static TempestGame PrepareTankerBulletGame()
+    {
+        TempestGame game = CreateTankerWave(enemyBulletsTest: true,
+            random: new BulletRandom(1, [1, 100]));
+        Tanker tanker = Assert.Single(game.Tankers);
+        Assert.Equal(1, tanker.BulletAmmunition);
+        Assert.Equal(16, tanker.BulletTimer);
+        Step(game, 16);
+        Assert.Empty(game.EnemyBullets);
+        game.RunOneStep();
+        Assert.Single(game.EnemyBullets);
+        Assert.Equal(0, tanker.BulletAmmunition);
+        return game;
+    }
+
     private sealed class SpikerRandom : Random
     {
         public bool ChooseSpikers { get; set; } = true;
@@ -1812,6 +2108,19 @@ public sealed class SimulationTests
 
             return Math.Clamp(values.Dequeue(), minValue, maxValue - 1);
         }
+    }
+
+    // Deterministic double for the combined Tanker/bullet mode. Each known draw site has a
+    // distinct exclusive upper bound, so dispatching on maxValue keeps full-run tests simple:
+    // Tanker ammo Next(1,3), timer offset Next(1,65), Flipper ammo Next(1,4), decision Next(0,101).
+    private sealed class TankerBulletModeRandom : Random
+    {
+        public override int Next(int minValue, int maxValue) => maxValue switch
+        {
+            101 => 100, // every firing decision succeeds
+            65 => 1,    // minimal initial timer offset
+            _ => minValue,
+        };
     }
 
     // --- Normal Level 1 exit/zoom, projection and production rendering regressions ---
