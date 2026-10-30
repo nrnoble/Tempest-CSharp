@@ -13,11 +13,13 @@ public sealed class TempestGame
     private const float SpinnerSensitivity = 0.0125f;
     private const int MaximumShots = 10;
     private readonly List<Shot> shots = [];
+    private readonly List<EnemyBullet> enemyBullets = [];
     private readonly List<Flipper> flippers = [];
     private readonly List<Spiker> spikers = [];
     private readonly List<object> developmentCollisionOrder = [];
     private readonly Random random;
     private readonly int startingLives;
+    private readonly bool enemyBulletsTest;
     private int shotTimer = 3;
     private int exitDelayTicks;
 
@@ -25,12 +27,14 @@ public sealed class TempestGame
     public Level CurrentLevel { get; }
     public ScoreSystem Score { get; } = new();
     public IReadOnlyList<Shot> Shots => shots;
+    public IReadOnlyList<EnemyBullet> EnemyBullets => enemyBullets;
     public IReadOnlyList<Flipper> Flippers => flippers;
     public IReadOnlyList<Egg> Eggs => CurrentLevel.Eggs;
     public IReadOnlyList<Spiker> Spikers => spikers;
     public IReadOnlyList<Spike> Spikes => CurrentLevel.Spikes;
     public bool SpikeExitControlsEnabled => CurrentLevel.SpikerDevelopmentWave &&
         State is LevelState.AvoidSpikes or LevelState.ExitDelay or LevelState.ExitZoom;
+    public bool EnemyBulletsTest => enemyBulletsTest;
     public int DeathTicks { get; private set; }
     public LevelState State => CurrentLevel.State;
     public bool GameOver => State == LevelState.GameOver;
@@ -39,10 +43,11 @@ public sealed class TempestGame
         LevelState.AvoidSpikes or LevelState.ReverseZoom;
 
     public TempestGame(bool spikerDevelopmentWave = false, Random? random = null,
-        int startingLives = Player.DefaultStartingLives)
+        int startingLives = Player.DefaultStartingLives, bool enemyBulletsTest = false)
     {
         this.random = random ?? Random.Shared;
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
+        this.enemyBulletsTest = enemyBulletsTest;
         Player = new Player(this.startingLives);
         CurrentLevel = new Level(spikerDevelopmentWave);
         CurrentLevel.SpikeCreated += spike => developmentCollisionOrder.Add(spike);
@@ -87,6 +92,7 @@ public sealed class TempestGame
         {
             UpdatePlayer(input);
             UpdatePlayerShots();
+            UpdateEnemyBullets();
             if (CheckForLevelComplete())
                 return;
 
@@ -96,6 +102,7 @@ public sealed class TempestGame
             UpdateFlippers();
             UpdateSpikers();
             CheckFlippersAgainstPlayer();
+            CheckEnemyBulletsAgainstPlayer();
             CheckSpikesAgainstPlayer();
             CheckForLevelComplete();
         }
@@ -118,6 +125,7 @@ public sealed class TempestGame
         CurrentLevel.Reset();
         ResetPlayerPosition();
         shots.Clear();
+        enemyBullets.Clear();
         flippers.Clear();
         spikers.Clear();
     }
@@ -126,6 +134,7 @@ public sealed class TempestGame
     {
         ResetPlayerPosition();
         shots.Clear();
+        enemyBullets.Clear();
         flippers.Clear();
         spikers.Clear();
         developmentCollisionOrder.RemoveAll(target => target is not Spike);
@@ -150,6 +159,7 @@ public sealed class TempestGame
         {
             CurrentLevel.State = LevelState.GameOver;
             shots.Clear();
+            enemyBullets.Clear();
             flippers.Clear();
             spikers.Clear();
             developmentCollisionOrder.RemoveAll(target => target is not Spike);
@@ -200,7 +210,7 @@ public sealed class TempestGame
         {
             Shot shot = shots[shotIndex];
             shot.Update();
-            bool hit = CurrentLevel.SpikerDevelopmentWave
+            bool hit = (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest)
                 ? shot.Height >= 0 && CheckShotAgainstDevelopmentTargets(shot)
                 : CheckShotAgainstFlippers(shot);
             if (hit || shot.Height < 0)
@@ -232,7 +242,7 @@ public sealed class TempestGame
                 flippers.Add(flipper);
             else if (enemy is Spiker spiker)
                 spikers.Add(spiker);
-            if (CurrentLevel.SpikerDevelopmentWave)
+            if (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest)
                 developmentCollisionOrder.Add(enemy);
         }
     }
@@ -245,7 +255,8 @@ public sealed class TempestGame
             // Fixed development speed avoids guessing BlitzMax's fractional Rand coercion.
             return new Spiker(lane, 3);
         }
-        return new Flipper(lane, 0);
+        int bulletAmmunition = enemyBulletsTest ? random.Next(1, 4) : 0;
+        return new Flipper(lane, 0, bulletAmmunition);
     }
 
     private bool CheckShotAgainstDevelopmentTargets(Shot shot)
@@ -269,6 +280,11 @@ public sealed class TempestGame
                     developmentCollisionOrder.Remove(spiker);
                     CurrentLevel.RecordEnemyDestroyed();
                     Score.Add(50);
+                    return true;
+                case EnemyBullet enemyBullet when enemyBullet.IsHitBy(shot):
+                    enemyBullets.Remove(enemyBullet);
+                    developmentCollisionOrder.Remove(enemyBullet);
+                    Score.Add(25);
                     return true;
                 case Flipper flipper when flipper.IsHitBy(shot):
                     flippers.Remove(flipper);
@@ -299,7 +315,51 @@ public sealed class TempestGame
     private void UpdateFlippers()
     {
         foreach (Flipper flipper in flippers)
-            flipper.Update(CurrentLevel, Player.EdgeIndex);
+        {
+            EnemyBullet? bullet = flipper.Update(CurrentLevel, Player.EdgeIndex,
+                enemyBulletsTest ? NextRandomInclusive : null);
+            if (bullet is null)
+                continue;
+
+            enemyBullets.Add(bullet);
+            if (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest)
+                developmentCollisionOrder.Add(bullet);
+        }
+    }
+
+    private int NextRandomInclusive(int minimum, int maximum) =>
+        random.Next(minimum, maximum + 1);
+
+    private void UpdateEnemyBullets()
+    {
+        for (int bulletIndex = enemyBullets.Count - 1; bulletIndex >= 0; bulletIndex--)
+        {
+            EnemyBullet bullet = enemyBullets[bulletIndex];
+            bullet.Advance();
+            if (!bullet.IsExpired)
+                continue;
+
+            enemyBullets.RemoveAt(bulletIndex);
+            developmentCollisionOrder.Remove(bullet);
+        }
+    }
+
+    private void CheckEnemyBulletsAgainstPlayer()
+    {
+        if (State != LevelState.Playing)
+            return;
+
+        for (int bulletIndex = enemyBullets.Count - 1; bulletIndex >= 0; bulletIndex--)
+        {
+            EnemyBullet bullet = enemyBullets[bulletIndex];
+            if (!bullet.HitsPlayer(Player))
+                continue;
+
+            enemyBullets.RemoveAt(bulletIndex);
+            developmentCollisionOrder.Remove(bullet);
+            KillPlayer();
+            return;
+        }
     }
 
     private void CheckFlippersAgainstPlayer()
@@ -323,6 +383,8 @@ public sealed class TempestGame
         CurrentLevel.State = CurrentLevel.SpikerDevelopmentWave ? LevelState.AvoidSpikes : LevelState.ExitDelay;
         exitDelayTicks = 0;
         shots.Clear();
+        enemyBullets.Clear();
+        developmentCollisionOrder.RemoveAll(target => target is EnemyBullet);
         return true;
     }
 
@@ -363,6 +425,7 @@ public sealed class TempestGame
         {
             CurrentLevel.State = LevelState.Complete;
             shots.Clear();
+            enemyBullets.Clear();
             RestoreProjection();
             return;
         }
@@ -397,6 +460,7 @@ public sealed class TempestGame
         CurrentLevel.State = LevelState.ReverseZoom;
         exitDelayTicks = 0;
         shots.Clear();
+        enemyBullets.Clear();
         flippers.Clear();
         spikers.Clear();
         developmentCollisionOrder.RemoveAll(target => target is not Spike);

@@ -60,8 +60,38 @@ After the last kill, this scenario permits movement and firing during a
 151-update avoidance interval, the 21-update exit delay, and zoom. Avoid or
 shoot remaining spikes. Hitting one during travel costs one life and reverses
 the zoom before an exit retry; spikes persist. R replays after completion and
-restarts after Game Over. Omit the flag to return to normal Level 1. No bullets,
-other enemy types, next level, bonus, or audio are implemented.
+restarts after Game Over. Omit the flag to return to normal Level 1. No other
+enemy types, next level, bonus, or audio are implemented.
+
+## Flipper bullet development
+
+Flipper-fired enemy bullets are disabled in normal Level 1. To test them:
+
+```powershell
+dotnet run --project src/Tempest.Game -- --enemy-bullets-test
+dotnet run --project src/Tempest.Game -- --enemy-bullets-test --lives 10
+dotnet run --project src/Tempest.Game -- --spiker-test --enemy-bullets-test --lives 10
+```
+
+The flag is independent of `--spiker-test`; Spiker test runs do not fire Flipper
+bullets unless both flags are supplied. Enabled Flippers receive 1-3 rounds,
+fire while climbing or after pause transitions, and send bullets outward toward
+the rim. Shoot bullets for 25 points or move off their lane near the rim.
+
+## Flipper bullet development
+
+Flipper-fired enemy bullets are disabled in normal Level 1. To test them:
+
+```powershell
+dotnet run --project src/Tempest.Game -- --enemy-bullets-test
+dotnet run --project src/Tempest.Game -- --enemy-bullets-test --lives 10
+dotnet run --project src/Tempest.Game -- --spiker-test --enemy-bullets-test --lives 10
+```
+
+The flag is independent of `--spiker-test`; Spiker test runs do not fire Flipper
+bullets unless both flags are supplied. Enabled Flippers receive 1-3 rounds,
+fire from their lane during climbs or after pause transitions, and bullets travel
+toward the rim. Shoot bullets for 25 points or move off their lane near the rim.
 
 ## Reference mapping
 - `tempest.bmx` -> gameplay and state behavior

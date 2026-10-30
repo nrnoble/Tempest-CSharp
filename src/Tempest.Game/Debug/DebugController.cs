@@ -7,6 +7,9 @@ public sealed class DebugController
 	public static bool UseSpikerWave(IEnumerable<string> arguments) =>
 		arguments.Contains("--spiker-test", StringComparer.Ordinal);
 
+	public static bool UseEnemyBulletsTest(IEnumerable<string> arguments) =>
+		arguments.Contains("--enemy-bullets-test", StringComparer.Ordinal);
+
 	public static int GetStartingLives(IReadOnlyList<string> arguments)
 	{
 		for (int index = 0; index < arguments.Count; index++)

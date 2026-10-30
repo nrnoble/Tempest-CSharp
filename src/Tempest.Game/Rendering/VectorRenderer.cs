@@ -38,6 +38,8 @@ public sealed class VectorRenderer
 			DrawPlayerShots(game.CurrentLevel.Definition.Points);
 			DrawFlippers(game.CurrentLevel.Definition.Points);
 			DrawSpikers((start, end) => Raylib.DrawLineV(start, end, SpikerColor));
+			if (game.EnemyBulletsTest)
+				DrawEnemyBullets((start, end) => Raylib.DrawLineV(start, end, Color.White));
 		}
 		else if (game.SpikeExitControlsEnabled)
 		{
@@ -57,6 +59,28 @@ public sealed class VectorRenderer
 	}
 
 	private static int NextEdge(int edge, int edgeCount) => (edge + 1) % edgeCount;
+
+	public Vector2 ProjectEnemyBullet(EnemyBullet bullet)
+	{
+		Vector2 center = ProjectLane(bullet.EdgeIndex, Level.Position + Level.Depth - bullet.Height);
+		return center;
+	}
+
+	public void DrawEnemyBullets(Action<Vector2, Vector2> drawLine)
+	{
+		foreach (EnemyBullet bullet in game.EnemyBullets)
+		{
+			Vector2 center = ProjectEnemyBullet(bullet);
+			float projectedDepth = Level.Position + Level.Depth - bullet.Height;
+			float size = 6 / ((projectedDepth + Projection.ZOffset) / Projection.K);
+			for (int angle = 0; angle < 360; angle += 45)
+			{
+				float radians = (bullet.Rotation + angle) * MathF.PI / 180;
+				Vector2 offset = new(MathF.Cos(radians) * size, MathF.Sin(radians) * size);
+				drawLine(center - offset, center + offset);
+			}
+		}
+	}
 
 	private Vector2 ProjectLane(int lane, float depth)
 	{

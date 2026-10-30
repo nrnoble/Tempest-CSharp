@@ -382,3 +382,75 @@ spiral appearance/rotation, spike growth/damage feel, initial spikes, scoring,
 avoidance timing and reverse-zoom presentation against original Atari Tempest.
 Physical spinner, cursor capture, Flipper regressions and normal exit visuals
 also require manual rechecking. Automated tests did not open a game window.
+
+## Flipper Enemy Bullet Development Milestone
+
+Normal Level 1 still does not fire EnemyBullets. The opt-in
+`--enemy-bullets-test` argument enables Flipper ammunition and firing; it
+composes independently with `--spiker-test` and `--lives`. Examples:
+
+```powershell
+dotnet run --project src/Tempest.Game -- --enemy-bullets-test
+dotnet run --project src/Tempest.Game -- --enemy-bullets-test --lives 10
+dotnet run --project src/Tempest.Game -- --spiker-test --enemy-bullets-test --lives 10
+```
+
+Enabled Flippers receive 1-3 bullet attempts using the injected Random source and
+begin with a 16-call timer. During climbing and after pause-to-edge transitions,
+eligible calls decrement it. Below zero, it resets to 16; only a random result
+above 75 fires and consumes ammunition. A bullet starts on the firing lane at
+the Flipper's post-movement height. It moves outward by 3 per update and expires
+only after exceeding depth 400. Same-lane player collision requires
+`Depth - bullet.Height < 8`; same-lane player shots hit when shot depth is
+strictly below bullet height. Bullet hits award 25 points and do not alter enemy
+accounting. Bullets remain frozen through the death animation and are cleared on
+life reset; they are also cleared when exit starts.
+
+Development shot collision dispatch uses explicit insertion order: hatching
+adds a Flipper to the test target list; bullets append when created. Thus a
+Flipper precedes its bullets in a collision tie. Normal Level 1 retains its
+existing reverse Flipper-only collision path. Player/Flipper movement, firing,
+projection and exit behavior are unchanged. Bullets render as distinct white
+radial lines using projected size based on 6 units and rotate 15 degrees per
+simulation update.
+
+Automated validation: 111 headless tests passed, zero failed/skipped. Manual
+comparison remains required for Flipper bullet cadence/ammunition, visible scale
+and speed, rim hit reach, score display and arcade hit feel. The original source
+is an engineering reference, not confirmation of arcade accuracy.
+
+## Flipper Enemy Bullet Development Milestone
+
+Normal Level 1 still does not fire EnemyBullets. The opt-in `--enemy-bullets-test`
+argument enables Flipper ammunition and firing; it composes independently with
+`--spiker-test` and `--lives`. Examples:
+
+```powershell
+dotnet run --project src/Tempest.Game -- --enemy-bullets-test
+dotnet run --project src/Tempest.Game -- --enemy-bullets-test --lives 10
+dotnet run --project src/Tempest.Game -- --spiker-test --enemy-bullets-test --lives 10
+```
+
+An enabled Flipper is assigned 1-3 bullet attempts using the injected Random
+source and begins with a 16-call timer. During climbing and after pause-to-edge
+transitions, eligible calls decrement the timer. Below zero, it resets to 16;
+only a random value above 75 fires and consumes ammunition. A bullet starts on
+the firing lane at the Flipper's post-movement height. It moves outward by 3 per
+update and expires only after exceeding depth 400. Same-lane player collision
+requires `Depth - bullet.Height < 8`; same-lane player shots hit when shot depth
+is strictly below bullet height. Bullet hits award 25 points and do not alter
+enemy accounting. Bullets remain frozen through the death animation and are
+cleared on life reset; they are also cleared when exit starts.
+
+Development shot collision dispatch uses explicit insertion order: hatching
+adds a Flipper to the test target list; bullets append when created. Thus a
+Flipper precedes its own bullets in a collision tie. Normal Level 1 retains its
+existing reverse Flipper-only collision path. Player/Flipper movement, firing,
+projection, and exit behavior are unchanged. Bullets render as distinct white
+radial lines using projected size based on 6 units and rotate 15 degrees per
+simulation update.
+
+Automated validation: 111 headless tests passed, zero failed/skipped. Manual
+comparison remains required for Flipper bullet cadence/ammunition, visible scale
+and speed, rim hit reach, score display, and arcade hit feel. The original source
+is an engineering reference, not confirmation of arcade accuracy.

@@ -16,11 +16,18 @@ public sealed class Flipper : Enemy
     private const int RimPauseTicks = 24;
 
     public Flipper(int edge = 0, float height = 0)
+        : this(edge, height, 0)
+    {
+    }
+
+    public Flipper(int edge, float height, int bulletAmmunition)
     {
         EdgeIndex = edge;
         SourceEdge = edge;
         DestinationEdge = edge;
         Height = height;
+        BulletAmmunition = Math.Max(0, bulletAmmunition);
+        BulletTimer = 16;
         State = FlipperState.Climbing;
     }
 
@@ -32,9 +39,12 @@ public sealed class Flipper : Enemy
     public float TurnAngle { get; private set; }
     public float TotalTurnAngle { get; private set; }
     public bool CompletedIntoPlayer { get; private set; }
+    public int BulletAmmunition { get; private set; }
+    public int BulletTimer { get; private set; }
 
-    public void Update(Level level, int playerEdge)
+    public EnemyBullet? Update(Level level, int playerEdge, Func<int, int, int>? randomInclusive = null)
     {
+        EnemyBullet? bullet = null;
         switch (State)
         {
             case FlipperState.Climbing:
@@ -44,12 +54,16 @@ public sealed class Flipper : Enemy
                     Height = Level.Depth;
                     BeginPause();
                 }
+                bullet = TryFireBullet(EdgeIndex, randomInclusive);
                 break;
 
             case FlipperState.Pausing:
                 PauseTicks--;
                 if (PauseTicks <= 0)
+                {
                     BeginPivot(level, playerEdge);
+                    bullet = TryFireBullet(DestinationEdge, randomInclusive);
+                }
                 break;
 
             case FlipperState.Flipping:
@@ -58,6 +72,25 @@ public sealed class Flipper : Enemy
                     CompletePivot(playerEdge);
                 break;
         }
+
+        return bullet;
+    }
+
+    private EnemyBullet? TryFireBullet(int edgeIndex, Func<int, int, int>? randomInclusive)
+    {
+        if (BulletAmmunition <= 0 || randomInclusive is null)
+            return null;
+
+        BulletTimer--;
+        if (BulletTimer >= 0)
+            return null;
+
+        BulletTimer = 16;
+        if (randomInclusive(0, 100) <= 75)
+            return null;
+
+        BulletAmmunition--;
+        return new EnemyBullet(edgeIndex, Height);
     }
 
     public bool IsHitBy(Shot shot)

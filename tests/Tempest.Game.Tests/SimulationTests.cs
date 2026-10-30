@@ -10,6 +10,281 @@ namespace Tempest.Game.Tests;
 public sealed class SimulationTests
 {
     [Fact]
+    public void EnemyBulletFlagIsIndependentAndNormalAndSpikerLaunchesDoNotFire()
+    {
+        Assert.False(Tempest.Game.Debug.DebugController.UseEnemyBulletsTest([]));
+        string[] bulletArguments = ["--enemy-bullets-test", "--lives", "10"];
+        Assert.True(Tempest.Game.Debug.DebugController.UseEnemyBulletsTest(bulletArguments));
+        Assert.Equal(10, Tempest.Game.Debug.DebugController.GetStartingLives(bulletArguments));
+        string[] combinedArguments = ["--spiker-test", "--enemy-bullets-test", "--lives", "10"];
+        TempestGame combined = new(
+            Tempest.Game.Debug.DebugController.UseSpikerWave(combinedArguments),
+            startingLives: Tempest.Game.Debug.DebugController.GetStartingLives(combinedArguments),
+            enemyBulletsTest: Tempest.Game.Debug.DebugController.UseEnemyBulletsTest(combinedArguments));
+        Assert.True(combined.CurrentLevel.SpikerDevelopmentWave);
+        Assert.True(combined.EnemyBulletsTest);
+        Assert.Equal(10, combined.Player.Lives);
+
+        TempestGame normal = new();
+        Assert.False(normal.EnemyBulletsTest);
+        TempestGame spiker = new(true, new SpikerRandom());
+        Assert.False(spiker.EnemyBulletsTest);
+        Assert.True(spiker.CurrentLevel.SpikerDevelopmentWave);
+
+        Flipper ordinary = new(2, 0);
+        Assert.Equal(0, ordinary.BulletAmmunition);
+        Assert.Equal(16, ordinary.BulletTimer);
+    }
+
+    [Fact]
+    public void FlipperBulletAmmunitionAndTimerPreserveSourceRanges()
+    {
+        Assert.InRange(new Flipper(0, 0, 1).BulletAmmunition, 1, 3);
+        Assert.InRange(new Flipper(0, 0, 2).BulletAmmunition, 1, 3);
+        Assert.InRange(new Flipper(0, 0, 3).BulletAmmunition, 1, 3);
+        Flipper flipper = new(4, 0, 1);
+        Assert.Equal(16, flipper.BulletTimer);
+
+        int decision = 75;
+        for (int tick = 0; tick < 16; tick++)
+            Assert.Null(flipper.Update(new Level(), 7, (_, _) => decision));
+        Assert.Equal(0, flipper.BulletTimer);
+        Assert.Null(flipper.Update(new Level(), 7, (_, _) => decision));
+        Assert.Equal(16, flipper.BulletTimer);
+        Assert.Equal(1, flipper.BulletAmmunition);
+
+        decision = 76;
+        for (int tick = 0; tick < 16; tick++)
+            Assert.Null(flipper.Update(new Level(), 7, (_, _) => decision));
+        EnemyBullet bullet = Assert.IsType<EnemyBullet>(flipper.Update(new Level(), 7, (_, _) => decision));
+        Assert.Equal(4, bullet.EdgeIndex);
+        Assert.Equal(flipper.Height, bullet.Height);
+        Assert.Equal(0, flipper.BulletAmmunition);
+        Assert.Equal(16, flipper.BulletTimer);
+    }
+
+    [Fact]
+    public void FlipperDoesNotSpendTimerOrFireWithoutAmmunition()
+    {
+        Flipper flipper = new(4, 0);
+        for (int tick = 0; tick < 100; tick++)
+            Assert.Null(flipper.Update(new Level(), 7, (_, _) => throw new InvalidOperationException()));
+        Assert.Equal(0, flipper.BulletAmmunition);
+        Assert.Equal(16, flipper.BulletTimer);
+    }
+
+    [Fact]
+    public void FlipperCanFireAtPauseEdgeTransitionWithoutChangingTransitionTiming()
+    {
+        Flipper flipper = new(4, 28, 1);
+        for (int tick = 0; tick < 186; tick++)
+            Assert.Null(flipper.Update(new Level(), 7, (_, _) => 75));
+        Assert.Equal(FlipperState.Pausing, flipper.State);
+        Assert.Equal(0, flipper.BulletTimer);
+        for (int tick = 0; tick < 23; tick++)
+            Assert.Null(flipper.Update(new Level(), 7, (_, _) => 76));
+        Assert.Equal(FlipperState.Pausing, flipper.State);
+        EnemyBullet bullet = Assert.IsType<EnemyBullet>(flipper.Update(new Level(), 7, (_, _) => 76));
+        Assert.Equal(FlipperState.Flipping, flipper.State);
+        Assert.Equal(flipper.DestinationEdge, bullet.EdgeIndex);
+        Assert.Equal(400, bullet.Height);
+    }
+
+    [Fact]
+    public void EnemyBulletAdvancesThreeAndExpiresOnlyAfterPassingDepth()
+    {
+        EnemyBullet bullet = new(3, 394);
+        bullet.Advance();
+        Assert.Equal(397, bullet.Height);
+        Assert.False(bullet.IsExpired);
+        Assert.Equal(15, bullet.Rotation);
+        bullet = new EnemyBullet(3, 397);
+        bullet.Advance();
+        Assert.Equal(400, bullet.Height);
+        Assert.False(bullet.IsExpired);
+        bullet.Advance();
+        Assert.Equal(403, bullet.Height);
+        Assert.True(bullet.IsExpired);
+    }
+
+    [Theory]
+    [InlineData(392, false)]
+    [InlineData(393, true)]
+    [InlineData(400, true)]
+    public void EnemyBulletPlayerHitUsesSameLaneAndStrictEightUnitBoundary(float height, bool expected)
+    {
+        Player player = new();
+        Assert.Equal(expected, new EnemyBullet(7, height).HitsPlayer(player));
+        Assert.False(new EnemyBullet(6, height).HitsPlayer(player));
+    }
+
+    [Theory]
+    [InlineData(99, 100, true)]
+    [InlineData(100, 100, false)]
+    [InlineData(101, 100, false)]
+    public void PlayerShotHitsEnemyBulletOnlyBelowItOnTheSameLane(float shotDepth, float bulletDepth, bool expected)
+    {
+        EnemyBullet bullet = new(8, bulletDepth);
+        Assert.Equal(expected, bullet.IsHitBy(new Shot { EdgeIndex = 8, Height = shotDepth }));
+        Assert.False(bullet.IsHitBy(new Shot { EdgeIndex = 9, Height = shotDepth }));
+    }
+
+    [Fact]
+    public void BulletDevelopmentFlagHatchesFlipperWithAmmoAndCreatesBulletAtLaneAndHeight()
+    {
+        TempestGame game = new(enemyBulletsTest: true, random: new BulletRandom(1, [76]));
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Flipper flipper = Assert.Single(game.Flippers);
+        Assert.Equal(1, flipper.BulletAmmunition);
+        Assert.Equal(15, flipper.BulletTimer);
+        Step(game, 15);
+        Assert.Empty(game.EnemyBullets);
+        Assert.Equal(0, flipper.BulletTimer);
+        game.RunOneStep();
+        EnemyBullet bullet = Assert.Single(game.EnemyBullets);
+        Assert.Equal(flipper.EdgeIndex, bullet.EdgeIndex);
+        Assert.Equal(flipper.Height, bullet.Height);
+        Assert.Equal(34, bullet.Height);
+        Assert.Equal(0, flipper.BulletAmmunition);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void BulletDevelopmentAmmoUsesControlledInclusiveOneToThreeRange(int ammunition)
+    {
+        TempestGame game = new(enemyBulletsTest: true,
+            random: new BulletRandom(ammunition, []));
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Assert.Equal(ammunition, Assert.Single(game.Flippers).BulletAmmunition);
+        Assert.Equal(15, game.Flippers[0].BulletTimer);
+    }
+
+    [Fact]
+    public void PlayerCanShootEnemyBulletForTwentyFiveWithoutEnemyAccountingChange()
+    {
+        TempestGame game = PrepareBulletGame(1, 76);
+        EnemyBullet bullet = Assert.Single(game.EnemyBullets);
+        game.Player.Move(bullet.EdgeIndex - game.Player.EdgeIndex, 16);
+        for (int tick = 0; tick < 80 && game.EnemyBullets.Count > 0; tick++)
+            game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Assert.Empty(game.EnemyBullets);
+        Assert.Equal(25, game.Score.Score);
+        Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(10, game.CurrentLevel.RemainingEnemies);
+        Assert.Single(game.Flippers);
+        AssertSpikerAccounting(game);
+    }
+
+    [Fact]
+    public void FlipperAndBulletCollisionPriorityUsesDevelopmentInsertionOrder()
+    {
+        TempestGame game = PrepareBulletGame(1, 76);
+        Flipper flipper = Assert.Single(game.Flippers);
+        EnemyBullet bullet = Assert.Single(game.EnemyBullets);
+        game.Player.Move(flipper.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot shot = Assert.Single(game.Shots);
+        shot.Height = flipper.Height - 5;
+        game.RunOneStep();
+        Assert.Empty(game.Flippers);
+        Assert.Contains(bullet, game.EnemyBullets);
+        Assert.Equal(150, game.Score.Score);
+        Assert.Equal(1, game.CurrentLevel.EnemiesDestroyed);
+    }
+
+    [Fact]
+    public void EnemyBulletPlayerHitUsesNormalDeathAndSingleLifeLoss()
+    {
+        TempestGame game = PrepareBulletGame(3, 76, 76, 76);
+        EnemyBullet firstBullet = game.EnemyBullets[0];
+        game.Player.Move(firstBullet.EdgeIndex - game.Player.EdgeIndex, 16);
+        int ticks = 0;
+        while (game.State == LevelState.Playing && ticks++ < 150)
+            game.RunOneStep();
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Assert.Equal(60, game.DeathTicks);
+        Assert.Equal(3, game.Player.Lives);
+        Assert.NotEmpty(game.EnemyBullets);
+        game.Score.Add(125);
+        Step(game, 59);
+        Assert.Equal(1, game.DeathTicks);
+        Assert.Equal(3, game.Player.Lives);
+        game.RunOneStep();
+        Assert.Equal(2, game.Player.Lives);
+        Assert.Equal(125, game.Score.Score);
+        Assert.Empty(game.EnemyBullets);
+        Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(4, game.Eggs.Count);
+        Assert.Equal(6, game.CurrentLevel.ReserveEggs);
+        AssertSpikerAccounting(game);
+    }
+
+    [Fact]
+    public void EnemyBulletsDoNotBlockCompletionAndAreClearedBeforeExit()
+    {
+        TempestGame game = PrepareBulletGame(1, 76);
+        Flipper flipper = Assert.Single(game.Flippers);
+        EnemyBullet bullet = Assert.Single(game.EnemyBullets);
+        game.Player.Move(flipper.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot shot = Assert.Single(game.Shots);
+        shot.Height = flipper.Height - 5;
+        game.RunOneStep();
+        Assert.Contains(bullet, game.EnemyBullets);
+        for (int index = 0; index < 9; index++)
+            game.CurrentLevel.RecordEnemyDestroyed();
+        game.CurrentLevel.ReturnSurvivorsToReserve();
+        game.RunOneStep();
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        Assert.Empty(game.EnemyBullets);
+        Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed);
+    }
+
+    [Fact]
+    public void BulletDevelopmentDoesNotChangeNormalOrSpikerFlipperAmmunition()
+    {
+        TempestGame normal = new();
+        MakeReady(normal.Eggs[0], normal.CurrentLevel);
+        normal.RunOneStep();
+        Assert.Equal(0, Assert.Single(normal.Flippers).BulletAmmunition);
+        Step(normal, 100);
+        Assert.Empty(normal.EnemyBullets);
+
+        TempestGame spikerOnly = new(true, new SpikerRandom { ChooseSpikers = false });
+        MakeReady(spikerOnly.Eggs[0], spikerOnly.CurrentLevel);
+        spikerOnly.RunOneStep();
+        Assert.Equal(0, Assert.Single(spikerOnly.Flippers).BulletAmmunition);
+        Assert.False(spikerOnly.EnemyBulletsTest);
+    }
+
+    [Fact]
+    public void EnemyBulletRenderUsesFiniteLaneDepthAndEightDistinctRadials()
+    {
+        TempestGame game = PrepareBulletGame(1, 76);
+        VectorRenderer renderer = new(game);
+        EnemyBullet bullet = Assert.Single(game.EnemyBullets);
+        List<(Vector2 Start, Vector2 End)> lines = [];
+        renderer.DrawEnemyBullets((start, end) => lines.Add((start, end)));
+        Assert.Equal(8, lines.Count);
+        foreach ((Vector2 start, Vector2 end) in lines)
+        {
+            Assert.True(float.IsFinite(start.X) && float.IsFinite(start.Y));
+            Assert.True(float.IsFinite(end.X) && float.IsFinite(end.Y));
+        }
+        float projectedDepth = Level.Position + Level.Depth - bullet.Height;
+        float expectedDiameter = 12 / ((projectedDepth + Projection.ZOffset) / Projection.K);
+        Assert.InRange(Vector2.Distance(lines[0].Start, lines[0].End),
+            expectedDiameter - 0.001f, expectedDiameter + 0.001f);
+        Assert.Equal(34, bullet.Height);
+        Assert.InRange(renderer.ProjectEnemyBullet(bullet).X, 0, 800);
+        Assert.InRange(renderer.ProjectEnemyBullet(bullet).Y, 0, 600);
+    }
+
+    [Fact]
     public void StartingLivesDefaultRemainsThree()
     {
         Assert.Equal(3, Player.DefaultStartingLives);
@@ -547,6 +822,20 @@ public sealed class SimulationTests
     private static void AssertFinite(Vector2 point) =>
         Assert.True(float.IsFinite(point.X) && float.IsFinite(point.Y));
 
+    private static TempestGame PrepareBulletGame(int ammunition, params int[] firingDecisions)
+    {
+        TempestGame game = new(enemyBulletsTest: true,
+            random: new BulletRandom(ammunition, firingDecisions));
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Assert.Single(game.Flippers);
+        Step(game, 15);
+        Assert.Empty(game.EnemyBullets);
+        game.RunOneStep();
+        Assert.Single(game.EnemyBullets);
+        return game;
+    }
+
     private static void AssertSpikerAccounting(TempestGame game) =>
         Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed + game.CurrentLevel.ReserveEggs +
             game.Eggs.Count + game.Flippers.Count + game.Spikers.Count);
@@ -576,6 +865,24 @@ public sealed class SimulationTests
         public bool ChooseSpikers { get; set; } = true;
         public override int Next(int minValue, int maxValue) => ChooseSpikers ? minValue : maxValue - 1;
         public override double NextDouble() => 0;
+    }
+
+    private sealed class BulletRandom : Random
+    {
+        private readonly Queue<int> values;
+
+        public BulletRandom(int ammunition, IEnumerable<int> firingDecisions)
+        {
+            values = new Queue<int>(new[] { ammunition }.Concat(firingDecisions));
+        }
+
+        public override int Next(int minValue, int maxValue)
+        {
+            if (values.Count == 0)
+                return minValue;
+
+            return Math.Clamp(values.Dequeue(), minValue, maxValue - 1);
+        }
     }
 
     [Fact]
