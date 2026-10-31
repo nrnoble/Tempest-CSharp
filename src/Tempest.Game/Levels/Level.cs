@@ -5,10 +5,11 @@ namespace Tempest.Game.Levels;
 
 /// <summary>
 /// Level state: tube geometry, Egg release and normal enemy accounting. Normal accounting conserves
-/// EnemyTotal: every enemy is reserve (EnemyTotal - EnemiesSpawned), an Egg/active unit, or
-/// destroyed (EnemiesDestroyed). After a death, EnemiesSpawned is rewound to EnemiesDestroyed so
-/// only unresolved enemies re-enter as fresh Eggs. Spawn lane order and timers are Incitti-derived
-/// and unvalidated against the arcade. Tanker queues are development-only (<c>--tanker-test</c>).
+/// EnemyTotal: every enemy is reserve (EnemyTotal - EnemiesSpawned), an Egg/active unit, destroyed
+/// (EnemiesDestroyed), or rim-cleared (EnemiesRimCleared). After a death, EnemiesSpawned is rewound
+/// to the resolved count so only unresolved enemies re-enter as fresh Eggs. Spawn lane order and
+/// timers are Incitti-derived and unvalidated against the arcade. Tanker queues are development-only
+/// (<c>--tanker-test</c>).
 /// </summary>
 public sealed class Level
 {
@@ -32,13 +33,14 @@ public sealed class Level
     public LevelDefinition Definition { get; } = LevelLoader.LoadLevel1();
     public int EnemiesSpawned { get; private set; }
     public int EnemiesDestroyed { get; private set; }
+    public int EnemiesRimCleared { get; private set; }
     // Development-only tanker accounting counts reserve as queued original slots; normal (and
     // Spiker) accounting derives reserve from the conserved ten-unit ledger.
     public int ReserveEggs => TankerDevelopmentWave
         ? tankerPendingOriginalSlots.Count
         : EnemyTotal - EnemiesSpawned;
     public int PendingTankerCargoEggs => TankerDevelopmentWave ? tankerPendingCargoUnits.Count : 0;
-    public int RemainingEnemies => EnemyTotal - EnemiesDestroyed;
+    public int RemainingEnemies => EnemyTotal - EnemiesDestroyed - EnemiesRimCleared;
     public IReadOnlyList<Egg> Eggs => eggs;
     public IReadOnlyList<Spike> Spikes => spikes;
     public event Action<Spike>? SpikeCreated;
@@ -59,6 +61,7 @@ public sealed class Level
     public void Reset()
     {
         EnemiesDestroyed = 0;
+        EnemiesRimCleared = 0;
         tankerPendingOriginalSlots.Clear();
         tankerPendingCargoUnits.Clear();
         if (TankerDevelopmentWave)
@@ -95,19 +98,21 @@ public sealed class Level
             ReleaseEgg();
     }
 
-    // Rewinds EnemiesSpawned to EnemiesDestroyed so every unresolved enemy re-enters as a fresh
-    // Egg (no runtime positions survive a death). Realigning nextSpawnLaneIndex to the destroyed
-    // count keeps the deterministic lane sequence consistent after any number of deaths.
+    // Rim clears are resolved but not kills, so reconstruction must retain their disposition and
+    // must not recreate them as Eggs. Realigning the lane sequence to both resolved outcomes keeps
+    // only unresolved units in the fresh-Egg supply after death or spike-exit retry.
     public void ReturnSurvivorsToReserve()
     {
         eggs.Clear();
         spawnTimer = 0;
         hatchSelectionTimer = 0;
-        EnemiesSpawned = EnemiesDestroyed;
-        nextSpawnLaneIndex = EnemiesDestroyed % spawnLanes.Length;
+        EnemiesSpawned = EnemiesDestroyed + EnemiesRimCleared;
+        nextSpawnLaneIndex = EnemiesSpawned % spawnLanes.Length;
     }
 
     public void RecordEnemyDestroyed() => EnemiesDestroyed++;
+
+    public void RecordEnemyRimCleared() => EnemiesRimCleared++;
 
     // Reserve release cadence: one Egg every 50 ticks, only while under the four-active cap.
     // Incitti-derived pacing; unvalidated against the arcade.
@@ -232,7 +237,8 @@ public sealed class Level
     }
 
     public bool IsComplete(int activeFlippers) =>
-        EnemiesDestroyed == EnemyTotal && ReserveEggs == 0 && eggs.Count == 0 && activeFlippers == 0;
+        EnemiesDestroyed + EnemiesRimCleared == EnemyTotal &&
+        ReserveEggs == 0 && eggs.Count == 0 && activeFlippers == 0;
 
     public int NextEdge(int edge) => (edge + 1) % Definition.Points.Count;
     public int PreviousEdge(int edge) =>

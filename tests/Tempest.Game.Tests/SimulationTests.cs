@@ -64,7 +64,7 @@ public sealed class SimulationTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void HurryUpDoesNotActivateWhenAllActiveEnemiesAreAtTheRim(bool pulsar)
+    public void AllRimCompletionPrecedesNewHurryUpWhenAllActiveEnemiesReachTheRim(bool pulsar)
     {
         TempestGame game = PrepareHurryUpEggs(pulsar, survivors: 2);
         MakeReady(game.Eggs[0], game.CurrentLevel);
@@ -75,9 +75,72 @@ public sealed class SimulationTests
         game.RunOneStep();
         Assert.Equal(Level.Depth, active.Height);
         Assert.False(game.HurryUp);
-        Assert.Equal(LevelState.Playing, game.State);
-        Assert.False(game.IsExiting);
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        Assert.Empty(HurryUpEnemies(game));
+        Assert.Equal(0, game.Score.Score);
+        Assert.Equal(9, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(1, game.CurrentLevel.EnemiesRimCleared);
+        Assert.Equal(0, game.CurrentLevel.RemainingEnemies);
+        if (!pulsar)
+            Assert.Empty(game.FuseballScorePopups);
         AssertHurryUpAccounting(game);
+    }
+
+    [Fact]
+    public void AllRimCompletionClearsMultipleFlippersWithoutScoringOrDestroyingThem()
+    {
+        TempestGame game = new();
+        for (int unit = 0; unit < Level.EnemyTotal - 2; unit++)
+            game.CurrentLevel.RecordEnemyDestroyed();
+        game.CurrentLevel.ResetAfterDeath();
+        foreach (Egg egg in game.Eggs)
+            MakeReady(egg, game.CurrentLevel);
+        game.RunOneStep();
+        Assert.Equal(2, game.Flippers.Count);
+        Assert.Equal(8, game.CurrentLevel.EnemiesDestroyed);
+        game.Player.Move(3 - game.Player.EdgeIndex, game.CurrentLevel.Definition.Points.Count);
+
+        foreach (Flipper flipper in game.Flippers)
+        {
+            for (int tick = 0; tick < 300 && flipper.Height < Level.Depth; tick++)
+                flipper.Update(game.CurrentLevel, game.Player.EdgeIndex);
+            Assert.Equal(Level.Depth, flipper.Height);
+        }
+
+        game.Score.Add(17);
+        game.RunOneStep();
+
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        Assert.Empty(game.Flippers);
+        Assert.Equal(8, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(2, game.CurrentLevel.EnemiesRimCleared);
+        Assert.Equal(0, game.CurrentLevel.RemainingEnemies);
+        Assert.Equal(17, game.Score.Score);
+
+        game.RunOneStep();
+        Assert.Equal(8, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(2, game.CurrentLevel.EnemiesRimCleared);
+        Assert.Equal(17, game.Score.Score);
+    }
+
+    [Fact]
+    public void ReserveEggsBlockAllRimCompletion()
+    {
+        TempestGame game = new();
+        Egg egg = game.Eggs[0];
+        MakeReady(egg, game.CurrentLevel);
+        game.RunOneStep();
+        Flipper flipper = Assert.Single(game.Flippers);
+        for (int tick = 0; tick < 300 && flipper.Height < Level.Depth; tick++)
+            flipper.Update(game.CurrentLevel, game.Player.EdgeIndex);
+        Assert.Equal(Level.Depth, flipper.Height);
+        Assert.True(game.CurrentLevel.ReserveEggs > 0);
+
+        game.RunOneStep();
+
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Single(game.Flippers);
+        Assert.Equal(0, game.CurrentLevel.EnemiesRimCleared);
     }
 
     [Theory]
@@ -167,7 +230,7 @@ public sealed class SimulationTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void HurryUpTriggerUsesPostUpdateHeightNotThePreUpdateBelowRimHeight(bool pulsar)
+    public void AllRimCompletionUsesPostUpdateHeightWhenHurryUpSurvivorReachesRim(bool pulsar)
     {
         TempestGame game = PrepareHurryUpEggs(pulsar, survivors: 2);
         MakeReady(game.Eggs[0], game.CurrentLevel);
@@ -183,14 +246,19 @@ public sealed class SimulationTests
         game.RunOneStep();
         Assert.Equal(Level.Depth, active.Height);
         Assert.False(game.HurryUp); // Pre-update height would incorrectly latch on this update.
-        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        Assert.Empty(HurryUpEnemies(game));
+        Assert.Equal(9, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(1, game.CurrentLevel.EnemiesRimCleared);
+        if (!pulsar)
+            Assert.Empty(game.FuseballScorePopups);
         AssertHurryUpAccounting(game);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void HurryUpRemainsLatchedAtTheRimWithoutResolvingTheLastEnemy(bool pulsar)
+    public void PreviouslyLatchedHurryUpDoesNotBlockAllRimCompletion(bool pulsar)
     {
         TempestGame game = HatchFinalHurryUpEnemy(pulsar);
         Enemy active = Assert.Single(HurryUpEnemies(game));
@@ -202,11 +270,14 @@ public sealed class SimulationTests
         Assert.Equal(Level.Depth, active.Height);
         Assert.Equal(17, game.Score.Score);
         Assert.Equal(9, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(1, game.CurrentLevel.EnemiesRimCleared);
         Assert.Equal(0, game.CurrentLevel.ReserveEggs);
         Assert.Empty(game.Eggs);
-        Assert.Single(HurryUpEnemies(game));
-        Assert.Equal(LevelState.Playing, game.State);
-        Assert.False(game.IsExiting);
+        Assert.Empty(HurryUpEnemies(game));
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        Assert.True(game.IsExiting);
+        if (!pulsar)
+            Assert.Empty(game.FuseballScorePopups);
         AssertHurryUpAccounting(game);
     }
 
@@ -704,7 +775,8 @@ public sealed class SimulationTests
 
     private static void AssertHurryUpAccounting(TempestGame game) =>
         Assert.Equal(Level.EnemyTotal, game.CurrentLevel.EnemiesDestroyed +
-            game.CurrentLevel.ReserveEggs + game.Eggs.Count + HurryUpEnemies(game).Count());
+            game.CurrentLevel.EnemiesRimCleared + game.CurrentLevel.ReserveEggs +
+            game.Eggs.Count + HurryUpEnemies(game).Count());
 
     private static void ResolveRemainingHurryUpEgg(TempestGame game)
     {
@@ -1788,8 +1860,9 @@ public sealed class SimulationTests
 
     private static void AssertPulsarAccounting(TempestGame game)
     {
-        Assert.Equal(Level.EnemyTotal, game.CurrentLevel.EnemiesDestroyed + game.CurrentLevel.ReserveEggs
-            + game.Eggs.Count + game.Pulsars.Count);
+        Assert.Equal(Level.EnemyTotal, game.CurrentLevel.EnemiesDestroyed +
+            game.CurrentLevel.EnemiesRimCleared + game.CurrentLevel.ReserveEggs +
+            game.Eggs.Count + game.Pulsars.Count);
     }
 
     private static Fuseball CreateRimFuseball(Level level)
@@ -2880,6 +2953,41 @@ public sealed class SimulationTests
         AssertTankerAccounting(game);
         Assert.False(game.LevelComplete);
         Assert.Equal(2, game.TankerCargoUnitsRemaining);
+    }
+
+    [Fact]
+    public void MixedKilledAndRimClearedTankerCargoKeepDistinctLedgerOutcomes()
+    {
+        TempestGame game = CreateTankerWave(startingLives: 100);
+        ShootTanker(game, Assert.Single(game.Tankers));
+        Flipper[] cargo = game.Flippers.Where(flipper => flipper.IsTankerCargo)
+            .OrderBy(flipper => flipper.CargoUnitId).ToArray();
+        Assert.Equal(2, cargo.Length);
+        ShootDevelopmentFlipper(game, cargo[0]);
+
+        for (int slotId = 1; slotId < Level.EnemyTotal; slotId++)
+            DestroyOriginalFlipperSlot(game, slotId);
+
+        Flipper survivor = Assert.Single(game.Flippers, flipper => flipper.IsTankerCargo);
+        game.Player.Move((survivor.EdgeIndex + 8) % game.CurrentLevel.Definition.Points.Count -
+            game.Player.EdgeIndex, game.CurrentLevel.Definition.Points.Count);
+        for (int tick = 0; tick < 300 && survivor.Height < Level.Depth; tick++)
+            survivor.Update(game.CurrentLevel, game.Player.EdgeIndex);
+        Assert.Equal(Level.Depth, survivor.Height);
+        int scoreBeforeRimClear = game.Score.Score;
+        game.RunOneStep();
+
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        Assert.Empty(game.Flippers);
+        Assert.Equal(10, game.TankerOriginalSlotsDestroyed + game.TankerOriginalSlotsEscaped);
+        Assert.Equal(0, game.TankerOriginalSlotsRimCleared);
+        Assert.Equal(1, game.TankerCargoUnitsRimCleared);
+        Assert.Equal(1, game.TankerCargoUnitsKilled);
+        Assert.Equal(2, game.TankerCargoUnitsResolved);
+        Assert.Equal(0, game.TankerCargoUnitsRemaining);
+        Assert.Equal(12, game.TankerAccountingTotal);
+        Assert.Equal(scoreBeforeRimClear, game.Score.Score);
+        AssertTankerAccounting(game);
     }
 
     [Fact]
@@ -4096,7 +4204,7 @@ public sealed class SimulationTests
     private static void AssertTankerAccounting(TempestGame game)
     {
         Assert.Equal(Level.EnemyTotal, game.TankerOriginalSlotsDestroyed + game.TankerOriginalSlotsEscaped +
-            game.TankerOriginalSlotsRemaining);
+            game.TankerOriginalSlotsRimCleared + game.TankerOriginalSlotsRemaining);
         Assert.Equal(Level.EnemyTotal + game.TankerMaterializedCargoUnits, game.TankerAccountingTotal);
         Assert.Equal(game.TankerCargoUnitsResolved + game.TankerCargoUnitsRemaining,
             game.TankerMaterializedCargoUnits + game.TankerLatentCargoUnits);
@@ -4127,8 +4235,54 @@ public sealed class SimulationTests
     }
 
     private static void AssertSpikerAccounting(TempestGame game) =>
-        Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed + game.CurrentLevel.ReserveEggs +
-            game.Eggs.Count + game.Flippers.Count + game.Spikers.Count);
+        Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed + game.CurrentLevel.EnemiesRimCleared +
+            game.CurrentLevel.ReserveEggs + game.Eggs.Count + game.Flippers.Count + game.Spikers.Count);
+
+    [Fact]
+    public void ForcedRimSpikerIsNonKillClearedAndPersistentSpikeRetriesWithoutReconstruction()
+    {
+        TempestGame game = new(true, new SpikerRandom());
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Spiker spiker = Assert.Single(game.Spikers);
+
+        for (int unit = 0; unit < Level.EnemyTotal - 1; unit++)
+            game.CurrentLevel.RecordEnemyDestroyed();
+        game.CurrentLevel.ReturnSurvivorsToReserve();
+        for (int tick = 0; tick < 50; tick++)
+            game.CurrentLevel.UpdateEggRelease();
+        Egg discardedEntry = Assert.Single(game.Eggs);
+        MakeReady(discardedEntry, game.CurrentLevel);
+        Assert.NotNull(game.CurrentLevel.HatchReadyEnemy(lane => new Flipper(lane)));
+
+        typeof(Enemy).GetProperty(nameof(Enemy.Height))!.SetValue(spiker, Level.Depth);
+        int spikeCount = game.Spikes.Count;
+
+        game.RunOneStep();
+
+        Assert.Equal(LevelState.AvoidSpikes, game.State);
+        Assert.Empty(game.Spikers);
+        Assert.Equal(9, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(1, game.CurrentLevel.EnemiesRimCleared);
+        Assert.Equal(0, game.Score.Score);
+        Assert.Equal(spikeCount, game.Spikes.Count);
+
+        Spike persistentSpike = Assert.Single(game.Spikes, spike => spike.EdgeIndex == game.Player.EdgeIndex);
+        persistentSpike.Height = game.Player.Depth + 1;
+        game.RunOneStep();
+        Assert.Equal(LevelState.ReverseZoom, game.State);
+        for (int tick = 0; tick < 120 && game.State == LevelState.ReverseZoom; tick++)
+            game.RunOneStep();
+
+        Assert.Equal(LevelState.AvoidSpikes, game.State);
+        Assert.Equal(1, game.CurrentLevel.EnemiesRimCleared);
+        Assert.Equal(0, game.CurrentLevel.ReserveEggs);
+        Assert.Empty(game.Eggs);
+        Assert.Empty(game.Spikers);
+        Assert.Equal(spikeCount, game.Spikes.Count);
+        Assert.Equal(0, game.Score.Score);
+        AssertSpikerAccounting(game);
+    }
 
     private static TempestGame HatchDevelopmentSpiker()
     {
@@ -4407,9 +4561,17 @@ public sealed class SimulationTests
     public void UndestroyedFinalFlipperStillKillsPlayerAtCompletedPivot()
     {
         TempestGame game = PrepareFinalEnemy();
-        Step(game, 190);
         game.Player.Move(-1, 16);
-        Step(game, 9 + 24 + 3);
+        Flipper flipper = Assert.Single(game.Flippers);
+        while (flipper.Height < Level.Depth)
+            flipper.Update(game.CurrentLevel, game.Player.EdgeIndex);
+        while (flipper.State == FlipperState.Pausing)
+            flipper.Update(game.CurrentLevel, game.Player.EdgeIndex);
+        while (flipper.TurnAngle < flipper.TotalTurnAngle - 8)
+            flipper.Update(game.CurrentLevel, game.Player.EdgeIndex);
+
+        // Keep the explicit lethal-pivot route isolated from earlier all-rim exit ticks.
+        game.RunOneStep();
         Assert.Equal(LevelState.PlayerDying, game.State);
         Assert.Equal(60, game.DeathTicks);
         Assert.Equal(9, game.CurrentLevel.EnemiesDestroyed);
@@ -4427,13 +4589,19 @@ public sealed class SimulationTests
     public void FinalPivotTickKillStartsExitInsteadOfKillingPlayer()
     {
         TempestGame game = PrepareFinalEnemy();
-        Step(game, 190);
         game.Player.Move(-1, 16);
-        Step(game, 9 + 24);
         Flipper flipper = Assert.Single(game.Flippers);
+        while (flipper.Height < Level.Depth)
+            flipper.Update(game.CurrentLevel, game.Player.EdgeIndex);
+        while (flipper.State == FlipperState.Pausing)
+            flipper.Update(game.CurrentLevel, game.Player.EdgeIndex);
+        while (flipper.TurnAngle < flipper.TotalTurnAngle - 8)
+            flipper.Update(game.CurrentLevel, game.Player.EdgeIndex);
         Assert.Equal(FlipperState.Flipping, flipper.State);
         Assert.Equal(game.Player.EdgeIndex, flipper.DestinationEdge);
-        Step(game, 2);
+
+        // Drive the enemy to its last pivot tick directly so the test isolates the shot-before-
+        // collision kill route instead of naturally resolving earlier through all-rim completion.
         game.RunOneStep(new PlayerInput(true, 0, false, false));
         Assert.Equal(LevelState.ExitDelay, game.State);
         Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed);
@@ -5164,8 +5332,9 @@ public sealed class SimulationTests
             game.RunOneStep(new PlayerInput(true, 0, false, false));
             AssertAccounting(game);
             Assert.Equal(game.CurrentLevel.EnemiesDestroyed * 150, game.Score.Score);
-            Assert.Equal(10 - game.CurrentLevel.EnemiesDestroyed,
+            Assert.Equal(game.CurrentLevel.RemainingEnemies,
                 game.CurrentLevel.ReserveEggs + game.Eggs.Count + game.Flippers.Count);
+            Assert.Equal(0, game.CurrentLevel.EnemiesRimCleared);
             Assert.True(game.CurrentLevel.EnemiesDestroyed >= previousDestroyed);
             previousDestroyed = game.CurrentLevel.EnemiesDestroyed;
             Assert.Equal(game.CurrentLevel.EnemiesDestroyed == 10, game.State == LevelState.ExitDelay);
@@ -5210,7 +5379,8 @@ public sealed class SimulationTests
 
     private static void AssertAccounting(TempestGame game)
     {
-        Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed + game.CurrentLevel.ReserveEggs
+        Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed + game.CurrentLevel.EnemiesRimCleared +
+            game.CurrentLevel.ReserveEggs
             + game.Eggs.Count + game.Flippers.Count);
         Assert.InRange(game.CurrentLevel.ReserveEggs, 0, 10);
         Assert.InRange(game.Eggs.Count, 0, 4);

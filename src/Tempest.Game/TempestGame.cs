@@ -38,12 +38,15 @@ public sealed class TempestGame
     private readonly List<object> developmentCollisionOrder = [];
     // Tanker scenario ledger. Original wave slots (0..EnemyTotal-1) and Tanker cargo units are
     // tracked separately: cargo is added on top of the normal ten-unit wave and has its own IDs.
-    // An unresolved ID survives a life loss; the runtime enemy object does not.
+    // Rim-cleared identities are separate outcomes from kills; unresolved IDs survive life loss,
+    // while runtime enemy objects do not.
     private readonly HashSet<int> unresolvedOriginalSlots = [];
     private readonly HashSet<int> destroyedOriginalSlots = [];
     private readonly HashSet<int> escapedOriginalSlots = [];
+    private readonly HashSet<int> rimClearedOriginalSlots = [];
     private readonly HashSet<int> unresolvedCargoUnits = [];
     private readonly HashSet<int> resolvedCargoUnits = [];
+    private readonly HashSet<int> rimClearedCargoUnits = [];
     private readonly Random random;
     private readonly int startingLives;
     private readonly bool enemyBulletsTest;
@@ -84,20 +87,27 @@ public sealed class TempestGame
     public int TankerOriginalSlotsRemaining => unresolvedOriginalSlots.Count;
     public int TankerOriginalSlotsDestroyed => destroyedOriginalSlots.Count;
     public int TankerOriginalSlotsEscaped => escapedOriginalSlots.Count;
-    public int TankerOriginalSlotsResolved => destroyedOriginalSlots.Count + escapedOriginalSlots.Count;
+    public int TankerOriginalSlotsRimCleared => rimClearedOriginalSlots.Count;
+    public int TankerOriginalSlotsResolved =>
+        destroyedOriginalSlots.Count + escapedOriginalSlots.Count + rimClearedOriginalSlots.Count;
     public int TankerLatentCargoUnits => tankers.Sum(tanker => tanker.LatentCargoCount) +
         (tankerTest && unresolvedOriginalSlots.Contains(0) && tankers.All(tanker => tanker.OriginalSlotId != 0)
             ? Tanker.CarriedFlipperCount
             : 0);
     public int TankerCargoUnitsRemaining => unresolvedCargoUnits.Count + TankerLatentCargoUnits;
-    public int TankerMaterializedCargoUnits => unresolvedCargoUnits.Count + resolvedCargoUnits.Count;
-    public int TankerCargoUnitsResolved => resolvedCargoUnits.Count;
+    public int TankerMaterializedCargoUnits =>
+        unresolvedCargoUnits.Count + resolvedCargoUnits.Count + rimClearedCargoUnits.Count;
+    public int TankerCargoUnitsKilled => resolvedCargoUnits.Count;
+    // Resolved is the aggregate terminal count; callers needing score-bearing outcomes use Killed.
+    public int TankerCargoUnitsResolved => resolvedCargoUnits.Count + rimClearedCargoUnits.Count;
+    public int TankerCargoUnitsRimCleared => rimClearedCargoUnits.Count;
     public int ActiveTankerCargoFlippers => flippers.Count(flipper => flipper.IsTankerCargo);
     public int PendingTankerCargoUnits => Math.Max(0, unresolvedCargoUnits.Count - ActiveTankerCargoFlippers);
     public int ActiveTankerOriginalEnemies =>
         tankers.Count + flippers.Count(flipper => !flipper.IsTankerCargo);
     public int TankerAccountingTotal => destroyedOriginalSlots.Count + escapedOriginalSlots.Count +
-        unresolvedOriginalSlots.Count + unresolvedCargoUnits.Count + resolvedCargoUnits.Count;
+        rimClearedOriginalSlots.Count + unresolvedOriginalSlots.Count + unresolvedCargoUnits.Count +
+        resolvedCargoUnits.Count + rimClearedCargoUnits.Count;
     public int TankerActiveTotal => Eggs.Count + tankers.Count + flippers.Count + spikers.Count;
     public int DeathTicks { get; private set; }
     public int SuperZapperChargesRemaining => SuperZapper.ChargesRemaining;
@@ -197,11 +207,15 @@ public sealed class TempestGame
             UpdateSpikers();
             UpdateFuseballs();
             UpdatePulsars();
+            // A lethal collision wins over same-tick rim completion; qualify only after every
+            // existing enemy, bullet, and spike collision has had its established chance to kill.
             CheckFlippersAgainstPlayer();
             CheckFuseballsAgainstPlayer();
             CheckPulsarsAgainstPlayer();
             CheckEnemyBulletsAgainstPlayer();
             CheckSpikesAgainstPlayer();
+            if (TryCompleteAllRim())
+                return;
             LatchHurryUp();
             CheckForLevelComplete();
         }
@@ -243,8 +257,10 @@ public sealed class TempestGame
         unresolvedOriginalSlots.Clear();
         destroyedOriginalSlots.Clear();
         escapedOriginalSlots.Clear();
+        rimClearedOriginalSlots.Clear();
         unresolvedCargoUnits.Clear();
         resolvedCargoUnits.Clear();
+        rimClearedCargoUnits.Clear();
         nextCargoUnitId = 0;
         if (tankerTest)
             for (int slotId = 0; slotId < Level.EnemyTotal; slotId++)
@@ -777,10 +793,23 @@ public sealed class TempestGame
         escapedOriginalSlots.Add(originalSlotId);
     }
 
+    private void ResolveOriginalSlotRimCleared(int originalSlotId)
+    {
+        if (originalSlotId < 0 || !unresolvedOriginalSlots.Remove(originalSlotId))
+            return;
+        rimClearedOriginalSlots.Add(originalSlotId);
+    }
+
     private void ResolveCargoUnit(int cargoUnitId)
     {
         if (unresolvedCargoUnits.Remove(cargoUnitId))
             resolvedCargoUnits.Add(cargoUnitId);
+    }
+
+    private void ResolveCargoUnitRimCleared(int cargoUnitId)
+    {
+        if (unresolvedCargoUnits.Remove(cargoUnitId))
+            rimClearedCargoUnits.Add(cargoUnitId);
     }
 
     private void UpdateFlippers()
@@ -881,24 +910,140 @@ public sealed class TempestGame
 
     private bool CheckForLevelComplete()
     {
-        // Deliberately omit Incitti's onrim exit: hurry-up never resolves a unit or replaces
-        // this project's kill-all completion policy.
         // Normal Level 1 uses the conservation check in Level.IsComplete. The Tanker scenario
         // has a dynamic ledger (cargo adds units), so it requires every slot and cargo unit resolved.
+        if (State != LevelState.Playing)
+            return false;
+
         bool complete = tankerTest
             ? unresolvedOriginalSlots.Count == 0 && unresolvedCargoUnits.Count == 0 &&
               CurrentLevel.ReserveEggs == 0 && Eggs.Count == 0 && tankers.Count == 0 &&
               flippers.Count == 0 && spikers.Count == 0
             : CurrentLevel.IsComplete(flippers.Count + spikers.Count + fuseballs.Count + pulsars.Count);
-        if (State != LevelState.Playing || !complete)
+        if (!complete)
             return false;
 
+        BeginExit();
+        return true;
+    }
+
+    private bool TryCompleteAllRim()
+    {
+        if (!IsAllRimCompletionEligible(out List<Enemy> activeEnemies))
+            return false;
+
+        // Removing the enemy object also discards its pending zap timer, so it cannot earn a
+        // delayed kill score after disappearing through the non-kill rim-clear path.
+        foreach (Enemy enemy in activeEnemies)
+        {
+            developmentCollisionOrder.Remove(enemy);
+            switch (enemy)
+            {
+                case Flipper flipper:
+                    flippers.Remove(flipper);
+                    if (tankerTest)
+                    {
+                        if (flipper.IsTankerCargo)
+                            ResolveCargoUnitRimCleared(flipper.CargoUnitId);
+                        else
+                            ResolveOriginalSlotRimCleared(flipper.OriginalSlotId);
+                    }
+                    else
+                    {
+                        // Rim disappearance resolves a unit without claiming it was kill-scored.
+                        CurrentLevel.RecordEnemyRimCleared();
+                    }
+                    break;
+                case Tanker tanker:
+                    tankers.Remove(tanker);
+                    ResolveOriginalSlotRimCleared(tanker.OriginalSlotId);
+                    break;
+                case Spiker spiker:
+                    spikers.Remove(spiker);
+                    CurrentLevel.RecordEnemyRimCleared();
+                    break;
+                case Fuseball fuseball:
+                    fuseballs.Remove(fuseball);
+                    CurrentLevel.RecordEnemyRimCleared();
+                    break;
+                case Pulsar pulsar:
+                    pulsars.Remove(pulsar);
+                    CurrentLevel.RecordEnemyRimCleared();
+                    break;
+            }
+        }
+
+        BeginExit();
+        return true;
+    }
+
+    private bool IsAllRimCompletionEligible(out List<Enemy> activeEnemies)
+    {
+        activeEnemies = [];
+        if (State != LevelState.Playing ||
+            CurrentLevel.ReserveEggs != 0 ||
+            Eggs.Count != 0 ||
+            CurrentLevel.PendingTankerCargoEggs != 0)
+            return false;
+
+        activeEnemies.AddRange(flippers);
+        activeEnemies.AddRange(tankers);
+        activeEnemies.AddRange(spikers);
+        activeEnemies.AddRange(fuseballs);
+        activeEnemies.AddRange(pulsars);
+
+        if (activeEnemies.Count == 0 || activeEnemies.Any(enemy => !(enemy.Height >= Level.Depth)))
+            return false;
+
+        if (tankerTest)
+            return TankerUnresolvedUnitsAreRepresented(activeEnemies);
+
+        return CurrentLevel.RemainingEnemies == activeEnemies.Count;
+    }
+
+    private bool TankerUnresolvedUnitsAreRepresented(IEnumerable<Enemy> activeEnemies)
+    {
+        // Distinct identities prevent a carrier/cargo disappearance from silently dropping a
+        // ledger unit; latent and queued cargo remain blockers until represented by active enemies.
+        if (TankerLatentCargoUnits != 0 || PendingTankerCargoUnits != 0)
+            return false;
+
+        HashSet<int> representedOriginalSlots = [];
+        HashSet<int> representedCargoUnits = [];
+        foreach (Enemy enemy in activeEnemies)
+        {
+            if (enemy is Tanker tanker)
+            {
+                if (!representedOriginalSlots.Add(tanker.OriginalSlotId))
+                    return false;
+            }
+            else if (enemy is Flipper flipper && flipper.IsTankerCargo)
+            {
+                if (!representedCargoUnits.Add(flipper.CargoUnitId))
+                    return false;
+            }
+            else if (enemy is Flipper originalFlipper)
+            {
+                if (!representedOriginalSlots.Add(originalFlipper.OriginalSlotId))
+                    return false;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        return unresolvedOriginalSlots.SetEquals(representedOriginalSlots) &&
+            unresolvedCargoUnits.SetEquals(representedCargoUnits);
+    }
+
+    private void BeginExit()
+    {
         CurrentLevel.State = CurrentLevel.SpikerDevelopmentWave ? LevelState.AvoidSpikes : LevelState.ExitDelay;
         exitDelayTicks = 0;
         shots.Clear();
         enemyBullets.Clear();
         developmentCollisionOrder.RemoveAll(target => target is EnemyBullet);
-        return true;
     }
 
     private void UpdateExitZoom(bool completeWhenFinished = true)
@@ -981,6 +1126,8 @@ public sealed class TempestGame
         flippers.Clear();
         spikers.Clear();
         developmentCollisionOrder.RemoveAll(target => target is not Spike);
+        // An all-rim clear is already a resolved disposition; reversing the spike exit must not
+        // rebuild those enemies as Eggs when the exit is retried.
         CurrentLevel.ReturnSurvivorsToReserve();
     }
 

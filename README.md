@@ -197,8 +197,9 @@ transfer and the shared pulse timing/rendering.
 
 The latch survives the full player-death freeze and fresh-Egg reconstruction;
 R after Game Over or Level Complete clears it on restart/replay. It adds no
-score, kills or accounting changes. All enemies must still be destroyed before
-exit; Incitti's separate onrim-based exit rule is deliberately not copied.
+score, kills or accounting changes. Below-rim survivors retain this Hurry-Up
+behavior; after Egg sources are exhausted, the separate all-rim completion
+path takes precedence when every active enemy reaches the rim.
 Normal Level 1, Spiker and Tanker scenarios do not enable hurry-up.
 
 This is source-derived behavior in artificial development compositions, not
@@ -258,6 +259,42 @@ pursuit at the rim. Neal confirmed both released Flippers should survive and
 appear in distinct non-Tanker lanes. Exact arcade intermediate lane sequence
 and timing remain unverified. See
 `AI-Logs/Reports/2026-10-30-tanker-cargo-direction-correction-report.md`.
+
+## All-rim completion
+
+**ARCADE VERIFIED:** Neal observed that, after reserve and incoming Eggs are
+exhausted, the Blaster may exit when every remaining enemy reaches the rim;
+those enemies disappear without needing individual kills. The recreation keeps
+kill-scored destruction separate from non-kill rim clears. A rim clear awards
+no score, creates no Fuseball kill popup, and does not increment
+`EnemiesDestroyed`; the remaining-enemy HUD uses the combined unresolved count.
+
+The implementation checks post-update enemy heights against `Level.Depth`
+(400) after player/enemy, bullet and spike collisions. This exact threshold,
+state-agnostic enemy list, update ordering and pending-zap handling are
+**REFERENCE VERIFIED / PROJECT DECISION**, not arcade-verified details.
+Flippers, Tankers, Spikers, Fuseballs and Pulsars qualify; bullets and Spike
+hazards do not. A below-rim Fuseball or Pulsar keeps the existing Hurry-Up
+behavior. Tanker latent or queued cargo blocks completion until represented;
+each live cargo identity is resolved separately. Spiker exit keeps persistent
+Spike hazards, and reverse/retry does not resurrect rim-cleared enemies.
+
+For manual validation, run:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --lives 10
+dotnet run --project src\Tempest.Game -- --fuseball-test --lives 10
+dotnet run --project src\Tempest.Game -- --pulsar-test --lives 10
+dotnet run --project src\Tempest.Game -- --tanker-test --lives 10
+dotnet run --project src\Tempest.Game -- --spiker-test --lives 10
+```
+
+Let all incoming Eggs clear and observe whether rim enemies disappear without
+kill score; verify a below-rim survivor delays exit, Hurry-Up yields to later
+rim completion, Tanker cargo below the rim blocks, pending Super Zapper targets
+do not score after rim clear, and Spike hazards remain during the Spiker exit.
+Same-tick player-collision precedence and exact arcade timing still need
+hands-on comparison.
 
 ## Reference mapping
 - `tempest.bmx` -> gameplay and state behavior

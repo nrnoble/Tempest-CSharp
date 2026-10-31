@@ -337,10 +337,11 @@ bottom decisions. Climb, descent and climbing flips remain one unit per
 movement update. The 14-update rim pause, lane transfer, shared 181-update
 oscillator, pulsing-lane collisions and existing rendering are unchanged.
 
-Unlike Incitti, merely putting all surviving enemies on the rim cannot start
-exit. The project's kill-all completion/accounting policy is deliberate.
-Hurry-up neither removes nor resolves a unit, awards points, increments
-destroyed count nor changes Egg totals.
+Hurry-up itself neither removes nor resolves a unit, awards points, increments
+destroyed count nor changes Egg totals. The separate all-rim completion
+milestone below now takes precedence after Eggs are exhausted and every active
+enemy reaches the rim; below-rim Fuseballs/Pulsars continue to trigger
+Hurry-Up.
 
 Automated validation: focused hurry-up/Fuseball/Pulsar selection 121 passed,
 0 failed, 0 skipped; full suite 289 passed, 0 failed, 0 skipped. Solution build:
@@ -730,3 +731,58 @@ remains unchanged pending validation of this final geometry.
 Automated validation of the follow-up geometry is recorded in
 `AI-Logs/Reports/2026-10-30-tanker-cargo-direction-correction-report.md`.
 Manual validation of the final cargo geometry remains pending.
+
+## All-rim completion implementation milestone
+
+Implemented after checkpoint `7f6c776`. Neal's observation that exhausted
+reserve/incoming Eggs plus all remaining enemies at the rim permit exit is
+**ARCADE VERIFIED**. The C# cutoff (`Height >= Level.Depth`, currently 400),
+the state-agnostic enemy set, exact update/tick ordering, pending-zap
+disposition, and permanent rim-clear handling across Spike reverse/retry are
+**REFERENCE VERIFIED / PROJECT DECISION**, not arcade-verified details.
+`TEMPEST-BEHAVIOR-SPEC.md` remains unchanged pending Neal's manual validation.
+
+The single qualification check runs only in `Playing`, after Egg release,
+Egg update/hatching, enemy/zap updates, pending cargo activation, and all
+player/enemy/bullet/spike collisions. It requires no reserve Eggs, active Eggs,
+pending cargo Eggs, unresolved latent cargo, or unrepresented Tanker identity;
+at least one active Flipper, Tanker, Spiker, Fuseball or Pulsar; and every such
+enemy at or above the rim. Enemy bullets and Spike hazards are excluded. The
+existing early kill-all check remains after shots/bullets, preserving
+same-tick shot-kill behavior.
+
+Normal `EnemiesDestroyed` remains kill-only. `EnemiesRimCleared` separately
+tracks non-kill outcomes, `RemainingEnemies` subtracts both dispositions, and
+death/retry reconstruction does not recreate rim-cleared units. Tanker
+original slots and cargo IDs have distinct rim-cleared sets; latent and queued
+cargo fail closed, and aggregate resolved counts remain distinct from
+score-bearing killed counts. Rim clear awards no points, creates no Fuseball
+kill popup, preserves already-earned score, removes pending zap targets before
+future score can resolve, and enters the existing ExitDelay or Spiker
+AvoidSpikes path. Spikes remain persistent hazards; the Super Zapper flash
+continues through exit. Below-rim Fuseball/Pulsar Hurry-Up remains unchanged,
+and an existing latch does not block all-rim exit.
+
+Focused validation: all-rim/Hurry-Up 41 passed, Tanker/accounting 57 passed,
+Super Zapper 31 passed, Spiker/exit 50 passed; each had 0 failures and 0
+skipped. Full solution suite: 330 passed, 0 failed, 0 skipped. Solution build:
+0 warnings, 0 errors. `git diff --check` is recorded in the implementation
+report. These are headless tests; manual gameplay validation remains pending.
+
+Manual validation commands:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --lives 10
+dotnet run --project src\Tempest.Game -- --fuseball-test --lives 10
+dotnet run --project src\Tempest.Game -- --pulsar-test --lives 10
+dotnet run --project src\Tempest.Game -- --tanker-test --lives 10
+dotnet run --project src\Tempest.Game -- --spiker-test --lives 10
+```
+
+Check normal Level 1 rim disappearance without kill score, a below-rim
+survivor delaying exit, Fuseball/Pulsar Hurry-Up then rim completion, Tanker
+cargo blocking below the rim and clearing only at the rim, pending Super
+Zapper behavior where observable, persistent Spikes during exit, and
+same-tick collision precedence. Exact threshold/tick behavior, stillborn zap
+timing, and Spike-reversal arcade behavior remain uncertain. No level
+progression or behavior-spec edit was included.

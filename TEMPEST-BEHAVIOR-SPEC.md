@@ -76,10 +76,14 @@ record the uncertainty rather than guessing.
 - **PROJECT DECISION** — The C# release lanes and direction choices are
   deterministic to make the current Level 1 simulation repeatable. This is not
   a claim that the arcade uses the same fixed sequence.
-- **PROJECT DECISION** — The standard Level 1 wave is complete only after all
-  ten units are destroyed and there are no reserve Eggs, active Eggs, or active
-  enemies. This is the recreation's conservation rule, not a verified arcade
-  completion rule.
+- **PROJECT DECISION** — Enemy-unit outcomes remain distinct: kill-scored
+  destruction, existing natural/escaped outcomes where applicable, and
+  non-kill all-rim clearing. A rim-cleared unit is not a destroyed enemy and
+  awards no kill score. The recreation can begin exit when incoming/reserve
+  Eggs are exhausted and every remaining qualifying enemy reaches the rim;
+  otherwise units must resolve through their ordinary outcomes. This
+  accounting describes the recreation and does not establish hidden arcade
+  accounting.
 
 ### Late-wave hurry-up
 
@@ -99,31 +103,45 @@ record the uncertainty rather than guessing.
   remain unchanged; these artificial waves do not establish Atari composition.
 - **PROJECT DECISION** — Hurry-up awards no points, increments no destroyed
   count, removes or resolves no enemies, and does not alter Egg/accounting
-  totals. The recreation retains kill-all completion rather than Incitti's
-  separate `onrim`-based exit; hurry-up or all-rim survivors cannot start exit.
+  totals. With Egg sources exhausted, a below-rim Fuseball or Pulsar continues
+  to trigger the existing Hurry-Up behavior; when every remaining qualifying
+  enemy reaches the rim, all-rim completion takes precedence and begins exit.
+  The recreation evaluates all-rim after enemy updates and player-collision
+  checks, before Hurry-Up latching and its final kill-all check. This exact
+  evaluation order is a **PROJECT DECISION** informed by the reference source,
+  not a measured arcade tick/order.
 
 ### Completion and tube exit
 
-- **PROJECT DECISION** — After the standard Level 1 supply is cleared, the
-  recreation enters a short exit delay and then moves the Blaster down the tube
-  through a zoom sequence. It ends at Level Complete; another level or arcade
-  progression is not implemented. Current C# completion still requires every
-  enemy unit to be killed/resolved.
-- **ARCADE VERIFIED** — Neal observed that after reserve/incoming Eggs are
-  exhausted, if every remaining enemy has reached the top rim, those remaining
-  rim enemies disappear from play and the Blaster proceeds into tube exit.
-  The player is not required to kill each rim enemy. This observation does not
-  establish the exact qualifying height or enemy-state rules.
-- **REFERENCE VERIFIED** — Incitti gates the rim-clear path on exhausted
-  reserve Eggs and an empty active Egg list, then starts exit when either no
-  enemies remain or every listed enemy-type baddie has post-update height at
-  least 400. The predicate is height-based rather than animation-state-based;
-  spikes, bullets, and Eggs are handled separately. These source rules do not
-  define the exact arcade qualification.
-- **PROJECT DECISION** — Current C# retains kill-all completion until the
-  separately deferred all-rim completion milestone is implemented and
-  validated. Rim survivors must not be treated as kill-scored solely because
-  they disappear during exit.
+- **ARCADE VERIFIED** — Neal manually confirmed the broad all-rim behavior in
+  all five existing scenarios: ordinary Level 1 (`--lives 10`),
+  `--fuseball-test --lives 10`, `--pulsar-test --lives 10`,
+  `--tanker-test --lives 10`, and `--spiker-test --lives 10`. In each tested
+  scenario, after incoming Eggs were exhausted and all remaining enemies
+  reached the rim, those enemies disappeared and Blaster exit began; individual
+  kills of those rim enemies were not required. The scenarios passed with no
+  new gameplay problem or regression reported. These development compositions
+  do not establish authentic arcade wave composition.
+- **REFERENCE VERIFIED** — Incitti's source gates the rim-clear path on
+  exhausted reserve Eggs and an empty active Egg list, then starts exit when
+  either no enemies remain or every listed enemy-type baddie has post-update
+  height at least 400. Its predicate is height-based rather than
+  animation-state-based; spikes, bullets, and Eggs are handled separately.
+  This source behavior does not establish the exact arcade qualification.
+- **PROJECT DECISION** — The current C# implementation checks post-update
+  `Height >= Level.Depth` for each qualifying active enemy. The exact numeric
+  threshold (currently 400) and state qualification are not arcade-verified;
+  Neal did not measure timer ticks or exact numeric timing. Player collision
+  is processed before rim-clear qualification. Rim-cleared enemies receive no
+  kill score and do not increment the kill-only destroyed count. Exact
+  evaluation order, pending Super Zapper timer handling, internal accounting,
+  collision simultaneity, and Spike-retry accounting remain
+  **REFERENCE VERIFIED / PROJECT DECISION** policies unless separately
+  observed.
+- **PROJECT DECISION** — Once the standard Level 1 supply is cleared by its
+  applicable outcomes, the recreation enters the existing exit delay and
+  moves the Blaster down the tube through a zoom sequence. It ends at Level
+  Complete; another level or arcade progression is not implemented.
 - **DEVELOPMENT ONLY** — The Spiker scenario adds a spike-avoidance interval
   and can reverse/retry the exit after a spike collision. This is not part of
   the standard Level 1 clear sequence.
@@ -150,6 +168,16 @@ record the uncertainty rather than guessing.
 - **PROJECT DECISION** — Hidden cargo identities, delayed activation,
   accounting conservation, and completion blocking are recreation mechanics.
   Automated tests establish those C# invariants, not arcade-visible proof.
+- **PROJECT DECISION** — In the C# all-rim path, a pending Super Zapper target
+  that is still active when rim clearing commits is removed without its later
+  kill score. A zap that resolves before that check follows its ordinary
+  resolution path. Neal did not validate or measure this timer precedence;
+  exact timer/update ordering remains source-derived or a recreation policy.
+- **PROJECT DECISION** — For all-rim completion, a Tanker or cargo unit can
+  receive a non-kill rim-clear outcome, distinct from a destroyed original
+  Tanker, a naturally escaped original, or kill-resolved cargo. Neal's
+  scenario validation confirms the visible broad all-rim result, not these
+  hidden outcome categories or their accounting.
 
 ## 3. Flippers
 
@@ -231,6 +259,10 @@ record the uncertainty rather than guessing.
   and hazardous after their Spiker retreats or the Blaster loses a life.
   Arcade timing and feel for growth, retreat, spike damage, and exit avoidance
   remain unverified.
+- **DEVELOPMENT ONLY / PROJECT DECISION** — Spike hazards are separate from
+  enemy all-rim qualification and remain available during the existing Spiker
+  exit behavior. Their exact interaction with rim clearing, reverse, and retry
+  accounting is not established by Neal's all-rim observations.
 
 ## 6. Tankers and cargo Flippers
 
@@ -309,6 +341,11 @@ record the uncertainty rather than guessing.
   numeric collision boundaries, score formula and thresholds, animation frame
   timing, and reference speed remain source-derived; they were not established
   by the manual observations above.
+- **PROJECT DECISION** — In the implemented all-rim path, Fuseball
+  qualification is height-based and does not depend on lateral position or
+  action state. The all-rim observation in the Fuseball development scenario
+  validates the broad disappearance/exit result, not a numeric cutoff or
+  state-specific qualification.
 - **ARCADE VERIFIED** — In Neal's hurry-up validation of
   `--fuseball-test --lives 10`, a noticeable late-wave increase in upward
   speed was visible and consistent with his Atari Tempest expectation.
@@ -367,6 +404,11 @@ Pulsar behavior in that scenario, not an authentic all-Pulsar Atari wave.
 - **PROJECT DECISION** — The recreation freezes Pulsars and the shared pulse
   clock during its 60-update death interval. Incitti advances the relevant
   state during much of its death presentation.
+- **PROJECT DECISION** — In the implemented all-rim path, Pulsar qualification
+  is height-based and does not depend on pause, flip, pulse, or other action
+  state. The all-rim observation in the Pulsar development scenario validates
+  the broad disappearance/exit result, not a numeric cutoff or
+  state-specific qualification.
 - **PROJECT DECISION** — Rendering omits only the affected lane's near/top
   rim connection during its active visual pulse. Neal's arcade observation
   takes precedence over the earlier analysis that assumed the ordinary rim
@@ -418,15 +460,22 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
 - **ARCADE VERIFIED scope** — Direct arcade observations explicitly listed
   above cover the Flipper pivot collision rule, the itemized Fuseball
   behaviors, the Pulsar behaviors Neal observed in the isolated development
-  scenario, the listed Super Zapper scenario validation, and the Tanker-cargo
-  release and movement observations. No additional behavior is implied.
+  scenario, the listed Super Zapper scenario validation, the Tanker-cargo
+  release and movement observations, and the broad all-rim behavior Neal
+  manually confirmed in all five existing scenarios. No additional behavior
+  is implied.
 - **REFERENCE VERIFIED only** — Exact Flipper, bullet, Spiker, Tanker,
   Fuseball, and Pulsar constants remain source-derived unless explicitly
   identified above as arcade-validated. This includes the Pulsar 51/181/18/14
   timings, Fuseball's nine-update lateral cadence and its 3.3-to-6.6 hurry-up
   climb terms. Exact rimit trigger timing, random decision boundaries and
   source lifecycle remain source-derived; the C# evaluation/freeze/reset
-  policy remains **PROJECT DECISION**, not newly arcade-verified.
+  policy remains **PROJECT DECISION**, not newly arcade-verified. Neal did not
+  measure all-rim timer ticks or exact numeric timing. The exact
+  `Height >= Level.Depth` threshold, update order relative to hidden internal
+  state, pending Super Zapper timer behavior, Tanker identity/accounting,
+  collision simultaneity, and Spike-reversal accounting are not
+  **ARCADE VERIFIED**.
 - **Unresolved** — The direct climbing-Flipper rim-arrival collision is in
   Incitti and current C#, but has not been separately confirmed against the
   arcade. The older development note described rim death only at completed
@@ -436,20 +485,21 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   compared with the arcade.
 - **ARCADE VERIFIED** — Neal observed that once reserve/incoming Eggs are
   exhausted, all remaining enemies reaching the top rim is sufficient for the
-  remaining enemies to disappear and tube exit to begin. Exact qualifying
-  heights and enemy-state rules are not established by that observation.
-- **PROJECT DECISION** — Current C# still requires kill-all. Implementing the
-  observed all-rim completion behavior is the next standalone deferred
-  milestone.
+  remaining enemies to disappear and tube exit to begin. Neal manually
+  confirmed this broad result in normal Level 1 and the Fuseball, Pulsar,
+  Tanker, and Spiker development scenarios. Exact qualifying heights,
+  timer/tick timing, and enemy-state rules are not established by those
+  observations.
 - **Unresolved** — Exact player input sensitivity, shot cadence, death
   presentation/timing, Egg pacing, normal enemy-bullet frequency, Spiker and
   Tanker arcade eligibility/composition, and exit visuals need direct arcade
   comparison where they matter.
 - **PROJECT DECISION** — Normal multi-level progression and authentic
   later-wave composition, open-tube rendering, audio, bonus rules, broader
-  enemy/cargo combinations, source-specific death effects, and implementation
-  of all-rim completion remain out of scope or deferred. Super Zapper is
-  implemented and has the scenario-level manual validation recorded above.
+  enemy/cargo combinations, and source-specific death effects remain out of
+  scope or deferred. Super Zapper and all-rim completion are implemented; the
+  manually observed broad behavior and remaining uncertainties are recorded
+  above.
 
 ## 12. Behavior-validation history
 
@@ -509,13 +559,17 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   increments, Tanker release timing, unlock level, and `canflip` progression
   remain unverified. Outward initial routing is a **PROJECT DECISION**
   matching the observed result.
-- **All-rim completion observation** — Neal established that exhausted
-  incoming/reserve Eggs plus all remaining enemies on the rim permits those
-  enemies to disappear and tube exit to begin without killing each one. The
-  broad observable result is **ARCADE VERIFIED**; exact qualifying states
-  remain **REFERENCE VERIFIED** only where supported by Incitti. Current C#
-  kill-all behavior remains a **PROJECT DECISION** pending the next standalone
-  implementation milestone.
+- **All-rim completion implementation and manual validation** — Neal manually
+  ran and passed normal Level 1 (`--lives 10`) and the Fuseball, Pulsar, Tanker,
+  and Spiker development scenarios. He observed that after incoming Eggs were
+  exhausted, all remaining enemies reaching the rim caused them to disappear
+  and Blaster exit to begin; no new gameplay problem or regression was
+  reported. This broad visible result is **ARCADE VERIFIED**. The C# uses
+  post-update height qualification and processes player collisions first, but
+  Neal did not measure the exact threshold or timing. Exact ordering relative
+  to hidden state, pending zap behavior, Tanker accounting, collision
+  simultaneity, and Spike-retry accounting remain **REFERENCE VERIFIED /
+  PROJECT DECISION**, not newly arcade-verified.
 - **rimit / Hurry-Up milestone** — Automated validation passed 121 focused
   hurry-up/Fuseball/Pulsar cases and all 289 suite cases, with no failures or
   skips; build had zero warnings/errors. Tests protect exact C# trigger order,

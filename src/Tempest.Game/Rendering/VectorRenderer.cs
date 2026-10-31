@@ -585,7 +585,7 @@ public sealed class VectorRenderer
 		}
 		else
 		{
-			int remaining = Level.EnemyTotal - game.CurrentLevel.EnemiesDestroyed;
+			int remaining = game.CurrentLevel.RemainingEnemies;
 			string enemyLabel = game.PulsarTest ? "PULSARS" :
 				game.FuseballTest ? "FUSEBALLS" :
 				game.CurrentLevel.SpikerDevelopmentWave ? "ENEMIES" : "FLIPPERS";

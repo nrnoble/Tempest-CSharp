@@ -639,6 +639,37 @@ public sealed class SuperZapperTests
     }
 
     [Fact]
+    public void PendingZapAtTheRimIsClearedWithoutDelayedScoreWhileFlashContinues()
+    {
+        TempestGame game = new();
+        for (int index = 0; index < Level.EnemyTotal - 1; index++)
+            game.CurrentLevel.RecordEnemyDestroyed();
+        game.CurrentLevel.ResetAfterDeath();
+        MakeReady(Assert.Single(game.Eggs), game.CurrentLevel);
+        game.RunOneStep();
+        Flipper last = Assert.Single(game.Flippers);
+        game.Player.Move(3 - game.Player.EdgeIndex, game.CurrentLevel.Definition.Points.Count);
+        for (int tick = 0; tick < 300 && last.Height < Level.Depth; tick++)
+            last.Update(game.CurrentLevel, game.Player.EdgeIndex);
+        Assert.Equal(Level.Depth, last.Height);
+
+        game.RunOneStep(new PlayerInput(false, 0, false, false, ZapPressed: true));
+
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        Assert.Empty(game.Flippers);
+        Assert.Equal(9, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(1, game.CurrentLevel.EnemiesRimCleared);
+        Assert.Equal(0, game.Score.Score);
+        Assert.Equal(3, last.PendingZapTicks);
+        Assert.Equal(60, game.SuperZapper.FlashTicksRemaining);
+
+        Step(game, 5);
+        Assert.Equal(0, game.Score.Score);
+        Assert.Equal(1, game.CurrentLevel.EnemiesRimCleared);
+        Assert.Equal(55, game.SuperZapper.FlashTicksRemaining);
+    }
+
+    [Fact]
     public void TubeFlashChangesOnlyColorAndExpiresAfterSixtyDisplaySteps()
     {
         TempestGame game = new();
