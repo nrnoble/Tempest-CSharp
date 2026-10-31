@@ -279,6 +279,114 @@ public sealed class Level
         return difference > 180 ? 360 - difference : difference;
     }
 
+    public float CalculateFlipperTurnAngle(int sourceEdge, int destinationEdge) =>
+        Configuration.FlipperPivotMode switch
+        {
+            FlipperPivotGeometry.LegacyLaneTurn =>
+                CalculateEdgeTurnAngle(sourceEdge, destinationEdge),
+            FlipperPivotGeometry.SquareEndpointHinge =>
+                MathF.Abs(CalculateSquareFlipperHingeRotation(sourceEdge, destinationEdge).Degrees),
+            _ => throw new InvalidOperationException("The configured Flipper pivot geometry is unsupported.")
+        };
+
+    public float CalculateSquareFlipperHingeRotationDegrees(int sourceEdge, int destinationEdge)
+    {
+        if (Configuration.FlipperPivotMode != FlipperPivotGeometry.SquareEndpointHinge)
+            throw new InvalidOperationException("Square hinge angles require the square Flipper pivot configuration.");
+
+        return CalculateSquareFlipperHingeRotation(sourceEdge, destinationEdge).Degrees;
+    }
+
+    public (Vector2 Start, Vector2 End) CalculateSquareFlipperPivotEndpoints(
+        int sourceEdge, int destinationEdge, float progress)
+    {
+        if (Configuration.FlipperPivotMode != FlipperPivotGeometry.SquareEndpointHinge)
+            throw new InvalidOperationException("Square hinge endpoints require the square Flipper pivot configuration.");
+        if (!float.IsFinite(progress))
+            throw new ArgumentOutOfRangeException(nameof(progress));
+
+        IReadOnlyList<Vector2> points = Definition.Points;
+        if ((uint)sourceEdge >= (uint)points.Count)
+            throw new ArgumentOutOfRangeException(nameof(sourceEdge));
+
+        progress = Math.Clamp(progress, 0, 1);
+        (int pivotIndex, int movingIndex, int destinationIndex, bool movingStart, float degrees) =
+            CalculateSquareFlipperHingeRotation(sourceEdge, destinationEdge);
+
+        Vector2 pivot = points[pivotIndex];
+        Vector2 moving = points[movingIndex];
+        Vector2 destination = points[destinationIndex];
+        if (progress == 0)
+            return (points[sourceEdge], points[NextEdge(sourceEdge)]);
+        if (progress == 1)
+            return movingStart ? (pivot, destination) : (destination, pivot);
+
+        Vector2 initialVector = moving - pivot;
+        Vector2 destinationVector = destination - pivot;
+        // The reference square's rounded side segments alternate lengths 80 and 81; preserve the
+        // endpoint hinge arc while adjusting radius so the free endpoint lands on the exact lane.
+        float angle = degrees * progress * MathF.PI / 180;
+        float sin = MathF.Sin(angle);
+        float cos = MathF.Cos(angle);
+        Vector2 rotated = new(
+            initialVector.X * cos - initialVector.Y * sin,
+            initialVector.X * sin + initialVector.Y * cos);
+        float radius = initialVector.Length() +
+            (destinationVector.Length() - initialVector.Length()) * progress;
+        rotated = Vector2.Normalize(rotated) * radius;
+        Vector2 movedEndpoint = pivot + rotated;
+
+        return movingStart
+            ? (pivot, movedEndpoint)
+            : (movedEndpoint, pivot);
+    }
+
+    private (int PivotIndex, int MovingIndex, int DestinationIndex, bool MovingStart, float Degrees)
+        CalculateSquareFlipperHingeRotation(int sourceEdge, int destinationEdge)
+    {
+        IReadOnlyList<Vector2> points = Definition.Points;
+        if ((uint)sourceEdge >= (uint)points.Count)
+            throw new ArgumentOutOfRangeException(nameof(sourceEdge));
+
+        int previous = PreviousEdge(sourceEdge);
+        int next = NextEdge(sourceEdge);
+        int pivotIndex;
+        int movingIndex;
+        int destinationIndex;
+        bool movingStart;
+        if (destinationEdge == previous)
+        {
+            pivotIndex = sourceEdge;
+            movingIndex = next;
+            destinationIndex = previous;
+            movingStart = false;
+        }
+        else if (destinationEdge == next)
+        {
+            pivotIndex = next;
+            movingIndex = sourceEdge;
+            destinationIndex = NextEdge(next);
+            movingStart = true;
+        }
+        else
+        {
+            throw new ArgumentException("Square Flipper pivots must connect adjacent lanes.", nameof(destinationEdge));
+        }
+
+        Vector2 pivot = points[pivotIndex];
+        // Straight square lanes share a 0-degree heading change; the Flipper instead sweeps
+        // between endpoint rays around their shared vertex.
+        Vector2 from = points[movingIndex] - pivot;
+        Vector2 to = points[destinationIndex] - pivot;
+        float cross = from.X * to.Y - from.Y * to.X;
+        float dot = Vector2.Dot(from, to);
+        float degrees = MathF.Atan2(cross, dot) * 180 / MathF.PI;
+        if (cross == 0 && dot < 0)
+            degrees = movingStart ? -180 : 180;
+
+        return (pivotIndex, movingIndex, destinationIndex, movingStart, degrees);
+    }
+
     private static float NormalizeAngleDegrees(float angle)
     {
         while (angle < 0) angle += 360;

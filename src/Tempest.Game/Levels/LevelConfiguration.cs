@@ -10,6 +10,12 @@ public enum LevelEnemyComposition
     FlippersOnly
 }
 
+public enum FlipperPivotGeometry
+{
+    LegacyLaneTurn,
+    SquareEndpointHinge
+}
+
 /// <summary>
 /// Immutable wave data. A Level owns the mutable runtime state created from this configuration.
 /// </summary>
@@ -36,6 +42,8 @@ public sealed record LevelConfiguration(
 {
     public int VertexCount => Definition.VertexCount;
     public int PlayableLaneCount => Definition.PlayableLaneCount;
+    public bool FlipperCanFlip { get; init; }
+    public FlipperPivotGeometry FlipperPivotMode { get; init; } = FlipperPivotGeometry.LegacyLaneTurn;
 
     public static LevelConfiguration Level1 { get; } = new(
         ProgressionIndex: 0,
@@ -56,5 +64,35 @@ public sealed record LevelConfiguration(
         SpawnLaneSequence: Array.AsReadOnly(new[] { 12, 4, 9, 1, 14, 6, 10, 2, 15, 7 }),
         EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
         ExitPolicy: LevelExitPolicy.Standard,
-        NormalEnemyComposition: LevelEnemyComposition.FlippersOnly);
+        NormalEnemyComposition: LevelEnemyComposition.FlippersOnly)
+    {
+        FlipperCanFlip = false,
+        FlipperPivotMode = FlipperPivotGeometry.LegacyLaneTurn
+    };
+
+    public static LevelConfiguration Level2SquareTest { get; } = new(
+        ProgressionIndex: 1,
+        DisplayedLevel: 2,
+        BoardIndex: 1,
+        PaletteIndex: 0,
+        Definition: LevelLoader.LoadLevel2Square(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: 12,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(new[] { 12, 4, 9, 1, 14, 6, 10, 2, 15, 7, 3, 11 }),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.Standard,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersOnly)
+    {
+        // B1 deliberately keeps canflip disabled so only the square and rim hinge are under test.
+        FlipperCanFlip = false,
+        FlipperPivotMode = FlipperPivotGeometry.SquareEndpointHinge
+    };
 }

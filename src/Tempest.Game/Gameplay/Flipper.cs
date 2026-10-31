@@ -168,6 +168,9 @@ public sealed class Flipper : Enemy
 
     private void BeginPause()
     {
+        SourceEdge = EdgeIndex;
+        DestinationEdge = EdgeIndex;
+        TotalTurnAngle = 0;
         State = FlipperState.Pausing;
         PauseTicks = RimPauseTicks;
         TurnAngle = 0;
@@ -182,7 +185,7 @@ public sealed class Flipper : Enemy
         DestinationEdge = Direction > 0
             ? level.PreviousEdge(EdgeIndex)
             : level.NextEdge(EdgeIndex);
-        TotalTurnAngle = level.CalculateEdgeTurnAngle(SourceEdge, DestinationEdge);
+        TotalTurnAngle = level.CalculateFlipperTurnAngle(SourceEdge, DestinationEdge);
         TurnAngle = 0;
         State = FlipperState.Flipping;
     }
@@ -196,10 +199,7 @@ public sealed class Flipper : Enemy
 
         // Lethal only if the player is in the destination lane at completion.
         if (EdgeIndex == playerEdge && Height >= Level.Depth)
-        {
             CompletedIntoPlayer = true;
-            return;
-        }
 
         BeginPause();
     }

@@ -408,16 +408,28 @@ public sealed class VectorRenderer
 	{
 		foreach (Shot shot in game.Shots)
 		{
-			int next = NextEdge(shot.EdgeIndex, points.Count);
-			Vector2 midpoint = new(
-				(points[shot.EdgeIndex].X + points[next].X) / 2,
-				(points[shot.EdgeIndex].Y + points[next].Y) / 2);
-			float projectedDepth = Level.Depth - shot.Height + Level.Position;
-			Vector2 center = Projection.Project(
-				midpoint.X, midpoint.Y, projectedDepth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+			Vector2 center = ProjectShot(shot, points);
+			float projectedDepth = game.CurrentLevel.Configuration.Depth - shot.Height +
+				game.CurrentLevel.Configuration.Position;
 			float size = 4 / ((projectedDepth + Projection.ZOffset) / Projection.K);
 			DrawRotatingShot(center, size, shot.Rotation);
 		}
+	}
+
+	public Vector2 ProjectShot(Shot shot)
+	{
+		ArgumentNullException.ThrowIfNull(shot);
+		return ProjectShot(shot, game.CurrentLevel.Definition.Points);
+	}
+
+	private Vector2 ProjectShot(Shot shot, IReadOnlyList<Vector2> points)
+	{
+		int next = NextEdge(shot.EdgeIndex, points.Count);
+		Vector2 midpoint = (points[shot.EdgeIndex] + points[next]) / 2;
+		float projectedDepth = game.CurrentLevel.Configuration.Depth - shot.Height +
+			game.CurrentLevel.Configuration.Position;
+		return Projection.Project(midpoint.X, midpoint.Y, projectedDepth,
+			game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
 	}
 
 	private void DrawRotatingShot(Vector2 center, float size, float rotation)
@@ -440,30 +452,57 @@ public sealed class VectorRenderer
 
 	private void DrawFlipper(IReadOnlyList<Vector2> points, Flipper flipper)
 	{
-		// While flipping, the glyph is anchored to the source lane and ApplyFlipperPivot swings
-		// one endpoint toward the destination. Drawing at EdgeIndex instead would make the Flipper
-		// jump lanes the instant the simulation retargets it, losing the signature hinge motion.
+		float projectedDepth = game.CurrentLevel.Configuration.Position +
+			game.CurrentLevel.Configuration.Depth - flipper.Height;
+		(Vector2 p1, Vector2 p2) = ProjectFlipperEndpoints(flipper, points, projectedDepth);
+		DrawFlipperShape(p1, p2, projectedDepth);
+	}
+
+	public (Vector2 Start, Vector2 End) ProjectFlipperEndpoints(Flipper flipper)
+	{
+		ArgumentNullException.ThrowIfNull(flipper);
+		float projectedDepth = game.CurrentLevel.Configuration.Position +
+			game.CurrentLevel.Configuration.Depth - flipper.Height;
+		return ProjectFlipperEndpoints(flipper, game.CurrentLevel.Definition.Points, projectedDepth);
+	}
+
+	private (Vector2 Start, Vector2 End) ProjectFlipperEndpoints(
+		Flipper flipper, IReadOnlyList<Vector2> points, float projectedDepth)
+	{
+		// Keep Level 1's established turn calculation and signed renderer transform unchanged.
+		if (flipper.State == FlipperState.Flipping &&
+			game.CurrentLevel.Configuration.FlipperPivotMode == FlipperPivotGeometry.SquareEndpointHinge)
+		{
+			float progress = flipper.TotalTurnAngle <= 0
+				? 1
+				: Math.Clamp(flipper.TurnAngle / flipper.TotalTurnAngle, 0, 1);
+			(Vector2 start, Vector2 end) = game.CurrentLevel.CalculateSquareFlipperPivotEndpoints(
+				flipper.SourceEdge, flipper.DestinationEdge, progress);
+			return (
+				Projection.Project(start.X, start.Y, projectedDepth,
+					game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset),
+				Projection.Project(end.X, end.Y, projectedDepth,
+					game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset));
+		}
+
+		// During a legacy pivot the glyph stays on the source lane until completion.
 		int edge = flipper.State == FlipperState.Flipping
 			? flipper.SourceEdge
 			: flipper.EdgeIndex;
 		int next = NextEdge(edge, points.Count);
-		float projectedDepth = Level.Position + Level.Depth - flipper.Height;
-
-		Vector2 p1 = Projection.Project(
-			points[edge].X, points[edge].Y, projectedDepth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
-		Vector2 p2 = Projection.Project(
-			points[next].X, points[next].Y, projectedDepth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+		Vector2 p1 = Projection.Project(points[edge].X, points[edge].Y, projectedDepth,
+			game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+		Vector2 p2 = Projection.Project(points[next].X, points[next].Y, projectedDepth,
+			game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
 
 		if (flipper.State == FlipperState.Flipping)
-			ApplyFlipperPivot(flipper, ref p1, ref p2);
-
-		DrawFlipperShape(p1, p2, projectedDepth);
+			ApplyLegacyFlipperPivot(flipper, ref p1, ref p2);
+		return (p1, p2);
 	}
 
 	// Rotates the trailing endpoint of the source lane about the leading endpoint by the pivot
-	// progress so far. TurnAngle grows each update toward TotalTurnAngle; interpolating between
-	// the lanes (rather than snapping) is what makes the Flipper appear to cartwheel edge-to-edge.
-	private void ApplyFlipperPivot(Flipper flipper, ref Vector2 p1, ref Vector2 p2)
+	// progress so far. The legacy Level 1 path is preserved byte-for-byte in behavior.
+	private void ApplyLegacyFlipperPivot(Flipper flipper, ref Vector2 p1, ref Vector2 p2)
 	{
 		float angle = MathF.Min(flipper.TurnAngle, flipper.TotalTurnAngle);
 		if (flipper.Direction > 0)
@@ -592,6 +631,8 @@ public sealed class VectorRenderer
 			Raylib.DrawText($"{enemyLabel} {remaining}", 10, 72, 18, Color.Red);
 			Raylib.DrawText($"ACTIVE {game.Eggs.Count + game.Flippers.Count + game.Spikers.Count + game.Fuseballs.Count + game.Pulsars.Count}", 10, 96, 18, Color.Gray);
 		}
+		if (game.Level2Test)
+			Raylib.DrawText("LEVEL 2 TEST - DEVELOPMENT ONLY", 10, 120, 16, Color.Gray);
 
 		if (game.GameOver)
 		{
@@ -601,13 +642,16 @@ public sealed class VectorRenderer
 
 		if (game.LevelComplete)
 		{
-			DrawCenteredText("LEVEL 1 COMPLETE", 250, 36, Color.Yellow);
-			DrawCenteredText("PRESS R TO REPLAY", 296, 24, Color.Gray);
+			DrawCenteredText(game.Level2Test ? "LEVEL 2 TEST COMPLETE" : "LEVEL 1 COMPLETE",
+				250, 36, Color.Yellow);
+			DrawCenteredText(game.Level2Test ? "PRESS R TO REPLAY TEST" : "PRESS R TO REPLAY",
+				296, 24, Color.Gray);
 			return;
 		}
 
 		if (game.DeathTicks > 0)
-			Raylib.DrawText("PLAYER DESTROYED", 10, game.TankerTest ? 144 : 120, 18, Color.Red);
+			Raylib.DrawText("PLAYER DESTROYED", 10,
+				game.TankerTest || game.Level2Test ? 144 : 120, 18, Color.Red);
 	}
 
 	private void DrawCenteredText(string text, int y, int size, Color color)

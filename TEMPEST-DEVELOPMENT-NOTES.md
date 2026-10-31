@@ -805,9 +805,9 @@ geometry internally.
 
 `TempestGame.InitializeFreshWave` installs a fresh runtime at initial setup,
 Level Complete replay and Game Over restart. Complete remains a terminal
-same-configuration replay; no progression or visible Level 2 transition is
-implemented. Ordinary death and Spike reverse/retry use reconstruction on the
-existing `Level`, preserving its configuration and resolved outcomes.
+same-configuration replay; no natural Level 1-to-2 progression is implemented.
+Ordinary death and Spike reverse/retry use reconstruction on the existing
+`Level`, preserving its configuration and resolved outcomes.
 
 Definitions distinguish 16 ordered vertices from playable lanes: the current
 closed Level 1 has 16 of each, while a geometry-only open-definition fixture
@@ -820,6 +820,25 @@ callback to the replacement runtime. The random source and shared pulse phase
 continue across fresh replay as before; Fuseball animation resets on fresh
 initialization and carries through life reconstruction. No behavior-spec
 change or progression assertion was made for this groundwork.
+
+## Isolated Level 2 square geometry test
+
+`--level2-test` is **DEVELOPMENT ONLY** and selects a closed 16-lane square
+definition, board index 1, palette 0 and configured supply 12. It uses the
+existing `Level` runtime and fresh-wave installation path. B1 deliberately
+keeps canflip disabled and validates the basic climb-to-rim Flipper behavior
+plus square endpoint-hinge pivots; this is not a claim of complete or
+authentic Level 2 gameplay.
+
+```powershell
+dotnet run --project src\Tempest.Game -- --level2-test --lives 10
+```
+
+Level 1 remains the normal no-flag startup. Level 2 has no natural progression
+path; R replays the isolated square after Level Complete, and Game Over restart
+also recreates that selected configuration. The flag is mutually exclusive
+with the Spiker, Tanker, Fuseball and Pulsar development scenarios. `--lives`
+and the separately opt-in `--enemy-bullets-test` remain composable.
 
 ## Deferred manual observations outside Stage A
 

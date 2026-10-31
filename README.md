@@ -34,8 +34,8 @@ The frame loop retains one simulation tick per frame at the existing 60 FPS targ
 player start, ten-unit supply, Egg pacing/sequences, standard exit policy and
 Flipper-only normal composition. `Level` remains the mutable per-wave runtime;
 `TempestGame` installs a fresh instance at initial setup, Complete replay and
-Game Over restart. Complete remains a terminal same-Level-1 replay; there is
-no visible progression or Level 2 support.
+Game Over restart. Complete remains a terminal same-configuration replay; no
+natural Level 1-to-2 progression is implemented.
 
 The closed definition has 16 ordered vertices and 16 playable lanes. The
 topology metadata distinguishes these counts: an open definition with 16
@@ -54,6 +54,22 @@ The HUD's ACTIVE counter includes active Eggs and active enemies.
 
 Tests run headlessly without initializing a Raylib window. Visual appearance,
 spinner feel and cursor capture still require manual gameplay testing.
+
+## Isolated Level 2 square geometry test
+
+```powershell
+dotnet run --project src/Tempest.Game -- --level2-test --lives 10
+```
+
+`--level2-test` is **DEVELOPMENT ONLY**. It loads the closed 16-lane square
+geometry and 12-unit Flipper-only configuration to validate projection,
+movement, rim pivots and lifecycle. B1 deliberately disables Level 2's
+reference canflip behavior; Flippers use the existing climb-to-rim behavior.
+This is not a complete or authentic Level 2 implementation, and Level 2 is not
+naturally reachable. Press R to replay the isolated square after completion or
+Game Over. Level 1 remains the default with no flags. The flag is mutually
+exclusive with the Spiker, Tanker, Fuseball and Pulsar scenarios; it may be
+combined with `--lives` or the separate `--enemy-bullets-test` option.
 
 ## Spiker development wave
 

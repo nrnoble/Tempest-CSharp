@@ -2,10 +2,10 @@
 // Raylib window, input and rendering together; all gameplay simulation belongs in TempestGame so
 // it stays headless-testable. Keep it that way — logic added here is invisible to the test suite.
 //
-// Development command-line modes (see DebugController): --spiker-test, --tanker-test,
-// --fuseball-test and --pulsar-test select isolated enemy-development waves and are mutually
-// exclusive; --enemy-bullets-test and --lives compose with any. With no flags the game runs
-// normal Level 1, the only validated production configuration.
+// Development command-line modes (see DebugController): --level2-test selects an isolated square
+// geometry fixture; --spiker-test, --tanker-test, --fuseball-test and --pulsar-test select isolated
+// enemy-development waves. These scenarios are mutually exclusive; --enemy-bullets-test and
+// --lives compose with any. With no flags the game runs normal Level 1.
 using Raylib_cs;
 using Tempest.Game;
 using Tempest.Game.Rendering;
@@ -14,15 +14,16 @@ using Tempest.Game.Debug;
 
 if (DebugController.HasConflictingScenarios(args))
 {
-    Console.Error.WriteLine("--tanker-test, --spiker-test, --fuseball-test and --pulsar-test are mutually exclusive.");
+    Console.Error.WriteLine("--level2-test, --tanker-test, --spiker-test, --fuseball-test and --pulsar-test are mutually exclusive.");
     return 2;
 }
 
 Projection.K = 70;
 Projection.ZOffset = 5;
 
+bool level2Test = DebugController.UseLevel2Test(args);
 Raylib.InitWindow(VectorRenderer.ScreenWidth, VectorRenderer.ScreenHeight,
-    "Tempest C# - Level 1 Multi-Flipper Test");
+    level2Test ? "Tempest C# - Development Level 2 Square Test" : "Tempest C# - Level 1 Multi-Flipper Test");
 Raylib.DisableCursor();
 Raylib.SetTargetFPS(60);
 
@@ -31,7 +32,8 @@ TempestGame game = new(DebugController.UseSpikerWave(args),
     enemyBulletsTest: DebugController.UseEnemyBulletsTest(args),
 	tankerTest: DebugController.UseTankerTest(args),
     fuseballTest: DebugController.UseFuseballTest(args),
-    pulsarTest: DebugController.UsePulsarTest(args));
+    pulsarTest: DebugController.UsePulsarTest(args),
+    level2Test: level2Test);
 InputSystem input = new();
 VectorRenderer renderer = new(game);
 

@@ -11,9 +11,9 @@ namespace Tempest.Game;
 /// renderer only reads the public state exposed here.
 /// </summary>
 /// <remarks>
-/// Opt-in development scenarios (Spiker, enemy bullets, Tanker, Fuseball, Pulsar) layer on top of the
-/// normal Level 1 path. Normal Level 1 keeps its original accounting and shot path;
-/// do not generalize it casually, because the existing regression tests pin it.
+/// Opt-in development scenarios (square Level 2, Spiker, enemy bullets, Tanker, Fuseball, Pulsar)
+/// layer on top of the normal Level 1 path. Normal Level 1 keeps its original accounting and shot
+/// path; do not generalize it casually, because the existing regression tests pin it.
 /// </remarks>
 public sealed class TempestGame
 {
@@ -77,6 +77,7 @@ public sealed class TempestGame
     public IReadOnlyList<FuseballScorePopup> FuseballScorePopups => fuseballScorePopups;
     public bool FuseballTest { get; }
     public bool PulsarTest { get; }
+    public bool Level2Test { get; }
     public bool HurryUp { get; private set; }
     public int PulsePhase => pulsePhase;
     public bool Pulsing { get; private set; }
@@ -123,19 +124,23 @@ public sealed class TempestGame
 
     public TempestGame(bool spikerDevelopmentWave = false, Random? random = null,
         int startingLives = Player.DefaultStartingLives, bool enemyBulletsTest = false,
-        bool tankerTest = false, bool fuseballTest = false, bool pulsarTest = false)
+        bool tankerTest = false, bool fuseballTest = false, bool pulsarTest = false,
+        bool level2Test = false)
     {
-        if ((spikerDevelopmentWave ? 1 : 0) + (tankerTest ? 1 : 0) +
+        if ((level2Test ? 1 : 0) + (spikerDevelopmentWave ? 1 : 0) + (tankerTest ? 1 : 0) +
             (fuseballTest ? 1 : 0) + (pulsarTest ? 1 : 0) > 1)
-            throw new ArgumentException("Tanker, Spiker, Fuseball and Pulsar development waves cannot be combined.");
+            throw new ArgumentException("Level 2, Tanker, Spiker, Fuseball and Pulsar development scenarios cannot be combined.");
         this.random = random ?? Random.Shared;
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
-        this.launchConfiguration = LevelConfiguration.Level1;
+        this.launchConfiguration = level2Test
+            ? LevelConfiguration.Level2SquareTest
+            : LevelConfiguration.Level1;
         this.spikerDevelopmentWave = spikerDevelopmentWave;
         this.enemyBulletsTest = enemyBulletsTest;
         this.tankerTest = tankerTest;
         FuseballTest = fuseballTest;
         PulsarTest = pulsarTest;
+        Level2Test = level2Test;
         Player = new Player(this.startingLives);
         InitializeFreshWave();
     }
@@ -157,7 +162,7 @@ public sealed class TempestGame
         else if (LevelComplete)
         {
             if (restartPressed)
-                // Complete is terminal: development replay reinstalls this launch's Level 1 config.
+                // Complete is terminal: development replay reinstalls the selected launch configuration.
                 InitializeFreshWave();
         }
         else if (State == LevelState.ReverseZoom)
