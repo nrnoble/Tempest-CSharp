@@ -96,24 +96,28 @@ public sealed class LevelConfigurationTests
     }
 
     [Fact]
-    public void FreshReplayReplacesLevelAndPreservesScoreAndLives()
+    public void SuccessfulExitInstallsLevel2AndPreservesScoreAndLives()
     {
         TempestGame game = new();
         Level previousLevel = game.CurrentLevel;
         game.Score.Add(1500);
         game.Player.Lives = 2;
-        game.CurrentLevel.State = LevelState.Complete;
+        CompleteLevel1Wave(game);
 
-        game.RunOneStep(restartPressed: true);
+        for (int tick = 0; tick < 200 &&
+             !ReferenceEquals(game.CurrentLevel.Configuration, LevelConfiguration.Level2Square); tick++)
+            game.RunOneStep();
 
         Assert.NotSame(previousLevel, game.CurrentLevel);
-        Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Playing, game.State);
         Assert.Equal(1500, game.Score.Score);
         Assert.Equal(2, game.Player.Lives);
         Assert.Equal(4, game.Eggs.Count);
-        Assert.Equal(6, game.CurrentLevel.ReserveEggs);
+        Assert.Equal(8, game.CurrentLevel.ReserveEggs);
         Assert.Equal(7, game.Player.EdgeIndex);
         Assert.Equal(0.5f, game.Player.EdgePosition);
+        Assert.Equal(400, game.Player.Depth);
     }
 
     [Fact]
@@ -175,5 +179,24 @@ public sealed class LevelConfigurationTests
             Assert.Equal(300, detachedSpike.Height);
             Assert.Equal(16, game.Spikes.Count);
         }
+    }
+
+    [Fact]
+    public void ProductionProgressionContainsOnlyTheValidatedLevelOneToLevelTwoEdge()
+    {
+        Assert.Same(LevelConfiguration.Level2Square,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level1));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level2Square));
+        Assert.Null(LevelProgression.GetNextProductionLevel(
+            LevelConfiguration.Level1 with { DisplayedLevel = 1 }));
+    }
+
+    private static void CompleteLevel1Wave(TempestGame game)
+    {
+        for (int enemyIndex = 0; enemyIndex < game.CurrentLevel.EnemySupply; enemyIndex++)
+            game.CurrentLevel.RecordEnemyDestroyed();
+        game.CurrentLevel.ResetAfterDeath();
+        game.RunOneStep();
+        Assert.Equal(LevelState.ExitDelay, game.State);
     }
 }

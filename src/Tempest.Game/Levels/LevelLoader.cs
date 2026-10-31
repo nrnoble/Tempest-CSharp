@@ -20,5 +20,5 @@ public static class LevelLoader
 			new(-161,  161), new(-161,   80), new(-161,    0), new(-161,  -80),
 			new(-161, -161), new( -80, -161), new(   0, -161), new(  80, -161),
 			new( 161, -161), new( 161,  -80), new( 161,    0), new( 161,   80)
-		}, "Level 2 square development test");
+		}, "Level 2 square");
 }

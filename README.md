@@ -32,10 +32,20 @@ The frame loop retains one simulation tick per frame at the existing 60 FPS targ
 `LevelConfiguration.Level1` explicitly records internal/displayed identity
 0/1, board/palette 0/0, the existing closed Level 1 geometry, depth/position,
 player start, ten-unit supply, Egg pacing/sequences, standard exit policy and
-Flipper-only normal composition. `Level` remains the mutable per-wave runtime;
-`TempestGame` installs a fresh instance at initial setup, Complete replay and
-Game Over restart. Complete remains a terminal same-configuration replay; no
-natural Level 1-to-2 progression is implemented.
+Flipper-only normal composition. `LevelConfiguration.Level2Square` is the
+single production Level 2 object and also powers the direct development
+launch. `Level` remains the mutable per-wave runtime.
+
+Normal play progresses from Level 1 to Level 2 after successful standard exit
+travel, when the updated player depth falls below 10. Wave clear and the exit
+delay do not advance the level. Score and current lives carry unchanged.
+Manual play confirmed two usable Super Zapper charges at Level 2 start; the
+exact internal recharge/flash-reset timing remains a project implementation
+detail. The recreation adds no level bonus, bonus life, startbonus
+presentation, entry animation or audio.
+Level 2 is terminal because Level 3 is not implemented. Pressing R there starts
+a new Level 1 campaign with reset score and configured starting lives. Game
+Over in a normal campaign also restarts at Level 1.
 
 The closed definition has 16 ordered vertices and 16 playable lanes. The
 topology metadata distinguishes these counts: an open definition with 16
@@ -55,26 +65,35 @@ The HUD's ACTIVE counter includes active Eggs and active enemies.
 Tests run headlessly without initializing a Raylib window. Visual appearance,
 spinner feel and cursor capture still require manual gameplay testing.
 
-## Isolated Level 2 square/canflip test
+## Level 2 square/canflip and direct development access
 
 ```powershell
 dotnet run --project src/Tempest.Game -- --level2-test --lives 10
 ```
 
-`--level2-test` is **DEVELOPMENT ONLY**. It loads the closed 16-lane square
-geometry and 12-unit Flipper-only configuration. B2 enables Incitti-derived
-below-rim canflip behavior using B1's square endpoint hinges. Flippers choose
-direction after their first climb update, retain it across below-rim pivots
-and pauses, and resample the Blaster lane only when a rim pause expires.
-Climb/pivot increments of 2/8 and lane/rim pauses of 21/24 are
-**REFERENCE VERIFIED**, not arcade-measured tuning. The recreation preserves
-two-lane shot acceptance during pivots and completed-pivot player safety;
-Incitti's destination-only shot ownership is not silently imported.
-This is not a complete or authentic Level 2 implementation, and Level 2 is not
-naturally reachable. Press R to replay the isolated square after completion or
-Game Over. Level 1 remains the default with no flags. The flag is mutually
-exclusive with the Spiker, Tanker, Fuseball and Pulsar scenarios; it may be
-combined with `--lives` or the separate `--enemy-bullets-test` option.
+`--level2-test` is **DEVELOPMENT ONLY** direct access to the same closed
+16-lane square, 12-unit Flipper-only configuration used by natural progression.
+B2 enables the validated below-rim canflip behavior using B1's square endpoint
+hinges. Flippers choose direction after their first climb update, retain it
+across below-rim pivots and pauses, and resample the Blaster lane only when a
+rim pause expires. Climb/pivot increments of 2/8 and lane/rim pauses of 21/24
+are **REFERENCE VERIFIED**, not arcade-measured tuning. The recreation
+preserves two-lane shot acceptance during pivots and completed-pivot player
+safety; Incitti's destination-only shot ownership is not silently imported.
+Normal Level 1 progresses automatically to this Level 2 after successful
+travel. `--level2-test` itself remains terminal and replayable with R; it does
+not enable progression. Level 2 completes with an explicit "NEXT LEVEL NOT
+IMPLEMENTED" message; R starts a new normal campaign at Level 1.
+
+Score and current lives carry from Level 1. The Super Zapper is restored to
+two charges on fresh Level 2 setup. There is no level-completion bonus, bonus
+life, source `startbonus`, Begin/Ready entry animation, entry-position shift
+or audio. These are incomplete presentation/economy features, not claims of
+arcade-equivalent behavior. Level 1 remains the default with no flags.
+`--level2-test` is mutually exclusive with the Spiker, Tanker, Fuseball and
+Pulsar scenarios; it may be combined with `--lives` or the orthogonal
+`--enemy-bullets-test` option. Those other development scenarios remain
+terminal and replay their selected scenario.
 
 Neal completed B2 manual validation on 2026-10-31. He found the broad below-rim
 lane changes consistent with Atari Level 2: straight-side and corner flips
@@ -84,9 +103,21 @@ to the then-current Blaster position. Below-rim visual crossing was not lethal,
 rim pursuit and completed-pivot behavior remained normal, and no crash occurred
 or B1 renderer-crash recurrence was observed. These qualitative observations
 are **ARCADE VERIFIED** where applicable, not measurements of exact tuning,
-geometry math, shot bands or internal state. The isolated composition remains
-**DEVELOPMENT ONLY**; natural progression and authentic Level 2 setup are not
-implemented or validated.
+geometry math, shot bands or internal state.
+
+Neal subsequently completed end-to-end manual validation of the natural
+Level 1-to-2 transition. He confirmed automatic square Level 2 entry without a
+Level Complete/R pause, updated identity and immediate square rendering,
+unchanged score and remaining lives, four visible Eggs, the 12-unit wave, two
+usable Super Zapper charges, normal validated canflip behavior, and no
+observed regression. In his run, 10 starting lives became 8 after two Level 1
+deaths and Level 2 began with 8; this is an example, not a fixed life rule.
+These broad observable results are **ARCADE VERIFIED** within that manual
+comparison; exact transition ticks and implementation internals are not.
+
+Atari has a brief between-level approach through space with an interactive
+distant Blaster before combat engagement. This presentation is not implemented
+and is deferred; its duration and timing details have not been measured.
 
 ## Spiker development wave
 
@@ -227,13 +258,16 @@ boundary.
 
 ## Super Zapper
 
-The source-derived Super Zapper works in normal Level 1 and every existing
-development wave. Space or the right mouse button activates it on a press edge.
-Each game/level start provides two charges; ordinary life loss preserves the
-remaining charge, while Game Over restart and Level Complete replay restore
-both. The first use assigns delays 4, 6, 8, ... to accepted enemies in source
-insertion order. The second use selects one eligible enemy using Incitti's
-literal lane-distance, height and type comparisons, then assigns delay 4.
+The source-derived Super Zapper works in normal Level 1, natural Level 2 and
+every existing development wave. Space or the right mouse button activates it
+on a press edge. Each fresh Level setup provides two charges; ordinary life
+loss preserves the remaining charge. Natural Level 1-to-2 progression restores
+two charges and clears flash state through fresh-wave initialization; normal
+Game Over and natural Level 2 terminal R start a new campaign. Development
+replay keeps its established fresh-charge behavior. The first use assigns
+delays 4, 6, 8, ... to accepted enemies in source insertion order. The second
+use selects one eligible enemy using Incitti's literal lane-distance, height
+and type comparisons, then assigns delay 4.
 
 Eligible enemies keep moving during their countdown. A player shot, Spiker
 retreat, or Tanker natural release can resolve a pending target first. Zap
@@ -261,8 +295,8 @@ Historical Super Zapper checkpoint validation: 29 focused tests and 318 full
 suite tests passed; the build had no warnings or errors. Neal later manually
 validated Super Zapper use in all five existing scenarios. Exact selection
 comparisons, timer values, accounting and timing remain source/project details,
-not arcade-verified. Audio, charge HUD, new enemy types and progression remain
-out of scope.
+not arcade-verified. Audio, charge HUD, new enemy types, Level 3 and broader
+campaign progression remain out of scope.
 
 ## Tanker-cargo direction correction
 

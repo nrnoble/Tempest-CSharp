@@ -711,7 +711,8 @@ and ordinary movement, bullet/spike immunity, Tanker stillborn cargo and
 re-entry, death charge persistence, restart/replay recharge, and the 60-step
 tube flash while preserving Pulsar overlays, spinner feel, cursor capture,
 Hurry-Up and existing exit behavior. Manual and Atari comparison remain
-pending; audio, charge HUD, new enemy types and progression remain out of scope.
+pending; audio, charge HUD, new enemy types, Level 3 and broader campaign
+progression remain out of scope.
 
 ## Tanker-cargo direction correction
 
@@ -796,18 +797,31 @@ behavior specification. The commands remain useful as a regression checklist.
 
 ## Level 1 configuration groundwork
 
-`LevelConfiguration.Level1` now explicitly describes internal/displayed
-identity 0/1, board/palette 0/0, the existing closed Level 1 definition,
-depth/position, player start, supply, Egg pacing/sequences, standard exit
-policy and Flipper-only normal composition. `Level` remains the per-wave
-runtime object; it accepts configuration rather than constructing Level 1
-geometry internally.
+`LevelConfiguration.Level1` describes internal/displayed identity 0/1,
+board/palette 0/0, closed Level 1 geometry, player start, ten-unit supply,
+Egg pacing, standard exit policy and Flipper-only composition.
+`LevelConfiguration.Level2Square` is the single immutable production Level 2
+configuration; `--level2-test` selects that same object for direct development
+access. It retains board 1/palette 0, the closed 16-lane square, 12-unit
+supply, Flipper-only composition, and the validated B1/B2 hinge/canflip path.
 
-`TempestGame.InitializeFreshWave` installs a fresh runtime at initial setup,
-Level Complete replay and Game Over restart. Complete remains a terminal
-same-configuration replay; no natural Level 1-to-2 progression is implemented.
-Ordinary death and Spike reverse/retry use reconstruction on the existing
-`Level`, preserving its configuration and resolved outcomes.
+Normal play advances from Level 1 only after standard ExitZoom travel updates
+the player to depth below 10. Wave clear, ExitDelay, death, Game Over and
+Spiker reverse/retry do not advance. The existing fresh-wave initializer
+installs Level 2 in that same simulation update, resetting projection and
+Super Zapper to two charges/zero flash while carrying score and current lives.
+No level bonus, bonus life, source `startbonus`, Begin/Ready presentation,
+entry-position shift or audio is implemented. These are presentation/economy
+omissions, not arcade-equivalent behavior.
+
+Natural Level 2 is terminal because Level 3 is unavailable. It displays
+"LEVEL 2 COMPLETE / NEXT LEVEL NOT IMPLEMENTED"; R starts a new Level 1
+campaign with score reset and configured starting lives. Game Over in a normal
+campaign also restarts at Level 1. Direct `--level2-test` completion replays
+Level 2 with its existing score/lives semantics. Spiker, Tanker, Fuseball and
+Pulsar development scenarios remain terminal and replay their own launch
+scenario. Ordinary death reconstructs the existing `Level`, preserving its
+configuration and resolved outcomes.
 
 Definitions distinguish 16 ordered vertices from playable lanes: the current
 closed Level 1 has 16 of each, while a geometry-only open-definition fixture
@@ -863,19 +877,64 @@ These observations do not measure the exact 8-degree increment, 21/24 pauses,
 random/tie rules or call ordering, tick boundaries, height increments, endpoint/
 radial math, numeric shot band or internal state representation. Those remain
 **REFERENCE VERIFIED** or **PROJECT DECISION** as applicable. Passing tests
-still proves C# contracts, not arcade fidelity. The isolated composition is
-**DEVELOPMENT ONLY**, not validated authentic Level 2 setup or natural
-progression.
+still proves C# contracts, not arcade fidelity. The prior qualitative
+observations covered isolated Level 2 gameplay, not the end-to-end natural
+transition or its setup.
+
+### Natural Level 1-to-Level 2 manual validation
+
+On 2026-10-31, Neal manually ran:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --lives 10
+```
+
+He confirmed the normal Level 1 tube exit leads directly into the square Level
+2 without an intervening Level Complete/R pause. The displayed identity
+changed, square geometry appeared immediately, score and current remaining
+lives carried unchanged, four initial Eggs were visible, the wave had 12
+units, Super Zapper had two usable charges, and validated square/canflip
+behavior remained normal with no observed regression. In the observed run,
+10 starting lives became 8 after two Level 1 deaths and Level 2 started with
+8; this example is not a fixed life-count rule. These broad observable results
+are **ARCADE VERIFIED** within Neal's manual comparison. Exact transition
+ticks were not measured.
+
+Do not promote implementation details to arcade observations: the exact
+`Player.Depth < 10` commit boundary, update ordering, fresh-runtime and
+accounting reset, exact Super Zapper recharge/flash timing, Egg setup
+sequencing, player start offset, callback/list cleanup and projection reset
+remain **REFERENCE VERIFIED / PROJECT DECISION** as applicable.
+
+### Deferred Atari between-level approach
+
+Neal reports that after the Blaster exits a tube, Atari shows a brief
+first-person approach through space toward the next tube. The next tube starts
+small and distant and grows as the player approaches; the Blaster is visible
+on the distant rim and spinner movement moves it around that rim during the
+approach. Combat/enemy engagement begins after arrival. This is
+gameplay-relevant because rim movement remains interactive, but Neal does not
+consider its absence a blocker for current progression development. The
+approach presentation is deferred and not implemented. Do not infer duration,
+zoom rate, projection formulas, enemy-start timing or firing enablement; none
+was measured.
+
+Neal also verified the current Level 2 terminal policy: no Level 3 appears,
+the explicit "LEVEL 2 COMPLETE / NEXT LEVEL NOT IMPLEMENTED / PRESS R TO
+START A NEW CAMPAIGN" presentation is shown, and R starts a fresh Level 1
+campaign with score reset. This terminal policy is a **PROJECT DECISION**,
+not a claim that Atari Level 2 is terminal.
 
 ```powershell
 dotnet run --project src\Tempest.Game -- --level2-test --lives 10
 ```
 
-Level 1 remains the normal no-flag startup. Level 2 has no natural progression
-path; R replays the isolated square after Level Complete, and Game Over restart
-also recreates that selected configuration. The flag is mutually exclusive
+Level 1 remains the normal no-flag startup, and normal Level 1 now progresses
+to the natural Level 2 configuration after successful exit travel. The direct
+development flag remains terminal and replayable; it is mutually exclusive
 with the Spiker, Tanker, Fuseball and Pulsar development scenarios. `--lives`
-and the separately opt-in `--enemy-bullets-test` remain composable.
+and the separately opt-in `--enemy-bullets-test` remain orthogonal and do not
+disable normal progression.
 
 ## Deferred manual observations outside Stage A
 

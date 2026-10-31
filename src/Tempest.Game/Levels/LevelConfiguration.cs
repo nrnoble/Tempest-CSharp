@@ -16,7 +16,7 @@ public enum FlipperPivotGeometry
     SquareEndpointHinge
 }
 
-// REFERENCE VERIFIED: Incitti lv=0/1 values; canflip is enabled only in the Level 2 test.
+// REFERENCE VERIFIED: Incitti lv=0/1 values; exact gameplay fidelity remains unverified.
 public sealed record FlipperConfiguration(
     bool CanFlip,
     float ClimbSpeed,
@@ -79,7 +79,7 @@ public sealed record LevelConfiguration(
         FlipperPivotMode = FlipperPivotGeometry.LegacyLaneTurn
     };
 
-    public static LevelConfiguration Level2SquareTest { get; } = new(
+    public static LevelConfiguration Level2Square { get; } = new(
         ProgressionIndex: 1,
         DisplayedLevel: 2,
         BoardIndex: 1,

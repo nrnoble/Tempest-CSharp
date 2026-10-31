@@ -11,9 +11,9 @@ namespace Tempest.Game;
 /// renderer only reads the public state exposed here.
 /// </summary>
 /// <remarks>
-/// Opt-in development scenarios (square Level 2, Spiker, enemy bullets, Tanker, Fuseball, Pulsar)
-/// layer on top of the normal Level 1 path. Normal Level 1 keeps its original accounting and shot
-/// path; do not generalize it casually, because the existing regression tests pin it.
+/// Normal play progresses from Level 1 to the configured square Level 2. Direct Level 2 access and
+/// the Spiker, Tanker, Fuseball and Pulsar scenarios are development-only; enemy bullets remain an
+/// orthogonal test option. Flipper waves use the existing accounting and shot path.
 /// </remarks>
 public sealed class TempestGame
 {
@@ -49,7 +49,10 @@ public sealed class TempestGame
     private readonly HashSet<int> rimClearedCargoUnits = [];
     private readonly Random random;
     private readonly int startingLives;
+    // New-game restarts target the original selection even after natural progression changes the active Level.
     private readonly LevelConfiguration launchConfiguration;
+    // Development scenarios stay terminal even when their runtime uses the Level 1 configuration identity.
+    private readonly bool naturalProgressionEnabled;
     private readonly bool spikerDevelopmentWave;
     private readonly bool enemyBulletsTest;
     private readonly bool tankerTest;
@@ -78,6 +81,7 @@ public sealed class TempestGame
     public bool FuseballTest { get; }
     public bool PulsarTest { get; }
     public bool Level2Test { get; }
+    public bool NaturalProgressionEnabled => naturalProgressionEnabled;
     public bool HurryUp { get; private set; }
     public int PulsePhase => pulsePhase;
     public bool Pulsing { get; private set; }
@@ -133,16 +137,18 @@ public sealed class TempestGame
         this.random = random ?? Random.Shared;
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
         this.launchConfiguration = level2Test
-            ? LevelConfiguration.Level2SquareTest
+            ? LevelConfiguration.Level2Square
             : LevelConfiguration.Level1;
         this.spikerDevelopmentWave = spikerDevelopmentWave;
         this.enemyBulletsTest = enemyBulletsTest;
         this.tankerTest = tankerTest;
+        naturalProgressionEnabled = !level2Test && !spikerDevelopmentWave && !tankerTest &&
+            !fuseballTest && !pulsarTest;
         FuseballTest = fuseballTest;
         PulsarTest = pulsarTest;
         Level2Test = level2Test;
         Player = new Player(this.startingLives);
-        InitializeFreshWave();
+        InitializeFreshWave(launchConfiguration);
     }
 
     public void RunOneStep(PlayerInput input = default, bool restartPressed = false)
@@ -162,8 +168,15 @@ public sealed class TempestGame
         else if (LevelComplete)
         {
             if (restartPressed)
-                // Complete is terminal: development replay reinstalls the selected launch configuration.
-                InitializeFreshWave();
+            {
+                if (naturalProgressionEnabled &&
+                    ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level2Square))
+                    // Level 3 is not implemented; R starts a new campaign instead of replaying Level 2.
+                    ResetGame();
+                else
+                    // Development scenarios replay their launch configuration, not a production next level.
+                    InitializeFreshWave(launchConfiguration);
+            }
         }
         else if (State == LevelState.ReverseZoom)
         {
@@ -235,18 +248,18 @@ public sealed class TempestGame
     {
         Score.Reset();
         Player.Lives = startingLives;
-        InitializeFreshWave();
+        InitializeFreshWave(launchConfiguration);
     }
 
     // Fresh initialization installs a new Level; life reconstruction deliberately retains it.
     // Detaching and rebinding the one SpikeCreated handler keeps old hazards out of the new wave.
-    private void InitializeFreshWave()
+    private void InitializeFreshWave(LevelConfiguration configuration)
     {
         if (currentLevel is not null)
             currentLevel.SpikeCreated -= OnSpikeCreated;
 
         developmentCollisionOrder.Clear();
-        currentLevel = new Level(launchConfiguration, spikerDevelopmentWave, tankerTest);
+        currentLevel = new Level(configuration, spikerDevelopmentWave, tankerTest);
         currentLevel.SpikeCreated += OnSpikeCreated;
         developmentCollisionOrder.AddRange(currentLevel.Spikes);
         CurrentLevel.State = LevelState.Playing;
@@ -407,7 +420,7 @@ public sealed class TempestGame
             // Spikes are not Enemy instances; bullets remain in this source order and reject by default.
             return developmentCollisionOrder.OfType<Enemy>();
 
-        // Normal Level 1 keeps Flipper creation order; its separate shot scan remains reversed.
+        // Normal Flipper waves keep creation order; their separate shot scan remains reversed.
         return flippers;
     }
 
@@ -1098,6 +1111,16 @@ public sealed class TempestGame
 
         if (completeWhenFinished && Player.Depth < 10)
         {
+            // Wave clear only starts travel; production progression commits after successful travel.
+            if (naturalProgressionEnabled &&
+                State == LevelState.ExitZoom &&
+                ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level1) &&
+                LevelProgression.GetNextProductionLevel(CurrentLevel.Configuration) is LevelConfiguration next)
+            {
+                InitializeFreshWave(next);
+                return;
+            }
+
             CurrentLevel.State = LevelState.Complete;
             RestoreProjection();
         }
@@ -1116,6 +1139,7 @@ public sealed class TempestGame
 
         if (State == LevelState.ExitZoom && Player.Depth < 10)
         {
+            // Spike avoidance/retry is a development exit path, never a production progression commit.
             CurrentLevel.State = LevelState.Complete;
             shots.Clear();
             enemyBullets.Clear();

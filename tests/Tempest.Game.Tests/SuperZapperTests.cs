@@ -600,13 +600,14 @@ public sealed class SuperZapperTests
     [Fact]
     public void RestartAndReplayRestoreChargesWhileInactiveInputIsRejected()
     {
-        TempestGame game = new();
+        TempestGame game = new(level2Test: true);
         game.RunOneStep(new PlayerInput(false, 0, false, false, ZapPressed: true));
         game.CurrentLevel.State = LevelState.Complete;
         game.RunOneStep(new PlayerInput(false, 0, false, false, ZapPressed: true));
         Assert.Equal(1, game.SuperZapperChargesRemaining);
         game.RunOneStep(restartPressed: true);
         Assert.Equal(2, game.SuperZapperChargesRemaining);
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
 
         game.RunOneStep(new PlayerInput(false, 0, false, false, ZapPressed: true));
         game.CurrentLevel.State = LevelState.GameOver;
@@ -614,6 +615,7 @@ public sealed class SuperZapperTests
         Assert.Equal(1, game.SuperZapperChargesRemaining);
         game.RunOneStep(restartPressed: true);
         Assert.Equal(2, game.SuperZapperChargesRemaining);
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
     }
 
     [Fact]

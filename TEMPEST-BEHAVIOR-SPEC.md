@@ -32,13 +32,25 @@ record the uncertainty rather than guessing.
 
 ### Player, firing, and score
 
-- **PROJECT DECISION** — Normal no-flag startup remains the closed, 16-lane
-  Level 1 tube. An isolated square Level 2 is available only through the
-  **DEVELOPMENT ONLY** `--level2-test` scenario; natural Level 1-to-2
-  progression is not implemented. The Blaster travels around the rim; relative
-  spinner movement is the primary input, with left/right keyboard movement as
-  a fallback. The input mapping and current movement rates have not been
+- **PROJECT DECISION** — Normal no-flag startup begins on the closed,
+  16-lane Level 1 tube. After successful Level 1 completion, normal play
+  progresses automatically into the square, Flipper/canflip Level 2. The
+  direct `--level2-test` path remains **DEVELOPMENT ONLY** and is distinct
+  from natural Level 2. The Blaster travels around the rim; relative spinner
+  movement is the primary input, with left/right keyboard movement as a
+  fallback. The input mapping and current movement rates have not been
   established here as arcade-verified tuning.
+- **ARCADE VERIFIED** — Neal manually confirmed the broad visible normal
+  Level 1-to-Level 2 sequence: the Level 1 tube exit leads automatically to
+  square Level 2, with no terminal Level Complete/R pause between levels; the
+  displayed identity changes to Level 2 and no stale Level 1 tube frame was
+  observed. Score and remaining lives carry across the transition. This
+  records observable behavior only, not implementation internals or timing.
+  In one manual run, 10 starting lives became 8 after two Level 1 deaths and
+  Level 2 began with 8; this is an example, not a fixed life-count rule.
+- **PROJECT DECISION** — The recreation does not implement the Atari
+  between-level approach presentation yet. Its behavior observed by Neal is
+  documented under Known uncertainties and deferred behavior.
 - **PROJECT DECISION** — Player shots travel from the Blaster at the near rim
   toward the far end of the currently occupied lane. The current recreation
   limits simultaneous player shots and gives them a fixed travel rate. Those
@@ -140,10 +152,33 @@ record the uncertainty rather than guessing.
   collision simultaneity, and Spike-retry accounting remain
   **REFERENCE VERIFIED / PROJECT DECISION** policies unless separately
   observed.
-- **PROJECT DECISION** — Once the standard Level 1 supply is cleared by its
-  applicable outcomes, the recreation enters the existing exit delay and
-  moves the Blaster down the tube through a zoom sequence. It ends at Level
-  Complete; another level or arcade progression is not implemented.
+- **ARCADE VERIFIED** — Neal manually confirmed the broad observable
+  successful Level 1 exit followed by automatic engagement with square Level
+  2, without a Level Complete/R pause. The qualitative Level 2
+  square/canflip behavior previously validated in direct access remained
+  normal during the natural run. This does not establish exact exit/commit
+  ticks or internal setup behavior.
+- **PROJECT DECISION** — The C# standard Level 1 exit uses its existing exit
+  delay and zoom, then installs fresh Level 2 at the successful-travel
+  boundary. The exact `Player.Depth < 10` condition, update ordering,
+  fresh-runtime replacement, accounting/list/callback cleanup, projection
+  reset, player offset and Egg sequencing describe implementation policy;
+  they were not measured as Atari internals.
+- **PROJECT DECISION** — The C# game has no Level 3 configuration. Natural
+  Level 2 completion is terminal and displays “LEVEL 2 COMPLETE / NEXT LEVEL
+  NOT IMPLEMENTED / PRESS R TO START A NEW CAMPAIGN.” R starts a new Level 1
+  campaign and resets score. This is the current recreation policy, not a
+  claim that Atari Level 2 is terminal.
+- **ARCADE VERIFIED** — In the natural transition run, Neal observed Level 2
+  start with four visible Eggs and the 12-unit wave, score and current lives
+  carried, and Super Zapper restored to two usable charges. Previously
+  validated square/canflip behavior remained normal and no regression was
+  observed. This validates observable outcomes, not exact Egg sequencing or
+  the internal timing of the charge/flash reset.
+- **PROJECT DECISION** — The C# implementation resets Super Zapper to two
+  charges and clears its flash as part of fresh Level 2 initialization. The
+  exact reset timing and flash-reset behavior are implementation policy, not
+  newly established Atari facts.
 - **DEVELOPMENT ONLY** — The Spiker scenario adds a spike-avoidance interval
   and can reverse/retry the exit after a spike collision. This is not part of
   the standard Level 1 clear sequence.
@@ -232,13 +267,13 @@ record the uncertainty rather than guessing.
   observed arcade internals. Two-lane shot acceptance, shot-before-player
   collision ordering and exact collision/state boundaries remain recreation
   policy where the manual run did not distinguish them.
-- **DEVELOPMENT ONLY** — `--level2-test`, its isolated replay, deterministic
-  Egg scheduling and optional `--enemy-bullets-test` combination remain
-  development facilities. Normal startup is Level 1; natural Level 1-to-2
-  progression and authentic Level 2 wave setup have not been implemented or
-  validated. Neal reported no B2 crash, and the B1 completed-pivot renderer
-  crash did not recur; this is scenario stability evidence, not proof of
-  arcade geometry or internal implementation.
+- **DEVELOPMENT ONLY** — `--level2-test` remains direct Level 2 access and
+  replays that scenario; it does not select or advance a campaign. The square
+  configuration and B1/B2 behavior are shared with natural Level 2. Automated
+  tests establish C# lifecycle and accounting contracts, not arcade facts.
+  Neal reported no B2 crash, and the B1 completed-pivot renderer crash did
+  not recur; this is scenario stability evidence, not proof of arcade
+  geometry or internal implementation.
 
 ### Player collision
 
@@ -486,7 +521,7 @@ These controls are test conveniences, not arcade level-selection or composition:
 
 | Option | Development behavior |
 |---|---|
-| `--level2-test` | Isolated closed 16-lane square, supply 12 and Flipper-only canflip wave; terminal replay, no natural progression. |
+| `--level2-test` | Direct access to the shared closed 16-lane square, supply-12 Flipper-only canflip configuration; terminal development replay, no progression selection. |
 | `--spiker-test` | Replaces the normal wave with a Spiker/Flipper test wave and height-60 spikes on every lane. |
 | `--tanker-test` | Replaces the normal wave with one controlled Tanker plus ordinary Flipper slots and cargo. |
 | `--fuseball-test` | Direct-hatches the ten-unit supply as Fuseballs, with source-derived late-wave hurry-up. |
@@ -542,12 +577,22 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   presentation/timing, Egg pacing, normal enemy-bullet frequency, Spiker and
   Tanker arcade eligibility/composition, and exit visuals need direct arcade
   comparison where they matter.
-- **PROJECT DECISION** — Normal multi-level progression and authentic
-  later-wave composition, open-tube rendering, audio, bonus rules, broader
-  enemy/cargo combinations, and source-specific death effects remain out of
-  scope or deferred. Super Zapper and all-rim completion are implemented; the
-  manually observed broad behavior and remaining uncertainties are recorded
-  above.
+- **PROJECT DECISION** — Progression beyond Level 2 and authentic later-wave
+  composition, open-tube rendering, audio, bonus rules, broader enemy/cargo
+  combinations, and source-specific death effects remain out of scope or
+  deferred. Natural Level 1-to-2 progression is implemented and its broad
+  observable sequence has been manually validated; the exact internals and
+  remaining uncertainties are recorded above.
+- **ARCADE VERIFIED** — Neal observed a brief Atari between-level approach
+  after the Blaster exits a tube: a first-person view moves through space
+  toward the next tube, which begins small/distant and grows as the player
+  approaches; the Blaster is visible on the distant rim and spinner movement
+  moves it around that rim during the approach, before combat engagement.
+  This qualitative observation does not establish duration, zoom rate,
+  projection formulas, enemy-start timing or exact firing enablement.
+- **PROJECT DECISION** — The recreation does not implement this interactive
+  between-level approach presentation yet. Its implementation is deferred;
+  current natural progression begins the next level directly.
 
 ## 12. Behavior-validation history
 
@@ -618,6 +663,32 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   to hidden state, pending zap behavior, Tanker accounting, collision
   simultaneity, and Spike-retry accounting remain **REFERENCE VERIFIED /
   PROJECT DECISION**, not newly arcade-verified.
+- **Natural Level 1-to-Level 2 progression** — Neal manually ran
+  `dotnet run --project src/Tempest.Game -- --lives 10`. He observed the
+  normal Level 1 tube exit, automatic square Level 2 entry without a terminal
+  pause, Level 2 identity/render change, unchanged score and remaining lives,
+  four visible Eggs, a 12-unit wave, two usable Super Zapper charges, and
+  previously validated square/canflip behavior without a reported regression.
+  In that run, 10 starting lives became 8 after two Level 1 deaths and Level 2
+  began with 8. This observable behavior is **ARCADE VERIFIED** within the
+  manual comparison; the example is not a fixed life rule. No transition ticks
+  were measured. The exact `Player.Depth < 10` commit, update ordering,
+  runtime replacement, internal accounting, callback/list cleanup, projection
+  reset, player offset, Egg sequencing, and Zapper recharge/flash-reset timing
+  remain **REFERENCE VERIFIED / PROJECT DECISION** as applicable, not arcade
+  observations.
+- **Level 2 terminal behavior and restart** — Neal observed no Level 3, the
+  explicit terminal message, and R returning to a fresh Level 1 with score
+  reset. The current no-Level-3 terminal and R policy is a **PROJECT
+  DECISION**; it does not claim that Atari Level 2 is terminal.
+- **Between-level approach presentation** — Neal reports that Atari shows a
+  brief first-person approach through space to the next tube. The distant
+  tube grows in view; the Blaster appears on its distant rim and remains
+  spinner-movable during approach, then combat begins. This gameplay-relevant
+  presentation is not implemented and is deferred; Neal does not consider
+  its absence a blocker for current progression development. Duration, zoom
+  rate, projection math, enemy-start timing and firing enablement remain
+  unmeasured and unspecified.
 - **rimit / Hurry-Up milestone** — Automated validation passed 121 focused
   hurry-up/Fuseball/Pulsar cases and all 289 suite cases, with no failures or
   skips; build had zero warnings/errors. Tests protect exact C# trigger order,

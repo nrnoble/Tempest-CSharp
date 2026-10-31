@@ -30,7 +30,7 @@ public sealed class Level2CanFlipTests
         straight.Update(level1, 7, UnexpectedRandom);
         Assert.Equal(24, straight.PauseTicks);
 
-        Level square = new(LevelConfiguration.Level2SquareTest with { DisplayedLevel = 1 });
+        Level square = new(LevelConfiguration.Level2Square with { DisplayedLevel = 1 });
         Flipper canflip = new(4);
         canflip.Update(square, 7, UnexpectedRandom);
         Assert.Equal(FlipperState.Pausing, canflip.State);
@@ -562,7 +562,7 @@ public sealed class Level2CanFlipTests
         game.RunOneStep();
         Assert.Equal(LevelState.Playing, game.State);
         Assert.Equal(2, game.Player.Lives);
-        Assert.Same(LevelConfiguration.Level2SquareTest, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
         Assert.Equal(4, game.Eggs.Count);
         Assert.Equal(8, game.CurrentLevel.ReserveEggs);
         Assert.Equal(2, game.SuperZapperChargesRemaining);
@@ -576,7 +576,7 @@ public sealed class Level2CanFlipTests
         Assert.Equal(bullets ? 15 : 16, fresh.BulletTimer);
     }
 
-    private static Level Square() => new(LevelConfiguration.Level2SquareTest);
+    private static Level Square() => new(LevelConfiguration.Level2Square);
 
     private static int UnexpectedRandom(int minimum, int maximum) =>
         throw new InvalidOperationException($"Unexpected random range [{minimum}, {maximum}].");

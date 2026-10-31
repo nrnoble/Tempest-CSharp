@@ -22,9 +22,9 @@ public sealed class Level2SquareTests
     ];
 
     [Fact]
-    public void Level2DevelopmentConfigurationPreservesB1GeometryAndEnablesCanflip()
+    public void ProductionLevel2ConfigurationPreservesValidatedGeometryAndEnablesCanflip()
     {
-        LevelConfiguration configuration = LevelConfiguration.Level2SquareTest;
+        LevelConfiguration configuration = LevelConfiguration.Level2Square;
         Level level = new(configuration);
 
         Assert.Equal(1, configuration.ProgressionIndex);
@@ -85,7 +85,7 @@ public sealed class Level2SquareTests
         TempestGame game = new(level2Test: DebugController.UseLevel2Test(arguments),
             startingLives: DebugController.GetStartingLives(arguments));
         Assert.True(game.Level2Test);
-        Assert.Same(LevelConfiguration.Level2SquareTest, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
         Assert.Equal(10, game.Player.Lives);
         Assert.False(game.EnemyBulletsTest);
 
@@ -96,7 +96,7 @@ public sealed class Level2SquareTests
             enemyBulletsTest: DebugController.UseEnemyBulletsTest(bulletArguments),
             level2Test: DebugController.UseLevel2Test(bulletArguments));
         Assert.True(withBullets.EnemyBulletsTest);
-        Assert.Same(LevelConfiguration.Level2SquareTest, withBullets.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level2Square, withBullets.CurrentLevel.Configuration);
 
         foreach (string other in new[]
         {
@@ -127,7 +127,7 @@ public sealed class Level2SquareTests
         game.RunOneStep(restartPressed: true);
 
         Assert.NotSame(completedLevel, game.CurrentLevel);
-        Assert.Same(LevelConfiguration.Level2SquareTest, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
         Assert.Equal(501, game.Score.Score);
         Assert.Equal(4, game.Player.Lives);
         Assert.Equal(4, game.Eggs.Count);
@@ -141,7 +141,7 @@ public sealed class Level2SquareTests
         game.RunOneStep(restartPressed: true);
 
         Assert.NotSame(gameOverLevel, game.CurrentLevel);
-        Assert.Same(LevelConfiguration.Level2SquareTest, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
         Assert.Equal(0, game.Score.Score);
         Assert.Equal(10, game.Player.Lives);
         Assert.Equal(2, game.SuperZapperChargesRemaining);
@@ -164,7 +164,7 @@ public sealed class Level2SquareTests
             game.RunOneStep();
 
         Assert.Same(level, game.CurrentLevel);
-        Assert.Same(LevelConfiguration.Level2SquareTest, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
         Assert.Equal(LevelState.Playing, game.State);
         Assert.Equal(9, game.Player.Lives);
         Assert.Equal(321, game.Score.Score);
@@ -217,7 +217,7 @@ public sealed class Level2SquareTests
     [Fact]
     public void LegacyTurnHelperRemainsUnchangedAndExposesSquareZeroAnglePairs()
     {
-        Level square = new(LevelConfiguration.Level2SquareTest);
+        Level square = new(LevelConfiguration.Level2Square);
         float[] expectedSquareTurns =
         [
             0, 0, 0, 90, 0, 0, 0, 90, 0, 0, 0, 90, 0, 0, 0, 90
@@ -240,7 +240,7 @@ public sealed class Level2SquareTests
     [Fact]
     public void SquareHingeCoversEveryPairAndBothDirectionsWithExactDestinationEndpoints()
     {
-        Level level = new(LevelConfiguration.Level2SquareTest);
+        Level level = new(LevelConfiguration.Level2Square);
 
         for (int source = 0; source < 16; source++)
         {
@@ -298,10 +298,10 @@ public sealed class Level2SquareTests
         VectorRenderer renderer = new(game);
         (Vector2 start, Vector2 end) = renderer.ProjectFlipperEndpoints(flipper);
         Assert.Equal(Projection.Project(SquarePoints[destination].X, SquarePoints[destination].Y,
-            LevelConfiguration.Level2SquareTest.Position, 400, -80), start);
+            LevelConfiguration.Level2Square.Position, 400, -80), start);
         Assert.Equal(Projection.Project(SquarePoints[(destination + 1) % SquarePoints.Length].X,
             SquarePoints[(destination + 1) % SquarePoints.Length].Y,
-            LevelConfiguration.Level2SquareTest.Position, 400, -80), end);
+            LevelConfiguration.Level2Square.Position, 400, -80), end);
     }
 
     [Fact]
@@ -320,9 +320,9 @@ public sealed class Level2SquareTests
         Assert.Equal(paused.EdgeIndex, paused.DestinationEdge);
         (Vector2 start, Vector2 end) = renderer.ProjectFlipperEndpoints(paused);
         Assert.Equal(Projection.Project(SquarePoints[15].X, SquarePoints[15].Y,
-            LevelConfiguration.Level2SquareTest.Position, 400, -80), start);
+            LevelConfiguration.Level2Square.Position, 400, -80), start);
         Assert.Equal(Projection.Project(SquarePoints[0].X, SquarePoints[0].Y,
-            LevelConfiguration.Level2SquareTest.Position, 400, -80), end);
+            LevelConfiguration.Level2Square.Position, 400, -80), end);
     }
 
     [Fact]

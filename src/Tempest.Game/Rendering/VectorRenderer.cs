@@ -616,6 +616,7 @@ public sealed class VectorRenderer
 	{
 		Raylib.DrawText(game.Score.Score.ToString(), 10, 10, 28, Color.Yellow);
 		Raylib.DrawText($"LIVES {game.Player.Lives}", 10, 44, 20, Color.Yellow);
+		Raylib.DrawText($"LEVEL {game.CurrentLevel.Configuration.DisplayedLevel}", 640, 10, 20, Color.Yellow);
 		if (game.TankerTest)
 		{
 			Raylib.DrawText($"ORIGINAL {game.TankerOriginalSlotsRemaining}", 10, 72, 18, Color.Red);
@@ -642,10 +643,21 @@ public sealed class VectorRenderer
 
 		if (game.LevelComplete)
 		{
-			DrawCenteredText(game.Level2Test ? "LEVEL 2 TEST COMPLETE" : "LEVEL 1 COMPLETE",
-				250, 36, Color.Yellow);
-			DrawCenteredText(game.Level2Test ? "PRESS R TO REPLAY TEST" : "PRESS R TO REPLAY",
-				296, 24, Color.Gray);
+			if (game.NaturalProgressionEnabled &&
+				game.CurrentLevel.Configuration.DisplayedLevel == 2)
+			{
+				DrawCenteredText("LEVEL 2 COMPLETE", 230, 36, Color.Yellow);
+				DrawCenteredText("NEXT LEVEL NOT IMPLEMENTED", 276, 24, Color.Gray);
+				DrawCenteredText("PRESS R TO START A NEW CAMPAIGN", 310, 24, Color.Gray);
+			}
+			else
+			{
+				DrawCenteredText(game.Level2Test ? "LEVEL 2 TEST COMPLETE" :
+					$"LEVEL {game.CurrentLevel.Configuration.DisplayedLevel} COMPLETE",
+					250, 36, Color.Yellow);
+				DrawCenteredText(game.Level2Test ? "PRESS R TO REPLAY TEST" : "PRESS R TO REPLAY",
+					296, 24, Color.Gray);
+			}
 			return;
 		}
 

@@ -687,7 +687,7 @@ public sealed class SimulationTests
         Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed);
         Assert.Empty(HurryUpEnemies(game));
         AssertHurryUpAccounting(game);
-        FinishExit(game);
+        FinishTerminalExit(game);
         game.RunOneStep(restartPressed: true);
         Assert.False(game.HurryUp);
         Assert.Equal(LevelState.Playing, game.State);
@@ -4485,14 +4485,14 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void ExitZoomIgnoresInputRestartAndFurtherClearTriggers()
+    public void ExitZoomIgnoresInputAndCommitsOnlyAfterSuccessfulTravel()
     {
         TempestGame game = BeginExit();
+        Level outgoingLevel = game.CurrentLevel;
         int edge = game.Player.EdgeIndex;
         float position = game.Player.EdgePosition;
         PlayerInput input = new(true, 800, true, true);
-        int ticks = 0;
-        while (!game.LevelComplete && ticks++ < 200)
+        for (int tick = 0; tick < 21 + 123; tick++)
         {
             game.RunOneStep(input, restartPressed: true);
             Assert.Equal(edge, game.Player.EdgeIndex);
@@ -4505,56 +4505,63 @@ public sealed class SimulationTests
             Assert.Equal(0, game.DeathTicks);
             Assert.False(game.GameOver);
             Assert.Equal(3, game.Player.Lives);
+            Assert.Same(outgoingLevel, game.CurrentLevel);
         }
-        Assert.True(game.LevelComplete);
-        Assert.Equal(145, ticks);
+        Assert.Equal(LevelState.ExitZoom, game.State);
+        Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
+        Assert.InRange(game.Player.Depth, 10.99f, 11.01f);
+
+        game.RunOneStep(input, restartPressed: true);
+
+        Assert.NotSame(outgoingLevel, game.CurrentLevel);
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(400, game.Player.Depth);
+        Assert.Equal(4, game.Eggs.Count);
+        Assert.Equal(8, game.CurrentLevel.ReserveEggs);
     }
 
     [Fact]
-    public void ZoomCompletesOnlyBelowTenThenRestoresProjectionAndFreezes()
+    public void ZoomCommitsBelowTenIntoFreshLevel2AndRestoresProjection()
     {
         TempestGame game = BeginExit();
         Step(game, 21 + 23 + 100);
         Assert.Equal(LevelState.ExitZoom, game.State);
         Assert.InRange(game.Player.Depth, 10.99f, 11.01f);
+        Level outgoingLevel = game.CurrentLevel;
         game.RunOneStep();
-        Assert.Equal(LevelState.Complete, game.State);
-        Assert.InRange(game.Player.Depth, 7.79f, 7.81f);
+        Assert.NotSame(outgoingLevel, game.CurrentLevel);
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(400, game.Player.Depth);
+        Assert.Equal(4, game.Eggs.Count);
+        Assert.Equal(8, game.CurrentLevel.ReserveEggs);
         Assert.Equal(70, Projection.K);
         Assert.Equal(5, Projection.ZOffset);
-        float depth = game.Player.Depth;
-        Step(game, 50, new PlayerInput(true, 80, false, false));
-        Assert.Equal(depth, game.Player.Depth);
-        Assert.True(game.LevelComplete);
-        Assert.Empty(game.Shots);
+        Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(0, game.CurrentLevel.EnemiesRimCleared);
+        Assert.Equal(12, game.CurrentLevel.RemainingEnemies);
     }
 
     [Fact]
-    public void ExitReplayRestoresProjectionDepthEggsAndCountersButKeepsScoreLives()
+    public void SuccessfulExitCarriesSessionAndInstallsFreshAccounting()
     {
         TempestGame game = BeginExit();
         game.Score.Add(1500);
         game.Player.Lives = 2;
-        FinishExit(game);
-        game.RunOneStep(restartPressed: true);
+        FinishLevel1Exit(game);
         Assert.Equal(LevelState.Playing, game.State);
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
         Assert.Equal(400, game.Player.Depth);
         Assert.Equal(70, Projection.K);
         Assert.Equal(5, Projection.ZOffset);
         Assert.Equal(4, game.Eggs.Count);
-        Assert.Equal(6, game.CurrentLevel.ReserveEggs);
+        Assert.Equal(8, game.CurrentLevel.ReserveEggs);
         Assert.Equal(1500, game.Score.Score);
         Assert.Equal(2, game.Player.Lives);
-        AssertAccounting(game);
-        for (int enemyIndex = 0; enemyIndex < 10; enemyIndex++)
-            game.CurrentLevel.RecordEnemyDestroyed();
-        game.CurrentLevel.ResetAfterDeath();
-        game.RunOneStep();
-        Step(game, 20);
-        Assert.Equal(LevelState.ExitDelay, game.State);
-        game.RunOneStep();
-        Assert.Equal(LevelState.ExitZoom, game.State);
-        Assert.Equal(400, game.Player.Depth);
+        Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(0, game.CurrentLevel.EnemiesRimCleared);
+        Assert.Equal(12, game.CurrentLevel.RemainingEnemies);
     }
 
     [Fact]
@@ -4613,13 +4620,15 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void ExitRendererTracksPlayerDepthAndAllProjectedVerticesStayFinite()
+    public void ExitRendererSwitchesFromCircleToSquareAtTheProgressionCommit()
     {
         TempestGame game = BeginExit();
         VectorRenderer renderer = new(game);
-        IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
-        for (int tick = 0; tick < 146; tick++)
+        Level outgoingLevel = game.CurrentLevel;
+        int ticks = 0;
+        while (ReferenceEquals(outgoingLevel, game.CurrentLevel) && ticks++ < 200)
         {
+            IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
             float expectedDepth = Level.Position + Level.Depth - game.Player.Depth;
             Assert.Equal(expectedDepth, renderer.PlayerProjectedDepth);
             renderer.GetPlayerEdge(points, out Vector2 first, out Vector2 second);
@@ -4638,8 +4647,22 @@ public sealed class SimulationTests
             }
             game.RunOneStep();
         }
-        Assert.True(game.LevelComplete);
-        Assert.True(renderer.PlayerClawHeight < 20);
+        Assert.NotSame(outgoingLevel, game.CurrentLevel);
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(70, Projection.K);
+        Assert.Equal(5, Projection.ZOffset);
+        IReadOnlyList<Vector2> squarePoints = game.CurrentLevel.Definition.Points;
+        renderer.GetPlayerEdge(squarePoints, out Vector2 squareStart, out Vector2 squareEnd);
+        Assert.True(float.IsFinite(squareStart.X) && float.IsFinite(squareStart.Y));
+        Assert.True(float.IsFinite(squareEnd.X) && float.IsFinite(squareEnd.Y));
+        Assert.Equal(Level.Position + Level.Depth - game.Player.Depth, renderer.PlayerProjectedDepth);
+        foreach (Vector2 point in squarePoints)
+        {
+            Vector2 projected = Projection.Project(point.X, point.Y, Level.Position,
+                game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+            Assert.True(float.IsFinite(projected.X) && float.IsFinite(projected.Y));
+        }
     }
 
     [Fact]
@@ -5042,24 +5065,37 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void LevelCompletionFreezesAndReplayRetainsScoreAndLives()
+    public void NaturalLevel2CompletionIsTerminalAndRStartsANewCampaign()
     {
-        TempestGame game = new();
+        TempestGame game = new(startingLives: 5);
         for (int enemyIndex = 0; enemyIndex < 10; enemyIndex++)
             game.CurrentLevel.RecordEnemyDestroyed();
         game.CurrentLevel.ResetAfterDeath();
         game.Score.Add(1500);
         game.Player.Lives = 2;
         game.RunOneStep();
-        FinishExit(game);
+        FinishLevel1Exit(game);
+        Assert.False(game.LevelComplete);
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
+        Assert.Equal(1500, game.Score.Score);
+        Assert.Equal(2, game.Player.Lives);
+
+        for (int enemyIndex = 0; enemyIndex < game.CurrentLevel.EnemySupply; enemyIndex++)
+            game.CurrentLevel.RecordEnemyDestroyed();
+        game.CurrentLevel.ResetAfterDeath();
+        game.RunOneStep();
+        FinishLevel2Exit(game);
+
         Assert.True(game.LevelComplete);
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
         game.RunOneStep(new PlayerInput(true, 80, false, false));
         Assert.Empty(game.Shots);
         Assert.Equal(7, game.Player.EdgeIndex);
         game.RunOneStep(restartPressed: true);
         Assert.False(game.LevelComplete);
-        Assert.Equal(1500, game.Score.Score);
-        Assert.Equal(2, game.Player.Lives);
+        Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
+        Assert.Equal(0, game.Score.Score);
+        Assert.Equal(5, game.Player.Lives);
         Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
     }
 
@@ -5320,7 +5356,7 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void EntireEggWaveCanBeDestroyedWithSameTickExitThenCompletion()
+    public void EntireEggWaveCanBeDestroyedWithSameTickExitThenFreshLevel2()
     {
         TempestGame game = new();
         int previousDestroyed = 0;
@@ -5340,12 +5376,17 @@ public sealed class SimulationTests
             Assert.Equal(game.CurrentLevel.EnemiesDestroyed == 10, game.State == LevelState.ExitDelay);
         }
         Assert.Equal(LevelState.ExitDelay, game.State);
-        FinishExit(game);
-        Assert.True(game.LevelComplete);
+        FinishLevel1Exit(game);
+        Assert.False(game.LevelComplete);
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Playing, game.State);
         Assert.Equal(1500, game.Score.Score);
-        Assert.Equal(0, game.CurrentLevel.ReserveEggs);
-        Assert.Empty(game.Eggs);
+        Assert.Equal(8, game.CurrentLevel.ReserveEggs);
+        Assert.Equal(4, game.Eggs.Count);
         Assert.Empty(game.Flippers);
+        Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(0, game.CurrentLevel.EnemiesRimCleared);
+        Assert.Equal(12, game.CurrentLevel.RemainingEnemies);
     }
 
     private static TempestGame PrepareFinalEnemy()
@@ -5370,7 +5411,23 @@ public sealed class SimulationTests
         return game;
     }
 
-    private static void FinishExit(TempestGame game)
+    private static void FinishLevel1Exit(TempestGame game)
+    {
+        for (int tick = 0; tick < 200 &&
+             !ReferenceEquals(game.CurrentLevel.Configuration, LevelConfiguration.Level2Square); tick++)
+            game.RunOneStep();
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Playing, game.State);
+    }
+
+    private static void FinishLevel2Exit(TempestGame game)
+    {
+        for (int tick = 0; tick < 200 && !game.LevelComplete; tick++)
+            game.RunOneStep();
+        Assert.True(game.LevelComplete);
+    }
+
+    private static void FinishTerminalExit(TempestGame game)
     {
         for (int tick = 0; tick < 200 && !game.LevelComplete; tick++)
             game.RunOneStep();
