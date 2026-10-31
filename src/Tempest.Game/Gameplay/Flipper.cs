@@ -76,6 +76,8 @@ public sealed class Flipper : Enemy
                 break;
 
             case FlipperState.Pausing:
+                if (IsTankerCargo && Height < Level.Depth)
+                    Height = MathF.Min(Level.Depth, Height + 1);
                 PauseTicks--;
                 if (PauseTicks <= 0)
                 {
@@ -100,8 +102,8 @@ public sealed class Flipper : Enemy
         return bullet;
     }
 
-    // Cargo is born already mid-pivot on the Tanker's height, moving outward from the Tanker lane.
-    // The two children therefore separate and stay distinct rather than converging.
+    // Cargo is born in its mandatory release pivot at Tanker height. Its below-rim direction
+    // remains fixed; rim pivots resume player pursuit.
     public static Flipper CreateTankerCargo(
         Level level, TankerCargoSpawn cargo, int cargoUnitId, int bulletAmmunition = 0)
     {
@@ -160,6 +162,8 @@ public sealed class Flipper : Enemy
         return !(separation <= 0 || separation >= 16);
     }
 
+    public override bool TryZap(int delay) => AcceptZap(delay);
+
     public void ClearCompletedCollision() => CompletedIntoPlayer = false;
 
     private void BeginPause()
@@ -172,7 +176,8 @@ public sealed class Flipper : Enemy
     // Direction > 0 pivots toward PreviousEdge; the direction is chosen once, at pivot start.
     private void BeginPivot(Level level, int playerEdge)
     {
-        Direction = level.FindShortestDirection(EdgeIndex, playerEdge);
+        if (!IsTankerCargo || Height >= Level.Depth)
+            Direction = level.FindShortestDirection(EdgeIndex, playerEdge);
         SourceEdge = EdgeIndex;
         DestinationEdge = Direction > 0
             ? level.PreviousEdge(EdgeIndex)

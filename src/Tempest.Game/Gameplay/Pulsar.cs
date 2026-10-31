@@ -178,6 +178,8 @@ public sealed class Pulsar : Enemy
 
     public void BeginRimPlayerKill() => State = PulsarState.Terminal;
 
+    public override bool TryZap(int delay) => AcceptZap(delay);
+
     public static bool IsWithinFlipKillAngle(float totalAngle, float angle) =>
         MathF.Abs(totalAngle - angle) < 30;
 

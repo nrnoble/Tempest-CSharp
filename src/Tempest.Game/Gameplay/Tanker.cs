@@ -11,7 +11,8 @@ public enum TankerUpdateResult
 public enum TankerReleaseKind
 {
     Natural,
-    PlayerShotDestruction
+    PlayerShotDestruction,
+    SuperZapperDestruction
 }
 
 public readonly record struct TankerReleaseResult(
@@ -30,7 +31,8 @@ public readonly record struct TankerCargoSpawn(
 /// <summary>
 /// Development-only (<c>--tanker-test</c>) Tanker. Climbs at 1.85 (Incitti-derived, unvalidated) and
 /// carries two latent Flipper cargo units. Release happens once: naturally when height passes
-/// <see cref="CargoReleaseThreshold"/> (no score) or when shot (200 points, awarded by TempestGame).
+/// <see cref="CargoReleaseThreshold"/> (no score), when shot (200 points), or when a zap expires
+/// (200 points plus stillborn cargo), with scoring and accounting owned by TempestGame.
 /// The Tanker never collides with the player directly, but when armed (TempestGame combines
 /// <c>--tanker-test</c> with <c>--enemy-bullets-test</c>) it fires the shared EnemyBullet using
 /// Incitti's Tanker rules. OriginalSlotId is the enemy slot it represents; cargo identity is
@@ -120,11 +122,14 @@ public sealed class Tanker : Enemy
     // A shot hits only from below the Tanker's current height; there is no upper window.
     public bool IsHitBy(Shot shot) => shot.EdgeIndex == EdgeIndex && shot.Height < Height;
 
+    public override bool TryZap(int delay) => AcceptZap(delay);
+
     public bool HitsPlayer(Player player) => false;
 
-    // Both cargo Flippers appear on the lanes adjacent to the Tanker, at the Tanker's height, and
-    // pivot in opposite directions. Same-tick policy: the caller adds them after that tick's
-    // Flipper update, so they first move on the next tick. Fails closed if already released.
+    // Both cargo Flippers appear on opposite adjacent lanes at the Tanker's height. Their
+    // project-selected first pivots continue outward, keeping the Tanker's lane clear. Same-tick
+    // policy: the caller adds them after that tick's Flipper update, so they first move next tick.
+    // Fails closed if already released.
     public TankerReleaseResult ReleaseFlipperCargo(
         Level level, int firstSideDirection, TankerReleaseKind kind)
     {
@@ -138,11 +143,19 @@ public sealed class Tanker : Enemy
         CargoReleased = true;
         State = TankerState.CargoReleased;
 
+        int firstDirection = side;
+        int secondDirection = -side;
         TankerCargoSpawn[] cargo =
         [
-            // Incitti's ReleaseCargo steps each child to the next outward lane, so the pair separates instead of converging on the carrier lane.
-            new TankerCargoSpawn(firstLane, side > 0 ? level.PreviousEdge(firstLane) : level.NextEdge(firstLane), side, Height),
-            new TankerCargoSpawn(secondLane, side > 0 ? level.NextEdge(secondLane) : level.PreviousEdge(secondLane), -side, Height)
+            // Neal observed both children emerge outside the Tanker's lane. Incitti's inward pivot
+            // is intentionally not copied here; outward routing is a project decision pending exact
+            // arcade intermediate-lane observations. Direction uses this project's Flipper convention.
+            new TankerCargoSpawn(firstLane,
+                firstDirection > 0 ? level.PreviousEdge(firstLane) : level.NextEdge(firstLane),
+                firstDirection, Height),
+            new TankerCargoSpawn(secondLane,
+                secondDirection > 0 ? level.PreviousEdge(secondLane) : level.NextEdge(secondLane),
+                secondDirection, Height)
         ];
         return new TankerReleaseResult(kind, cargo);
     }

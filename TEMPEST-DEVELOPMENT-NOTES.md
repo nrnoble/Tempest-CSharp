@@ -622,3 +622,111 @@ look like a single Flipper. The original Atari game is reported not to do this.
 This has NOT been reproduced in the C# game and NOT source-analyzed against Incitti
 or the arcade. No gameplay change has been made. Investigate (reproduce first,
 then compare with Incitti's pivot lane selection) before changing behavior.
+
+## Super Zapper implementation milestone
+
+Implemented after checkpoint `587b9e3`. Super Zapper is enabled in normal
+Level 1 and all existing development waves. Space and right mouse use
+edge-triggered input separate from held fire. `SuperZapperSystem` owns two
+charges and the 60-display-step flash. Initial setup, Game Over restart and
+Level Complete replay restore two charges; ordinary life loss preserves the
+remaining charge. No charge counter or icons are drawn.
+
+The shared `Enemy.TryZap` contract rejects by default. Flipper, Tanker,
+Spiker, Fuseball and Pulsar accept/reassign the base-owned countdown;
+EnemyBullet remains unaffected and Spike is not an Enemy. The game enumerates
+development entities in their existing insertion order (including rejected
+bullets) and uses Flipper creation order in ordinary Level 1, without changing
+the reverse Level 1 shot scan. Strength 2 gives accepted targets 4, 6, 8, ...
+updates and starts the flash even if all targets reject. Strength 1 follows the
+literal Incitti loop: shortest circular distance on the 16-lane tube (direct
+distance if non-continuous), strict `distance < bestDistance + 2` gate, then
+strictly greater height, strictly smaller distance, or strictly greater source
+type number. This preserves the source's executable type comparison even
+though its nearby comment says “same d.” The selected target gets delay 4;
+with no eligible target the charge is consumed without starting a new flash.
+
+Activation precedes shots and enemy updates. Shots therefore resolve pending
+targets first; otherwise every active enemy continues its ordinary behavior
+on earlier countdown updates, while expiry resolves and skips behavior on that
+visit. Flipper/Pulsar award 150/200, Spiker awards 50 without changing its
+persistent spike, and Fuseball uses expiry-height `KillScore` plus its existing
+score popup. Enemy bullets continue their existing movement/collision rules.
+The source-derived alternating blue/Tanker-magenta tube flash uses
+`(displayCounter / 2) % 4 > 1`; the display counter advances during death even
+though enemy timers and movement remain frozen.
+
+Tanker zap expiry resolves the original slot as destroyed for 200, then
+converts its two latent units into distinct unresolved cargo IDs. Each child
+uses the source-adjacent lane/direction and normal Flipping geometry at carrier
+height, receives an eight-update timer, and starts that timer on the next
+simulation tick. This identity transfer does not change standard
+`EnemiesDestroyed`; completion remains blocked until both cargo IDs resolve.
+Ordinary shot and natural release still preempt a pending carrier zap using
+their established outcomes. Death before carrier expiry restores the
+unresolved slot as a Tanker Egg with latent cargo. Death after expiry restores
+only unresolved materialized IDs as fresh cargo Eggs; resolved children and
+earned score remain resolved. Repeated death/re-entry tests preserve IDs.
+
+One source/project difference is retained deliberately: Incitti randomizes
+the initial Tanker cargo side, while the C# development release path chooses a
+deterministic first side. This deterministic orientation remains a C#
+development decision. Incitti's literal release geometry pivots cargo inward
+toward the Tanker lane, but Neal's arcade observation is stronger for the
+visible result: both children survive the Tanker shot and appear on distinct
+lanes other than the Tanker's. C# therefore uses an outward initial pivot to
+keep the former Tanker lane out of both children's immediate collision paths;
+the exact intermediate arcade route remains unknown. Below-rim pivots retain
+their release direction, and cargo resumes player-directed pursuit at the rim.
+Deferred child activation is likewise a project decision because static source
+inspection cannot establish whether appended children update in the same pass.
+No other contradiction required a design change. Super Zapper details are
+**REFERENCE VERIFIED** against Incitti only and are not **ARCADE VERIFIED**.
+`TEMPEST-BEHAVIOR-SPEC.md` remains unchanged pending implementation review and
+Neal's manual validation.
+
+Automated validation: focused Super Zapper tests 29 passed, 0 failed,
+0 skipped; the full suite 318 passed, 0 failed, 0 skipped; solution build
+0 warnings, 0 errors. These checks are headless. For manual comparison, run:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --lives 10
+dotnet run --project src\Tempest.Game -- --spiker-test --lives 10
+dotnet run --project src\Tempest.Game -- --tanker-test --lives 10
+dotnet run --project src\Tempest.Game -- --fuseball-test --lives 10
+dotnet run --project src\Tempest.Game -- --pulsar-test --lives 10
+```
+
+Check Space/right-mouse press edges, both charge behaviors, delayed scoring
+and ordinary movement, bullet/spike immunity, Tanker stillborn cargo and
+re-entry, death charge persistence, restart/replay recharge, and the 60-step
+tube flash while preserving Pulsar overlays, spinner feel, cursor capture,
+Hurry-Up and existing exit behavior. Manual and Atari comparison remain
+pending; audio, charge HUD, new enemy types and progression remain out of scope.
+
+## Tanker-cargo direction correction
+
+The post-Super-Zapper manual validation passed all five existing scenarios.
+Separate Tanker-mode testing exposed that released cargo Flippers retargeted the
+Blaster during below-rim pivots. The C# correction changes only Tanker-cargo
+movement: children continue in a fixed direction through below-rim
+pivot/pause cycles and resume player pursuit at the rim. Below-rim cargo pause
+updates retain the source's one-unit climb; the deterministic side choice and
+deferred activation remain project decisions. Normal Flipper movement, cargo
+identity/accounting, eight-update stillborn timers, Super Zapper behavior,
+Hurry-Up and completion rules are unchanged.
+
+Neal verified that Atari Tanker cargo does not dynamically track the Blaster
+below the rim. Follow-up manual testing found that children could disappear
+after a Tanker shot. A deterministic test reproduced a lingering second shot
+hitting a child because the first correction's inward destination made the
+former Tanker lane part of both cargo collision paths. Neal established that
+both children should survive and emerge on different lanes other than the
+Tanker's. C# now chooses outward initial pivots; this is a project decision,
+not an Incitti-derived route or a claim about the full arcade sequence. Exact
+intermediate lanes and timing remain uncertain, and the behavior specification
+remains unchanged pending validation of this final geometry.
+
+Automated validation of the follow-up geometry is recorded in
+`AI-Logs/Reports/2026-10-30-tanker-cargo-direction-correction-report.md`.
+Manual validation of the final cargo geometry remains pending.

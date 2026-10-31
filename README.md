@@ -103,9 +103,15 @@ dotnet run --project src/Tempest.Game -- --tanker-test --lives 10
 
 The selected Tanker carries two Flippers. It climbs in one lane, then releases
 them on opposite adjacent lanes; shooting it awards 200 points and releases the
-same live cargo. `--tanker-test` cannot be combined with `--spiker-test`. Add
-`--enemy-bullets-test` only to enable the existing Flipper bullets; Tankers do not
-fire in this milestone.
+same live cargo. Cargo's mandatory initial pivot proceeds outward from both
+adjacent lanes, keeping the Tanker's former lane clear; its below-rim direction
+stays fixed through pivot/pause cycles while it continues climbing.
+Player-directed pivots begin at the rim. This initial outward route is a
+project choice pending observation of the exact arcade sequence. The
+deterministic choice of which side is assigned first is a development
+convenience, not an arcade claim. `--tanker-test` cannot be combined with
+`--spiker-test`. Add `--enemy-bullets-test` only to enable the existing Flipper
+bullets; Tankers do not fire in this milestone.
 
 ## Tanker development wave
 
@@ -118,11 +124,20 @@ dotnet run --project src/Tempest.Game -- --tanker-test --lives 10
 
 The scenario starts one Tanker carrying two Flippers; other original wave slots
 remain Flippers. The Tanker climbs on one lane and releases two live Flippers on
-opposite adjacent lanes near the rim. Shoot the Tanker for 200 points, or let it
-release naturally for no Tanker score. Children remain independently shootable.
-Tankers fire no bullets in this milestone; existing Flipper bullets are enabled
-only by additionally passing `--enemy-bullets-test`. `--tanker-test` cannot be
-combined with `--spiker-test`.
+opposite adjacent lanes near the rim. Each child initially pivots toward the
+former Tanker lane, then continues in its prescribed direction without tracking
+the Blaster below the rim; rim pivots pursue the current Blaster lane. Neal
+verified the no-mid-tube-pursuit behavior; exact intermediate arcade lane
+sequence and timing remain unverified. Shoot the Tanker for 200 points, or let
+it release naturally for no Tanker score. Children remain independently
+shootable. Tankers fire no bullets in this milestone; existing Flipper bullets
+are enabled only by additionally passing `--enemy-bullets-test`.
+`--tanker-test` cannot be combined with `--spiker-test`.
+
+The cargo-direction correction passes 56 focused Tanker/cargo tests, 29
+Super Zapper tests, 28 Flipper tests, and the 321-test full suite. The solution
+builds with no warnings or errors. Manual validation of the corrected cargo
+route remains pending.
 
 ## Fuseball development wave
 
@@ -142,8 +157,8 @@ animation, and the 250–1250 height-based score labels. Shots hit only inside
 travel at the rim is lethal. Source `cnt > 8` means lateral steps are actually
 nine updates apart (the earlier analysis called this eight); vertical duration
 is rerolled each update. Surviving units return as fresh Eggs after life loss.
-Normal Level 1 remains unchanged. Tanker cargo, Zapper, audio and
-progression are not part of this milestone.
+Normal Level 1 remains unchanged. This scenario does not add Tanker cargo,
+audio or progression.
 
 ## Pulsar development wave
 
@@ -162,7 +177,7 @@ the Spiker, Tanker and Fuseball scenarios; `--lives` composes, and
 
 Compare the glyph, lane flashing, movement, collision and re-entry with Atari
 Tempest manually. This is not normal Level 17 composition and does not add
-Tanker cargo, Zapper, audio, open-tube rendering or progression.
+Tanker cargo, audio, open-tube rendering or progression.
 
 ## Source-derived hurry-up in the direct development waves
 
@@ -190,6 +205,59 @@ This is source-derived behavior in artificial development compositions, not
 arcade-verified hurry-up. Neal's manual validation is pending; the behavior
 specification remains unchanged until review, automated validation and that
 manual validation are complete.
+
+## Super Zapper
+
+The source-derived Super Zapper works in normal Level 1 and every existing
+development wave. Space or the right mouse button activates it on a press edge.
+Each game/level start provides two charges; ordinary life loss preserves the
+remaining charge, while Game Over restart and Level Complete replay restore
+both. The first use assigns delays 4, 6, 8, ... to accepted enemies in source
+insertion order. The second use selects one eligible enemy using Incitti's
+literal lane-distance, height and type comparisons, then assigns delay 4.
+
+Eligible enemies keep moving during their countdown. A player shot, Spiker
+retreat, or Tanker natural release can resolve a pending target first. Zap
+expiry awards the normal enemy-specific score once; EnemyBullets and spikes are
+unaffected. Fuseball expiry uses its current height for both score and popup.
+
+In `--tanker-test`, carrier zap expiry awards 200 and materializes two distinct
+unresolved cargo IDs as adjacent Flippers with eight-update zap timers. Their
+mandatory initial pivot proceeds outward, away from the Tanker's former lane;
+the corrected movement keeps their direction fixed below the rim, then resumes
+player pursuit at the rim. Their timers begin on the next simulation tick.
+Cargo remains unresolved until a normal outcome or timer expiry; life loss
+reconstructs each unresolved ID as a fresh Egg and discards its pending timer.
+Completion remains blocked until all original slots and materialized cargo
+resolve.
+
+The tube/web alternates its normal blue with the existing Tanker/magenta color
+for 60 display steps. It has no charge counter or icons. The reference-derived
+details are **REFERENCE VERIFIED** against Incitti's source only; they are not
+proof of Atari arcade behavior. The C# simulation uses the project's existing
+60-update death freeze, stable source-order collections, and deferred
+same-tick Tanker-child activation policy.
+
+Focused Super Zapper validation: 29 passed, 0 failed, 0 skipped. The full
+solution suite: 318 passed, 0 failed, 0 skipped; build: 0 warnings, 0 errors.
+These are headless tests, not manual validation. Compare charge/input behavior,
+both target modes, per-enemy expiry, Tanker stillborn cargo, death/re-entry and
+flash presentation against an Atari cabinet before treating any behavior as
+**ARCADE VERIFIED**. Audio, charge HUD, new enemy types and progression remain
+out of scope.
+
+## Tanker-cargo direction correction
+
+The Tanker-cargo correction preserves normal Flippers and Super Zapper
+semantics. Manual validation confirmed that cargo no longer tracks the Blaster
+below the rim, then exposed a separate shot-collision problem: the inward
+reference-derived pivot put both children on the Tanker's lane and allowed a
+second in-flight shot to destroy them. Cargo now takes a project-selected
+outward initial pivot, retains its direction below the rim, and resumes player
+pursuit at the rim. Neal confirmed both released Flippers should survive and
+appear in distinct non-Tanker lanes. Exact arcade intermediate lane sequence
+and timing remain unverified. See
+`AI-Logs/Reports/2026-10-30-tanker-cargo-direction-correction-report.md`.
 
 ## Reference mapping
 - `tempest.bmx` -> gameplay and state behavior

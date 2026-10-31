@@ -84,5 +84,7 @@ public sealed class Spiker : Enemy
 
     public bool IsHitBy(Shot shot) => shot.EdgeIndex == EdgeIndex && shot.Height < Height;
 
+    public override bool TryZap(int delay) => AcceptZap(delay);
+
     public override void Update() { }
 }

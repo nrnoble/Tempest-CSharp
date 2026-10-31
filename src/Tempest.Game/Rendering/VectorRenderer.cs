@@ -377,6 +377,7 @@ public sealed class VectorRenderer
 		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
 		Vector2[] nearRim = new Vector2[points.Count];
 		Vector2[] farRim = new Vector2[points.Count];
+		Color tubeColor = game.SuperZapper.UsesAlternateFlashColor ? TankerColor : Color.Blue;
 
 		for (int i = 0; i < points.Count; i++)
 		{
@@ -387,7 +388,7 @@ public sealed class VectorRenderer
 		}
 
 		for (int i = 0; i < points.Count; i++)
-			drawLine(nearRim[i], farRim[i], Color.Blue);
+			drawLine(nearRim[i], farRim[i], tubeColor);
 
 		for (int i = 0; i < points.Count; i++)
 		{
@@ -395,8 +396,8 @@ public sealed class VectorRenderer
 			// Arcade observation: only the pulsing lane's near-rim connection disappears.
 			// Incitti also hides rims outside the pulse; retain normal geometry otherwise.
 			if (!IsPulsingLane(i))
-				drawLine(nearRim[i], nearRim[next], Color.Blue);
-			drawLine(farRim[i], farRim[next], Color.Blue);
+				drawLine(nearRim[i], nearRim[next], tubeColor);
+			drawLine(farRim[i], farRim[next], tubeColor);
 		}
 	}
 

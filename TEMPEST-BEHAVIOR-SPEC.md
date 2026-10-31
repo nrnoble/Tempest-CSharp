@@ -107,7 +107,23 @@ record the uncertainty rather than guessing.
 - **PROJECT DECISION** — After the standard Level 1 supply is cleared, the
   recreation enters a short exit delay and then moves the Blaster down the tube
   through a zoom sequence. It ends at Level Complete; another level or arcade
-  progression is not implemented.
+  progression is not implemented. Current C# completion still requires every
+  enemy unit to be killed/resolved.
+- **ARCADE VERIFIED** — Neal observed that after reserve/incoming Eggs are
+  exhausted, if every remaining enemy has reached the top rim, those remaining
+  rim enemies disappear from play and the Blaster proceeds into tube exit.
+  The player is not required to kill each rim enemy. This observation does not
+  establish the exact qualifying height or enemy-state rules.
+- **REFERENCE VERIFIED** — Incitti gates the rim-clear path on exhausted
+  reserve Eggs and an empty active Egg list, then starts exit when either no
+  enemies remain or every listed enemy-type baddie has post-update height at
+  least 400. The predicate is height-based rather than animation-state-based;
+  spikes, bullets, and Eggs are handled separately. These source rules do not
+  define the exact arcade qualification.
+- **PROJECT DECISION** — Current C# retains kill-all completion until the
+  separately deferred all-rim completion milestone is implemented and
+  validated. Rim survivors must not be treated as kill-scored solely because
+  they disappear during exit.
 - **DEVELOPMENT ONLY** — The Spiker scenario adds a spike-avoidance interval
   and can reverse/retry the exit after a spike collision. This is not part of
   the standard Level 1 clear sequence.
@@ -115,6 +131,25 @@ record the uncertainty rather than guessing.
   **DEVELOPMENT ONLY** `--pulsar-test` scenario, destroying all Pulsars
   permits the established tube-exit sequence. This does not establish an
   authentic all-Pulsar Atari wave.
+
+### Super Zapper
+
+- **ARCADE VERIFIED** — Neal manually validated Super Zapper use in all five
+  existing scenarios: ordinary Level 1 (`--lives 10`), `--spiker-test`,
+  `--tanker-test`, `--fuseball-test`, and `--pulsar-test`. Super Zapper use
+  succeeded in each scenario and no Super Zapper-specific regression was
+  observed. This records the observed play-through result; it does not
+  validate exact internal selection comparisons, timer values, accounting,
+  or measured timing constants. The scenario flags remain **DEVELOPMENT ONLY**
+  compositions.
+- **REFERENCE VERIFIED** — Incitti's target-selection comparisons, accepted
+  target delays (4, 6, 8, and onward for all-target use; 4 for single-target
+  use), exact timer/update ordering, eight-update stillborn Tanker cargo
+  timers, and 60-step flash lifetime are source-derived. Neal did not measure
+  these exact values during manual validation.
+- **PROJECT DECISION** — Hidden cargo identities, delayed activation,
+  accounting conservation, and completion blocking are recreation mechanics.
+  Automated tests establish those C# invariants, not arcade-visible proof.
 
 ## 3. Flippers
 
@@ -145,6 +180,14 @@ record the uncertainty rather than guessing.
 - **PROJECT DECISION** — Shot-versus-Flipper checks precede Flipper-to-player
   collision in the recreation. A shot that destroys a Flipper on the otherwise
   lethal update prevents that Flipper from also costing a life.
+
+### Manual arcade validation
+
+- **ARCADE VERIFIED** — In the ordinary Level 1 scenario, Flippers travel
+  directly up their lanes without reacting to Blaster left/right movement
+  below the rim, then begin pursuing the Blaster after reaching rim behavior.
+- **ARCADE VERIFIED** — Tanker-released cargo Flippers do not dynamically
+  follow Blaster movement while traveling below the rim.
 
 ## 4. Enemy bullets
 
@@ -194,9 +237,36 @@ record the uncertainty rather than guessing.
 - **REFERENCE VERIFIED** — The Incitti Tanker can carry two Flippers. It
   climbs on a lane and releases live cargo either naturally near the rim or
   when destroyed by a player shot. A shot destruction awards 200 points;
-  natural release awards no Tanker kill score. The cargo appears on adjacent
-  lanes and begins moving outward. These rules describe Incitti, not validated
-  Atari Tanker behavior.
+  natural release awards no Tanker kill score. Incitti creates each child in a
+  mandatory initial pivot toward the Tanker's former lane. These source rules
+  describe Incitti, not necessarily Atari Tanker behavior.
+- **ARCADE VERIFIED** — When a player shot destroys a Tanker, the Tanker is
+  destroyed but both released cargo Flippers survive and appear in two
+  different lanes other than the Tanker's former lane. This ordinary shot
+  release produces live cargo, distinct from the Super Zapper's delayed
+  Tanker resolution and stillborn cargo path described below. The final
+  observed recreation behavior is two live children emerging in distinct
+  non-Tanker lanes; the exact intermediate Atari lane sequence is not
+  established.
+- **ARCADE VERIFIED** — In Neal's manual test, another player shot already
+  traveling through the tube when the Tanker was shot caused no unusual cargo
+  behavior.
+- **PROJECT DECISION** — The recreation uses deterministic outward initial
+  pivots to produce the observed two-live-child, distinct non-Tanker-lane
+  result and keep the former Tanker lane clear. This is not a claim that the
+  complete unseen Atari route is known. The exact initial route, pause timing,
+  climb increments, and Tanker release timing remain unverified.
+- **REFERENCE VERIFIED** — The source-derived route has an initial inward
+  pivot; this conflicts with Neal's direct arcade observation of the final
+  visible release result. Direct arcade evidence takes precedence.
+- **REFERENCE VERIFIED** — Super Zapper delayed Tanker resolution uses the
+  Tanker cargo path to create stillborn children with delayed resolution.
+  Exact timer values and accounting transitions are source/test details, not
+  visually verified arcade timing or hidden-ledger behavior.
+- **ARCADE VERIFIED** — Neal manually validated Super Zapper use in the
+  development Tanker scenario. This scenario-level validation does not by
+  itself verify exact stillborn timer duration, internal cargo accounting, or
+  delayed-resolution update order.
 - **DEVELOPMENT ONLY** — The C# Tanker test scenario creates one deterministic
   Tanker among the ten original enemy units; the other slots hatch as
   Flippers. The test Tanker starts at height 10, uses a fixed 1.85 climb
@@ -347,8 +417,9 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
 
 - **ARCADE VERIFIED scope** — Direct arcade observations explicitly listed
   above cover the Flipper pivot collision rule, the itemized Fuseball
-  behaviors, and the Pulsar behaviors Neal observed in the isolated
-  development scenario. No additional behavior is implied.
+  behaviors, the Pulsar behaviors Neal observed in the isolated development
+  scenario, the listed Super Zapper scenario validation, and the Tanker-cargo
+  release and movement observations. No additional behavior is implied.
 - **REFERENCE VERIFIED only** — Exact Flipper, bullet, Spiker, Tanker,
   Fuseball, and Pulsar constants remain source-derived unless explicitly
   identified above as arcade-validated. This includes the Pulsar 51/181/18/14
@@ -363,17 +434,22 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
 - **Unresolved** — The repository records a suspected case of two rim
   Flippers converging on the same lane, but it has not been reproduced or
   compared with the arcade.
-- **Unresolved** — Current C# Level 1's kill-all completion rule differs from
-  some Incitti level-completion paths. The current recreation rule is
-  intentional; its arcade equivalence is not established.
+- **ARCADE VERIFIED** — Neal observed that once reserve/incoming Eggs are
+  exhausted, all remaining enemies reaching the top rim is sufficient for the
+  remaining enemies to disappear and tube exit to begin. Exact qualifying
+  heights and enemy-state rules are not established by that observation.
+- **PROJECT DECISION** — Current C# still requires kill-all. Implementing the
+  observed all-rim completion behavior is the next standalone deferred
+  milestone.
 - **Unresolved** — Exact player input sensitivity, shot cadence, death
   presentation/timing, Egg pacing, normal enemy-bullet frequency, Spiker and
   Tanker arcade eligibility/composition, and exit visuals need direct arcade
   comparison where they matter.
-- **Deferred** — Normal multi-level progression and authentic later-wave
-  composition, open-tube rendering, Super Zapper, audio,
-  bonus rules, broader enemy/cargo combinations, and source-specific death
-  effects are not specified as implemented gameplay here.
+- **PROJECT DECISION** — Normal multi-level progression and authentic
+  later-wave composition, open-tube rendering, audio, bonus rules, broader
+  enemy/cargo combinations, source-specific death effects, and implementation
+  of all-rim completion remain out of scope or deferred. Super Zapper is
+  implemented and has the scenario-level manual validation recorded above.
 
 ## 12. Behavior-validation history
 
@@ -414,6 +490,32 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
 - **Pulsar movement and timing** — Simulation tests establish the current
   source-derived 51-update decision, 181-update oscillator, and 18/14 pauses.
   These remain **REFERENCE VERIFIED**, not arcade-verified exact timings.
+- **Super Zapper manual validation** — Neal manually validated Super Zapper in
+  the ordinary, Spiker, Tanker, Fuseball, and Pulsar scenarios. No
+  Super-Zapper-specific regression was observed. This is **ARCADE VERIFIED**
+  only for the exercised observable gameplay; exact selection comparisons,
+  4/6/8... delays, timer ordering, eight-update stillborn countdowns, the
+  60-step flash lifetime, and internal accounting remain
+  **REFERENCE VERIFIED** or **PROJECT DECISION**, not measured arcade facts.
+- **Tanker-cargo correction** — Neal observed that ordinary Level 1 Flippers
+  climb their lanes without below-rim pursuit and pursue at the rim. He
+  separately confirmed that Tanker cargo does not track the Blaster below the
+  rim, that a player-shot Tanker destruction leaves both cargo Flippers alive
+  in distinct non-Tanker lanes, and that another in-flight shot produced no
+  unusual cargo behavior in his test. The original source-derived inward
+  pivot was tried, then replaced by the final outward recreation geometry,
+  which Neal manually validated. The observed release result is
+  **ARCADE VERIFIED**; the exact intermediate Atari route, pause timing, climb
+  increments, Tanker release timing, unlock level, and `canflip` progression
+  remain unverified. Outward initial routing is a **PROJECT DECISION**
+  matching the observed result.
+- **All-rim completion observation** — Neal established that exhausted
+  incoming/reserve Eggs plus all remaining enemies on the rim permits those
+  enemies to disappear and tube exit to begin without killing each one. The
+  broad observable result is **ARCADE VERIFIED**; exact qualifying states
+  remain **REFERENCE VERIFIED** only where supported by Incitti. Current C#
+  kill-all behavior remains a **PROJECT DECISION** pending the next standalone
+  implementation milestone.
 - **rimit / Hurry-Up milestone** — Automated validation passed 121 focused
   hurry-up/Fuseball/Pulsar cases and all 289 suite cases, with no failures or
   skips; build had zero warnings/errors. Tests protect exact C# trigger order,

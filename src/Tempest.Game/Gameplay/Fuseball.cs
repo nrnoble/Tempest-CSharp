@@ -141,5 +141,7 @@ public sealed class Fuseball : Enemy
         W = 3;
     }
 
+    public override bool TryZap(int delay) => AcceptZap(delay);
+
     public override void Update() { }
 }

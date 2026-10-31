@@ -58,6 +58,7 @@ public sealed class TempestGame
     public Player Player { get; }
     public Level CurrentLevel { get; }
     public ScoreSystem Score { get; } = new();
+    public SuperZapperSystem SuperZapper { get; } = new();
     public IReadOnlyList<Shot> Shots => shots;
     public IReadOnlyList<EnemyBullet> EnemyBullets => enemyBullets;
     public IReadOnlyList<Flipper> Flippers => flippers;
@@ -99,6 +100,7 @@ public sealed class TempestGame
         unresolvedOriginalSlots.Count + unresolvedCargoUnits.Count + resolvedCargoUnits.Count;
     public int TankerActiveTotal => Eggs.Count + tankers.Count + flippers.Count + spikers.Count;
     public int DeathTicks { get; private set; }
+    public int SuperZapperChargesRemaining => SuperZapper.ChargesRemaining;
     public LevelState State => CurrentLevel.State;
     public bool GameOver => State == LevelState.GameOver;
     public bool LevelComplete => State == LevelState.Complete;
@@ -126,6 +128,8 @@ public sealed class TempestGame
 
     public void RunOneStep(PlayerInput input = default, bool restartPressed = false)
     {
+        // The display continues to advance during death freezes even though enemy timers do not.
+        SuperZapper.AdvanceDisplayStep();
         // Labels have their own short lifetime, including death/exit; gameplay entities freeze.
         foreach (FuseballScorePopup popup in fuseballScorePopups)
             popup.Update();
@@ -169,9 +173,12 @@ public sealed class TempestGame
             // entity simulation, it freezes for the full PlayerDying interval.
             AdvancePulseClock();
             // Order matters. Player firing and shot-versus-enemy collision run before enemy updates
-            // and before any enemy-to-player collision, so a shot that destroys a Flipper on the
-            // last safe tick saves the player. Do not move the player-collision checks earlier.
+            // and zap expiry, so an ordinary shot preempts a pending zap and a last-safe-tick kill
+            // saves the player. Do not move the player-collision checks earlier.
             UpdatePlayer(input);
+            if (input.ZapPressed && State == LevelState.Playing)
+                SuperZapper.TryActivate(GetZapperSourceOrder(), Player.EdgeIndex,
+                    CurrentLevel.Definition.Points.Count, CurrentLevel.Continuous);
             if (FuseballTest)
                 fuseballAnimationTicks = (fuseballAnimationTicks + 1) % 16;
             UpdatePlayerShots();
@@ -182,6 +189,7 @@ public sealed class TempestGame
             CurrentLevel.UpdateEggRelease();
             CurrentLevel.UpdateEggs();
             HatchEggs();
+            // Accepted delays count this activation tick; expiry skips that enemy's ordinary update.
             UpdateFlippers();
             UpdateTankers();
             // Runs after UpdateFlippers/UpdateTankers so shot-released cargo skips this tick's update.
@@ -215,6 +223,7 @@ public sealed class TempestGame
         HurryUp = false;
         developmentCollisionOrder.Clear();
         CurrentLevel.Reset();
+        SuperZapper.Reset();
         ResetPlayerPosition();
         shots.Clear();
         enemyBullets.Clear();
@@ -244,6 +253,7 @@ public sealed class TempestGame
 
     private void ResetTankerScenarioAfterDeath()
     {
+        // Preserve unresolved cargo identities, but discard each runtime child's pending timer.
         // Gather surviving cargo identities before the runtime objects are discarded below.
         HashSet<int> cargoUnitsToReenter = CurrentLevel.PendingTankerCargoUnitIds.ToHashSet();
         foreach (Egg cargoEgg in Eggs.Where(egg => egg.CargoUnitId >= 0))
@@ -351,6 +361,17 @@ public sealed class TempestGame
             movement += PlayerSpeed;
 
         Player.Move(movement, CurrentLevel.Definition.Points.Count);
+    }
+
+    private IEnumerable<Enemy> GetZapperSourceOrder()
+    {
+        if (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest || tankerTest ||
+            FuseballTest || PulsarTest)
+            // Spikes are not Enemy instances; bullets remain in this source order and reject by default.
+            return developmentCollisionOrder.OfType<Enemy>();
+
+        // Normal Level 1 keeps Flipper creation order; its separate shot scan remains reversed.
+        return flippers;
     }
 
     private void UpdatePlayerFiring(bool fireButtonDown)
@@ -549,6 +570,15 @@ public sealed class TempestGame
         for (int index = 0; index < spikers.Count; index++)
         {
             Spiker spiker = spikers[index];
+            if (spiker.AdvanceZapTimer())
+            {
+                spikers.RemoveAt(index--);
+                developmentCollisionOrder.Remove(spiker);
+                CurrentLevel.RecordEnemyDestroyed();
+                Score.Add(50);
+                continue;
+            }
+
             EnemyBullet? bullet = spiker.Update(CurrentLevel,
                 () => random.NextDouble() * 120 > 88,
                 enemyBulletsTest ? NextRandomInclusive : null);
@@ -571,8 +601,23 @@ public sealed class TempestGame
 
     private void UpdateFuseballs()
     {
-        foreach (Fuseball fuseball in fuseballs)
+        for (int index = 0; index < fuseballs.Count; index++)
+        {
+            Fuseball fuseball = fuseballs[index];
+            if (fuseball.AdvanceZapTimer())
+            {
+                fuseballs.RemoveAt(index--);
+                developmentCollisionOrder.Remove(fuseball);
+                CurrentLevel.RecordEnemyDestroyed();
+                int points = fuseball.KillScore;
+                Score.Add(points);
+                fuseballScorePopups.Add(new FuseballScorePopup(
+                    fuseball.EdgeIndex, fuseball.Height, points));
+                continue;
+            }
+
             fuseball.Update(CurrentLevel, Player.EdgeIndex, NextRandomInclusive, HurryUp);
+        }
     }
 
     private void AdvancePulseClock()
@@ -589,8 +634,20 @@ public sealed class TempestGame
 
     private void UpdatePulsars()
     {
-        foreach (Pulsar pulsar in pulsars)
+        for (int index = 0; index < pulsars.Count; index++)
+        {
+            Pulsar pulsar = pulsars[index];
+            if (pulsar.AdvanceZapTimer())
+            {
+                pulsars.RemoveAt(index--);
+                developmentCollisionOrder.Remove(pulsar);
+                CurrentLevel.RecordEnemyDestroyed();
+                Score.Add(200);
+                continue;
+            }
+
             pulsar.Update(CurrentLevel, Player.EdgeIndex, NextRandomInclusive, HurryUp);
+        }
     }
 
     private void LatchHurryUp()
@@ -647,6 +704,16 @@ public sealed class TempestGame
         for (int index = 0; index < tankers.Count; index++)
         {
             Tanker tanker = tankers[index];
+            if (tanker.AdvanceZapTimer())
+            {
+                tankers.RemoveAt(index--);
+                developmentCollisionOrder.Remove(tanker);
+                ResolveOriginalSlotDestroyed(tanker.OriginalSlotId);
+                Score.Add(200);
+                ReleaseTankerCargo(tanker, TankerReleaseKind.SuperZapperDestruction);
+                continue;
+            }
+
             TankerUpdateResult result = tanker.UpdateForDevelopment(
                 enemyBulletsTest ? NextRandomInclusive : null, out EnemyBullet? bullet);
             if (bullet is not null)
@@ -671,9 +738,8 @@ public sealed class TempestGame
 
     private void ReleaseTankerCargo(Tanker tanker, TankerReleaseKind releaseKind)
     {
-        // Natural and shot release both create exactly two cargo Flippers with fresh cargo IDs.
-        // They are added after this tick's Flipper update, so their first update is next tick.
-        // Natural release awards no score; the 200 points for a shot kill are awarded by the caller.
+        // Every release materializes fresh cargo IDs; only zap expiry gives them their own timers.
+        // Children are added after this tick's Flipper update, so their first update is next tick.
         TankerReleaseResult result = tanker.ReleaseFlipperCargo(
             CurrentLevel, firstSideDirection: 1, releaseKind);
         foreach (TankerCargoSpawn spawn in result.Cargo)
@@ -682,6 +748,9 @@ public sealed class TempestGame
             unresolvedCargoUnits.Add(cargoUnitId);
             int ammunition = enemyBulletsTest ? random.Next(1, 4) : 0;
             Flipper flipper = Flipper.CreateTankerCargo(CurrentLevel, spawn, cargoUnitId, ammunition);
+            if (releaseKind == TankerReleaseKind.SuperZapperDestruction)
+                // Carrier expiry transfers latent units to new unresolved IDs, each with its own timer.
+                flipper.TryZap(8);
             if (releaseKind == TankerReleaseKind.PlayerShotDestruction)
                 // The shot that killed the Tanker is already consumed; deferring activation keeps
                 // the new cargo out of the development collision list until the next update.
@@ -716,8 +785,28 @@ public sealed class TempestGame
 
     private void UpdateFlippers()
     {
-        foreach (Flipper flipper in flippers)
+        for (int index = 0; index < flippers.Count; index++)
         {
+            Flipper flipper = flippers[index];
+            if (flipper.AdvanceZapTimer())
+            {
+                flippers.RemoveAt(index--);
+                developmentCollisionOrder.Remove(flipper);
+                if (tankerTest)
+                {
+                    if (flipper.IsTankerCargo)
+                        ResolveCargoUnit(flipper.CargoUnitId);
+                    else
+                        ResolveOriginalSlotDestroyed(flipper.OriginalSlotId);
+                }
+                else
+                {
+                    CurrentLevel.RecordEnemyDestroyed();
+                }
+                Score.Add(150);
+                continue;
+            }
+
             EnemyBullet? bullet = flipper.Update(CurrentLevel, Player.EdgeIndex,
                 enemyBulletsTest ? NextRandomInclusive : null);
             if (bullet is null)
