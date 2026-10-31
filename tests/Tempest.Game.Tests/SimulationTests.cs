@@ -2,6 +2,7 @@ using Tempest.Game.Gameplay;
 using Tempest.Game.Levels;
 using Tempest.Game.Systems;
 using Tempest.Game.Rendering;
+using Raylib_cs;
 using System.Numerics;
 using Xunit;
 
@@ -9,6 +10,636 @@ namespace Tempest.Game.Tests;
 
 public sealed class SimulationTests
 {
+    // --- Direct Pulsars: source behavior in an isolated ten-unit development wave ---
+
+    [Fact]
+    public void PulsarScenarioIsExclusiveComposesWithLivesAndHatchesHeightZeroUnits()
+    {
+        string[] args = ["--pulsar-test", "--lives", "10", "--enemy-bullets-test"];
+        Assert.True(Tempest.Game.Debug.DebugController.UsePulsarTest(args));
+        Assert.False(Tempest.Game.Debug.DebugController.UsePulsarTest([]));
+        Assert.False(Tempest.Game.Debug.DebugController.HasConflictingScenarios(args));
+        Assert.Equal(10, Tempest.Game.Debug.DebugController.GetStartingLives(args));
+        foreach (string other in new[] { "--spiker-test", "--tanker-test", "--fuseball-test" })
+            Assert.True(Tempest.Game.Debug.DebugController.HasConflictingScenarios(["--pulsar-test", other]));
+        Assert.Throws<ArgumentException>(() => new TempestGame(true, pulsarTest: true));
+        Assert.Throws<ArgumentException>(() => new TempestGame(tankerTest: true, pulsarTest: true));
+        Assert.Throws<ArgumentException>(() => new TempestGame(fuseballTest: true, pulsarTest: true));
+
+        Level level = new();
+        Egg egg = level.Eggs[0];
+        MakeReady(egg, level);
+        Pulsar directHatch = Assert.IsType<Pulsar>(level.HatchReadyEnemy(lane => new Pulsar(lane, 0)));
+        Assert.Equal(egg.EdgeIndex, directHatch.EdgeIndex);
+        Assert.Equal(0, directHatch.Height);
+        Assert.Equal(PulsarState.Climbing, directHatch.State);
+        Assert.Equal(10, level.RemainingEnemies);
+        Assert.Equal(10, level.ReserveEggs + level.Eggs.Count + 1);
+
+        TempestGame game = HatchDevelopmentPulsar(enemyBulletsTest: true);
+        Pulsar active = Assert.Single(game.Pulsars);
+        Assert.Equal(12, active.EdgeIndex);
+        Assert.Equal(1, active.Height); // It hatches at zero, then receives the normal same-tick update.
+        Assert.Equal(PulsarState.Climbing, active.State);
+        Assert.Empty(game.Flippers);
+        Assert.Empty(game.Tankers);
+        Assert.Empty(game.Spikers);
+        Assert.Empty(game.Fuseballs);
+        Assert.Empty(game.EnemyBullets);
+        Assert.Equal(Player.DefaultStartingLives, game.Player.Lives);
+        AssertPulsarAccounting(game);
+    }
+
+    [Fact]
+    public void PulsarMovesExactlyOneUnitPerClimbAndClampsAtTheTop()
+    {
+        Level level = new();
+        Pulsar pulsar = new(3, 10);
+        pulsar.Update(level, 8, (_, _) => throw new InvalidOperationException());
+        Assert.Equal(11, pulsar.Height);
+        pulsar = new Pulsar(3, Level.Depth - 1);
+        pulsar.Update(level, 8, (_, _) => throw new InvalidOperationException());
+        Assert.Equal(Level.Depth, pulsar.Height);
+        Assert.Equal(PulsarState.Climbing, pulsar.State);
+    }
+
+    [Fact]
+    public void PulsarDecisionUsesUpdateFiftyOneAndNotFifty()
+    {
+        Pulsar pulsar = new(3);
+        int rolls = 0;
+        int Roll(int minimum, int maximum)
+        {
+            Assert.Equal(0, minimum);
+            Assert.Equal(1, maximum);
+            rolls++;
+            return 1;
+        }
+
+        AdvancePulsar(pulsar, new Level(), 50, playerEdge: 8, randomInclusive: Roll);
+        Assert.Equal(50, pulsar.Height);
+        Assert.Equal(PulsarState.Climbing, pulsar.State);
+        Assert.Equal(0, rolls);
+        pulsar.Update(new Level(), 8, Roll);
+        Assert.Equal(51, pulsar.Height);
+        Assert.Equal(PulsarState.LanePause, pulsar.State);
+        Assert.Equal(PulsarState.Flipping, pulsar.ResumeState);
+        Assert.Equal(Pulsar.LanePauseDuration, pulsar.PauseTicks);
+        Assert.Equal(0, pulsar.TimeToFlip);
+        Assert.Equal(1, rolls);
+    }
+
+    [Fact]
+    public void PulsarDecisionZeroChoosesSameLanePauseOnUpdateFiftyOne()
+    {
+        Pulsar pulsar = new(3);
+        AdvancePulsar(pulsar, new Level(), 51, 8, (_, _) => 0);
+        Assert.Equal(PulsarState.RimPause, pulsar.State);
+        Assert.Equal(PulsarState.Climbing, pulsar.ResumeState);
+        Assert.Equal(Pulsar.RimPauseDuration, pulsar.PauseTicks);
+        Assert.Equal(51, pulsar.Height);
+    }
+
+    [Fact]
+    public void PulsarLanePauseMovesOneAdjacentEdgeOnlyOnItsExpirationUpdate()
+    {
+        Level level = new();
+        Pulsar pulsar = new(0, 100);
+        int rolls = 0;
+        int Roll(int minimum, int maximum) => rolls++ == 0 ? 1 : 0;
+        AdvancePulsar(pulsar, level, 51, 2, Roll);
+        Assert.Equal(PulsarState.LanePause, pulsar.State);
+        Assert.Equal(0, pulsar.EdgeIndex);
+        Assert.Equal(151, pulsar.Height);
+        AdvancePulsar(pulsar, level, Pulsar.LanePauseDuration - 1, 2, Roll);
+        Assert.Equal(1, pulsar.PauseTicks);
+        Assert.Equal(0, pulsar.EdgeIndex);
+        Assert.Equal(151, pulsar.Height);
+        pulsar.Update(level, 2, Roll);
+        Assert.Equal(PulsarState.Flipping, pulsar.State);
+        Assert.Equal(1, pulsar.EdgeIndex);
+        Assert.True(pulsar.TotalTurnAngle > 0);
+        Assert.Equal(0, pulsar.TimeToFlip);
+    }
+
+    [Fact]
+    public void PulsarRimPauseExpiresBeforeVerticalMovementResumes()
+    {
+        Pulsar pulsar = new(3);
+        AdvancePulsar(pulsar, new Level(), 51, 8, (_, _) => 0);
+        AdvancePulsar(pulsar, new Level(), Pulsar.RimPauseDuration - 1, 8, (_, _) => 0);
+        Assert.Equal(1, pulsar.PauseTicks);
+        Assert.Equal(PulsarState.RimPause, pulsar.State);
+        Assert.Equal(51, pulsar.Height);
+        pulsar.Update(new Level(), 8, (_, _) => 0);
+        Assert.Equal(PulsarState.Climbing, pulsar.State);
+        Assert.Equal(51, pulsar.Height);
+        pulsar.Update(new Level(), 8, (_, _) => 0);
+        Assert.Equal(52, pulsar.Height);
+    }
+
+    [Fact]
+    public void PulsarTopAndBottomChooseFlipOrOppositeVerticalTravel()
+    {
+        Level level = new();
+        Pulsar topFlip = new(0, Level.Depth);
+        topFlip.Update(level, 8, (_, _) => 1);
+        Assert.Equal(PulsarState.LanePause, topFlip.State);
+        Assert.Equal(PulsarState.Flipping, topFlip.ResumeState);
+
+        Pulsar topDescend = new(0, Level.Depth);
+        topDescend.Update(level, 8, (_, _) => 0);
+        Assert.Equal(PulsarState.RimPause, topDescend.State);
+        Assert.Equal(PulsarState.Descending, topDescend.ResumeState);
+        AdvancePulsar(topDescend, level, Pulsar.RimPauseDuration, 8, (_, _) => 0);
+        topDescend.Update(level, 8, (_, _) => 0);
+        Assert.Equal(Level.Depth - 1, topDescend.Height);
+    }
+
+    [Fact]
+    public void PulsarBottomReversesToClimbingAfterRimPause()
+    {
+        Level level = new();
+        Pulsar pulsar = new(0, Level.Depth);
+        int ticks = 0;
+        while (!(pulsar.State == PulsarState.RimPause &&
+                 pulsar.ResumeState == PulsarState.Climbing && pulsar.Height == 0) && ticks++ < 1000)
+            pulsar.Update(level, 8, (_, _) => 0);
+
+        Assert.True(ticks < 1000);
+        Assert.Equal(0, pulsar.Height);
+        Assert.Equal(Pulsar.RimPauseDuration, pulsar.PauseTicks);
+        AdvancePulsar(pulsar, level, Pulsar.RimPauseDuration, 8, (_, _) => 0);
+        pulsar.Update(level, 8, (_, _) => 0);
+        Assert.Equal(1, pulsar.Height);
+        Assert.Equal(PulsarState.Climbing, pulsar.State);
+    }
+
+    [Theory]
+    [InlineData(0, 0, 15, 1)]
+    [InlineData(15, 1, 0, -1)]
+    public void PulsarClosedTubeWrapsInBothDirections(int edge, int tieRoll, int expectedEdge, int expectedDirection)
+    {
+        Level level = new();
+        Pulsar pulsar = new(edge, Level.Depth);
+        int calls = 0;
+        int Roll(int _, int __) => calls++ == 0 ? 1 : tieRoll;
+        pulsar.Update(level, edge, Roll);
+        AdvancePulsar(pulsar, level, Pulsar.LanePauseDuration, edge, Roll);
+        Assert.Equal(expectedEdge, pulsar.EdgeIndex);
+        Assert.Equal(expectedDirection, pulsar.Direction);
+    }
+
+    [Fact]
+    public void PulsarOpenTubeReflectsAtEndpointWithoutWrapping()
+    {
+        Level level = new() { Continuous = false };
+        Pulsar pulsar = new(0, Level.Depth);
+        int calls = 0;
+        int Roll(int _, int __) => calls++ == 0 ? 1 : 0;
+        pulsar.Update(level, 0, Roll);
+        AdvancePulsar(pulsar, level, Pulsar.LanePauseDuration, 0, Roll);
+        Assert.Equal(1, pulsar.EdgeIndex);
+        Assert.Equal(-1, pulsar.Direction);
+    }
+
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(1, -1)]
+    public void PulsarSameEdgeDirectionTieUsesBothRandomOutcomes(int roll, int expectedDirection)
+    {
+        Pulsar pulsar = new(4, 1);
+        pulsar.Update(new Level(), 4, (_, _) => roll);
+        Assert.Equal(expectedDirection, pulsar.Direction);
+    }
+
+    [Theory]
+    [InlineData(0, 15, 1)]
+    [InlineData(0, 1, -1)]
+    [InlineData(0, 8, -1)]
+    public void PulsarChoosesTheSourceShortestDirectionTowardThePlayer(
+        int edge, int playerEdge, int expectedDirection)
+    {
+        Pulsar pulsar = new(edge, 1);
+        pulsar.Update(new Level(), playerEdge, (_, _) => throw new InvalidOperationException());
+        Assert.Equal(expectedDirection, pulsar.Direction);
+    }
+
+    [Fact]
+    public void PulsarFlipAdvancesAngleAndHeightThenPausesWithoutEnteringStateTwo()
+    {
+        Level level = new();
+        Pulsar pulsar = new(0, Level.Depth);
+        int calls = 0;
+        int Roll(int _, int __) => calls++ == 0 ? 1 : 0;
+        pulsar.Update(level, 2, Roll);
+        AdvancePulsar(pulsar, level, Pulsar.LanePauseDuration, 2, Roll);
+        Assert.Equal(PulsarState.Flipping, pulsar.State);
+        float initialHeight = pulsar.Height;
+        pulsar.Update(level, 2, Roll);
+        Assert.Equal(Pulsar.PulseFlipSpeed, pulsar.TurnAngle);
+        Assert.Equal(initialHeight, pulsar.Height);
+        pulsar.Update(level, 2, Roll);
+        Assert.Equal(PulsarState.RimPause, pulsar.State);
+        Assert.Equal(Pulsar.RimPauseDuration, pulsar.PauseTicks);
+        Assert.Equal(PulsarState.Climbing, pulsar.ResumeState);
+    }
+
+    [Fact]
+    public void PulsarNormalStateMachineNeverEntersSourceStateTwo()
+    {
+        Pulsar pulsar = new();
+        Level level = new();
+        for (int tick = 0; tick < 1000; tick++)
+        {
+            pulsar.Update(level, 8, (_, _) => 0);
+            Assert.NotEqual(PulsarState.FlippingWithoutClimb, pulsar.State);
+        }
+    }
+
+    [Theory]
+    [InlineData(70, false)]
+    [InlineData(71, true)]
+    [InlineData(109, true)]
+    [InlineData(110, false)]
+    [InlineData(180, false)]
+    [InlineData(181, false)]
+    public void SharedPulsarClockUsesLiteralWindowAndResetBoundaries(int ticks, bool pulsing)
+    {
+        TempestGame game = new(random: new MinimumRandom());
+        Step(game, ticks);
+        Assert.Equal(ticks == 181 ? 0 : ticks, game.PulsePhase);
+        Assert.Equal(pulsing, game.Pulsing);
+        Assert.Equal(ticks == 181 ? 11.25f :
+            MathF.Abs((ticks % 90) - 45) / 4f < 2 ? 0 : MathF.Abs((ticks % 90) - 45) / 4f,
+            game.PulseZh);
+    }
+
+    [Fact]
+    public void SharedPulsarClockRepeatsAfterExactly181UpdatesAndUsesStrictAmplitudeDeadZone()
+    {
+        TempestGame game = new(random: new MinimumRandom());
+        Step(game, 180);
+        Assert.Equal(180, game.PulsePhase);
+        Assert.Equal(11.25f, game.PulseZh);
+        game.RunOneStep();
+        Assert.Equal(0, game.PulsePhase);
+        Assert.Equal(11.25f, game.PulseZh);
+
+        game = new TempestGame(random: new MinimumRandom());
+        Step(game, 37);
+        Assert.Equal(2, game.PulseZh);
+        game.RunOneStep();
+        Assert.Equal(0, game.PulseZh);
+    }
+
+    [Fact]
+    public void PulsarsUseOneSharedPulseWindow()
+    {
+        TempestGame game = new(pulsarTest: true, random: new MinimumRandom());
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        MakeReady(game.Eggs[1], game.CurrentLevel);
+        game.RunOneStep();
+        Assert.Equal(2, game.Pulsars.Count);
+        Step(game, 70);
+        Assert.Equal(71, game.PulsePhase);
+        Assert.True(game.Pulsing);
+        Assert.All(game.Pulsars.Take(2),
+            pulsar => Assert.True(Pulsar.IsLanePulsing(pulsar.Height, game.Pulsing)));
+    }
+
+    [Fact]
+    public void SharedPulseClockFreezesDuringTheExistingPlayerDeathFreeze()
+    {
+        TempestGame game = HatchDevelopmentPulsar();
+        game.Player.Move(game.Pulsars[0].EdgeIndex - game.Player.EdgeIndex, 16);
+        Step(game, 70);
+        Assert.Equal(71, game.PulsePhase);
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Assert.Equal(60, game.DeathTicks);
+        Step(game, 12);
+        Assert.Equal(71, game.PulsePhase);
+        Assert.Equal(48, game.DeathTicks);
+    }
+
+    [Fact]
+    public void PulsarGlyphSubmitsSixSourceInterpolatedSegmentsAndPulseColors()
+    {
+        TempestGame game = HatchDevelopmentPulsar();
+        VectorRenderer renderer = new(game);
+        List<(Vector2 Start, Vector2 End, Color Color)> lines = [];
+        renderer.DrawPulsars((start, end, color) => lines.Add((start, end, color)));
+        Assert.Equal(6, lines.Count);
+        Assert.All(lines, line =>
+        {
+            AssertFinite(line.Start);
+            AssertFinite(line.End);
+            Assert.Equal(new Color(0, 255, 255, 255), line.Color);
+        });
+
+        Pulsar pulsar = game.Pulsars[0];
+        IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
+        int next = game.CurrentLevel.NextEdge(pulsar.EdgeIndex);
+        float depth = Level.Position + Level.Depth - pulsar.Height;
+        Vector2 expectedStart = Projection.Project(points[pulsar.EdgeIndex].X, points[pulsar.EdgeIndex].Y,
+            depth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+        Vector2 expectedEnd = Projection.Project(points[next].X, points[next].Y,
+            depth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+        Assert.Equal(expectedStart, lines[0].Start);
+        Assert.Equal(expectedEnd, lines[^1].End);
+        Vector2 delta = expectedStart - expectedEnd;
+        Vector2 normal = new(-delta.Y / delta.Length(), delta.X / delta.Length());
+        Vector2 expectedInnerVertex = Vector2.Lerp(expectedStart, expectedEnd, .2f) -
+            normal * game.PulseZh;
+        Assert.Equal(expectedInnerVertex, lines[0].End);
+
+        Step(game, 70);
+        lines.Clear();
+        renderer.DrawPulsars((start, end, color) => lines.Add((start, end, color)));
+        Assert.All(lines, line => Assert.Equal(Color.White, line.Color));
+        Vector2 unpulsedInnerVertex = lines[0].End;
+        lines.Clear();
+        game.RunOneStep();
+        renderer.DrawPulsars((start, end, color) => lines.Add((start, end, color)));
+        Assert.NotEqual(unpulsedInnerVertex, lines[0].End);
+    }
+
+    [Fact]
+    public void PulsingLaneOverlayAffectsOnlyPulsarsAboveHeightSixteen()
+    {
+        Assert.False(Pulsar.IsLanePulsing(16, true));
+        Assert.True(Pulsar.IsLanePulsing(16.001f, true));
+        Assert.False(Pulsar.IsLanePulsing(17, false));
+
+        TempestGame game = HatchDevelopmentPulsar();
+        Step(game, 70);
+        VectorRenderer renderer = new(game);
+        List<(Vector2 Start, Vector2 End, Color Color)> lines = [];
+        renderer.DrawPulsingLaneBoundaries((start, end, color) => lines.Add((start, end, color)));
+        Assert.Equal(2, lines.Count);
+        Assert.All(lines, line =>
+        {
+            AssertFinite(line.Start);
+            AssertFinite(line.End);
+            Assert.Equal(new Color(0, 255, 255, 255), line.Color);
+        });
+        game.RunOneStep();
+        lines.Clear();
+        renderer.DrawPulsingLaneBoundaries((start, end, color) => lines.Add((start, end, color)));
+        Assert.Equal(2, lines.Count);
+        Assert.All(lines, line => Assert.Equal(Color.White, line.Color));
+    }
+
+    [Fact]
+    public void PulsarTubeKeepsOrdinaryGeometryAndRestoresNearRimAfterPulse()
+    {
+        TempestGame ordinary = new();
+        AssertPulsarTubeGeometry(ordinary, []);
+
+        TempestGame game = HatchDevelopmentPulsar();
+        AssertPulsarTubeGeometry(game, []);
+        int lane = game.Pulsars[0].EdgeIndex;
+        Step(game, 70);
+        Assert.Equal(71, game.PulsePhase);
+        Assert.True(game.Pulsing);
+        AssertPulsarTubeGeometry(game, [lane]);
+        List<(Vector2 Start, Vector2 End)> overlays = [];
+        new VectorRenderer(game).DrawPulsingLaneBoundaries(
+            (start, end, _) => overlays.Add((start, end)));
+        Assert.Equal(2, overlays.Count);
+        Assert.Contains((ProjectTubePoint(game, lane, Level.Position),
+            ProjectTubePoint(game, lane, Level.Position + Level.Depth)), overlays);
+        int next = game.CurrentLevel.NextEdge(lane);
+        Assert.Contains((ProjectTubePoint(game, next, Level.Position),
+            ProjectTubePoint(game, next, Level.Position + Level.Depth)), overlays);
+
+        Step(game, 39);
+        Assert.Equal(110, game.PulsePhase);
+        Assert.False(game.Pulsing);
+        AssertPulsarTubeGeometry(game, []);
+        overlays.Clear();
+        new VectorRenderer(game).DrawPulsingLaneBoundaries(
+            (start, end, _) => overlays.Add((start, end)));
+        Assert.Empty(overlays);
+    }
+
+    [Fact]
+    public void PulsarTubeSuppressesExactlyMultipleAffectedLanesAndKeepsTheirOverlays()
+    {
+        TempestGame game = new(pulsarTest: true, random: new MinimumRandom());
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        MakeReady(game.Eggs[1], game.CurrentLevel);
+        game.RunOneStep();
+        int[] lanes = game.Pulsars.Select(pulsar => pulsar.EdgeIndex).ToArray();
+        Assert.Equal(2, lanes.Length);
+        Step(game, 70);
+        Assert.True(game.Pulsing);
+        Assert.All(game.Pulsars.Take(2), pulsar => Assert.True(pulsar.Height > 16));
+        Assert.All(game.Pulsars.Skip(2), pulsar => Assert.True(pulsar.Height <= 16));
+        AssertPulsarTubeGeometry(game, lanes);
+
+        List<(Vector2 Start, Vector2 End)> overlays = [];
+        new VectorRenderer(game).DrawPulsingLaneBoundaries(
+            (start, end, _) => overlays.Add((start, end)));
+        Assert.Equal(4, overlays.Count);
+        Assert.Equal(4, overlays.Distinct().Count());
+        foreach (int lane in lanes)
+        {
+            foreach (int boundary in new[] { lane, game.CurrentLevel.NextEdge(lane) })
+                Assert.Contains((ProjectTubePoint(game, boundary, Level.Position),
+                    ProjectTubePoint(game, boundary, Level.Position + Level.Depth)), overlays);
+        }
+    }
+
+    [Theory]
+    [InlineData(16, false)]
+    [InlineData(17, true)]
+    public void PulsarTubeSuppressionAndOverlayShareStrictVisualHeightEligibility(int height, bool affected)
+    {
+        TempestGame game = new(pulsarTest: true, random: new MinimumRandom());
+        Step(game, 70);
+        Egg egg = game.Eggs[0];
+        MakeReady(egg, game.CurrentLevel);
+        game.RunOneStep();
+        Assert.Equal(71, game.PulsePhase);
+        Pulsar pulsar = Assert.Single(game.Pulsars, candidate => candidate.EdgeIndex == egg.EdgeIndex);
+        Assert.All(game.Pulsars.Where(candidate => candidate != pulsar),
+            candidate => Assert.True(candidate.Height <= 16));
+        AdvancePulsar(pulsar, game.CurrentLevel, height - 1, 7, (_, _) => 0);
+        Assert.Equal(height, pulsar.Height);
+        AssertPulsarTubeGeometry(game, affected ? [pulsar.EdgeIndex] : []);
+        int overlays = 0;
+        new VectorRenderer(game).DrawPulsingLaneBoundaries((_, _, _) => overlays++);
+        Assert.Equal(affected ? 2 : 0, overlays);
+    }
+
+    private static void AssertPulsarTubeGeometry(TempestGame game, int[] suppressedLanes)
+    {
+        List<(Vector2 Start, Vector2 End, Color Color)> lines = [];
+        new VectorRenderer(game).DrawTube((start, end, color) => lines.Add((start, end, color)));
+        int count = game.CurrentLevel.Definition.Points.Count;
+        Assert.Equal(count * 3 - suppressedLanes.Length, lines.Count);
+        Assert.Equal(lines.Count, lines.Distinct().Count());
+        for (int lane = 0; lane < count; lane++)
+        {
+            int next = game.CurrentLevel.NextEdge(lane);
+            Vector2 near = ProjectTubePoint(game, lane, Level.Position);
+            Vector2 far = ProjectTubePoint(game, lane, Level.Position + Level.Depth);
+            Vector2 nearNext = ProjectTubePoint(game, next, Level.Position);
+            Vector2 farNext = ProjectTubePoint(game, next, Level.Position + Level.Depth);
+            Assert.Contains((near, far, Color.Blue), lines);
+            Assert.Contains((far, farNext, Color.Blue), lines);
+            Assert.Equal(!suppressedLanes.Contains(lane), lines.Contains((near, nearNext, Color.Blue)));
+        }
+    }
+
+    private static Vector2 ProjectTubePoint(TempestGame game, int index, float depth)
+    {
+        Vector2 point = game.CurrentLevel.Definition.Points[index];
+        return Projection.Project(point.X, point.Y, depth, game.CurrentLevel.Definition.CenterY,
+            game.CurrentLevel.Definition.YOffset);
+    }
+
+    [Theory]
+    [InlineData(7, PulsarCollision.Rim)]
+    [InlineData(8, PulsarCollision.PulsingLane)]
+    public void PulsarNearRimBoundaryIsStrictAndPulseBranchStartsAtEight(int rimDistance,
+        PulsarCollision expected)
+    {
+        Pulsar pulsar = new(4, Level.Depth - rimDistance);
+        Player player = new();
+        player.Move(4 - player.EdgeIndex, 16);
+        Assert.Equal(expected, pulsar.CheckPlayerCollision(player, pulsing: true));
+    }
+
+    [Fact]
+    public void PulsingLaneCollisionRequiresSameEdgeWindowAndVerticalMovementState()
+    {
+        Pulsar pulsar = new(4, 100);
+        Player player = new();
+        player.Move(4 - player.EdgeIndex, 16);
+        Assert.Equal(PulsarCollision.None, pulsar.CheckPlayerCollision(player, pulsing: false));
+        Assert.Equal(PulsarCollision.PulsingLane, pulsar.CheckPlayerCollision(player, pulsing: true));
+        player.Move(1, 16);
+        Assert.Equal(PulsarCollision.None, pulsar.CheckPlayerCollision(player, pulsing: true));
+
+        pulsar = new(4, 100);
+        int calls = 0;
+        int Roll(int _, int __) => calls++ == 50 ? 1 : 0;
+        AdvancePulsar(pulsar, new Level(), 51, 4, Roll);
+        player.Move(4 - player.EdgeIndex, 16);
+        Assert.Equal(PulsarState.LanePause, pulsar.State);
+        Assert.Equal(PulsarCollision.None, pulsar.CheckPlayerCollision(player, pulsing: true));
+        AdvancePulsar(pulsar, new Level(), Pulsar.LanePauseDuration, 4, Roll);
+        Assert.Equal(PulsarState.Flipping, pulsar.State);
+        player.Move(pulsar.EdgeIndex - player.EdgeIndex, 16);
+        Assert.Equal(PulsarCollision.None, pulsar.CheckPlayerCollision(player, pulsing: true));
+
+        Pulsar descending = new(4, Level.Depth);
+        int DescendRoll(int _, int __) => 0;
+        descending.Update(new Level(), 4, DescendRoll);
+        AdvancePulsar(descending, new Level(), Pulsar.RimPauseDuration, 4, DescendRoll);
+        AdvancePulsar(descending, new Level(), 10, 4, DescendRoll);
+        player.Move(descending.EdgeIndex - player.EdgeIndex, 16);
+        Assert.Equal(PulsarState.Descending, descending.State);
+        Assert.Equal(PulsarCollision.PulsingLane, descending.CheckPlayerCollision(player, pulsing: true));
+    }
+
+    [Theory]
+    [InlineData(29.999f, true)]
+    [InlineData(30, false)]
+    [InlineData(30.001f, false)]
+    public void PulsarFlipCollisionUsesStrictThirtyDegreeBoundary(float difference, bool lethal) =>
+        Assert.Equal(lethal, Pulsar.IsWithinFlipKillAngle(difference, 0));
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(0.001f, true)]
+    [InlineData(15.999f, true)]
+    [InlineData(16, false)]
+    public void PulsarShotCollisionUsesStrictHeightBand(float separation, bool hit)
+    {
+        Pulsar pulsar = new(4, 100);
+        Assert.Equal(hit, pulsar.IsHitBy(new Shot { EdgeIndex = 4, Height = 100 - separation }));
+        Assert.False(pulsar.IsHitBy(new Shot { EdgeIndex = 5, Height = 99 }));
+    }
+
+    [Fact]
+    public void PulsarShotAwardsTwoHundredThenSurvivorsReenterAsEggsAfterDeath()
+    {
+        TempestGame game = HatchDevelopmentPulsar();
+        Pulsar first = Assert.Single(game.Pulsars);
+        game.Player.Move(first.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        int ticks = 0;
+        while (game.Pulsars.Count > 0 && ticks++ < 70)
+            game.RunOneStep();
+        Assert.Empty(game.Pulsars);
+        Assert.Equal(200, game.Score.Score);
+        Assert.Equal(1, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(9, game.CurrentLevel.RemainingEnemies);
+        AssertPulsarAccounting(game);
+
+        while (game.PulsePhase < 70)
+            game.RunOneStep();
+        Egg nextEgg = game.Eggs[0];
+        MakeReady(nextEgg, game.CurrentLevel);
+        game.Player.Move(nextEgg.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep();
+        Assert.Equal(71, game.PulsePhase);
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Step(game, TempestGame.PlayerDeathTicks);
+        Assert.Equal(2, game.Player.Lives);
+        Assert.Equal(200, game.Score.Score);
+        Assert.Equal(1, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(9, game.CurrentLevel.RemainingEnemies);
+        Assert.Empty(game.Pulsars);
+        Assert.Equal(4, game.Eggs.Count);
+        Assert.Equal(5, game.CurrentLevel.ReserveEggs);
+        AssertPulsarAccounting(game);
+    }
+
+    [Fact]
+    public void PulsarCompletionWaitsForFinalActiveUnitThenUsesExistingExit()
+    {
+        TempestGame activeGame = HatchDevelopmentPulsar();
+        Level activeLevel = activeGame.CurrentLevel;
+        while (activeLevel.Eggs.Count > 0)
+        {
+            foreach (Egg egg in activeLevel.Eggs)
+                MakeReady(egg, activeLevel);
+            while (activeLevel.HatchReadyEnemy(lane => new Pulsar(lane, 0)) is not null) { }
+        }
+        while (activeLevel.ReserveEggs > 0)
+        {
+            for (int tick = 0; tick < 50; tick++)
+                activeLevel.UpdateEggRelease();
+            foreach (Egg egg in activeLevel.Eggs)
+                MakeReady(egg, activeLevel);
+            while (activeLevel.HatchReadyEnemy(lane => new Pulsar(lane, 0)) is not null) { }
+        }
+        for (int index = 0; index < 9; index++)
+            activeLevel.RecordEnemyDestroyed();
+        activeGame.RunOneStep();
+        Assert.Single(activeGame.Pulsars);
+        Assert.Equal(LevelState.Playing, activeGame.State);
+        AssertPulsarAccounting(activeGame);
+
+        Pulsar finalPulsar = activeGame.Pulsars[0];
+        activeGame.Player.Move(finalPulsar.EdgeIndex - activeGame.Player.EdgeIndex, 16);
+        activeGame.RunOneStep(new PlayerInput(true, 0, false, false));
+        int ticks = 0;
+        while (!activeGame.IsExiting && ticks++ < 80)
+            activeGame.RunOneStep();
+        Assert.Equal(LevelState.ExitDelay, activeGame.State);
+        Assert.Equal(200, activeGame.Score.Score);
+        Assert.Equal(Level.EnemyTotal, activeGame.CurrentLevel.EnemiesDestroyed);
+        Assert.Empty(activeGame.Pulsars);
+        Assert.Empty(activeGame.Eggs);
+        Assert.Equal(0, activeGame.CurrentLevel.ReserveEggs);
+        AssertPulsarAccounting(activeGame);
+    }
+
     // --- Direct Fuseballs: source behavior in an isolated ten-unit development wave ---
 
     [Fact]
@@ -379,6 +1010,28 @@ public sealed class SimulationTests
         MakeReady(game.Eggs[0], game.CurrentLevel);
         game.RunOneStep();
         return game;
+    }
+
+    private static TempestGame HatchDevelopmentPulsar(bool enemyBulletsTest = false)
+    {
+        TempestGame game = new(pulsarTest: true, enemyBulletsTest: enemyBulletsTest,
+            random: new MinimumRandom());
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        return game;
+    }
+
+    private static void AdvancePulsar(Pulsar pulsar, Level level, int ticks, int playerEdge,
+        Func<int, int, int> randomInclusive)
+    {
+        for (int tick = 0; tick < ticks; tick++)
+            pulsar.Update(level, playerEdge, randomInclusive);
+    }
+
+    private static void AssertPulsarAccounting(TempestGame game)
+    {
+        Assert.Equal(Level.EnemyTotal, game.CurrentLevel.EnemiesDestroyed + game.CurrentLevel.ReserveEggs
+            + game.Eggs.Count + game.Pulsars.Count);
     }
 
     private static Fuseball CreateRimFuseball(Level level)

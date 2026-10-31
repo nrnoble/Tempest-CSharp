@@ -22,6 +22,7 @@ public sealed class VectorRenderer
 	public const int EggPointSize = 3;
 	private static readonly Color SpikerColor = new(0, 255, 0, 255);
 	private static readonly Color TankerColor = new(255, 0, 255, 255);
+	private static readonly Color PulsarColor = new(0, 255, 255, 255);
 	private static readonly Color[] FuseballArmColors =
 	[
 		new(255, 255, 0, 255), new(0, 255, 0, 255), new(255, 0, 255, 255),
@@ -76,7 +77,8 @@ public sealed class VectorRenderer
 		Raylib.BeginDrawing();
 		Raylib.ClearBackground(Color.Black);
 
-		DrawTube(game.CurrentLevel.Definition.Points);
+		DrawTube((start, end, color) => Raylib.DrawLineV(start, end, color));
+		DrawPulsingLaneBoundaries((start, end, color) => Raylib.DrawLineV(start, end, color));
 		// Spikes stay visible (and lethal) during exit travel; all other enemies are hidden once
 		// the exit starts. Player shots remain visible only in the spike-exit scenario, where the
 		// player may still fire while travelling.
@@ -90,6 +92,7 @@ public sealed class VectorRenderer
 			DrawSpikers((start, end) => Raylib.DrawLineV(start, end, SpikerColor));
 			DrawTankers((start, end) => Raylib.DrawLineV(start, end, TankerColor));
 			DrawFuseballs((start, end, color) => Raylib.DrawLineV(start, end, color));
+			DrawPulsars((start, end, color) => Raylib.DrawLineV(start, end, color));
 			if (game.EnemyBulletsTest)
 				DrawEnemyBullets((start, end) => Raylib.DrawLineV(start, end, Color.White));
 		}
@@ -142,6 +145,78 @@ public sealed class VectorRenderer
 					drawLine(center + start * scale, center + end * scale, FuseballArmColors[arm]);
 				}
 			}
+		}
+	}
+
+	public void DrawPulsars(Action<Vector2, Vector2, Color> drawLine)
+	{
+		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
+		foreach (Pulsar pulsar in game.Pulsars)
+		{
+			int next = NextEdge(pulsar.EdgeIndex, points.Count);
+			float projectedDepth = Level.Position + Level.Depth - pulsar.Height;
+			Vector2 p1 = Projection.Project(points[next].X, points[next].Y, projectedDepth,
+				game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+			Vector2 p2 = Projection.Project(points[pulsar.EdgeIndex].X, points[pulsar.EdgeIndex].Y,
+				projectedDepth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+
+			if (pulsar.State is PulsarState.Flipping or PulsarState.FlippingWithoutClimb)
+			{
+				if (pulsar.Direction == -1)
+					p1 = RotatePoint(p1, p2, -pulsar.TurnAngle + pulsar.TotalTurnAngle);
+				else
+					p2 = RotatePoint(p2, p1, -(pulsar.TotalTurnAngle - pulsar.TurnAngle));
+			}
+
+			Vector2 delta = p2 - p1;
+			float length = delta.Length();
+			if (length == 0)
+				continue;
+
+			Vector2 normal = new(-delta.Y / length, delta.X / length);
+			float offset = game.PulseZh;
+			Vector2[] vertices =
+			[
+				p2,
+				Vector2.Lerp(p2, p1, .2f) - normal * offset,
+				Vector2.Lerp(p2, p1, .35f) + normal * offset,
+				Vector2.Lerp(p2, p1, .5f) - normal * offset,
+				Vector2.Lerp(p2, p1, .65f) + normal * offset,
+				Vector2.Lerp(p2, p1, .8f) - normal * offset,
+				p1
+			];
+			Color color = game.Pulsing ? Color.White : PulsarColor;
+			for (int index = 0; index < vertices.Length - 1; index++)
+				drawLine(vertices[index], vertices[index + 1], color);
+		}
+	}
+
+	public void DrawPulsingLaneBoundaries(Action<Vector2, Vector2, Color> drawLine)
+	{
+		if (!game.Pulsing)
+			return;
+
+		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
+		HashSet<int> drawnEdges = [];
+		Color color = game.PulsePhase % 8 > 3 ? PulsarColor : Color.White;
+		foreach (Pulsar pulsar in game.Pulsars)
+		{
+			if (!IsPulsingLane(pulsar.EdgeIndex) ||
+				!drawnEdges.Add(pulsar.EdgeIndex))
+				continue;
+
+			int next = NextEdge(pulsar.EdgeIndex, points.Count);
+			Vector2 nearStart = Projection.Project(points[pulsar.EdgeIndex].X, points[pulsar.EdgeIndex].Y,
+				Level.Position, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+			Vector2 farStart = Projection.Project(points[pulsar.EdgeIndex].X, points[pulsar.EdgeIndex].Y,
+				Level.Position + Level.Depth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+			Vector2 nearEnd = Projection.Project(points[next].X, points[next].Y,
+				Level.Position, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+			Vector2 farEnd = Projection.Project(points[next].X, points[next].Y,
+				Level.Position + Level.Depth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+
+			drawLine(nearStart, farStart, color);
+			drawLine(nearEnd, farEnd, color);
 		}
 	}
 
@@ -294,8 +369,12 @@ public sealed class VectorRenderer
 		DrawEggs((point, size) => Raylib.DrawRectangleV(point, size, Color.Red));
 	}
 
-	private void DrawTube(IReadOnlyList<Vector2> points)
+	private bool IsPulsingLane(int edge) => game.Pulsars.Any(pulsar =>
+		pulsar.EdgeIndex == edge && Pulsar.IsLanePulsing(pulsar.Height, game.Pulsing));
+
+	public void DrawTube(Action<Vector2, Vector2, Color> drawLine)
 	{
+		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
 		Vector2[] nearRim = new Vector2[points.Count];
 		Vector2[] farRim = new Vector2[points.Count];
 
@@ -308,13 +387,16 @@ public sealed class VectorRenderer
 		}
 
 		for (int i = 0; i < points.Count; i++)
-			Raylib.DrawLineV(nearRim[i], farRim[i], Color.Blue);
+			drawLine(nearRim[i], farRim[i], Color.Blue);
 
 		for (int i = 0; i < points.Count; i++)
 		{
 			int next = NextEdge(i, points.Count);
-			Raylib.DrawLineV(nearRim[i], nearRim[next], Color.Blue);
-			Raylib.DrawLineV(farRim[i], farRim[next], Color.Blue);
+			// Arcade observation: only the pulsing lane's near-rim connection disappears.
+			// Incitti also hides rims outside the pulse; retain normal geometry otherwise.
+			if (!IsPulsingLane(i))
+				drawLine(nearRim[i], nearRim[next], Color.Blue);
+			drawLine(farRim[i], farRim[next], Color.Blue);
 		}
 	}
 
@@ -503,10 +585,11 @@ public sealed class VectorRenderer
 		else
 		{
 			int remaining = Level.EnemyTotal - game.CurrentLevel.EnemiesDestroyed;
-			string enemyLabel = game.FuseballTest ? "FUSEBALLS" :
+			string enemyLabel = game.PulsarTest ? "PULSARS" :
+				game.FuseballTest ? "FUSEBALLS" :
 				game.CurrentLevel.SpikerDevelopmentWave ? "ENEMIES" : "FLIPPERS";
 			Raylib.DrawText($"{enemyLabel} {remaining}", 10, 72, 18, Color.Red);
-			Raylib.DrawText($"ACTIVE {game.Eggs.Count + game.Flippers.Count + game.Spikers.Count + game.Fuseballs.Count}", 10, 96, 18, Color.Gray);
+			Raylib.DrawText($"ACTIVE {game.Eggs.Count + game.Flippers.Count + game.Spikers.Count + game.Fuseballs.Count + game.Pulsars.Count}", 10, 96, 18, Color.Gray);
 		}
 
 		if (game.GameOver)

@@ -5,10 +5,10 @@ using Tempest.Game.Gameplay;
 /// <summary>
 /// Parses the development/testing command-line switches. These are controlled engineering tools
 /// for exercising one mechanic in isolation; they are not the finished arcade level-selection or
-/// progression system. No flags = normal Level 1. --spiker-test, --tanker-test and --fuseball-test replace the
-/// normal wave with a deterministic development wave and are mutually exclusive;
+/// progression system. No flags = normal Level 1. --spiker-test, --tanker-test,
+/// --fuseball-test and --pulsar-test replace the normal wave with a development wave and are mutually exclusive;
 /// --enemy-bullets-test (opt-in Flipper firing) and --lives (starting-life override) compose with
-/// either scenario or with normal play.
+/// any scenario or with normal play.
 /// </summary>
 public sealed class DebugController
 {
@@ -24,9 +24,12 @@ public sealed class DebugController
 	public static bool UseFuseballTest(IEnumerable<string> arguments) =>
 		arguments.Contains("--fuseball-test", StringComparer.Ordinal);
 
+	public static bool UsePulsarTest(IEnumerable<string> arguments) =>
+		arguments.Contains("--pulsar-test", StringComparer.Ordinal);
+
 	public static bool HasConflictingScenarios(IEnumerable<string> arguments) =>
 		(UseTankerTest(arguments) ? 1 : 0) + (UseSpikerWave(arguments) ? 1 : 0) +
-		(UseFuseballTest(arguments) ? 1 : 0) > 1;
+		(UseFuseballTest(arguments) ? 1 : 0) + (UsePulsarTest(arguments) ? 1 : 0) > 1;
 
 	// --lives <n> overrides the arcade-default starting lives for long manual test sessions.
 	// Any missing, non-numeric or non-positive value silently falls back to the default so a

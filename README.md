@@ -145,6 +145,25 @@ is rerolled each update. Surviving units return as fresh Eggs after life loss.
 Normal Level 1 remains unchanged. Tanker cargo, hurry-up, Zapper, audio and
 progression are not part of this milestone.
 
+## Pulsar development wave
+
+```powershell
+dotnet run --project src/Tempest.Game -- --pulsar-test --lives 10
+```
+
+This isolated wave hatches all ten ordinary Egg units directly as Pulsars on
+the existing closed tube. Pulsars use the source's 51-update decision check,
+18-tick lane pause, 14-tick rim pause, and shared 181-update pulse clock.
+Pulse hazards are lane-wide; shots must pass the strict 0-to-16 height band
+and award 200 points. The clock and enemies freeze during the existing
+60-update player-death interval. `--pulsar-test` is mutually exclusive with
+the Spiker, Tanker and Fuseball scenarios; `--lives` composes, and
+`--enemy-bullets-test` does not arm Pulsars.
+
+Compare the glyph, lane flashing, movement, collision and re-entry with Atari
+Tempest manually. This is not normal Level 17 composition and does not add
+Tanker cargo, hurry-up, Zapper, audio, open-tube rendering or progression.
+
 ## Reference mapping
 - `tempest.bmx` -> gameplay and state behavior
 - `transformfunctions.bmx` -> `Rendering/Projection.cs`

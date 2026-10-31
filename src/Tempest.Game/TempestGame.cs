@@ -11,7 +11,7 @@ namespace Tempest.Game;
 /// renderer only reads the public state exposed here.
 /// </summary>
 /// <remarks>
-/// Opt-in development scenarios (Spiker, enemy bullets, Tanker, Fuseball) layer on top of the
+/// Opt-in development scenarios (Spiker, enemy bullets, Tanker, Fuseball, Pulsar) layer on top of the
 /// normal Level 1 path. Normal Level 1 keeps its original accounting and shot path;
 /// do not generalize it casually, because the existing regression tests pin it.
 /// </remarks>
@@ -31,6 +31,7 @@ public sealed class TempestGame
     private readonly List<Spiker> spikers = [];
     private readonly List<Tanker> tankers = [];
     private readonly List<Fuseball> fuseballs = [];
+    private readonly List<Pulsar> pulsars = [];
     private readonly List<FuseballScorePopup> fuseballScorePopups = [];
     // Incitti resolves shot collisions in object-creation order, not nearest depth, so development
     // scenarios record spawn order here. Spikes survive life loss; enemies and bullets do not.
@@ -47,6 +48,8 @@ public sealed class TempestGame
     private readonly int startingLives;
     private readonly bool enemyBulletsTest;
     private readonly bool tankerTest;
+    private int pulsePhase;
+    private float pulseZh;
     private int fuseballAnimationTicks;
     private int nextCargoUnitId;
     private int shotTimer = 3;
@@ -62,8 +65,13 @@ public sealed class TempestGame
     public IReadOnlyList<Spiker> Spikers => spikers;
     public IReadOnlyList<Tanker> Tankers => tankers;
     public IReadOnlyList<Fuseball> Fuseballs => fuseballs;
+    public IReadOnlyList<Pulsar> Pulsars => pulsars;
     public IReadOnlyList<FuseballScorePopup> FuseballScorePopups => fuseballScorePopups;
     public bool FuseballTest { get; }
+    public bool PulsarTest { get; }
+    public int PulsePhase => pulsePhase;
+    public bool Pulsing { get; private set; }
+    public float PulseZh => pulseZh;
     // Incitti shares four animation frames across all Fuseballs, changing frame every four ticks.
     public int FuseballAnimationFrame => fuseballAnimationTicks / 4;
     public IReadOnlyList<Spike> Spikes => CurrentLevel.Spikes;
@@ -98,15 +106,17 @@ public sealed class TempestGame
 
     public TempestGame(bool spikerDevelopmentWave = false, Random? random = null,
         int startingLives = Player.DefaultStartingLives, bool enemyBulletsTest = false,
-        bool tankerTest = false, bool fuseballTest = false)
+        bool tankerTest = false, bool fuseballTest = false, bool pulsarTest = false)
     {
-        if ((spikerDevelopmentWave ? 1 : 0) + (tankerTest ? 1 : 0) + (fuseballTest ? 1 : 0) > 1)
-            throw new ArgumentException("Tanker, Spiker and Fuseball development waves cannot be combined.");
+        if ((spikerDevelopmentWave ? 1 : 0) + (tankerTest ? 1 : 0) +
+            (fuseballTest ? 1 : 0) + (pulsarTest ? 1 : 0) > 1)
+            throw new ArgumentException("Tanker, Spiker, Fuseball and Pulsar development waves cannot be combined.");
         this.random = random ?? Random.Shared;
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
         this.enemyBulletsTest = enemyBulletsTest;
         this.tankerTest = tankerTest;
         FuseballTest = fuseballTest;
+        PulsarTest = pulsarTest;
         Player = new Player(this.startingLives);
         CurrentLevel = new Level(spikerDevelopmentWave, tankerTest);
         CurrentLevel.SpikeCreated += spike => developmentCollisionOrder.Add(spike);
@@ -154,6 +164,9 @@ public sealed class TempestGame
         }
         else
         {
+            // The one shared pulse clock advances only during active play. Like the current C#
+            // entity simulation, it freezes for the full PlayerDying interval.
+            AdvancePulseClock();
             // Order matters. Player firing and shot-versus-enemy collision run before enemy updates
             // and before any enemy-to-player collision, so a shot that destroys a Flipper on the
             // last safe tick saves the player. Do not move the player-collision checks earlier.
@@ -174,8 +187,10 @@ public sealed class TempestGame
             ActivateShotReleasedCargo();
             UpdateSpikers();
             UpdateFuseballs();
+            UpdatePulsars();
             CheckFlippersAgainstPlayer();
             CheckFuseballsAgainstPlayer();
+            CheckPulsarsAgainstPlayer();
             CheckEnemyBulletsAgainstPlayer();
             CheckSpikesAgainstPlayer();
             CheckForLevelComplete();
@@ -205,6 +220,7 @@ public sealed class TempestGame
         spikers.Clear();
         tankers.Clear();
         fuseballs.Clear();
+        pulsars.Clear();
         fuseballScorePopups.Clear();
         fuseballAnimationTicks = 0;
         ResetTankerLedger();
@@ -264,6 +280,7 @@ public sealed class TempestGame
         shotReleasedCargoPendingActivation.Clear();
         spikers.Clear();
         fuseballs.Clear();
+        pulsars.Clear();
         fuseballScorePopups.Clear();
         developmentCollisionOrder.RemoveAll(target => target is not Spike);
         CurrentLevel.ResetAfterDeath();
@@ -295,6 +312,7 @@ public sealed class TempestGame
             spikers.Clear();
             tankers.Clear();
             fuseballs.Clear();
+            pulsars.Clear();
             fuseballScorePopups.Clear();
             developmentCollisionOrder.RemoveAll(target => target is not Spike);
             if (!tankerTest)
@@ -347,7 +365,8 @@ public sealed class TempestGame
         {
             Shot shot = shots[shotIndex];
             shot.Update();
-            bool hit = (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest || tankerTest || FuseballTest)
+            bool hit = (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest || tankerTest ||
+                FuseballTest || PulsarTest)
                 ? shot.Height >= 0 && CheckShotAgainstDevelopmentTargets(shot)
                 : CheckShotAgainstFlippers(shot);
             if (hit || shot.Height < 0)
@@ -385,7 +404,10 @@ public sealed class TempestGame
                 tankers.Add(tanker);
             else if (enemy is Fuseball fuseball)
                 fuseballs.Add(fuseball);
-            if (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest || tankerTest || FuseballTest)
+            else if (enemy is Pulsar pulsar)
+                pulsars.Add(pulsar);
+            if (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest || tankerTest ||
+                FuseballTest || PulsarTest)
                 developmentCollisionOrder.Add(enemy);
         }
     }
@@ -429,6 +451,10 @@ public sealed class TempestGame
         if (FuseballTest)
             return new Fuseball(lane);
 
+        // All ordinary wave units hatch directly as Pulsars only in this isolated test mode.
+        if (PulsarTest)
+            return new Pulsar(lane, height: 0);
+
         if (CurrentLevel.SpikerDevelopmentWave && spikers.Count <= 3 &&
             flippers.Count + spikers.Count + Eggs.Count >= 4 && random.Next(-6, 2) <= 0)
         {
@@ -456,6 +482,12 @@ public sealed class TempestGame
                     Score.Add(fuseball.KillScore);
                     fuseballScorePopups.Add(new FuseballScorePopup(
                         fuseball.EdgeIndex, fuseball.Height, fuseball.KillScore));
+                    return true;
+                case Pulsar pulsar when pulsar.IsHitBy(shot):
+                    pulsars.Remove(pulsar);
+                    developmentCollisionOrder.Remove(pulsar);
+                    CurrentLevel.RecordEnemyDestroyed();
+                    Score.Add(200);
                     return true;
                 case Spike spike when spike.IsHitBy(shot):
                     spike.Shorten();
@@ -536,6 +568,44 @@ public sealed class TempestGame
     {
         foreach (Fuseball fuseball in fuseballs)
             fuseball.Update(CurrentLevel, Player.EdgeIndex, NextRandomInclusive);
+    }
+
+    private void AdvancePulseClock()
+    {
+        pulsePhase++;
+        if (pulsePhase > 180)
+            pulsePhase = 0;
+
+        Pulsing = pulsePhase > 70 && pulsePhase < 110;
+        // Resetting after 180 makes the cycle 181 calls long; changing this to >=180 shortens it.
+        float amplitude = MathF.Abs((pulsePhase % 90) - 45) / 4f;
+        pulseZh = amplitude < 2 ? 0 : MathF.Min(amplitude, 12);
+    }
+
+    private void UpdatePulsars()
+    {
+        foreach (Pulsar pulsar in pulsars)
+            pulsar.Update(CurrentLevel, Player.EdgeIndex, NextRandomInclusive);
+    }
+
+    private void CheckPulsarsAgainstPlayer()
+    {
+        if (State != LevelState.Playing)
+            return;
+
+        foreach (Pulsar pulsar in pulsars)
+        {
+            // This branch is lane-wide, not a point overlap: the source electrifies the Pulsar's
+            // whole edge during the global pulse window.
+            PulsarCollision collision = pulsar.CheckPlayerCollision(Player, Pulsing);
+            if (collision == PulsarCollision.None)
+                continue;
+
+            if (collision == PulsarCollision.Rim)
+                pulsar.BeginRimPlayerKill();
+            KillPlayer();
+            return;
+        }
     }
 
     private void CheckFuseballsAgainstPlayer()
@@ -712,7 +782,7 @@ public sealed class TempestGame
             ? unresolvedOriginalSlots.Count == 0 && unresolvedCargoUnits.Count == 0 &&
               CurrentLevel.ReserveEggs == 0 && Eggs.Count == 0 && tankers.Count == 0 &&
               flippers.Count == 0 && spikers.Count == 0
-            : CurrentLevel.IsComplete(flippers.Count + spikers.Count + fuseballs.Count);
+            : CurrentLevel.IsComplete(flippers.Count + spikers.Count + fuseballs.Count + pulsars.Count);
         if (State != LevelState.Playing || !complete)
             return false;
 
