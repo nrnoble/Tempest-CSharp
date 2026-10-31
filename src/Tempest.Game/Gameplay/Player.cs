@@ -25,10 +25,10 @@ public sealed class Player
     public float Depth { get; private set; } = Level.Depth;
 
     // Restores the fixed spawn location after a life loss; lives and score are managed elsewhere.
-    public void ResetPosition()
+    public void ResetPosition(int edgeIndex = 7, float edgePosition = 0.5f)
     {
-        EdgeIndex = 7;
-        EdgePosition = 0.5f;
+        EdgeIndex = edgeIndex;
+        EdgePosition = edgePosition;
         Depth = Level.Depth;
     }
 

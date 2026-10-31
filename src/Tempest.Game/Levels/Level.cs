@@ -5,10 +5,11 @@ namespace Tempest.Game.Levels;
 
 /// <summary>
 /// Level state: tube geometry, Egg release and normal enemy accounting. Normal accounting conserves
-/// EnemyTotal: every enemy is reserve (EnemyTotal - EnemiesSpawned), an Egg/active unit, destroyed
+/// configured supply: every enemy is reserve (supply - EnemiesSpawned), an Egg/active unit, destroyed
 /// (EnemiesDestroyed), or rim-cleared (EnemiesRimCleared). After a death, EnemiesSpawned is rewound
 /// to the resolved count so only unresolved enemies re-enter as fresh Eggs. Spawn lane order and
-/// timers are Incitti-derived and unvalidated against the arcade. Tanker queues are development-only
+/// timing and deterministic sequences are project decisions, not literal Incitti behavior.
+/// Tanker queues are development-only
 /// (<c>--tanker-test</c>).
 /// </summary>
 public sealed class Level
@@ -16,12 +17,7 @@ public sealed class Level
     // Depth is the rim; heights run from 0 (far end) up to Depth (near the player).
     public const float Depth = 400f;
     public const float Position = 50;
-    public const int EnemyTotal = 10;
-    private const int SpawnIntervalTicks = 50;
-    private const int MaximumActiveEggs = 4;
-    private const int MaximumApproachingEggs = 2;
-    private const int HatchSelectionIntervalTicks = 50;
-    private readonly int[] spawnLanes = [12, 4, 9, 1, 14, 6, 10, 2, 15, 7];
+    public static int EnemyTotal => LevelConfiguration.Level1.EnemySupply;
     private readonly List<Egg> eggs = [];
     private readonly List<Spike> spikes = [];
     private readonly Queue<int> tankerPendingOriginalSlots = new();
@@ -30,17 +26,20 @@ public sealed class Level
     private int hatchSelectionTimer;
     private int nextSpawnLaneIndex;
 
-    public LevelDefinition Definition { get; } = LevelLoader.LoadLevel1();
+    public LevelConfiguration Configuration { get; }
+    public LevelDefinition Definition => Configuration.Definition;
+    public int EnemySupply => Configuration.EnemySupply;
+    public int PlayableLaneCount => Configuration.PlayableLaneCount;
     public int EnemiesSpawned { get; private set; }
     public int EnemiesDestroyed { get; private set; }
     public int EnemiesRimCleared { get; private set; }
     // Development-only tanker accounting counts reserve as queued original slots; normal (and
-    // Spiker) accounting derives reserve from the conserved ten-unit ledger.
+    // Spiker) accounting derives reserve from the configured supply.
     public int ReserveEggs => TankerDevelopmentWave
         ? tankerPendingOriginalSlots.Count
-        : EnemyTotal - EnemiesSpawned;
+        : EnemySupply - EnemiesSpawned;
     public int PendingTankerCargoEggs => TankerDevelopmentWave ? tankerPendingCargoUnits.Count : 0;
-    public int RemainingEnemies => EnemyTotal - EnemiesDestroyed - EnemiesRimCleared;
+    public int RemainingEnemies => EnemySupply - EnemiesDestroyed - EnemiesRimCleared;
     public IReadOnlyList<Egg> Eggs => eggs;
     public IReadOnlyList<Spike> Spikes => spikes;
     public event Action<Spike>? SpikeCreated;
@@ -49,10 +48,18 @@ public sealed class Level
     // Level stores the state value, but every transition is owned by TempestGame's step logic;
     // nothing in Level changes State.
     public LevelState State { get; set; } = LevelState.Begin;
-    public bool Continuous { get; set; } = true;
+    public bool Continuous => Configuration.Definition.Continuous;
 
     public Level(bool spikerDevelopmentWave = false, bool tankerDevelopmentWave = false)
+        : this(LevelConfiguration.Level1, spikerDevelopmentWave, tankerDevelopmentWave)
     {
+    }
+
+    public Level(LevelConfiguration configuration, bool spikerDevelopmentWave = false,
+        bool tankerDevelopmentWave = false)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        Configuration = configuration;
         SpikerDevelopmentWave = spikerDevelopmentWave;
         TankerDevelopmentWave = tankerDevelopmentWave;
         Reset();
@@ -66,14 +73,16 @@ public sealed class Level
         tankerPendingCargoUnits.Clear();
         if (TankerDevelopmentWave)
         {
-            for (int originalSlotId = 0; originalSlotId < EnemyTotal; originalSlotId++)
+            for (int originalSlotId = 0; originalSlotId < EnemySupply; originalSlotId++)
                 tankerPendingOriginalSlots.Enqueue(originalSlotId);
         }
         spikes.Clear();
         if (SpikerDevelopmentWave)
-            for (int lane = 0; lane < Definition.Points.Count; lane++)
+            for (int lane = 0; lane < PlayableLaneCount; lane++)
                 CreateSpike(lane, 60);
-        ResetAfterDeath();
+        ReturnSurvivorsToReserve();
+        for (int eggIndex = 0; eggIndex < Configuration.InitialActiveEggCount && ReserveEggs > 0; eggIndex++)
+            ReleaseEgg();
     }
 
     public Spike CreateSpike(int lane, float height)
@@ -88,13 +97,12 @@ public sealed class Level
 
     public void ReturnEnemyToReserve() => EnemiesSpawned--;
 
-    // Life-loss reconstruction: survivors return to reserve, then up to the four-active-Egg cap is
-    // immediately refilled with fresh Eggs. Also runs at level start, where it performs the
-    // initial four-Egg release.
+    // Life reconstruction retains this Level and restores unresolved units as fresh Eggs. Fresh
+    // wave construction instead uses the configured initial Egg count in Reset.
     public void ResetAfterDeath()
     {
         ReturnSurvivorsToReserve();
-        for (int eggIndex = 0; eggIndex < MaximumActiveEggs && ReserveEggs > 0; eggIndex++)
+        for (int eggIndex = 0; eggIndex < Configuration.MaximumActiveEggs && ReserveEggs > 0; eggIndex++)
             ReleaseEgg();
     }
 
@@ -107,32 +115,31 @@ public sealed class Level
         spawnTimer = 0;
         hatchSelectionTimer = 0;
         EnemiesSpawned = EnemiesDestroyed + EnemiesRimCleared;
-        nextSpawnLaneIndex = EnemiesSpawned % spawnLanes.Length;
+        nextSpawnLaneIndex = EnemiesSpawned % Configuration.SpawnLaneSequence.Count;
     }
 
     public void RecordEnemyDestroyed() => EnemiesDestroyed++;
 
     public void RecordEnemyRimCleared() => EnemiesRimCleared++;
 
-    // Reserve release cadence: one Egg every 50 ticks, only while under the four-active cap.
-    // Incitti-derived pacing; unvalidated against the arcade.
+    // Reserve release cadence is configuration data; its current values are project decisions.
     public void UpdateEggRelease()
     {
         spawnTimer++;
-        if (spawnTimer < SpawnIntervalTicks)
+        if (spawnTimer < Configuration.ReserveReleaseIntervalTicks)
             return;
 
         spawnTimer = 0;
-        if (eggs.Count < MaximumActiveEggs &&
+        if (eggs.Count < Configuration.MaximumActiveEggs &&
             (ReserveEggs > 0 || PendingTankerCargoEggs > 0))
             ReleaseEgg();
     }
 
     private void ReleaseEgg()
     {
-        int lane = spawnLanes[nextSpawnLaneIndex % spawnLanes.Length];
-        // Alternate directions in release order to keep roaming repeatable.
-        int direction = nextSpawnLaneIndex % 2 == 0 ? 1 : -1;
+        int lane = Configuration.SpawnLaneSequence[nextSpawnLaneIndex % Configuration.SpawnLaneSequence.Count];
+        int direction = Configuration.EggDirectionSequence[
+            nextSpawnLaneIndex % Configuration.EggDirectionSequence.Count];
         nextSpawnLaneIndex++;
         if (TankerDevelopmentWave)
         {
@@ -146,8 +153,9 @@ public sealed class Level
 
     private void ReleaseTankerEgg(bool preferCargo = false)
     {
-        int lane = spawnLanes[nextSpawnLaneIndex % spawnLanes.Length];
-        int direction = nextSpawnLaneIndex % 2 == 0 ? 1 : -1;
+        int lane = Configuration.SpawnLaneSequence[nextSpawnLaneIndex % Configuration.SpawnLaneSequence.Count];
+        int direction = Configuration.EggDirectionSequence[
+            nextSpawnLaneIndex % Configuration.EggDirectionSequence.Count];
         nextSpawnLaneIndex++;
         ReleaseTankerEgg(lane, direction, preferCargo);
     }
@@ -183,11 +191,12 @@ public sealed class Level
         foreach (int cargoId in cargoUnitIds.Distinct().Order())
             tankerPendingCargoUnits.Enqueue(cargoId);
 
-        EnemiesSpawned = EnemyTotal - tankerPendingOriginalSlots.Count;
-        nextSpawnLaneIndex = (EnemiesSpawned + tankerPendingCargoUnits.Count) % spawnLanes.Length;
+        EnemiesSpawned = EnemySupply - tankerPendingOriginalSlots.Count;
+        nextSpawnLaneIndex = (EnemiesSpawned + tankerPendingCargoUnits.Count) %
+            Configuration.SpawnLaneSequence.Count;
         spawnTimer = 0;
         hatchSelectionTimer = 0;
-        for (int eggIndex = 0; eggIndex < MaximumActiveEggs; eggIndex++)
+        for (int eggIndex = 0; eggIndex < Configuration.MaximumActiveEggs; eggIndex++)
         {
             if (tankerPendingOriginalSlots.Count == 0 && tankerPendingCargoUnits.Count == 0)
                 break;
@@ -204,12 +213,12 @@ public sealed class Level
     public void UpdateEggs()
     {
         hatchSelectionTimer++;
-        if (hatchSelectionTimer >= HatchSelectionIntervalTicks)
+        if (hatchSelectionTimer >= Configuration.HatchSelectionIntervalTicks)
         {
             hatchSelectionTimer = 0;
             // Every 50 active ticks, select the oldest roaming Egg, with at most
             // two in transit. This preserves the milestone's deterministic pacing.
-            if (eggs.Count(egg => egg.State != EggState.Roaming) < MaximumApproachingEggs)
+            if (eggs.Count(egg => egg.State != EggState.Roaming) < Configuration.MaximumApproachingEggs)
                 eggs.FirstOrDefault(egg => egg.State == EggState.Roaming)?.BeginApproach();
         }
 
@@ -237,7 +246,7 @@ public sealed class Level
     }
 
     public bool IsComplete(int activeFlippers) =>
-        EnemiesDestroyed + EnemiesRimCleared == EnemyTotal &&
+        EnemiesDestroyed + EnemiesRimCleared == EnemySupply &&
         ReserveEggs == 0 && eggs.Count == 0 && activeFlippers == 0;
 
     public int NextEdge(int edge) => (edge + 1) % Definition.Points.Count;

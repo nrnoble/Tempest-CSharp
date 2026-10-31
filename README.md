@@ -1,6 +1,6 @@
 # Tempest C# Recreation
 
-Personal C# recreation based on the gameplay behavior of Mark Incitti's Tempest 3.1 BlitzMax project.
+Personal C# recreation guided first by observed Atari Tempest gameplay, with Mark Incitti's Tempest 3.1 BlitzMax project as an engineering reference.
 
 ## Initial goal
 Get one tube playable with player movement, shooting, a Flipper, collision, scoring, and a fixed 60 Hz simulation.
@@ -18,23 +18,39 @@ dotnet run --project src/Tempest.Game
 - `Program.cs` composes the game, input and renderer, and owns the window and frame loop.
 - `TempestGame.RunOneStep` advances one gameplay tick without calling Raylib.
 - `Gameplay` owns player movement, shots and the Flipper state machine.
-- `Levels` owns the current tube geometry, deterministic spawn sequence and wave counters.
+- `Levels` defines wave configuration and owns the current `Level` runtime, geometry, Egg sequences and accounting.
 - `Systems/InputSystem.cs` samples Raylib input; `ScoreSystem.cs` owns the score.
 - `Rendering/VectorRenderer.cs` draws the tube, entities, explosion and HUD.
 
-The active tick order is player/firing, shots and shot collisions, reserve Egg
-release, Egg updates, hatching, Flipper updates, completed-pivot player
-collisions, then level completion.
+During active play, the tick processes player/firing and zap input, shots and
+bullets, an early completion check, Egg release/update/hatching, enemy updates
+and collisions, all-rim completion, Hurry-Up, and the final completion check.
 The frame loop retains one simulation tick per frame at the existing 60 FPS target.
 
-Level 1 starts with four roaming Eggs and six in reserve. Reserve releases use
-a 50-tick interval and a four-active-Egg limit. Every 50 active ticks the oldest
-roaming Egg is selected to approach, with at most two approaching or ready to
-hatch. Release lanes and alternating roaming directions remain deterministic.
-Eggs hatch into Flippers without changing the remaining-enemy count. After a
-life loss, surviving enemies return to the Egg supply, with up to four released
-immediately; defeated enemies and score remain preserved. The HUD's ACTIVE
-counter includes both active Eggs and active Flippers.
+## Level configuration and wave lifecycle
+
+`LevelConfiguration.Level1` explicitly records internal/displayed identity
+0/1, board/palette 0/0, the existing closed Level 1 geometry, depth/position,
+player start, ten-unit supply, Egg pacing/sequences, standard exit policy and
+Flipper-only normal composition. `Level` remains the mutable per-wave runtime;
+`TempestGame` installs a fresh instance at initial setup, Complete replay and
+Game Over restart. Complete remains a terminal same-Level-1 replay; there is
+no visible progression or Level 2 support.
+
+The closed definition has 16 ordered vertices and 16 playable lanes. The
+topology metadata distinguishes these counts: an open definition with 16
+vertices would expose 15 playable lanes, but open-tube gameplay is not
+implemented. Four Eggs start active and six remain in reserve. The 50-tick
+release cadence, four-active-Egg cap and deterministic spawn/direction
+sequences are current project decisions, not claims about literal Incitti
+behavior. Every 50 active ticks, the oldest roaming Egg is selected to
+approach, with at most two approaching or ready to hatch.
+
+Life reconstruction retains the same `Level` and configuration. Unresolved
+enemies return through fresh Eggs while destroyed/rim-cleared outcomes, score,
+charges, Hurry-Up state and persistent Spikes keep their established
+lifetimes. Hatching converts an Egg without changing the remaining-enemy count.
+The HUD's ACTIVE counter includes active Eggs and active enemies.
 
 Tests run headlessly without initializing a Raylib window. Visual appearance,
 spinner feel and cursor capture still require manual gameplay testing.
@@ -56,7 +72,7 @@ Spikers award 50 points; spike hits award 1 point and shorten the spike by 10.
 The final hatch selections exclude Spikers when active enemies plus Eggs fall
 below four, following the source's end-of-wave restriction.
 
-After the last kill, this scenario permits movement and firing during a
+After the wave resolves, this scenario permits movement and firing during a
 151-update avoidance interval, the 21-update exit delay, and zoom. Avoid or
 shoot remaining spikes. Hitting one during travel costs one life and reverses
 the zoom before an exit retry; spikes persist. R replays after completion and
@@ -78,41 +94,6 @@ bullets unless both flags are supplied. Enabled Flippers receive 1-3 rounds,
 fire while climbing or after pause transitions, and send bullets outward toward
 the rim. Shoot bullets for 25 points or move off their lane near the rim.
 
-## Flipper bullet development
-
-Flipper-fired enemy bullets are disabled in normal Level 1. To test them:
-
-```powershell
-dotnet run --project src/Tempest.Game -- --enemy-bullets-test
-dotnet run --project src/Tempest.Game -- --enemy-bullets-test --lives 10
-dotnet run --project src/Tempest.Game -- --spiker-test --enemy-bullets-test --lives 10
-```
-
-The flag is independent of `--spiker-test`; Spiker test runs do not fire Flipper
-bullets unless both flags are supplied. Enabled Flippers receive 1-3 rounds,
-fire from their lane during climbs or after pause transitions, and bullets travel
-toward the rim. Shoot bullets for 25 points or move off their lane near the rim.
-
-## Tanker development wave
-
-Tankers are not included in normal Level 1. Run the controlled one-Tanker wave:
-
-```powershell
-dotnet run --project src/Tempest.Game -- --tanker-test --lives 10
-```
-
-The selected Tanker carries two Flippers. It climbs in one lane, then releases
-them on opposite adjacent lanes; shooting it awards 200 points and releases the
-same live cargo. Cargo's mandatory initial pivot proceeds outward from both
-adjacent lanes, keeping the Tanker's former lane clear; its below-rim direction
-stays fixed through pivot/pause cycles while it continues climbing.
-Player-directed pivots begin at the rim. This initial outward route is a
-project choice pending observation of the exact arcade sequence. The
-deterministic choice of which side is assigned first is a development
-convenience, not an arcade claim. `--tanker-test` cannot be combined with
-`--spiker-test`. Add `--enemy-bullets-test` only to enable the existing Flipper
-bullets; Tankers do not fire in this milestone.
-
 ## Tanker development wave
 
 Tankers are not included in normal Level 1. To run the controlled single-Tanker
@@ -124,20 +105,22 @@ dotnet run --project src/Tempest.Game -- --tanker-test --lives 10
 
 The scenario starts one Tanker carrying two Flippers; other original wave slots
 remain Flippers. The Tanker climbs on one lane and releases two live Flippers on
-opposite adjacent lanes near the rim. Each child initially pivots toward the
-former Tanker lane, then continues in its prescribed direction without tracking
-the Blaster below the rim; rim pivots pursue the current Blaster lane. Neal
-verified the no-mid-tube-pursuit behavior; exact intermediate arcade lane
-sequence and timing remain unverified. Shoot the Tanker for 200 points, or let
-it release naturally for no Tanker score. Children remain independently
-shootable. Tankers fire no bullets in this milestone; existing Flipper bullets
-are enabled only by additionally passing `--enemy-bullets-test`.
+opposite adjacent lanes near the rim. Each child initially pivots outward,
+away from the Tanker's former lane, and keeps its direction through below-rim
+pivot/pause cycles without tracking the Blaster; rim pivots pursue the current
+Blaster lane. Neal verified the cargo survival and no-mid-tube-pursuit behavior;
+the exact intermediate arcade lane sequence and timing remain unverified.
+Shoot the Tanker for 200 points, or let it release naturally for no Tanker
+score. Children remain independently shootable. Tankers and Flippers fire no
+bullets unless `--enemy-bullets-test` is combined with this scenario; Tankers
+are silent with `--tanker-test` alone.
 `--tanker-test` cannot be combined with `--spiker-test`.
 
-The cargo-direction correction passes 56 focused Tanker/cargo tests, 29
-Super Zapper tests, 28 Flipper tests, and the 321-test full suite. The solution
-builds with no warnings or errors. Manual validation of the corrected cargo
-route remains pending.
+Historical cargo-direction checkpoint validation: 56 focused Tanker/cargo
+tests, 29 Super Zapper tests, 28 Flipper tests, and 321 full-suite tests passed.
+Those counts and the checkpoint-era pending status are historical; later
+manual results and current validation are recorded in the behavior
+specification and milestone reports.
 
 ## Fuseball development wave
 
@@ -202,10 +185,12 @@ behavior; after Egg sources are exhausted, the separate all-rim completion
 path takes precedence when every active enemy reaches the rim.
 Normal Level 1, Spiker and Tanker scenarios do not enable hurry-up.
 
-This is source-derived behavior in artificial development compositions, not
-arcade-verified hurry-up. Neal's manual validation is pending; the behavior
-specification remains unchanged until review, automated validation and that
-manual validation are complete.
+This is source-derived behavior in artificial development compositions.
+Neal later manually tested both scenarios: observed Fuseball late-wave
+acceleration matched his Atari expectation, while the exact Pulsar redirect,
+trigger ticks and latch timing remain reference/project decisions rather than
+arcade-verified details. See the behavior specification for the evidence
+boundary.
 
 ## Super Zapper
 
@@ -239,12 +224,11 @@ proof of Atari arcade behavior. The C# simulation uses the project's existing
 60-update death freeze, stable source-order collections, and deferred
 same-tick Tanker-child activation policy.
 
-Focused Super Zapper validation: 29 passed, 0 failed, 0 skipped. The full
-solution suite: 318 passed, 0 failed, 0 skipped; build: 0 warnings, 0 errors.
-These are headless tests, not manual validation. Compare charge/input behavior,
-both target modes, per-enemy expiry, Tanker stillborn cargo, death/re-entry and
-flash presentation against an Atari cabinet before treating any behavior as
-**ARCADE VERIFIED**. Audio, charge HUD, new enemy types and progression remain
+Historical Super Zapper checkpoint validation: 29 focused tests and 318 full
+suite tests passed; the build had no warnings or errors. Neal later manually
+validated Super Zapper use in all five existing scenarios. Exact selection
+comparisons, timer values, accounting and timing remain source/project details,
+not arcade-verified. Audio, charge HUD, new enemy types and progression remain
 out of scope.
 
 ## Tanker-cargo direction correction

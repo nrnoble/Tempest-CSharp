@@ -36,8 +36,8 @@ public sealed class TempestGame
     // Incitti resolves shot collisions in object-creation order, not nearest depth, so development
     // scenarios record spawn order here. Spikes survive life loss; enemies and bullets do not.
     private readonly List<object> developmentCollisionOrder = [];
-    // Tanker scenario ledger. Original wave slots (0..EnemyTotal-1) and Tanker cargo units are
-    // tracked separately: cargo is added on top of the normal ten-unit wave and has its own IDs.
+    // Tanker scenario ledger. Original wave slots and Tanker cargo units are tracked separately;
+    // this development scenario adds cargo on top of the configured original supply.
     // Rim-cleared identities are separate outcomes from kills; unresolved IDs survive life loss,
     // while runtime enemy objects do not.
     private readonly HashSet<int> unresolvedOriginalSlots = [];
@@ -49,8 +49,11 @@ public sealed class TempestGame
     private readonly HashSet<int> rimClearedCargoUnits = [];
     private readonly Random random;
     private readonly int startingLives;
+    private readonly LevelConfiguration launchConfiguration;
+    private readonly bool spikerDevelopmentWave;
     private readonly bool enemyBulletsTest;
     private readonly bool tankerTest;
+    private Level? currentLevel;
     private int pulsePhase;
     private float pulseZh;
     private int fuseballAnimationTicks;
@@ -59,7 +62,8 @@ public sealed class TempestGame
     private int exitDelayTicks;
 
     public Player Player { get; }
-    public Level CurrentLevel { get; }
+    public Level CurrentLevel => currentLevel ??
+        throw new InvalidOperationException("The current Level has not been initialized.");
     public ScoreSystem Score { get; } = new();
     public SuperZapperSystem SuperZapper { get; } = new();
     public IReadOnlyList<Shot> Shots => shots;
@@ -126,14 +130,14 @@ public sealed class TempestGame
             throw new ArgumentException("Tanker, Spiker, Fuseball and Pulsar development waves cannot be combined.");
         this.random = random ?? Random.Shared;
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
+        this.launchConfiguration = LevelConfiguration.Level1;
+        this.spikerDevelopmentWave = spikerDevelopmentWave;
         this.enemyBulletsTest = enemyBulletsTest;
         this.tankerTest = tankerTest;
         FuseballTest = fuseballTest;
         PulsarTest = pulsarTest;
         Player = new Player(this.startingLives);
-        CurrentLevel = new Level(spikerDevelopmentWave, tankerTest);
-        CurrentLevel.SpikeCreated += spike => developmentCollisionOrder.Add(spike);
-        ResetLevel();
+        InitializeFreshWave();
     }
 
     public void RunOneStep(PlayerInput input = default, bool restartPressed = false)
@@ -153,7 +157,8 @@ public sealed class TempestGame
         else if (LevelComplete)
         {
             if (restartPressed)
-                ResetLevel();
+                // Complete is terminal: development replay reinstalls this launch's Level 1 config.
+                InitializeFreshWave();
         }
         else if (State == LevelState.ReverseZoom)
         {
@@ -225,18 +230,25 @@ public sealed class TempestGame
     {
         Score.Reset();
         Player.Lives = startingLives;
-        ResetLevel();
+        InitializeFreshWave();
     }
 
-    private void ResetLevel()
+    // Fresh initialization installs a new Level; life reconstruction deliberately retains it.
+    // Detaching and rebinding the one SpikeCreated handler keeps old hazards out of the new wave.
+    private void InitializeFreshWave()
     {
+        if (currentLevel is not null)
+            currentLevel.SpikeCreated -= OnSpikeCreated;
+
+        developmentCollisionOrder.Clear();
+        currentLevel = new Level(launchConfiguration, spikerDevelopmentWave, tankerTest);
+        currentLevel.SpikeCreated += OnSpikeCreated;
+        developmentCollisionOrder.AddRange(currentLevel.Spikes);
         CurrentLevel.State = LevelState.Playing;
         exitDelayTicks = 0;
         RestoreProjection();
         DeathTicks = 0;
         HurryUp = false;
-        developmentCollisionOrder.Clear();
-        CurrentLevel.Reset();
         SuperZapper.Reset();
         ResetPlayerPosition();
         shots.Clear();
@@ -252,6 +264,8 @@ public sealed class TempestGame
         ResetTankerLedger();
     }
 
+    private void OnSpikeCreated(Spike spike) => developmentCollisionOrder.Add(spike);
+
     private void ResetTankerLedger()
     {
         unresolvedOriginalSlots.Clear();
@@ -263,7 +277,7 @@ public sealed class TempestGame
         rimClearedCargoUnits.Clear();
         nextCargoUnitId = 0;
         if (tankerTest)
-            for (int slotId = 0; slotId < Level.EnemyTotal; slotId++)
+            for (int slotId = 0; slotId < CurrentLevel.EnemySupply; slotId++)
                 unresolvedOriginalSlots.Add(slotId);
     }
 
@@ -293,6 +307,7 @@ public sealed class TempestGame
 
     private void ResetAfterDeath()
     {
+        // Reconstruction keeps the same Level/configuration; only a fresh wave creates a new Level.
         // Ordinary life loss: every active enemy, shot and bullet is discarded and unresolved
         // enemies re-enter as fresh Eggs. Destroyed enemies stay destroyed and score is kept.
         // Spikes are level geometry and persist.
@@ -320,7 +335,8 @@ public sealed class TempestGame
 
     private void ResetPlayerPosition()
     {
-        Player.ResetPosition();
+        Player.ResetPosition(CurrentLevel.Configuration.InitialPlayerLane,
+            CurrentLevel.Configuration.InitialPlayerLanePosition);
         shotTimer = 3;
     }
 
@@ -504,7 +520,11 @@ public sealed class TempestGame
             return new Spiker(lane, 3);
         }
         int bulletAmmunition = enemyBulletsTest ? random.Next(1, 4) : 0;
-        return new Flipper(lane, 0, bulletAmmunition);
+        return CurrentLevel.Configuration.NormalEnemyComposition switch
+        {
+            LevelEnemyComposition.FlippersOnly => new Flipper(lane, 0, bulletAmmunition),
+            _ => throw new InvalidOperationException("The configured normal enemy composition is unsupported.")
+        };
     }
 
     private bool CheckShotAgainstDevelopmentTargets(Shot shot)
@@ -1039,7 +1059,13 @@ public sealed class TempestGame
 
     private void BeginExit()
     {
-        CurrentLevel.State = CurrentLevel.SpikerDevelopmentWave ? LevelState.AvoidSpikes : LevelState.ExitDelay;
+        CurrentLevel.State = CurrentLevel.SpikerDevelopmentWave
+            ? LevelState.AvoidSpikes
+            : CurrentLevel.Configuration.ExitPolicy switch
+            {
+                LevelExitPolicy.Standard => LevelState.ExitDelay,
+                _ => throw new InvalidOperationException("The configured Level exit policy is unsupported.")
+            };
         exitDelayTicks = 0;
         shots.Clear();
         enemyBullets.Clear();

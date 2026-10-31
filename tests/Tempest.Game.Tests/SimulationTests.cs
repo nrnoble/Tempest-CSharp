@@ -1023,7 +1023,7 @@ public sealed class SimulationTests
     [Fact]
     public void PulsarOpenTubeReflectsAtEndpointWithoutWrapping()
     {
-        Level level = new() { Continuous = false };
+        Level level = CreateTopologyLevel(continuous: false);
         Pulsar pulsar = new(0, Level.Depth);
         int calls = 0;
         int Roll(int _, int __) => calls++ == 0 ? 1 : 0;
@@ -1526,7 +1526,7 @@ public sealed class SimulationTests
     [InlineData(false, 14, 8, -1)]
     public void FuseballForwardWrapOrOpenEndpointBounce(bool continuous, int edge, int w, int direction)
     {
-        Level level = new() { Continuous = continuous };
+        Level level = CreateTopologyLevel(continuous);
         Fuseball fuseball = new(continuous ? 15 : 14);
         AdvanceFuseball(fuseball, level, 72);
         Assert.Equal(edge, fuseball.EdgeIndex);
@@ -1540,7 +1540,7 @@ public sealed class SimulationTests
     [InlineData(false, 0, 0)]
     public void FuseballReverseWrapOrOpenEndpointBounce(bool continuous, int edge, int w)
     {
-        Level level = new() { Continuous = continuous };
+        Level level = CreateTopologyLevel(continuous);
         Fuseball fuseball = new();
         // Same-edge retarget uses its own random tie roll: 0 chooses direction -1.
         AdvanceFuseball(fuseball, level, 9, (minimum, maximum) => maximum == 100 ? 91 : minimum);
@@ -1557,7 +1557,7 @@ public sealed class SimulationTests
     public void FuseballRetargetRespectsShortRouteOpenTubeAndOppositeTie(
         bool continuous, int edge, int playerEdge, int expectedEdge, int expectedW)
     {
-        Level level = new() { Continuous = continuous };
+        Level level = CreateTopologyLevel(continuous);
         Fuseball fuseball = new(edge);
         for (int tick = 0; tick < 9; tick++)
             fuseball.Update(level, playerEdge, (minimum, maximum) => maximum == 100 ? 91 : minimum);
@@ -5417,5 +5417,15 @@ public sealed class SimulationTests
     {
         for (int tick = 0; tick < ticks; tick++)
             game.RunOneStep(input);
+    }
+
+    private static Level CreateTopologyLevel(bool continuous)
+    {
+        LevelConfiguration level1 = LevelConfiguration.Level1;
+        LevelConfiguration fixture = level1 with
+        {
+            Definition = level1.Definition with { Continuous = continuous }
+        };
+        return new Level(fixture);
     }
 }

@@ -122,11 +122,15 @@ For Level 1:
 
 This behavior has been manually verified as matching the original arcade game and must not be "simplified" into ordinary overlap collision:
 
-- A Flipper reaching the outer/player rim does **not** immediately kill the Blaster.
+- A Flipper that arrives directly at the rim in the Blaster's lane kills on
+  that arrival. A Flipper arriving in another lane pauses and pivots toward the
+  Blaster; visual overlap during that pivot is safe until the pivot completes
+  into the occupied lane.
 - A Flipper paused on the rim remains shootable.
 - A Flipper remains shootable during the entire visible pivot toward the Blaster.
 - The player can rapidly move the Blaster underneath a Flipper while that Flipper is visibly pivoting. Visual overlap during that pivot does not kill the Blaster.
-- The Blaster is destroyed only after the Flipper fully completes its pivot into the lane/location currently occupied by the Blaster.
+- The Blaster is destroyed when the Flipper directly arrives in its lane or
+  fully completes a pivot into the lane/location currently occupied by it.
 - If the player destroys the Flipper before pivot completion, the Blaster survives.
 
 Automated tests should continue protecting this behavior.
@@ -208,9 +212,13 @@ Previously destroyed enemies must never reappear following player death.
 
 Level completion must not occur merely because no Flipper is currently visible if reserve or active Eggs still exist.
 
-## Current Level 1 Completion Goal
+## Level 1 Completion Goal
 
-The level is complete only after the entire 10-enemy supply has been destroyed and no reserve Egg, active Egg, or active Flipper remains.
+Historical prototype rule (superseded): completion required destroying all ten
+enemies. Current Level 1 completion also permits the established all-rim clear:
+after Eggs are exhausted, enemies reaching the rim resolve without kill score.
+The current behavior and evidence boundaries are recorded in
+`TEMPEST-BEHAVIOR-SPEC.md`.
 
 The Level Complete, Game Over, score, and lives displays already exist and should be preserved while new gameplay systems are added.
 
@@ -740,7 +748,8 @@ reserve/incoming Eggs plus all remaining enemies at the rim permit exit is
 the state-agnostic enemy set, exact update/tick ordering, pending-zap
 disposition, and permanent rim-clear handling across Spike reverse/retry are
 **REFERENCE VERIFIED / PROJECT DECISION**, not arcade-verified details.
-`TEMPEST-BEHAVIOR-SPEC.md` remains unchanged pending Neal's manual validation.
+The behavior specification was unchanged at this implementation checkpoint;
+its later history records Neal's broad manual validation.
 
 The single qualification check runs only in `Playing`, after Egg release,
 Egg update/hatching, enemy/zap updates, pending cargo activation, and all
@@ -763,11 +772,12 @@ AvoidSpikes path. Spikes remain persistent hazards; the Super Zapper flash
 continues through exit. Below-rim Fuseball/Pulsar Hurry-Up remains unchanged,
 and an existing latch does not block all-rim exit.
 
-Focused validation: all-rim/Hurry-Up 41 passed, Tanker/accounting 57 passed,
-Super Zapper 31 passed, Spiker/exit 50 passed; each had 0 failures and 0
-skipped. Full solution suite: 330 passed, 0 failed, 0 skipped. Solution build:
-0 warnings, 0 errors. `git diff --check` is recorded in the implementation
-report. These are headless tests; manual gameplay validation remains pending.
+Historical checkpoint validation: all-rim/Hurry-Up 41 passed,
+Tanker/accounting 57 passed, Super Zapper 31 passed, Spiker/exit 50 passed;
+the full suite had 330 passes and the build had no warnings or errors. Neal
+later manually confirmed broad all-rim behavior in all five listed scenarios.
+Exact thresholds and internal policies remain scoped as
+REFERENCE VERIFIED / PROJECT DECISION in the behavior specification.
 
 Manual validation commands:
 
@@ -779,10 +789,50 @@ dotnet run --project src\Tempest.Game -- --tanker-test --lives 10
 dotnet run --project src\Tempest.Game -- --spiker-test --lives 10
 ```
 
-Check normal Level 1 rim disappearance without kill score, a below-rim
-survivor delaying exit, Fuseball/Pulsar Hurry-Up then rim completion, Tanker
-cargo blocking below the rim and clearing only at the rim, pending Super
-Zapper behavior where observable, persistent Spikes during exit, and
-same-tick collision precedence. Exact threshold/tick behavior, stillborn zap
-timing, and Spike-reversal arcade behavior remain uncertain. No level
-progression or behavior-spec edit was included.
+Neal later manually confirmed the broad all-rim behavior in each listed
+scenario. Exact thresholds, update ordering, pending-zap handling, accounting
+and Spike-retry rules remain reference/project details as scoped in the
+behavior specification. The commands remain useful as a regression checklist.
+
+## Level 1 configuration groundwork
+
+`LevelConfiguration.Level1` now explicitly describes internal/displayed
+identity 0/1, board/palette 0/0, the existing closed Level 1 definition,
+depth/position, player start, supply, Egg pacing/sequences, standard exit
+policy and Flipper-only normal composition. `Level` remains the per-wave
+runtime object; it accepts configuration rather than constructing Level 1
+geometry internally.
+
+`TempestGame.InitializeFreshWave` installs a fresh runtime at initial setup,
+Level Complete replay and Game Over restart. Complete remains a terminal
+same-configuration replay; no progression or visible Level 2 transition is
+implemented. Ordinary death and Spike reverse/retry use reconstruction on the
+existing `Level`, preserving its configuration and resolved outcomes.
+
+Definitions distinguish 16 ordered vertices from playable lanes: the current
+closed Level 1 has 16 of each, while a geometry-only open-definition fixture
+has 16 vertices and 15 lanes. This does not claim full open-tube gameplay.
+The current four-Egg cap, release cadence and deterministic sequences are
+project decisions, not literal Incitti behavior.
+
+Fresh initialization detaches the old `SpikeCreated` callback and binds one
+callback to the replacement runtime. The random source and shared pulse phase
+continue across fresh replay as before; Fuseball animation resets on fresh
+initialization and carries through life reconstruction. No behavior-spec
+change or progression assertion was made for this groundwork.
+
+## Deferred manual observations outside Stage A
+
+- **Tanker firing fidelity:** `--tanker-test` alone remains silent;
+  `--tanker-test --enemy-bullets-test` enables Tanker firing. Neal observed one
+  Tanker shot in a run but could not assess whether a second would occur
+  before release/rim arrival. His arcade experience is that Tankers fire
+  individual shots at intervals and at least two can occur before reaching
+  that area. This predates Stage A and is not a Stage A regression. Do not
+  infer exact ammunition, interval, random probability, initial delay or
+  height cutoff; current exact values remain Incitti-derived unless measured.
+- **Blaster rim movement:** movement works, but Neal perceives a very small
+  delay between lane movements compared with the arcade spinner. Cause is
+  unknown and unestablished. This is not a Stage A blocker; revisit before
+  higher-level gameplay where tighter timing may affect playability. No
+  movement or input tuning was part of Stage A.

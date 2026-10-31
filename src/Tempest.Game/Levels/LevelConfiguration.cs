@@ -1,0 +1,60 @@
+namespace Tempest.Game.Levels;
+
+public enum LevelExitPolicy
+{
+    Standard
+}
+
+public enum LevelEnemyComposition
+{
+    FlippersOnly
+}
+
+/// <summary>
+/// Immutable wave data. A Level owns the mutable runtime state created from this configuration.
+/// </summary>
+public sealed record LevelConfiguration(
+    int ProgressionIndex,
+    int DisplayedLevel,
+    int BoardIndex,
+    int PaletteIndex,
+    LevelDefinition Definition,
+    float Depth,
+    float Position,
+    int InitialPlayerLane,
+    float InitialPlayerLanePosition,
+    int EnemySupply,
+    int InitialActiveEggCount,
+    int ReserveReleaseIntervalTicks,
+    int MaximumActiveEggs,
+    int MaximumApproachingEggs,
+    int HatchSelectionIntervalTicks,
+    IReadOnlyList<int> SpawnLaneSequence,
+    IReadOnlyList<int> EggDirectionSequence,
+    LevelExitPolicy ExitPolicy,
+    LevelEnemyComposition NormalEnemyComposition)
+{
+    public int VertexCount => Definition.VertexCount;
+    public int PlayableLaneCount => Definition.PlayableLaneCount;
+
+    public static LevelConfiguration Level1 { get; } = new(
+        ProgressionIndex: 0,
+        DisplayedLevel: 1,
+        BoardIndex: 0,
+        PaletteIndex: 0,
+        Definition: LevelLoader.LoadLevel1(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: 10,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(new[] { 12, 4, 9, 1, 14, 6, 10, 2, 15, 7 }),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.Standard,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersOnly);
+}
