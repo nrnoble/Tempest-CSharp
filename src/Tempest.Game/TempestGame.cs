@@ -69,6 +69,7 @@ public sealed class TempestGame
     public IReadOnlyList<FuseballScorePopup> FuseballScorePopups => fuseballScorePopups;
     public bool FuseballTest { get; }
     public bool PulsarTest { get; }
+    public bool HurryUp { get; private set; }
     public int PulsePhase => pulsePhase;
     public bool Pulsing { get; private set; }
     public float PulseZh => pulseZh;
@@ -193,6 +194,7 @@ public sealed class TempestGame
             CheckPulsarsAgainstPlayer();
             CheckEnemyBulletsAgainstPlayer();
             CheckSpikesAgainstPlayer();
+            LatchHurryUp();
             CheckForLevelComplete();
         }
     }
@@ -210,6 +212,7 @@ public sealed class TempestGame
         exitDelayTicks = 0;
         RestoreProjection();
         DeathTicks = 0;
+        HurryUp = false;
         developmentCollisionOrder.Clear();
         CurrentLevel.Reset();
         ResetPlayerPosition();
@@ -267,6 +270,8 @@ public sealed class TempestGame
         // Ordinary life loss: every active enemy, shot and bullet is discarded and unresolved
         // enemies re-enter as fresh Eggs. Destroyed enemies stay destroyed and score is kept.
         // Spikes are level geometry and persist.
+        // Incitti's rimit belongs to the same-level attempt, not the reconstructed enemy objects.
+        // Keep the latch even though fresh Eggs temporarily make its original trigger false.
         if (tankerTest)
         {
             ResetTankerScenarioAfterDeath();
@@ -567,7 +572,7 @@ public sealed class TempestGame
     private void UpdateFuseballs()
     {
         foreach (Fuseball fuseball in fuseballs)
-            fuseball.Update(CurrentLevel, Player.EdgeIndex, NextRandomInclusive);
+            fuseball.Update(CurrentLevel, Player.EdgeIndex, NextRandomInclusive, HurryUp);
     }
 
     private void AdvancePulseClock()
@@ -585,7 +590,18 @@ public sealed class TempestGame
     private void UpdatePulsars()
     {
         foreach (Pulsar pulsar in pulsars)
-            pulsar.Update(CurrentLevel, Player.EdgeIndex, NextRandomInclusive);
+            pulsar.Update(CurrentLevel, Player.EdgeIndex, NextRandomInclusive, HurryUp);
+    }
+
+    private void LatchHurryUp()
+    {
+        // Like Incitti's end-of-loop rimit decision, observe post-hatch, post-enemy-update state.
+        // Only later updates see the latch; reaching the rim cannot undo same-attempt hurry-up.
+        if (!HurryUp && (FuseballTest || PulsarTest) &&
+            CurrentLevel.ReserveEggs == 0 && Eggs.Count == 0 &&
+            (fuseballs.Any(enemy => enemy.Height < Level.Depth) ||
+             pulsars.Any(enemy => enemy.Height < Level.Depth)))
+            HurryUp = true;
     }
 
     private void CheckPulsarsAgainstPlayer()
@@ -776,6 +792,8 @@ public sealed class TempestGame
 
     private bool CheckForLevelComplete()
     {
+        // Deliberately omit Incitti's onrim exit: hurry-up never resolves a unit or replaces
+        // this project's kill-all completion policy.
         // Normal Level 1 uses the conservation check in Level.IsComplete. The Tanker scenario
         // has a dynamic ledger (cargo adds units), so it requires every slot and cargo unit resolved.
         bool complete = tankerTest

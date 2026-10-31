@@ -142,7 +142,7 @@ animation, and the 250–1250 height-based score labels. Shots hit only inside
 travel at the rim is lethal. Source `cnt > 8` means lateral steps are actually
 nine updates apart (the earlier analysis called this eight); vertical duration
 is rerolled each update. Surviving units return as fresh Eggs after life loss.
-Normal Level 1 remains unchanged. Tanker cargo, hurry-up, Zapper, audio and
+Normal Level 1 remains unchanged. Tanker cargo, Zapper, audio and
 progression are not part of this milestone.
 
 ## Pulsar development wave
@@ -162,7 +162,34 @@ the Spiker, Tanker and Fuseball scenarios; `--lives` composes, and
 
 Compare the glyph, lane flashing, movement, collision and re-entry with Atari
 Tempest manually. This is not normal Level 17 composition and does not add
-Tanker cargo, hurry-up, Zapper, audio, open-tube rendering or progression.
+Tanker cargo, Zapper, audio, open-tube rendering or progression.
+
+## Source-derived hurry-up in the direct development waves
+
+`--fuseball-test` and `--pulsar-test` now use Incitti's latched `rimit` rule.
+At the end of an active simulation tick, after Egg approach/hatching, enemy
+updates and player-collision checks, hurry-up activates only when reserve Eggs
+and active Eggs are exhausted and an active enemy remains below depth 400.
+The last hatchling receives its ordinary update on that trigger tick; enemy
+updates begin using the latch on the next tick.
+
+At a lateral-boundary decision, hurried Fuseballs climb even if the ordinary
+random result selected descent. Climbing applies the existing 3.3 term twice
+(6.6 per climbing update), clamped at the rim. Existing descent and nine-update
+lateral cadence are unchanged. Hurried Pulsars choose the top-end lane-flip
+branch instead of descent, keeping one-unit movement, existing pauses, lane
+transfer and the shared pulse timing/rendering.
+
+The latch survives the full player-death freeze and fresh-Egg reconstruction;
+R after Game Over or Level Complete clears it on restart/replay. It adds no
+score, kills or accounting changes. All enemies must still be destroyed before
+exit; Incitti's separate onrim-based exit rule is deliberately not copied.
+Normal Level 1, Spiker and Tanker scenarios do not enable hurry-up.
+
+This is source-derived behavior in artificial development compositions, not
+arcade-verified hurry-up. Neal's manual validation is pending; the behavior
+specification remains unchanged until review, automated validation and that
+manual validation are complete.
 
 ## Reference mapping
 - `tempest.bmx` -> gameplay and state behavior

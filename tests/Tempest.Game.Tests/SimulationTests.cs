@@ -10,6 +10,764 @@ namespace Tempest.Game.Tests;
 
 public sealed class SimulationTests
 {
+    // --- Incitti rimit: end-of-tick latch, confined to the direct development waves ---
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void HurryUpIsFalseWhileReserveEggsRemain(bool pulsar)
+    {
+        TempestGame game = pulsar ? HatchDevelopmentPulsar() : HatchDevelopmentFuseball();
+        Assert.True(game.CurrentLevel.ReserveEggs > 0);
+        while (game.Eggs.Count > 0)
+            ResolveRemainingHurryUpEgg(game);
+        Assert.Empty(game.Eggs);
+        Assert.False(game.HurryUp);
+        game.RunOneStep();
+        Assert.False(game.HurryUp);
+        AssertHurryUpAccounting(game);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void HurryUpIsFalseWhileAnActiveEggRemainsWithoutReserve(bool pulsar)
+    {
+        TempestGame game = PrepareHurryUpEggs(pulsar, survivors: 2);
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Assert.Equal(0, game.CurrentLevel.ReserveEggs);
+        Assert.Single(game.Eggs);
+        Assert.Single(HurryUpEnemies(game));
+        Assert.False(game.HurryUp);
+        game.RunOneStep();
+        Assert.False(game.HurryUp);
+        AssertHurryUpAccounting(game);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void HurryUpDoesNotActivateWithoutActiveEnemies(bool pulsar)
+    {
+        TempestGame game = PrepareHurryUpEggs(pulsar);
+        ResolveRemainingHurryUpEgg(game);
+        Assert.Empty(game.Eggs);
+        Assert.Equal(0, game.CurrentLevel.ReserveEggs);
+        Assert.Empty(HurryUpEnemies(game));
+        game.RunOneStep();
+        Assert.False(game.HurryUp);
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        AssertHurryUpAccounting(game);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void HurryUpDoesNotActivateWhenAllActiveEnemiesAreAtTheRim(bool pulsar)
+    {
+        TempestGame game = PrepareHurryUpEggs(pulsar, survivors: 2);
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Enemy active = Assert.Single(HurryUpEnemies(game));
+        AdvanceHurryUpEnemyToRim(active, game.CurrentLevel);
+        ResolveRemainingHurryUpEgg(game);
+        game.RunOneStep();
+        Assert.Equal(Level.Depth, active.Height);
+        Assert.False(game.HurryUp);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.False(game.IsExiting);
+        AssertHurryUpAccounting(game);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void HurryUpActivatesOnTheLastEggHatchTickAfterItsFirstEnemyUpdate(bool pulsar)
+    {
+        TempestGame game = PrepareHurryUpEggs(pulsar);
+        Egg last = Assert.Single(game.Eggs);
+        game.Score.Add(17);
+        last.BeginApproach();
+        Step(game, 39);
+        Assert.Equal(EggState.Approaching, last.State);
+        Assert.Equal(-2, last.Height);
+        Assert.Equal(7, last.UpdateCounter);
+        Assert.False(game.HurryUp);
+        Assert.Empty(HurryUpEnemies(game));
+        Assert.Equal(9, game.CurrentLevel.EnemiesDestroyed);
+
+        game.RunOneStep(); // Approach update 40 removes the last Egg and updates its hatchling.
+        Assert.Equal(EggState.ReadyToHatch, last.State);
+        Assert.Empty(game.Eggs);
+        Assert.Equal(0, game.CurrentLevel.ReserveEggs);
+        Enemy active = Assert.Single(HurryUpEnemies(game));
+        Assert.True(game.HurryUp);
+        Assert.Equal(pulsar ? 1f : 0f, active.Height);
+        if (active is Fuseball fuseball)
+        {
+            Assert.Equal(1, fuseball.StateTicks);
+            Assert.Equal(0, fuseball.W);
+        }
+        else
+            Assert.Equal(1, Assert.IsType<Pulsar>(active).TimeToFlip);
+        Assert.Equal(17, game.Score.Score);
+        Assert.Equal(9, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.False(game.IsExiting);
+        AssertHurryUpAccounting(game);
+    }
+
+    [Fact]
+    public void HurryUpFuseballUsesOrdinaryClimbOnTriggerTickThenDoubleClimbOnNextTick()
+    {
+        TempestGame game = PrepareHurryUpEggs(pulsar: false, survivors: 2);
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Fuseball active = Assert.Single(game.Fuseballs);
+        AdvanceFuseball(active, game.CurrentLevel, 71);
+        Assert.Equal(FuseballState.Climbing, active.State);
+        Assert.Equal(0, active.Height);
+        Assert.False(game.HurryUp);
+        MakeReady(Assert.Single(game.Eggs), game.CurrentLevel);
+
+        game.RunOneStep();
+        Assert.Equal(3.3f, active.Height);
+        Assert.True(game.HurryUp);
+        Assert.Equal(1, game.Fuseballs[1].StateTicks);
+        game.RunOneStep();
+        Assert.Equal(3.3f + 3.3f + 3.3f, active.Height);
+        AssertHurryUpAccounting(game);
+    }
+
+    [Fact]
+    public void HurryUpPulsarUsesOrdinaryTopDecisionOnTriggerTickNotTheNewLatch()
+    {
+        TempestGame game = PrepareHurryUpEggs(pulsar: true, survivors: 2);
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Pulsar active = Assert.Single(game.Pulsars);
+        AdvanceHurryUpEnemyToRim(active, game.CurrentLevel);
+        MakeReady(Assert.Single(game.Eggs), game.CurrentLevel);
+
+        game.RunOneStep();
+        Assert.True(game.HurryUp);
+        Assert.Equal(PulsarState.RimPause, active.State);
+        Assert.Equal(PulsarState.Descending, active.ResumeState);
+        Assert.Equal(14, active.PauseTicks);
+        Assert.Equal(1, game.Pulsars[1].Height);
+        Step(game, 14);
+        Assert.Equal(PulsarState.Descending, active.State);
+        Assert.Equal(Level.Depth, active.Height);
+        game.RunOneStep();
+        Assert.Equal(Level.Depth - 1, active.Height);
+        AssertHurryUpAccounting(game);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void HurryUpTriggerUsesPostUpdateHeightNotThePreUpdateBelowRimHeight(bool pulsar)
+    {
+        TempestGame game = PrepareHurryUpEggs(pulsar, survivors: 2);
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Enemy active = Assert.Single(HurryUpEnemies(game));
+        if (active is Fuseball fuseball)
+            AdvanceFuseballToLastClimbBelowRim(fuseball, game.CurrentLevel);
+        else
+            AdvancePulsarToHeight(Assert.IsType<Pulsar>(active), game.CurrentLevel, Level.Depth - 1);
+        Assert.True(active.Height < Level.Depth);
+        ResolveRemainingHurryUpEgg(game);
+        Assert.False(game.HurryUp);
+        game.RunOneStep();
+        Assert.Equal(Level.Depth, active.Height);
+        Assert.False(game.HurryUp); // Pre-update height would incorrectly latch on this update.
+        Assert.Equal(LevelState.Playing, game.State);
+        AssertHurryUpAccounting(game);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void HurryUpRemainsLatchedAtTheRimWithoutResolvingTheLastEnemy(bool pulsar)
+    {
+        TempestGame game = HatchFinalHurryUpEnemy(pulsar);
+        Enemy active = Assert.Single(HurryUpEnemies(game));
+        AdvanceHurryUpEnemyToRim(active, game.CurrentLevel);
+        game.Player.Move(game.CurrentLevel.NextEdge(active.EdgeIndex) - game.Player.EdgeIndex, 16);
+        game.Score.Add(17);
+        game.RunOneStep();
+        Assert.True(game.HurryUp);
+        Assert.Equal(Level.Depth, active.Height);
+        Assert.Equal(17, game.Score.Score);
+        Assert.Equal(9, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(0, game.CurrentLevel.ReserveEggs);
+        Assert.Empty(game.Eggs);
+        Assert.Single(HurryUpEnemies(game));
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.False(game.IsExiting);
+        AssertHurryUpAccounting(game);
+    }
+
+    [Fact]
+    public void HurryUpFuseballForcesClimbWithTheSameDescendingRollAndLateralCadence()
+    {
+        Level level = new();
+        Fuseball ordinary = CreateHurryUpLateralFuseball(level);
+        Fuseball hurried = CreateHurryUpLateralFuseball(level);
+        float initialHeight = hurried.Height;
+        List<(int, int)> ordinaryRolls = [];
+        List<(int, int)> hurriedRolls = [];
+        int Roll(List<(int, int)> rolls, int min, int max)
+        {
+            rolls.Add((min, max));
+            return max == 2 ? 2 : min;
+        }
+        for (int tick = 1; tick <= 72; tick++)
+        {
+            ordinary.Update(level, 8, (min, max) => Roll(ordinaryRolls, min, max));
+            hurried.Update(level, 8, (min, max) => Roll(hurriedRolls, min, max), hurryUp: true);
+            Assert.Equal(ordinary.W, hurried.W);
+            Assert.Equal(ordinary.EdgeIndex, hurried.EdgeIndex);
+            Assert.Equal(ordinary.Direction, hurried.Direction);
+            Assert.Equal(ordinary.StateTicks, hurried.StateTicks);
+            Assert.Equal(tick / 9 % 8, hurried.W);
+            if (tick < 72)
+                Assert.Equal(FuseballState.Lateral, hurried.State);
+        }
+        Assert.Equal(ordinaryRolls, hurriedRolls);
+        Assert.Equal(9, hurriedRolls.Count);
+        Assert.Equal(FuseballState.Descending, ordinary.State);
+        Assert.Equal(FuseballState.Climbing, hurried.State);
+        Assert.Equal(initialHeight, hurried.Height);
+    }
+
+    [Theory]
+    [InlineData(1f)]
+    [InlineData(3.3f)]
+    [InlineData(7.25f)]
+    public void HurryUpFuseballAddsTheExistingClimbTermExactlyTwice(float speed)
+    {
+        Level level = new();
+        Fuseball fuseball = new(climbSpeed: speed);
+        AdvanceFuseball(fuseball, level, 72);
+        fuseball.Update(level, 8, (_, _) => 3, hurryUp: true);
+        Assert.Equal(speed + speed, fuseball.Height);
+        if (speed == 3.3f)
+            Assert.Equal(6.6f, fuseball.Height);
+        Assert.Equal(FuseballState.Climbing, fuseball.State);
+        Assert.Equal(1, fuseball.StateTicks);
+    }
+
+    [Fact]
+    public void HurryUpFuseballClampsAtRimAndPreservesCollisionScoreAndLateralResume()
+    {
+        Level level = new();
+        Fuseball fuseball = new(3);
+        AdvanceFuseballToLastClimbBelowRim(fuseball, level);
+        fuseball.Update(level, 8, (_, _) => 3, hurryUp: true);
+        Assert.Equal(Level.Depth, fuseball.Height);
+        Assert.Equal(FuseballState.Climbing, fuseball.State);
+        Assert.False(fuseball.HitsPlayer(new Player()));
+        fuseball.Update(level, 8, (_, _) => throw new InvalidOperationException(), hurryUp: true);
+        Assert.Equal(FuseballState.Lateral, fuseball.State);
+        Assert.Equal(0, fuseball.StateTicks);
+        for (int tick = 0; tick < 18; tick++)
+            fuseball.Update(level, 8, (_, _) => 0, hurryUp: true);
+        Assert.Equal(2, fuseball.W);
+        Player player = new();
+        player.Move(fuseball.EdgeIndex - player.EdgeIndex, 16);
+        Assert.True(fuseball.HitsPlayer(player));
+        Assert.True(fuseball.IsHitBy(new Shot { EdgeIndex = fuseball.EdgeIndex, Height = 399 }));
+        Assert.False(fuseball.IsHitBy(new Shot { EdgeIndex = fuseball.EdgeIndex, Height = 384 }));
+        Assert.Equal(250, fuseball.KillScore);
+    }
+
+    [Fact]
+    public void HurryUpFuseballDoesNotChangeExistingDescentOrDurationDecision()
+    {
+        Level level = new();
+        Fuseball ordinary = CreateHurryUpLateralFuseball(level);
+        Fuseball hurried = CreateHurryUpLateralFuseball(level);
+        float initialHeight = hurried.Height;
+        foreach (Fuseball fuseball in new[] { ordinary, hurried })
+            AdvanceFuseball(fuseball, level, 72, (_, max) => max == 2 ? 2 : 0);
+        Assert.Equal(FuseballState.Descending, hurried.State);
+        for (int tick = 1; tick <= 26; tick++)
+        {
+            ordinary.Update(level, 8, (_, _) => 1);
+            hurried.Update(level, 8, (_, _) => 1, hurryUp: true);
+            Assert.Equal(ordinary.Height, hurried.Height);
+            Assert.Equal(ordinary.StateTicks, hurried.StateTicks);
+            Assert.Equal(ordinary.State, hurried.State);
+            if (tick == 1)
+                Assert.Equal(initialHeight - 3.3f, hurried.Height);
+        }
+        Assert.Equal(FuseballState.Lateral, hurried.State);
+    }
+
+    [Fact]
+    public void HurryUpPulsarForcesTopFlipWithTheSameZeroRollAndPreservesPauseAndTransfer()
+    {
+        Level level = new();
+        Pulsar ordinary = new(3, Level.Depth);
+        Pulsar hurried = new(3, Level.Depth);
+        int ordinaryRolls = 0;
+        int hurriedRolls = 0;
+        ordinary.Update(level, 8, (_, _) => { ordinaryRolls++; return 0; });
+        hurried.Update(level, 8, (_, _) => { hurriedRolls++; return 0; }, hurryUp: true);
+        Assert.Equal(ordinaryRolls, hurriedRolls);
+        Assert.Equal(1, hurriedRolls);
+        Assert.Equal(PulsarState.RimPause, ordinary.State);
+        Assert.Equal(PulsarState.Descending, ordinary.ResumeState);
+        Assert.Equal(PulsarState.LanePause, hurried.State);
+        Assert.Equal(PulsarState.Flipping, hurried.ResumeState);
+        Assert.Equal(18, hurried.PauseTicks);
+        for (int tick = 0; tick < 17; tick++)
+            hurried.Update(level, 8, (_, _) => throw new InvalidOperationException(), hurryUp: true);
+        Assert.Equal(1, hurried.PauseTicks);
+        Assert.Equal(3, hurried.EdgeIndex);
+        Assert.Equal(Level.Depth, hurried.Height);
+        hurried.Update(level, 8, (_, _) => throw new InvalidOperationException(), hurryUp: true);
+        Assert.Equal(4, hurried.EdgeIndex);
+        Assert.Equal(PulsarState.Flipping, hurried.State);
+        Assert.Equal(0, hurried.TimeToFlip);
+        Assert.Equal(0, hurried.TurnAngle);
+        int flipTicks = (int)MathF.Ceiling(hurried.TotalTurnAngle / Pulsar.PulseFlipSpeed);
+        for (int tick = 0; tick < flipTicks; tick++)
+            hurried.Update(level, 8, (_, _) => throw new InvalidOperationException(), hurryUp: true);
+        Assert.Equal(Level.Depth, hurried.Height);
+        Assert.Equal(PulsarState.RimPause, hurried.State);
+        Assert.Equal(PulsarState.Climbing, hurried.ResumeState);
+        Assert.Equal(14, hurried.PauseTicks);
+    }
+
+    [Fact]
+    public void HurryUpPulsarPreservesOneUnitClimbDescentAndMidTubeDecisions()
+    {
+        Level level = new();
+        Pulsar ordinary = new(3, 100);
+        Pulsar hurried = new(3, 100);
+        for (int tick = 1; tick <= 51; tick++)
+        {
+            ordinary.Update(level, 8, (_, _) => 0);
+            hurried.Update(level, 8, (_, _) => 0, hurryUp: true);
+            Assert.Equal(100 + tick, hurried.Height);
+            Assert.Equal(ordinary.Height, hurried.Height);
+            Assert.Equal(ordinary.State, hurried.State);
+            Assert.Equal(ordinary.PauseTicks, hurried.PauseTicks);
+        }
+        Assert.Equal(PulsarState.RimPause, hurried.State);
+        Pulsar descending = new(3, Level.Depth);
+        descending.Update(level, 8, (_, _) => 0);
+        AdvancePulsar(descending, level, 14, 8, (_, _) => 0);
+        descending.Update(level, 8, (_, _) => 0, hurryUp: true);
+        Assert.Equal(Level.Depth - 1, descending.Height);
+        Assert.Equal(PulsarState.Descending, descending.State);
+
+        Pulsar flipping = new(3, 100);
+        AdvancePulsar(flipping, level, 51, 8, (_, _) => 1);
+        AdvancePulsar(flipping, level, 18, 8, (_, _) => 0);
+        Assert.Equal(PulsarState.Flipping, flipping.State);
+        flipping.Update(level, 8, (_, _) => 0, hurryUp: true);
+        Assert.Equal(152, flipping.Height);
+    }
+
+    [Fact]
+    public void HurryUpCanLatchAfterSameTickPlayerCollisionAndThenFreezes()
+    {
+        TempestGame game = PrepareHurryUpEggs(pulsar: true, survivors: 2);
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Pulsar rim = Assert.Single(game.Pulsars);
+        AdvanceHurryUpEnemyToRim(rim, game.CurrentLevel);
+        game.Player.Move(rim.EdgeIndex - game.Player.EdgeIndex, 16);
+        MakeReady(Assert.Single(game.Eggs), game.CurrentLevel);
+        Assert.False(game.HurryUp);
+        game.RunOneStep();
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Assert.True(game.HurryUp);
+        Assert.Empty(game.Eggs);
+        Assert.Equal(1, game.Pulsars[1].Height);
+        game.RunOneStep();
+        Assert.True(game.HurryUp);
+        Assert.Equal(1, game.Pulsars[1].Height);
+        AssertHurryUpAccounting(game);
+    }
+
+    [Fact]
+    public void HurryUpPulsarKeepsTheSharedOscillatorAndExistingRenderSubmissionsForAFullCycle()
+    {
+        TempestGame game = HatchFinalHurryUpEnemy(pulsar: true);
+        Pulsar pulsar = Assert.Single(game.Pulsars);
+        game.Player.Move(0 - game.Player.EdgeIndex, 16);
+        VectorRenderer renderer = new(game);
+        for (int tick = 0; tick < 181; tick++)
+        {
+            int phase = (tick + 1) % 181;
+            bool pulsing = phase > 70 && phase < 110;
+            float amplitude = MathF.Abs(phase % 90 - 45) / 4f;
+            Assert.True(game.HurryUp);
+            Assert.Equal(LevelState.Playing, game.State);
+            Assert.Equal(phase, game.PulsePhase);
+            Assert.Equal(pulsing, game.Pulsing);
+            Assert.Equal(amplitude < 2 ? 0 : MathF.Min(amplitude, 12), game.PulseZh);
+            List<(Vector2 Start, Vector2 End, Color Color)> lines = [];
+            renderer.DrawPulsars((start, end, color) => lines.Add((start, end, color)));
+            Assert.Equal(6, lines.Count);
+            Assert.All(lines, line => { AssertFinite(line.Start); AssertFinite(line.End); });
+            Assert.All(lines, line => Assert.Equal(pulsing ? Color.White : new Color(0, 255, 255, 255),
+                line.Color));
+            float depth = Level.Position + Level.Depth - pulsar.Height;
+            Vector2 firstPoint = game.CurrentLevel.Definition.Points[pulsar.EdgeIndex];
+            Vector2 nextPoint = game.CurrentLevel.Definition.Points[
+                game.CurrentLevel.NextEdge(pulsar.EdgeIndex)];
+            Vector2 start = Projection.Project(firstPoint.X, firstPoint.Y, depth,
+                game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+            Vector2 end = Projection.Project(nextPoint.X, nextPoint.Y, depth,
+                game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+            Vector2 delta = start - end;
+            Vector2 normal = new(-delta.Y / delta.Length(), delta.X / delta.Length());
+            Assert.Equal(start, lines[0].Start);
+            Assert.Equal(Vector2.Lerp(start, end, .2f) - normal * game.PulseZh, lines[0].End);
+            bool lanePulsing = Pulsar.IsLanePulsing(pulsar.Height, pulsing);
+            AssertPulsarTubeGeometry(game, lanePulsing ? [pulsar.EdgeIndex] : []);
+            int overlays = 0;
+            renderer.DrawPulsingLaneBoundaries((_, _, color) =>
+            {
+                overlays++;
+                Assert.Equal(phase % 8 > 3 ? new Color(0, 255, 255, 255) : Color.White, color);
+            });
+            Assert.Equal(lanePulsing ? 2 : 0, overlays);
+            game.RunOneStep();
+        }
+        AssertHurryUpAccounting(game);
+    }
+
+    [Fact]
+    public void HurryUpPulsingLaneCollisionStillStartsOnPhaseSeventyOne()
+    {
+        TempestGame game = HatchFinalHurryUpEnemy(pulsar: true);
+        Pulsar pulsar = Assert.Single(game.Pulsars);
+        game.Player.Move(pulsar.EdgeIndex - game.Player.EdgeIndex, 16);
+        Step(game, 69);
+        Assert.Equal(70, game.PulsePhase);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.True(game.HurryUp);
+        game.RunOneStep();
+        Assert.Equal(71, game.PulsePhase);
+        Assert.True(game.Pulsing);
+        Assert.True(pulsar.Height < Level.Depth - 8);
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Assert.Equal(9, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(0, game.Score.Score);
+        AssertHurryUpAccounting(game);
+    }
+
+    [Fact]
+    public void HurryUpFuseballKeepsAllFourAnimationFramesAndFiveColorGeometry()
+    {
+        TempestGame game = HatchFinalHurryUpEnemy(pulsar: false);
+        VectorRenderer renderer = new(game);
+        Vector2[] firstArmPoints = [new(7, -5), new(6, -8), new(5, -8), new(6, -6)];
+        HashSet<int> frames = [];
+        for (int tick = 0; tick < 16; tick++)
+        {
+            Assert.True(game.HurryUp);
+            Assert.Equal((tick + 1) % 16 / 4, game.FuseballAnimationFrame);
+            frames.Add(game.FuseballAnimationFrame);
+            List<(Vector2 Start, Vector2 End, Color Color)> lines = [];
+            renderer.DrawFuseballs((start, end, color) => lines.Add((start, end, color)));
+            Assert.Equal(25, lines.Count);
+            Assert.Equal(5, lines.Select(line => line.Color).Distinct().Count());
+            Assert.All(lines, line => { AssertFinite(line.Start); AssertFinite(line.End); });
+            Fuseball fuseball = Assert.Single(game.Fuseballs);
+            float scale = (8 / ((Level.Position + Level.Depth - fuseball.Height + Projection.ZOffset) /
+                Projection.K) + .25f) / 6;
+            Vector2 expectedTip = firstArmPoints[game.FuseballAnimationFrame] * scale;
+            Assert.InRange(Vector2.Distance(expectedTip, lines[0].End - lines[0].Start), 0, .0001f);
+            game.RunOneStep();
+        }
+        Assert.Equal(4, frames.Count);
+        AssertHurryUpAccounting(game);
+    }
+
+    [Theory]
+    [InlineData(false, 10)]
+    [InlineData(true, 10)]
+    [InlineData(false, 2)]
+    [InlineData(true, 2)]
+    public void HurryUpFreezesThroughDeathAndPersistsThroughFullSameLevelReconstruction(
+        bool pulsar, int survivors)
+    {
+        TempestGame game = HatchHurryUpWave(pulsar, survivors: survivors);
+        Enemy old = HurryUpEnemies(game).First();
+        game.Score.Add(17);
+        BeginHurryUpDeath(game, old);
+        int phase = game.PulsePhase;
+        float zh = game.PulseZh;
+        bool pulsing = game.Pulsing;
+        int frame = game.FuseballAnimationFrame;
+        float[] heights = HurryUpEnemies(game).Select(enemy => enemy.Height).ToArray();
+        Step(game, 59);
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Assert.Equal(1, game.DeathTicks);
+        Assert.True(game.HurryUp);
+        Assert.Equal(phase, game.PulsePhase);
+        Assert.Equal(zh, game.PulseZh);
+        Assert.Equal(pulsing, game.Pulsing);
+        Assert.Equal(frame, game.FuseballAnimationFrame);
+        Assert.Equal(heights, HurryUpEnemies(game).Select(enemy => enemy.Height).ToArray());
+        Assert.Empty(game.Eggs);
+        Assert.Equal(0, game.CurrentLevel.ReserveEggs);
+        AssertHurryUpAccounting(game);
+
+        game.RunOneStep();
+        Assert.True(game.HurryUp);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(2, game.Player.Lives);
+        Assert.Equal(17, game.Score.Score);
+        Assert.Equal(10 - survivors, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Empty(HurryUpEnemies(game));
+        Assert.Equal(Math.Min(4, survivors), game.Eggs.Count);
+        Assert.Equal(Math.Max(0, survivors - 4), game.CurrentLevel.ReserveEggs);
+        Assert.Equal(phase, game.PulsePhase);
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Enemy fresh = Assert.Single(HurryUpEnemies(game));
+        Assert.NotSame(old, fresh);
+        Assert.True(game.HurryUp);
+        Assert.NotEmpty(game.Eggs);
+        Assert.Equal(pulsar ? 1f : 0f, fresh.Height);
+        if (fresh is Fuseball fuseball)
+        {
+            Assert.Equal(1, fuseball.StateTicks);
+            Step(game, 71);
+            Assert.Equal(FuseballState.Climbing, fuseball.State);
+            Assert.Equal(0, fuseball.Height);
+            game.RunOneStep(); // First climbing update after fresh-Egg re-entry.
+            Assert.Equal(6.6f, fuseball.Height);
+        }
+        else
+        {
+            AdvanceHurryUpEnemyToRim(fresh, game.CurrentLevel);
+            game.RunOneStep(); // First eligible top-end decision after re-entry.
+            Pulsar restored = Assert.IsType<Pulsar>(fresh);
+            Assert.Equal(PulsarState.LanePause, restored.State);
+            Assert.Equal(PulsarState.Flipping, restored.ResumeState);
+        }
+        if (survivors == 10)
+        {
+            Assert.True(game.CurrentLevel.ReserveEggs > 0);
+            Assert.NotEmpty(game.Eggs);
+        }
+        AssertHurryUpAccounting(game);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void HurryUpFullGameRestartClearsLatchAndRestoresInitialSupply(bool pulsar)
+    {
+        TempestGame game = HatchHurryUpWave(pulsar, startingLives: 1);
+        BeginHurryUpDeath(game, HurryUpEnemies(game).First());
+        Step(game, 60);
+        Assert.True(game.GameOver);
+        Assert.True(game.HurryUp);
+        game.RunOneStep(restartPressed: true);
+        Assert.False(game.HurryUp);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(1, game.Player.Lives);
+        Assert.Equal(0, game.Score.Score);
+        Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(4, game.Eggs.Count);
+        Assert.Equal(6, game.CurrentLevel.ReserveEggs);
+        AssertHurryUpAccounting(game);
+    }
+
+    [Theory]
+    [InlineData(false, 1000)]
+    [InlineData(true, 200)]
+    public void HurryUpStillRequiresFinalKillAndReplayClearsLatch(bool pulsar, int killScore)
+    {
+        TempestGame game = HatchFinalHurryUpEnemy(pulsar);
+        Enemy active = Assert.Single(HurryUpEnemies(game));
+        if (active is Fuseball fuseball)
+        {
+            AdvanceFuseball(fuseball, game.CurrentLevel, 71);
+            AdvanceFuseball(fuseball, game.CurrentLevel, 26);
+            AdvanceFuseball(fuseball, game.CurrentLevel, 18);
+        }
+        else
+            AdvancePulsarToHeight(Assert.IsType<Pulsar>(active), game.CurrentLevel, 100);
+        game.Score.Add(17);
+        game.Player.Move(active.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Assert.True(game.HurryUp);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(17, game.Score.Score);
+        Assert.Equal(9, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Single(game.Shots).Height = active.Height + 5;
+        game.RunOneStep();
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        Assert.True(game.HurryUp);
+        Assert.Equal(17 + killScore, game.Score.Score);
+        Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Empty(HurryUpEnemies(game));
+        AssertHurryUpAccounting(game);
+        FinishExit(game);
+        game.RunOneStep(restartPressed: true);
+        Assert.False(game.HurryUp);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(17 + killScore, game.Score.Score);
+        Assert.Equal(3, game.Player.Lives);
+        Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(4, game.Eggs.Count);
+        Assert.Equal(6, game.CurrentLevel.ReserveEggs);
+        AssertHurryUpAccounting(game);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void HurryUpIsNotEnabledForNormalSpikerOrTankerScenarios(bool spiker, bool tanker)
+    {
+        TempestGame game = new(spikerDevelopmentWave: spiker, tankerTest: tanker,
+            random: new MinimumRandom());
+        while (game.CurrentLevel.ReserveEggs > 0 || game.Eggs.Count > 0)
+        {
+            if (game.Eggs.Count == 0)
+                for (int tick = 0; tick < 50; tick++)
+                    game.CurrentLevel.UpdateEggRelease();
+            foreach (Egg egg in game.Eggs)
+                MakeReady(egg, game.CurrentLevel);
+            game.RunOneStep();
+        }
+        Assert.NotEmpty(game.Flippers);
+        Assert.Contains(game.Flippers, enemy => enemy.Height < Level.Depth);
+        Assert.False(game.HurryUp);
+        Assert.Equal(LevelState.Playing, game.State);
+        if (tanker)
+            AssertTankerAccounting(game);
+        else
+            AssertSpikerAccounting(game);
+    }
+
+    private static TempestGame PrepareHurryUpEggs(bool pulsar, int survivors = 1)
+    {
+        TempestGame game = new(fuseballTest: !pulsar, pulsarTest: pulsar, random: new MinimumRandom());
+        for (int unit = survivors; unit < Level.EnemyTotal; unit++)
+            game.CurrentLevel.RecordEnemyDestroyed();
+        game.CurrentLevel.ResetAfterDeath();
+        Assert.False(game.HurryUp);
+        Assert.Equal(0, game.CurrentLevel.ReserveEggs);
+        Assert.Equal(survivors, game.Eggs.Count);
+        return game;
+    }
+
+    private static TempestGame HatchFinalHurryUpEnemy(bool pulsar)
+    {
+        TempestGame game = PrepareHurryUpEggs(pulsar);
+        MakeReady(Assert.Single(game.Eggs), game.CurrentLevel);
+        game.RunOneStep();
+        Assert.True(game.HurryUp);
+        return game;
+    }
+
+    private static TempestGame HatchHurryUpWave(bool pulsar, int startingLives = 3, int survivors = 10)
+    {
+        TempestGame game = new(fuseballTest: !pulsar, pulsarTest: pulsar,
+            startingLives: startingLives, random: new MinimumRandom());
+        for (int unit = survivors; unit < Level.EnemyTotal; unit++)
+            game.CurrentLevel.RecordEnemyDestroyed();
+        if (survivors < Level.EnemyTotal)
+            game.CurrentLevel.ResetAfterDeath();
+        while (game.CurrentLevel.ReserveEggs > 0 || game.Eggs.Count > 0)
+        {
+            if (game.Eggs.Count == 0)
+                for (int tick = 0; tick < 50; tick++)
+                    game.CurrentLevel.UpdateEggRelease();
+            foreach (Egg egg in game.Eggs)
+                MakeReady(egg, game.CurrentLevel);
+            game.RunOneStep();
+        }
+        Assert.True(game.HurryUp);
+        Assert.Equal(survivors, HurryUpEnemies(game).Count());
+        AssertHurryUpAccounting(game);
+        return game;
+    }
+
+    private static IEnumerable<Enemy> HurryUpEnemies(TempestGame game) =>
+        game.Fuseballs.Concat<Enemy>(game.Pulsars);
+
+    private static void AssertHurryUpAccounting(TempestGame game) =>
+        Assert.Equal(Level.EnemyTotal, game.CurrentLevel.EnemiesDestroyed +
+            game.CurrentLevel.ReserveEggs + game.Eggs.Count + HurryUpEnemies(game).Count());
+
+    private static void ResolveRemainingHurryUpEgg(TempestGame game)
+    {
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        Assert.NotNull(game.CurrentLevel.HatchReadyEnemy(lane => new Pulsar(lane)));
+        game.CurrentLevel.RecordEnemyDestroyed();
+    }
+
+    private static void BeginHurryUpDeath(TempestGame game, Enemy enemy)
+    {
+        AdvanceHurryUpEnemyToRim(enemy, game.CurrentLevel);
+        if (enemy is Fuseball fuseball)
+            AdvanceFuseball(fuseball, game.CurrentLevel, 18);
+        game.Player.Move(enemy.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep();
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Assert.True(game.HurryUp);
+    }
+
+    private static Fuseball CreateHurryUpLateralFuseball(Level level)
+    {
+        Fuseball fuseball = new(3);
+        AdvanceFuseball(fuseball, level, 72);
+        AdvanceFuseball(fuseball, level, 26);
+        Assert.Equal(FuseballState.Lateral, fuseball.State);
+        Assert.True(fuseball.Height > 0);
+        return fuseball;
+    }
+
+    private static void AdvanceFuseballToLastClimbBelowRim(Fuseball fuseball, Level level)
+    {
+        for (int tick = 0; tick < 2000; tick++)
+        {
+            if (fuseball.State == FuseballState.Climbing && fuseball.Height < Level.Depth &&
+                fuseball.Height + fuseball.ClimbSpeed >= Level.Depth)
+                return;
+            fuseball.Update(level, 8, (min, max) => max == 3 ? 3 : min);
+        }
+        Assert.Fail("Fuseball did not reach its last climbing update below the rim.");
+    }
+
+    private static void AdvanceHurryUpEnemyToRim(Enemy enemy, Level level)
+    {
+        if (enemy is Pulsar pulsar)
+        {
+            AdvancePulsarToHeight(pulsar, level, Level.Depth);
+            return;
+        }
+        Fuseball fuseball = Assert.IsType<Fuseball>(enemy);
+        for (int tick = 0; tick < 2000 &&
+            !(fuseball.Height == Level.Depth && fuseball.State == FuseballState.Lateral); tick++)
+            fuseball.Update(level, 8, (min, max) => max == 3 ? 3 : min);
+        Assert.Equal(Level.Depth, fuseball.Height);
+        Assert.Equal(FuseballState.Lateral, fuseball.State);
+    }
+
+    private static void AdvancePulsarToHeight(Pulsar pulsar, Level level, float height)
+    {
+        for (int tick = 0; tick < 1000 && pulsar.Height < height; tick++)
+            pulsar.Update(level, 8, (_, _) => 0);
+        Assert.Equal(height, pulsar.Height);
+    }
+
     // --- Direct Pulsars: source behavior in an isolated ten-unit development wave ---
 
     [Fact]

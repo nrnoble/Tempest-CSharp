@@ -12,7 +12,7 @@ public enum FuseballState
 
 /// <summary>
 /// Direct-hatched Incitti Fuseball. Moves across lane boundaries, alternating lateral travel
-/// with vertical excursions. No Tanker cargo, hurry-up or Zapper behavior is implemented.
+/// with vertical excursions. No Tanker cargo or Zapper behavior is implemented.
 /// </summary>
 public sealed class Fuseball : Enemy
 {
@@ -35,7 +35,8 @@ public sealed class Fuseball : Enemy
     public float ClimbSpeed { get; }
     public int KillScore => (int)((Level.Depth - Height) / 100 + 1) * 250;
 
-    public void Update(Level level, int playerEdge, Func<int, int, int> randomInclusive)
+    public void Update(Level level, int playerEdge, Func<int, int, int> randomInclusive,
+        bool hurryUp = false)
     {
         int edgeCount = level.Continuous ? level.Definition.Points.Count : level.Definition.Points.Count - 1;
         StateTicks++;
@@ -79,7 +80,7 @@ public sealed class Fuseball : Enemy
                 if (W is 0 or 8)
                 {
                     State = randomInclusive(1, 2) == 1 ? FuseballState.Climbing : FuseballState.Descending;
-                    if (Height == 0)
+                    if (hurryUp || Height == 0)
                         State = FuseballState.Climbing;
                 }
                 break;
@@ -87,7 +88,11 @@ public sealed class Fuseball : Enemy
             case FuseballState.Climbing:
                 if (Height < Level.Depth)
                 {
-                    Height = MathF.Min(Level.Depth, Height + ClimbSpeed);
+                    // Incitti applies its existing climb term twice under rimit, not descent speed.
+                    Height += ClimbSpeed;
+                    if (hurryUp)
+                        Height += ClimbSpeed;
+                    Height = MathF.Min(Level.Depth, Height);
                     CheckVerticalDuration(randomInclusive);
                 }
                 else

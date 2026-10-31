@@ -53,7 +53,8 @@ public sealed class Pulsar : Enemy
     public float TurnAngle { get; private set; }
     public float TotalTurnAngle { get; private set; }
 
-    public void Update(Level level, int playerEdge, Func<int, int, int> randomInclusive)
+    public void Update(Level level, int playerEdge, Func<int, int, int> randomInclusive,
+        bool hurryUp = false)
     {
         ArgumentNullException.ThrowIfNull(level);
         ArgumentNullException.ThrowIfNull(randomInclusive);
@@ -77,7 +78,8 @@ public sealed class Pulsar : Enemy
                 else
                 {
                     Height = Level.Depth;
-                    if (randomInclusive(0, 1) == 1)
+                    // Source rimit redirects only the top decision; Pulsars keep one-unit motion.
+                    if (randomInclusive(0, 1) == 1 || hurryUp)
                         BeginLanePause(PulsarState.Flipping);
                     else
                         BeginRimPause(PulsarState.Descending);

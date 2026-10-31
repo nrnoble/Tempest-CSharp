@@ -81,6 +81,27 @@ record the uncertainty rather than guessing.
   enemies. This is the recreation's conservation rule, not a verified arcade
   completion rule.
 
+### Late-wave hurry-up
+
+- **REFERENCE VERIFIED** — Incitti latches `rimit` when reserve Eggs and active
+  Eggs are exhausted, active enemies remain, and at least one active enemy is
+  below the rim. Its decision follows Egg and enemy updates. It remains set
+  through ordinary life conversion and clears on new-level setup.
+- **PROJECT DECISION** — The recreation evaluates that trigger after hatching,
+  enemy updates and player-collision checks, before its final completion check.
+  Enemy updates on the trigger tick use the previous latch; the next active
+  tick uses hurry-up. The latch survives the full player-death freeze and
+  fresh-Egg reconstruction, even when reconstruction restores Egg supply.
+  Full game restart or replay initialization clears it. These exact C# timing
+  and lifecycle rules are not arcade-verified by manual gameplay.
+- **DEVELOPMENT ONLY** — Hurry-up is enabled only in the existing direct-hatched
+  Fuseball and Pulsar scenarios. Normal Level 1, Spiker and Tanker scenarios
+  remain unchanged; these artificial waves do not establish Atari composition.
+- **PROJECT DECISION** — Hurry-up awards no points, increments no destroyed
+  count, removes or resolves no enemies, and does not alter Egg/accounting
+  totals. The recreation retains kill-all completion rather than Incitti's
+  separate `onrim`-based exit; hurry-up or all-rim survivors cannot start exit.
+
 ### Completion and tube exit
 
 - **PROJECT DECISION** — After the standard Level 1 supply is cleared, the
@@ -218,6 +239,16 @@ record the uncertainty rather than guessing.
   numeric collision boundaries, score formula and thresholds, animation frame
   timing, and reference speed remain source-derived; they were not established
   by the manual observations above.
+- **ARCADE VERIFIED** — In Neal's hurry-up validation of
+  `--fuseball-test --lives 10`, a noticeable late-wave increase in upward
+  speed was visible and consistent with his Atari Tempest expectation.
+  This validates the observable acceleration, not a measured numeric rate.
+- **REFERENCE VERIFIED** — Under `rimit`, Incitti forces climbing at a lateral
+  boundary even when the ordinary random result selects descent, and applies
+  its existing climb term twice before clamping at the rim. The development
+  value 3.3 therefore produces 6.6 per climbing update; neither numeric rate
+  nor the exact decision boundary is arcade-verified. Descent speed, lateral
+  cadence, collision rules, scoring and animation are unchanged.
 
 ## 8. Pulsars
 
@@ -242,6 +273,10 @@ Pulsar behavior in that scenario, not an authentic all-Pulsar Atari wave.
   pulse ends. Unaffected near/top connections remain visible, and the affected
   lane's radial boundaries continue flashing. Occupying that lane during the
   pulse destroys the Blaster.
+- **ARCADE VERIFIED** — In Neal's hurry-up validation of
+  `--pulsar-test --lives 10`, the observable late-wave Pulsar behavior appeared
+  correct, with no vertical speed increase expected or observed. This does
+  not establish an exact top-end decision, random boundary or movement rate.
 
 ### Reference behavior and recreation choices
 
@@ -250,6 +285,12 @@ Pulsar behavior in that scenario, not an authentic all-Pulsar Atari wave.
   18-update lane and 14-update rim pauses. The pause values come from the
   source's first Pulsar-eligible level setup (`lv = 16`) and its integer
   arithmetic. They are not arcade-verified timing constants.
+- **REFERENCE VERIFIED** — Incitti's `rimit` redirects the top-end choice to
+  the lane-pause/flip branch rather than newly selecting descent. It does not
+  increase vertical speed: climbing, descending and climbing flips retain
+  their one-unit movement term. Existing pauses, lane transfer, flip behavior
+  and shared pulse oscillator remain unchanged. These exact source rules are
+  distinct from Neal's observable late-wave validation.
 - **DEVELOPMENT ONLY** — `--pulsar-test` hatches all ten units directly as
   Pulsars on the closed Level 1 tube, using the source's `lv = 16` movement
   settings. It is not Level 17 composition or progression.
@@ -289,8 +330,8 @@ These controls are test conveniences, not arcade level-selection or composition:
 |---|---|
 | `--spiker-test` | Replaces the normal wave with a Spiker/Flipper test wave and height-60 spikes on every lane. |
 | `--tanker-test` | Replaces the normal wave with one controlled Tanker plus ordinary Flipper slots and cargo. |
-| `--fuseball-test` | Direct-hatches the ten-unit supply as Fuseballs. |
-| `--pulsar-test` | Direct-hatches the ten-unit supply as Pulsars. |
+| `--fuseball-test` | Direct-hatches the ten-unit supply as Fuseballs, with source-derived late-wave hurry-up. |
+| `--pulsar-test` | Direct-hatches the ten-unit supply as Pulsars, with source-derived late-wave hurry-up. |
 | `--enemy-bullets-test` | Enables the development enemy-bullet behavior; combinations with Spiker or Tanker scenarios enable their corresponding source-backed firing paths. |
 | `--lives <n>` | Overrides the starting life count for longer development sessions. |
 
@@ -311,7 +352,10 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
 - **REFERENCE VERIFIED only** — Exact Flipper, bullet, Spiker, Tanker,
   Fuseball, and Pulsar constants remain source-derived unless explicitly
   identified above as arcade-validated. This includes the Pulsar 51/181/18/14
-  timings and Fuseball's nine-update lateral cadence.
+  timings, Fuseball's nine-update lateral cadence and its 3.3-to-6.6 hurry-up
+  climb terms. Exact rimit trigger timing, random decision boundaries and
+  source lifecycle remain source-derived; the C# evaluation/freeze/reset
+  policy remains **PROJECT DECISION**, not newly arcade-verified.
 - **Unresolved** — The direct climbing-Flipper rim-arrival collision is in
   Incitti and current C#, but has not been separately confirmed against the
   arcade. The older development note described rim death only at completed
@@ -327,7 +371,7 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   Tanker arcade eligibility/composition, and exit visuals need direct arcade
   comparison where they matter.
 - **Deferred** — Normal multi-level progression and authentic later-wave
-  composition, open-tube rendering, Super Zapper, hurry-up behavior, audio,
+  composition, open-tube rendering, Super Zapper, audio,
   bonus rules, broader enemy/cargo combinations, and source-specific death
   effects are not specified as implemented gameplay here.
 
@@ -370,3 +414,20 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
 - **Pulsar movement and timing** — Simulation tests establish the current
   source-derived 51-update decision, 181-update oscillator, and 18/14 pauses.
   These remain **REFERENCE VERIFIED**, not arcade-verified exact timings.
+- **rimit / Hurry-Up milestone** — Automated validation passed 121 focused
+  hurry-up/Fuseball/Pulsar cases and all 289 suite cases, with no failures or
+  skips; build had zero warnings/errors. Tests protect exact C# trigger order,
+  latch/reconstruction/reset behavior, enemy changes and accounting, not
+  arcade fidelity. Neal subsequently manually tested
+  `--fuseball-test --lives 10` and `--pulsar-test --lives 10`. Observable
+  Fuseball late-wave acceleration matched his Atari expectation
+  (**ARCADE VERIFIED** within that observation). Pulsar late-wave behavior
+  appeared correct without an expected or observed vertical speed increase;
+  the exact top-end redirect remains **REFERENCE VERIFIED**. Existing movement,
+  shooting/scoring, rim interaction, life-loss/re-entry and exit appeared
+  normal; Pulsar pulse visuals, disappearing affected near/top connection
+  and lane hazard also appeared normal. Everything else tested appeared
+  normal, with no new problem or regression observed. These manual findings
+  do not verify exact numeric rates, internal trigger ticks or latch timing,
+  nor authentic wave composition (**DEVELOPMENT ONLY**). Kill-all exit remains
+  **PROJECT DECISION**.

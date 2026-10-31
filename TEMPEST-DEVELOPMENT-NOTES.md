@@ -290,6 +290,76 @@ Use Incitti's code to understand mechanics and constants, then compare the resul
 
 The Flipper rim-collision timing is the current canonical example of this principle.
 
+## Incitti rimit / Hurry-Up Development Milestone
+
+Starting checkpoint: `37535eb`. Only the direct `--fuseball-test` and
+`--pulsar-test` scenarios enable this source-derived mechanic. It does not add
+normal level composition or progression, and is not arcade-verified hurry-up.
+
+`TempestGame.HurryUp` is a read-only game-owned latch. Active play advances the
+shared pulse clock, player/firing, shots and enemy bullets, then checks for
+completion. If still playing, it releases and updates Eggs, removes ready Eggs
+through hatching, updates enemies (including those hatchlings), checks player
+collisions, latches hurry-up, then checks completion again. The trigger requires
+zero reserve Eggs, zero active Eggs, and at least one active enemy below
+`Level.Depth`. The below-rim predicate also guarantees an active enemy exists.
+Post-update height matters: an enemy reaching the rim on this tick does not
+qualify just because it was below the rim before its update.
+
+The trigger tick's enemy updates use the previous latch value. The next active
+tick is the first to use newly activated hurry-up. Pulsars hatch at zero and
+reach height one on their hatch tick; Fuseballs hatch at zero and increment
+their lateral counter on that tick. Tests pin the last approaching Egg's
+39th/40th updates, ordinary trigger-tick behavior and next-tick effects.
+If a collision begins PlayerDying on the trigger tick, the end-of-tick latch
+can still activate; it then freezes with the established death policy.
+
+The latch starts false, never unlatches during the same-level attempt, and
+survives all 60 PlayerDying updates and ordinary fresh-Egg reconstruction.
+Replenished reserve/active Eggs after life loss do not clear or recalculate it.
+Re-entered enemies receive the existing latch from their first active update:
+Fuseballs first double the climb term when they enter climbing; Pulsars first
+redirect when they next evaluate a top-end decision. Full Game Over restart
+and Level Complete replay clear the latch through level initialization.
+Existing restart/replay score and lives policies are unchanged.
+
+Fuseballs still consume the ordinary boundary random roll, then hurry-up
+overrides descent with climbing. A climbing update adds the existing source
+term twice before clamping (3.3 + 3.3 = 6.6 in this development wave).
+Already-descending Fuseballs retain their original speed and duration rules.
+Lateral cadence, retargeting, collision windows, score bands and four-frame
+five-color animation are unchanged.
+
+Pulsars still consume their top-end random roll, but hurry-up forces the
+18-update lane pause / flip branch rather than the descending rim-pause
+branch. It does not interrupt an existing pause/descent or alter mid-tube and
+bottom decisions. Climb, descent and climbing flips remain one unit per
+movement update. The 14-update rim pause, lane transfer, shared 181-update
+oscillator, pulsing-lane collisions and existing rendering are unchanged.
+
+Unlike Incitti, merely putting all surviving enemies on the rim cannot start
+exit. The project's kill-all completion/accounting policy is deliberate.
+Hurry-up neither removes nor resolves a unit, awards points, increments
+destroyed count nor changes Egg totals.
+
+Automated validation: focused hurry-up/Fuseball/Pulsar selection 121 passed,
+0 failed, 0 skipped; full suite 289 passed, 0 failed, 0 skipped. Solution build:
+0 warnings, 0 errors. These are headless C# checks, not manual/arcade validation.
+Run these separately for Neal's pending manual comparison:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --fuseball-test --lives 10
+dotnet run --project src\Tempest.Game -- --pulsar-test --lives 10
+```
+
+Observe exhaustion of both Egg sources, later boundary/top decisions, death
+freeze and fresh-Egg re-entry, final-kill exit, and restart/replay. Exact arcade
+trigger/timing, speed and random tuning remain unverified. The behavior
+specification is intentionally unchanged pending implementation review,
+automated validation and Neal's manual validation. No Super Zapper,
+onrim-based exit, new levels, canflip, Tanker-carried Fuseballs/Pulsars, promoted
+enemy bullets, new rendering or new scoring are included.
+
 ## Next Development Direction
 
 After the Level 1 Egg/hatching milestone is fully validated and committed:
