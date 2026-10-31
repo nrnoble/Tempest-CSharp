@@ -32,8 +32,10 @@ record the uncertainty rather than guessing.
 
 ### Player, firing, and score
 
-- **PROJECT DECISION** — The current playable configuration is one closed,
-  16-lane tube based on Level 1. The Blaster travels around the rim; relative
+- **PROJECT DECISION** — Normal no-flag startup remains the closed, 16-lane
+  Level 1 tube. An isolated square Level 2 is available only through the
+  **DEVELOPMENT ONLY** `--level2-test` scenario; natural Level 1-to-2
+  progression is not implemented. The Blaster travels around the rim; relative
   spinner movement is the primary input, with left/right keyboard movement as
   a fallback. The input mapping and current movement rates have not been
   established here as arcade-verified tuning.
@@ -189,10 +191,54 @@ record the uncertainty rather than guessing.
   Incitti's relevant reference values are a climb increment of 2, a 24-update
   rim pause, and an 8-degree pivot increment. These exact values have not been
   validated against arcade timing.
-- **REFERENCE VERIFIED** — The Flipper is shootable in its lane while
-  climbing or paused. During a pivot it can be hit from either of the two
-  participating lanes, within the reference's strict shot-height band.
-  Destroying a Flipper awards 150 points.
+- **REFERENCE VERIFIED** — Incitti accepts shots on the Flipper's `OnEdge`
+  within the strict band `0 < FlipperHeight - ShotHeight < 16`, awarding
+  150 points. Its lane is assigned to the destination when a pivot starts.
+- **PROJECT DECISION** — The recreation keeps Flippers shootable in their
+  lane while climbing or paused and from either participating lane throughout
+  a transition. Two-lane shot acceptance is not literal Incitti ownership.
+
+### Level 2 below-rim lane changes
+
+- **ARCADE VERIFIED** — Displayed Level 2 permits Flippers to change lanes
+  while below the rim. On 2026-10-31, Neal manually tested the isolated B2
+  scenario and found its broad below-rim lane-changing behavior consistent
+  with Atari Level 2.
+- **ARCADE VERIFIED** — Moving the Blaster during an already-active
+  transition does not visibly retarget it halfway through. Later transitions
+  may respond to the Blaster's then-current position. This qualitative
+  observation does not establish exact player-sampling points or tick timing.
+- **ARCADE VERIFIED** — Below-rim transition geometry itself is not lethal
+  to the Blaster, even when it visually crosses the Blaster. Straight-side
+  and corner transitions appeared mechanically correct; no snapping or
+  wrong-lane landing was observed. Rim pursuit and the previously validated
+  completed-pivot collision behavior remained normal.
+- **REFERENCE VERIFIED** — Incitti disables `canflip` only at zero-based
+  level 0 and enables it thereafter. Its ordinary Level 2 path adds 2 height
+  on the first climb, enters an initially zero pause, attempts firing, then
+  chooses direction relative to the current player lane. The next pause
+  update adds 1 height and begins an adjacent turn. Below-rim direction stays
+  latched across turns and pauses; rim pause expiry samples the player again.
+- **REFERENCE VERIFIED** — Source-derived Level 2 tuning is an 8-degree
+  turn increment, 21-update below-rim pause and 24-update rim pause. Turning
+  adds 2 height and below-rim pauses add 1. Exact random/tie behavior,
+  random-call ordering, state decisions, transition boundaries, height
+  increments and numeric shot band were not manually measured and are not
+  arcade-verified by this run.
+- **PROJECT DECISION** — B1/B2 use square endpoint hinges with radial
+  correction for the rounded source segment lengths, clamp height at the rim,
+  anchor active rendering to the source lane and commit the destination on
+  completion. This math and internal Flipper representation do not describe
+  observed arcade internals. Two-lane shot acceptance, shot-before-player
+  collision ordering and exact collision/state boundaries remain recreation
+  policy where the manual run did not distinguish them.
+- **DEVELOPMENT ONLY** — `--level2-test`, its isolated replay, deterministic
+  Egg scheduling and optional `--enemy-bullets-test` combination remain
+  development facilities. Normal startup is Level 1; natural Level 1-to-2
+  progression and authentic Level 2 wave setup have not been implemented or
+  validated. Neal reported no B2 crash, and the B1 completed-pivot renderer
+  crash did not recur; this is scenario stability evidence, not proof of
+  arcade geometry or internal implementation.
 
 ### Player collision
 
@@ -440,6 +486,7 @@ These controls are test conveniences, not arcade level-selection or composition:
 
 | Option | Development behavior |
 |---|---|
+| `--level2-test` | Isolated closed 16-lane square, supply 12 and Flipper-only canflip wave; terminal replay, no natural progression. |
 | `--spiker-test` | Replaces the normal wave with a Spiker/Flipper test wave and height-60 spikes on every lane. |
 | `--tanker-test` | Replaces the normal wave with one controlled Tanker plus ordinary Flipper slots and cargo. |
 | `--fuseball-test` | Direct-hatches the ten-unit supply as Fuseballs, with source-derived late-wave hurry-up. |
@@ -447,7 +494,7 @@ These controls are test conveniences, not arcade level-selection or composition:
 | `--enemy-bullets-test` | Enables the development enemy-bullet behavior; combinations with Spiker or Tanker scenarios enable their corresponding source-backed firing paths. |
 | `--lives <n>` | Overrides the starting life count for longer development sessions. |
 
-The enemy-specific wave options are mutually exclusive. Deterministic random
+The Level 2 and enemy-specific wave options are mutually exclusive. Deterministic random
 seams, controlled selection, artificial wave composition, extra lives, and
 test-only rendering/collision instrumentation are all **DEVELOPMENT ONLY**.
 Passing a simulation test establishes a C# invariant, not arcade fidelity.
@@ -458,7 +505,8 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
 ## 11. Known uncertainties and deferred behavior
 
 - **ARCADE VERIFIED scope** — Direct arcade observations explicitly listed
-  above cover the Flipper pivot collision rule, the itemized Fuseball
+  above cover the Flipper pivot collision rule, the qualitative Level 2
+  below-rim transition observations, the itemized Fuseball
   behaviors, the Pulsar behaviors Neal observed in the isolated development
   scenario, the listed Super Zapper scenario validation, the Tanker-cargo
   release and movement observations, and the broad all-rim behavior Neal
@@ -585,5 +633,5 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   and lane hazard also appeared normal. Everything else tested appeared
   normal, with no new problem or regression observed. These manual findings
   do not verify exact numeric rates, internal trigger ticks or latch timing,
-  nor authentic wave composition (**DEVELOPMENT ONLY**). Kill-all exit remains
-  **PROJECT DECISION**.
+  nor authentic wave composition (**DEVELOPMENT ONLY**). The later all-rim
+  completion milestone superseded the former kill-all-only completion policy.

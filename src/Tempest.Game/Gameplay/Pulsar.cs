@@ -84,7 +84,7 @@ public sealed class Pulsar : Enemy
                     else
                         BeginRimPause(PulsarState.Descending);
                 }
-                Direction = FindShortDirection(level, EdgeIndex, playerEdge, randomInclusive);
+                Direction = level.FindReferenceShortestDirection(EdgeIndex, playerEdge, randomInclusive);
                 break;
 
             case PulsarState.Descending:
@@ -107,7 +107,7 @@ public sealed class Pulsar : Enemy
                     else
                         BeginRimPause(PulsarState.Climbing);
                 }
-                Direction = FindShortDirection(level, EdgeIndex, playerEdge, randomInclusive);
+                Direction = level.FindReferenceShortestDirection(EdgeIndex, playerEdge, randomInclusive);
                 break;
 
             case PulsarState.Flipping:
@@ -221,24 +221,6 @@ public sealed class Pulsar : Enemy
 
         if (!level.Continuous)
             EdgeIndex = Math.Clamp(EdgeIndex, 0, lastEdge);
-    }
-
-    private static int FindShortDirection(Level level, int fromEdge, int toEdge,
-        Func<int, int, int> randomInclusive)
-    {
-        int direction;
-        if (level.Continuous)
-        {
-            direction = -(toEdge - fromEdge);
-            direction = Math.Abs(direction) > 8 ? -Math.Sign(direction) : Math.Sign(direction);
-        }
-        else
-        {
-            direction = -Math.Sign(toEdge - fromEdge);
-        }
-
-        // Incitti's Rand(0,1) is called for same-edge ties on every vertical movement update.
-        return direction == 0 ? 1 - randomInclusive(0, 1) * 2 : direction;
     }
 
     private static float GetTurnAngle(Level level, int sourceEdge, int direction)

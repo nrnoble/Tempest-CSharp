@@ -264,6 +264,22 @@ public sealed class Level
         return clockwise < counterclockwise ? -1 : 1;
     }
 
+    // Literal Incitti FindShortDir for the existing 16-lane reference scenarios. Keep the
+    // established Level 1 tie policy above separate: same-lane ties here consume one RNG call.
+    public int FindReferenceShortestDirection(int fromEdge, int toEdge,
+        Func<int, int, int>? randomInclusive)
+    {
+        int direction = -(toEdge - fromEdge);
+        direction = Continuous && Math.Abs(direction) > 8
+            ? -Math.Sign(direction)
+            : Math.Sign(direction);
+        if (direction != 0)
+            return direction;
+
+        ArgumentNullException.ThrowIfNull(randomInclusive);
+        return 1 - randomInclusive(0, 1) * 2;
+    }
+
     // Pivot sweep for a Flipper moving between two lanes: the angle between the lanes' edge
     // direction vectors, folded into [0, 180]. On a regular 16-lane tube this is constant, but it
     // is computed from geometry so irregular future tubes keep correct flip arcs.

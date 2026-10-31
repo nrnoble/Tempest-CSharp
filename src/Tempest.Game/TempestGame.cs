@@ -862,7 +862,9 @@ public sealed class TempestGame
             }
 
             EnemyBullet? bullet = flipper.Update(CurrentLevel, Player.EdgeIndex,
-                enemyBulletsTest ? NextRandomInclusive : null);
+                enemyBulletsTest || CurrentLevel.Configuration.FlipperCanFlip
+                    ? NextRandomInclusive
+                    : null);
             if (bullet is null)
                 continue;
 

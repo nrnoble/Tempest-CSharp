@@ -6,7 +6,7 @@ using Tempest.Game.Gameplay;
 /// Parses the development/testing command-line switches. These are controlled engineering tools
 /// for exercising one mechanic in isolation; they are not the finished arcade level-selection or
 /// progression system. No flags = normal Level 1. --level2-test selects an isolated square Level 2
-/// geometry run; it is terminal and does not enable progression. --level2-test, --spiker-test,
+/// square/canflip run; it is terminal and does not enable progression. --level2-test, --spiker-test,
 /// --tanker-test, --fuseball-test and --pulsar-test are mutually exclusive; --enemy-bullets-test
 /// (opt-in Flipper firing) and --lives (starting-life override) compose with any scenario or normal play.
 /// </summary>

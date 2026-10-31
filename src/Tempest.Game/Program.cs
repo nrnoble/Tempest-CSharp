@@ -3,7 +3,7 @@
 // it stays headless-testable. Keep it that way — logic added here is invisible to the test suite.
 //
 // Development command-line modes (see DebugController): --level2-test selects an isolated square
-// geometry fixture; --spiker-test, --tanker-test, --fuseball-test and --pulsar-test select isolated
+// square/canflip fixture; --spiker-test, --tanker-test, --fuseball-test and --pulsar-test select isolated
 // enemy-development waves. These scenarios are mutually exclusive; --enemy-bullets-test and
 // --lives compose with any. With no flags the game runs normal Level 1.
 using Raylib_cs;

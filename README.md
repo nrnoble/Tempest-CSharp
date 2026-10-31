@@ -55,21 +55,38 @@ The HUD's ACTIVE counter includes active Eggs and active enemies.
 Tests run headlessly without initializing a Raylib window. Visual appearance,
 spinner feel and cursor capture still require manual gameplay testing.
 
-## Isolated Level 2 square geometry test
+## Isolated Level 2 square/canflip test
 
 ```powershell
 dotnet run --project src/Tempest.Game -- --level2-test --lives 10
 ```
 
 `--level2-test` is **DEVELOPMENT ONLY**. It loads the closed 16-lane square
-geometry and 12-unit Flipper-only configuration to validate projection,
-movement, rim pivots and lifecycle. B1 deliberately disables Level 2's
-reference canflip behavior; Flippers use the existing climb-to-rim behavior.
+geometry and 12-unit Flipper-only configuration. B2 enables Incitti-derived
+below-rim canflip behavior using B1's square endpoint hinges. Flippers choose
+direction after their first climb update, retain it across below-rim pivots
+and pauses, and resample the Blaster lane only when a rim pause expires.
+Climb/pivot increments of 2/8 and lane/rim pauses of 21/24 are
+**REFERENCE VERIFIED**, not arcade-measured tuning. The recreation preserves
+two-lane shot acceptance during pivots and completed-pivot player safety;
+Incitti's destination-only shot ownership is not silently imported.
 This is not a complete or authentic Level 2 implementation, and Level 2 is not
 naturally reachable. Press R to replay the isolated square after completion or
 Game Over. Level 1 remains the default with no flags. The flag is mutually
 exclusive with the Spiker, Tanker, Fuseball and Pulsar scenarios; it may be
 combined with `--lives` or the separate `--enemy-bullets-test` option.
+
+Neal completed B2 manual validation on 2026-10-31. He found the broad below-rim
+lane changes consistent with Atari Level 2: straight-side and corner flips
+looked mechanically sensible, with no snapping or wrong-lane landing. Active
+turns did not visibly retarget halfway through; later transitions may respond
+to the then-current Blaster position. Below-rim visual crossing was not lethal,
+rim pursuit and completed-pivot behavior remained normal, and no crash occurred
+or B1 renderer-crash recurrence was observed. These qualitative observations
+are **ARCADE VERIFIED** where applicable, not measurements of exact tuning,
+geometry math, shot bands or internal state. The isolated composition remains
+**DEVELOPMENT ONLY**; natural progression and authentic Level 2 setup are not
+implemented or validated.
 
 ## Spiker development wave
 

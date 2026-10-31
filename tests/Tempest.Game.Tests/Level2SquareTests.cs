@@ -10,6 +10,7 @@ using Xunit;
 
 namespace Tempest.Game.Tests;
 
+[Collection("Level 2 tests")]
 public sealed class Level2SquareTests
 {
     private static readonly Vector2[] SquarePoints =
@@ -21,7 +22,7 @@ public sealed class Level2SquareTests
     ];
 
     [Fact]
-    public void Level2DevelopmentConfigurationDefinesClosedSquareAndB1Policies()
+    public void Level2DevelopmentConfigurationPreservesB1GeometryAndEnablesCanflip()
     {
         LevelConfiguration configuration = LevelConfiguration.Level2SquareTest;
         Level level = new(configuration);
@@ -44,7 +45,8 @@ public sealed class Level2SquareTests
         Assert.Equal(4, level.Eggs.Count);
         Assert.Equal(8, level.ReserveEggs);
         Assert.Equal(LevelEnemyComposition.FlippersOnly, configuration.NormalEnemyComposition);
-        Assert.False(configuration.FlipperCanFlip);
+        Assert.True(configuration.FlipperCanFlip);
+        Assert.Equal(new FlipperConfiguration(true, 2, 8, 21, 24), configuration.Flipper);
         Assert.Equal(FlipperPivotGeometry.SquareEndpointHinge, configuration.FlipperPivotMode);
         Assert.All(configuration.SpawnLaneSequence, lane => Assert.InRange(lane, 0, 15));
         Assert.All(configuration.EggDirectionSequence, direction => Assert.Contains(direction, new[] { -1, 1 }));
@@ -67,6 +69,7 @@ public sealed class Level2SquareTests
         {
             Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
             Assert.False(game.Level2Test);
+            Assert.False(game.CurrentLevel.Configuration.FlipperCanFlip);
         });
     }
 
@@ -153,8 +156,8 @@ public sealed class Level2SquareTests
         game.Score.Add(321);
         game.SuperZapper.TryActivate([], game.Player.EdgeIndex, 16, continuous: true);
 
-        for (int tick = 0; tick < 250 && game.State == LevelState.Playing; tick++)
-            game.RunOneStep();
+        PrepareLethalRimPivot(game, flipper);
+        game.RunOneStep();
 
         Assert.Equal(LevelState.PlayerDying, game.State);
         for (int tick = 0; tick < TempestGame.PlayerDeathTicks; tick++)
@@ -181,6 +184,7 @@ public sealed class Level2SquareTests
         for (int tick = 0; tick < 50; tick++)
             target.Update(killGame.CurrentLevel, killGame.Player.EdgeIndex);
 
+        killGame.Player.Move(target.EdgeIndex - killGame.Player.EdgeIndex, 16);
         killGame.RunOneStep(new PlayerInput(true, 0, false, false));
         Shot shot = Assert.Single(killGame.Shots);
         shot.Height = target.Height - 6;
@@ -324,14 +328,26 @@ public sealed class Level2SquareTests
     [Fact]
     public void SquareFlipperRenderingHandlesBothZapperUsesWithEnemyBulletsEnabled()
     {
-        TempestGame game = CreateSingleUnresolvedFlipperGame(
-            enemyBulletsTest: true, random: new DeterministicEnemyBulletRandom());
+        // Keep incoming supply so all-rim clearing cannot discard the bullet on its creation tick.
+        TempestGame game = new(level2Test: true, enemyBulletsTest: true,
+            random: new DeterministicEnemyBulletRandom());
+        Egg egg = game.Eggs[0];
+        egg.BeginApproach();
+        while (egg.State != EggState.ReadyToHatch)
+            egg.Update(game.CurrentLevel);
+        game.RunOneStep();
         Flipper flipper = Assert.Single(game.Flippers);
         Assert.InRange(flipper.BulletAmmunition, 1, 3);
         VectorRenderer renderer = new(game);
 
-        for (int tick = 0; tick < 17; tick++)
-            game.RunOneStep();
+        for (int tick = 0; tick < 2000 &&
+            !(flipper.BulletTimer == 0 && flipper.State == FlipperState.Pausing &&
+              flipper.PauseTicks == 1); tick++)
+            flipper.Update(game.CurrentLevel, (flipper.EdgeIndex + 8) % 16, (_, _) => 76);
+        Assert.Equal(0, flipper.BulletTimer);
+        Assert.Equal(1, flipper.PauseTicks);
+        game.Player.Move((flipper.EdgeIndex + 8) % 16 - game.Player.EdgeIndex, 16);
+        game.RunOneStep();
 
         EnemyBullet bullet = Assert.Single(game.EnemyBullets);
         AssertFinite(renderer.ProjectEnemyBullet(bullet));
@@ -367,7 +383,7 @@ public sealed class Level2SquareTests
         }
 
         Assert.Empty(game.Flippers);
-        Assert.Equal(12, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(1, game.CurrentLevel.EnemiesDestroyed);
     }
 
     [Fact]
@@ -496,6 +512,23 @@ public sealed class Level2SquareTests
         Assert.Equal(FlipperState.Flipping, flipper.State);
         Assert.Equal(destination, flipper.DestinationEdge);
         return flipper;
+    }
+
+    private static void PrepareLethalRimPivot(TempestGame game, Flipper flipper)
+    {
+        for (int tick = 0; tick < 1000 &&
+            (flipper.Height < Level.Depth || flipper.State == FlipperState.Flipping); tick++)
+            flipper.Update(game.CurrentLevel, (flipper.DestinationEdge + 8) % 16);
+        Assert.Equal(Level.Depth, flipper.Height);
+        Assert.Equal(FlipperState.Pausing, flipper.State);
+        int destination = game.CurrentLevel.NextEdge(flipper.EdgeIndex);
+        game.Player.Move(destination - game.Player.EdgeIndex, 16);
+        while (flipper.State == FlipperState.Pausing)
+            flipper.Update(game.CurrentLevel, destination);
+        int turnTicks = (int)MathF.Ceiling(flipper.TotalTurnAngle / 8);
+        for (int tick = 0; tick < turnTicks - 1; tick++)
+            flipper.Update(game.CurrentLevel, destination);
+        Assert.False(flipper.CompletedIntoPlayer);
     }
 
     private static float ExpectedHingeAngle(int source, int destination)

@@ -2,7 +2,7 @@ using Tempest.Game.Levels;
 
 namespace Tempest.Game.Gameplay;
 
-// Climbing: rises up the lane. Pausing: rim pause before choosing a pivot direction.
+// Climbing: rises up the lane. Pausing: lane/rim pause before an adjacent pivot.
 // Flipping: visible pivot to an adjacent lane.
 public enum FlipperState
 {
@@ -13,15 +13,13 @@ public enum FlipperState
 
 /// <summary>
 /// Flipper state machine (Climbing -> Pausing -> Flipping -> Pausing ...). Timing constants are
-/// frame/tick-based values taken from Incitti's BlitzMax reference and not yet compared to the arcade.
+/// configuration-backed Incitti values, not measured arcade timing. Ordinary Level 2-test canflip
+/// latches direction after the first climb and resamples only at rim pause expiry.
 /// The entity never touches game state: lethal contact is reported through
 /// <see cref="CompletedIntoPlayer"/> and consumed by TempestGame after player-shot collision.
 /// </summary>
 public sealed class Flipper : Enemy
 {
-    private const float ClimbSpeed = 2;
-    private const float TurnSpeedDegrees = 8;
-    private const int RimPauseTicks = 24;
     public Flipper(int edge = 0, float height = 0)
         : this(edge, height, 0)
     {
@@ -59,43 +57,58 @@ public sealed class Flipper : Enemy
 
     public EnemyBullet? Update(Level level, int playerEdge, Func<int, int, int>? randomInclusive = null)
     {
+        FlipperConfiguration tuning = level.Configuration.Flipper;
+        bool canFlip = tuning.CanFlip && !IsTankerCargo;
         EnemyBullet? bullet = null;
         switch (State)
         {
             case FlipperState.Climbing:
-                Height += ClimbSpeed;
+                bool startedBelowRim = Height < Level.Depth;
+                Height += tuning.ClimbSpeed;
                 if (Height >= Level.Depth)
                 {
                     Height = Level.Depth;
                     if (EdgeIndex == playerEdge)
                         CompletedIntoPlayer = true;
                     else
-                        BeginPause();
+                        BeginPause(tuning.RimPauseTicks);
                 }
+                if (canFlip && startedBelowRim)
+                    // Incitti's first canflip climb enters type 3 without assigning a pause.
+                    BeginPause(0);
                 bullet = TryFireBullet(EdgeIndex, randomInclusive);
+                if (canFlip && startedBelowRim)
+                    // Source order is Shoot(), then FindShortDir. Retain this below the rim.
+                    Direction = level.FindReferenceShortestDirection(EdgeIndex, playerEdge, randomInclusive);
                 break;
 
             case FlipperState.Pausing:
-                if (IsTankerCargo && Height < Level.Depth)
+                bool pausedBelowRim = Height < Level.Depth;
+                if ((IsTankerCargo || canFlip) && Height < Level.Depth)
                     Height = MathF.Min(Level.Depth, Height + 1);
                 PauseTicks--;
                 if (PauseTicks <= 0)
                 {
-                    BeginPivot(level, playerEdge);
+                    BeginPivot(level, playerEdge, randomInclusive);
                     bullet = TryFireBullet(DestinationEdge, randomInclusive);
                 }
+                else if (canFlip && pausedBelowRim && Height >= Level.Depth && EdgeIndex == playerEdge)
+                    // A lane pause can arrive at the rim too; active pivots remain safe until complete.
+                    CompletedIntoPlayer = true;
                 break;
 
             case FlipperState.Flipping:
-                TurnAngle += TurnSpeedDegrees;
+                TurnAngle += tuning.TurnSpeedDegrees;
                 if (Height < Level.Depth)
                 {
-                    Height += ClimbSpeed;
+                    Height += tuning.ClimbSpeed;
                     if (Height >= Level.Depth)
                         Height = Level.Depth;
                 }
                 if (TurnAngle >= TotalTurnAngle)
-                    CompletePivot(playerEdge);
+                    CompletePivot(playerEdge, canFlip && Height < Level.Depth
+                        ? tuning.LanePauseTicks
+                        : tuning.RimPauseTicks);
                 break;
         }
 
@@ -166,21 +179,24 @@ public sealed class Flipper : Enemy
 
     public void ClearCompletedCollision() => CompletedIntoPlayer = false;
 
-    private void BeginPause()
+    private void BeginPause(int pauseTicks)
     {
         SourceEdge = EdgeIndex;
         DestinationEdge = EdgeIndex;
         TotalTurnAngle = 0;
         State = FlipperState.Pausing;
-        PauseTicks = RimPauseTicks;
+        PauseTicks = pauseTicks;
         TurnAngle = 0;
     }
 
-    // Direction > 0 pivots toward PreviousEdge; the direction is chosen once, at pivot start.
-    private void BeginPivot(Level level, int playerEdge)
+    // +1 pivots toward PreviousEdge. Below-rim canflip/cargo retain direction; rim starts resample.
+    private void BeginPivot(Level level, int playerEdge, Func<int, int, int>? randomInclusive)
     {
-        if (!IsTankerCargo || Height >= Level.Depth)
-            Direction = level.FindShortestDirection(EdgeIndex, playerEdge);
+        bool canFlip = level.Configuration.FlipperCanFlip && !IsTankerCargo;
+        if ((!IsTankerCargo && !canFlip) || Height >= Level.Depth)
+            Direction = canFlip
+                ? level.FindReferenceShortestDirection(EdgeIndex, playerEdge, randomInclusive)
+                : level.FindShortestDirection(EdgeIndex, playerEdge);
         SourceEdge = EdgeIndex;
         DestinationEdge = Direction > 0
             ? level.PreviousEdge(EdgeIndex)
@@ -190,7 +206,7 @@ public sealed class Flipper : Enemy
         State = FlipperState.Flipping;
     }
 
-    private void CompletePivot(int playerEdge)
+    private void CompletePivot(int playerEdge, int pauseTicks)
     {
         EdgeIndex = DestinationEdge;
         SourceEdge = EdgeIndex;
@@ -201,7 +217,7 @@ public sealed class Flipper : Enemy
         if (EdgeIndex == playerEdge && Height >= Level.Depth)
             CompletedIntoPlayer = true;
 
-        BeginPause();
+        BeginPause(pauseTicks);
     }
 
     public override void Update() { }

@@ -16,6 +16,14 @@ public enum FlipperPivotGeometry
     SquareEndpointHinge
 }
 
+// REFERENCE VERIFIED: Incitti lv=0/1 values; canflip is enabled only in the Level 2 test.
+public sealed record FlipperConfiguration(
+    bool CanFlip,
+    float ClimbSpeed,
+    float TurnSpeedDegrees,
+    int LanePauseTicks,
+    int RimPauseTicks);
+
 /// <summary>
 /// Immutable wave data. A Level owns the mutable runtime state created from this configuration.
 /// </summary>
@@ -42,7 +50,8 @@ public sealed record LevelConfiguration(
 {
     public int VertexCount => Definition.VertexCount;
     public int PlayableLaneCount => Definition.PlayableLaneCount;
-    public bool FlipperCanFlip { get; init; }
+    public FlipperConfiguration Flipper { get; init; } = new(false, 2, 8, 21, 24);
+    public bool FlipperCanFlip => Flipper.CanFlip;
     public FlipperPivotGeometry FlipperPivotMode { get; init; } = FlipperPivotGeometry.LegacyLaneTurn;
 
     public static LevelConfiguration Level1 { get; } = new(
@@ -66,7 +75,7 @@ public sealed record LevelConfiguration(
         ExitPolicy: LevelExitPolicy.Standard,
         NormalEnemyComposition: LevelEnemyComposition.FlippersOnly)
     {
-        FlipperCanFlip = false,
+        Flipper = new(false, 2, 8, 21, 24),
         FlipperPivotMode = FlipperPivotGeometry.LegacyLaneTurn
     };
 
@@ -91,8 +100,7 @@ public sealed record LevelConfiguration(
         ExitPolicy: LevelExitPolicy.Standard,
         NormalEnemyComposition: LevelEnemyComposition.FlippersOnly)
     {
-        // B1 deliberately keeps canflip disabled so only the square and rim hinge are under test.
-        FlipperCanFlip = false,
+        Flipper = new(true, 2, 8, 21, 24),
         FlipperPivotMode = FlipperPivotGeometry.SquareEndpointHinge
     };
 }

@@ -821,14 +821,51 @@ continue across fresh replay as before; Fuseball animation resets on fresh
 initialization and carries through life reconstruction. No behavior-spec
 change or progression assertion was made for this groundwork.
 
-## Isolated Level 2 square geometry test
+## Isolated Level 2 square/canflip test
 
 `--level2-test` is **DEVELOPMENT ONLY** and selects a closed 16-lane square
 definition, board index 1, palette 0 and configured supply 12. It uses the
-existing `Level` runtime and fresh-wave installation path. B1 deliberately
-keeps canflip disabled and validates the basic climb-to-rim Flipper behavior
-plus square endpoint-hinge pivots; this is not a claim of complete or
-authentic Level 2 gameplay.
+existing `Level` runtime and fresh-wave installation path. B1 established the
+square endpoint-hinge geometry with canflip disabled. B2 enables ordinary
+Flipper canflip only through this installed configuration; Level 1 retains
+straight climbing and its legacy rim geometry and direction policy.
+
+**REFERENCE VERIFIED**: the first climb adds 2, enters a zero-duration lane
+pause, attempts firing, then samples the Blaster lane. The next update adds
+1 and starts an adjacent pivot. Turning adds 8 degrees and 2 height; completed
+turns pause for 21 updates below the rim or 24 at the rim. Below-rim pauses add
+1 height and retain the initial direction across successive turns; only rim
+pause expiry resamples the Blaster. Same-lane ties use the existing injected
+random source; signed antipodal choices follow Incitti. Bullet attempts occur
+on climbing and pause expiry, not during turns. Bullets remain separately
+opt-in, with the existing 1-3 ammunition and 16 timer.
+
+**PROJECT DECISION**: preserve B1's clamped height, source-anchored hinge
+representation, two-lane pivot shot acceptance and completed-pivot safety.
+Incitti can briefly overshoot depth, assigns its lane at pivot start, accepts
+shots only on that destination, and can kill before angular completion.
+A lane pause newly reaching the occupied rim signals arrival; merely moving
+under an already-paused rim Flipper does not introduce a new collision policy.
+The shared literal direction helper was extracted from Pulsar without changing
+its behavior; the legacy Level 1 helper is unchanged. Tanker cargo keeps its
+separate direction and 24-update below-rim pause.
+
+Neal completed B2 manual validation on 2026-10-31. **ARCADE VERIFIED**:
+below-rim lane changes broadly resembled Atari Level 2; straight-side and
+corner flips looked mechanically sensible with no snapping or wrong-lane
+landing. Active transitions did not visibly retarget halfway through after
+Blaster movement; later transitions may respond to its then-current position.
+Below-rim transition geometry was not lethal, and rim pursuit and completed-
+pivot behavior remained normal. No crash occurred and the B1 completed-pivot
+renderer crash did not recur.
+
+These observations do not measure the exact 8-degree increment, 21/24 pauses,
+random/tie rules or call ordering, tick boundaries, height increments, endpoint/
+radial math, numeric shot band or internal state representation. Those remain
+**REFERENCE VERIFIED** or **PROJECT DECISION** as applicable. Passing tests
+still proves C# contracts, not arcade fidelity. The isolated composition is
+**DEVELOPMENT ONLY**, not validated authentic Level 2 setup or natural
+progression.
 
 ```powershell
 dotnet run --project src\Tempest.Game -- --level2-test --lives 10
