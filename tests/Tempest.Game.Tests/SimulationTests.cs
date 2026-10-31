@@ -9,6 +9,399 @@ namespace Tempest.Game.Tests;
 
 public sealed class SimulationTests
 {
+    // --- Direct Fuseballs: source behavior in an isolated ten-unit development wave ---
+
+    [Fact]
+    public void FuseballScenarioIsExplicitMutuallyExclusiveAndHatchesOneOrdinaryUnit()
+    {
+        string[] args = ["--fuseball-test", "--lives", "10"];
+        Assert.True(Tempest.Game.Debug.DebugController.UseFuseballTest(args));
+        Assert.False(Tempest.Game.Debug.DebugController.UseFuseballTest([]));
+        Assert.False(Tempest.Game.Debug.DebugController.HasConflictingScenarios(args));
+        foreach (string other in new[] { "--spiker-test", "--tanker-test" })
+            Assert.True(Tempest.Game.Debug.DebugController.HasConflictingScenarios(["--fuseball-test", other]));
+        Assert.Throws<ArgumentException>(() => new TempestGame(true, fuseballTest: true));
+        Assert.Throws<ArgumentException>(() => new TempestGame(tankerTest: true, fuseballTest: true));
+        Assert.Empty(new TempestGame().Fuseballs);
+        Assert.False(new TempestGame().FuseballTest);
+
+        TempestGame game = HatchDevelopmentFuseball();
+        Fuseball fuseball = Assert.Single(game.Fuseballs);
+        Assert.Equal(12, fuseball.EdgeIndex);
+        Assert.Equal(0, fuseball.Height);
+        Assert.Equal(0, fuseball.W);
+        Assert.Equal(1, fuseball.Direction);
+        Assert.Equal(FuseballState.Lateral, fuseball.State);
+        Assert.Equal(1, fuseball.StateTicks);
+        Assert.Equal(3.3f, fuseball.ClimbSpeed);
+        Assert.Empty(game.Flippers);
+        Assert.Empty(game.Tankers);
+        Assert.Empty(game.Spikers);
+        Assert.Equal(10, game.CurrentLevel.RemainingEnemies);
+        Assert.Equal(10, game.CurrentLevel.ReserveEggs + game.Eggs.Count + game.Fuseballs.Count);
+    }
+
+    [Fact]
+    public void FuseballLateralMovementUsesLiteralSourceCounterAndForcesClimbAtZero()
+    {
+        Level level = new();
+        Fuseball fuseball = new(3);
+        for (int tick = 0; tick < 8; tick++)
+            fuseball.Update(level, 0, (_, _) => throw new InvalidOperationException());
+        Assert.Equal(0, fuseball.W);
+        fuseball.Update(level, 0, (_, maximum) => maximum == 100 ? 90 : 2);
+        Assert.Equal(1, fuseball.W);
+        Assert.Equal(1, fuseball.Direction);
+        AdvanceFuseball(fuseball, level, 63, (_, maximum) => maximum == 100 ? 0 : 2);
+        Assert.Equal(4, fuseball.EdgeIndex);
+        Assert.Equal(0, fuseball.W);
+        Assert.Equal(FuseballState.Climbing, fuseball.State);
+        Assert.Equal(0, fuseball.Height);
+        Assert.Equal(0, fuseball.StateTicks);
+    }
+
+    [Theory]
+    [InlineData(true, 0, 0, 1)]
+    [InlineData(false, 14, 8, -1)]
+    public void FuseballForwardWrapOrOpenEndpointBounce(bool continuous, int edge, int w, int direction)
+    {
+        Level level = new() { Continuous = continuous };
+        Fuseball fuseball = new(continuous ? 15 : 14);
+        AdvanceFuseball(fuseball, level, 72);
+        Assert.Equal(edge, fuseball.EdgeIndex);
+        Assert.Equal(w, fuseball.W);
+        Assert.Equal(direction, fuseball.Direction);
+        Assert.Equal(FuseballState.Climbing, fuseball.State);
+    }
+
+    [Theory]
+    [InlineData(true, 15, 8)]
+    [InlineData(false, 0, 0)]
+    public void FuseballReverseWrapOrOpenEndpointBounce(bool continuous, int edge, int w)
+    {
+        Level level = new() { Continuous = continuous };
+        Fuseball fuseball = new();
+        // Same-edge retarget uses its own random tie roll: 0 chooses direction -1.
+        AdvanceFuseball(fuseball, level, 9, (minimum, maximum) => maximum == 100 ? 91 : minimum);
+        Assert.Equal(edge, fuseball.EdgeIndex);
+        Assert.Equal(w, fuseball.W);
+        Assert.Equal(continuous ? -1 : 1, fuseball.Direction);
+        Assert.Equal(FuseballState.Climbing, fuseball.State);
+    }
+
+    [Theory]
+    [InlineData(true, 15, 1, 15, 1)]
+    [InlineData(false, 14, 1, 13, 8)]
+    [InlineData(true, 0, 8, 0, 1)]
+    public void FuseballRetargetRespectsShortRouteOpenTubeAndOppositeTie(
+        bool continuous, int edge, int playerEdge, int expectedEdge, int expectedW)
+    {
+        Level level = new() { Continuous = continuous };
+        Fuseball fuseball = new(edge);
+        for (int tick = 0; tick < 9; tick++)
+            fuseball.Update(level, playerEdge, (minimum, maximum) => maximum == 100 ? 91 : minimum);
+        Assert.Equal(expectedEdge, fuseball.EdgeIndex);
+        Assert.Equal(expectedW, fuseball.W);
+    }
+
+    [Theory]
+    [InlineData(1, 26)]
+    [InlineData(2, 51)]
+    [InlineData(3, 76)]
+    public void FuseballVerticalDurationUsesStrictRerolledSourceThreshold(int durationRoll, int duration)
+    {
+        Level level = new();
+        Fuseball fuseball = new();
+        AdvanceFuseball(fuseball, level, 72);
+        int rolls = 0;
+        int Roll(int minimum, int maximum)
+        {
+            Assert.Equal(1, minimum);
+            Assert.Equal(3, maximum);
+            rolls++;
+            return durationRoll;
+        }
+        AdvanceFuseball(fuseball, level, duration - 1, Roll);
+        Assert.Equal(FuseballState.Climbing, fuseball.State);
+        fuseball.Update(level, 0, Roll);
+        Assert.Equal(FuseballState.Lateral, fuseball.State);
+        Assert.Equal(0, fuseball.StateTicks);
+        Assert.Equal(duration, rolls);
+        Assert.InRange(fuseball.Height, duration * 3.3f - .001f, duration * 3.3f + .001f);
+    }
+
+    [Fact]
+    public void FuseballDescendingClampsAtZeroAndWaitsForDurationDecision()
+    {
+        Level level = new();
+        Fuseball fuseball = new(0, climbSpeed: 1);
+        AdvanceFuseball(fuseball, level, 72);
+        AdvanceFuseball(fuseball, level, 26);
+        Assert.Equal(26, fuseball.Height);
+        AdvanceFuseball(fuseball, level, 72, (_, maximum) => maximum == 2 ? 2 : 0);
+        Assert.Equal(FuseballState.Descending, fuseball.State);
+        AdvanceFuseball(fuseball, level, 26, (_, _) => 3);
+        Assert.Equal(0, fuseball.Height);
+        Assert.Equal(FuseballState.Descending, fuseball.State);
+        fuseball.Update(level, 0, (_, _) => 1);
+        Assert.Equal(FuseballState.Lateral, fuseball.State);
+        Assert.Equal(0, fuseball.StateTicks);
+    }
+
+    [Theory]
+    [InlineData(-1, false)]
+    [InlineData(0, false)]
+    [InlineData(1, true)]
+    [InlineData(15, true)]
+    [InlineData(16, false)]
+    public void FuseballShotHeightBandIsStrict(float separation, bool hit)
+    {
+        Level level = new();
+        Fuseball fuseball = CreateRimFuseball(level);
+        AdvanceFuseball(fuseball, level, 18);
+        Assert.Equal(hit, fuseball.IsHitBy(new Shot { EdgeIndex = fuseball.EdgeIndex, Height = 400 - separation }));
+        Assert.False(fuseball.IsHitBy(new Shot { EdgeIndex = 7, Height = 399 }));
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(2, true)]
+    [InlineData(6, true)]
+    [InlineData(7, false)]
+    [InlineData(8, false)]
+    public void FuseballShotAndRimPlayerCollisionRequireInteriorW(int w, bool hit)
+    {
+        Level level = new();
+        Fuseball fuseball = CreateRimFuseball(level);
+        if (w == 8)
+        {
+            AdvanceFuseball(fuseball, level, 9, (minimum, maximum) => maximum == 100 ? 91 : minimum);
+            fuseball.Update(level, 0, (minimum, _) => minimum);
+        }
+        else
+            AdvanceFuseball(fuseball, level, w * 9);
+        Assert.Equal(w, fuseball.W);
+        Assert.Equal(hit, fuseball.IsHitBy(new Shot { EdgeIndex = fuseball.EdgeIndex, Height = 399 }));
+        Player player = new();
+        player.Move(fuseball.EdgeIndex - player.EdgeIndex, 16);
+        Assert.Equal(hit, fuseball.HitsPlayer(player));
+        player.Move(.4f, 16);
+        Assert.Equal(hit, fuseball.HitsPlayer(player));
+        player.Move(1, 16);
+        Assert.False(fuseball.HitsPlayer(player));
+    }
+
+    [Fact]
+    public void FuseballClimbingRimArrivalIsNotItselfLethal()
+    {
+        Level level = new();
+        Fuseball fuseball = new(6, Level.Depth);
+        AdvanceFuseball(fuseball, level, 73);
+        Assert.Equal(Level.Depth, fuseball.Height);
+        Assert.Equal(FuseballState.Climbing, fuseball.State);
+        Assert.False(fuseball.HitsPlayer(new Player()));
+        fuseball.Update(level, 7, (_, _) => 1);
+        Assert.Equal(FuseballState.Lateral, fuseball.State);
+        Assert.False(fuseball.HitsPlayer(new Player()));
+        AdvanceFuseball(fuseball, level, 18);
+        Assert.True(fuseball.HitsPlayer(new Player()));
+        fuseball.BeginPlayerKill();
+        Assert.Equal(FuseballState.KillingPlayer, fuseball.State);
+        Assert.Equal(3, fuseball.W);
+        Assert.False(fuseball.HitsPlayer(new Player()));
+    }
+
+    [Theory]
+    [InlineData(0, 1250)]
+    [InlineData(.01f, 1000)]
+    [InlineData(99.99f, 1000)]
+    [InlineData(100, 1000)]
+    [InlineData(100.01f, 750)]
+    [InlineData(200, 750)]
+    [InlineData(200.01f, 500)]
+    [InlineData(300, 500)]
+    [InlineData(300.01f, 250)]
+    [InlineData(400, 250)]
+    public void FuseballScoreUsesSourceHeightSteps(float height, int score)
+    {
+        Fuseball fuseball = new(0, height == 0 ? 1 : height);
+        if (height > 0)
+            AdvanceFuseball(fuseball, new Level(), 73);
+        Assert.Equal(height, fuseball.Height);
+        Assert.Equal(score, fuseball.KillScore);
+    }
+
+    [Fact]
+    public void FuseballKillScoresOneUnitAndCreatesOnlyItsShortLivedPopup()
+    {
+        TempestGame game = HatchDevelopmentFuseball();
+        Fuseball fuseball = Assert.Single(game.Fuseballs);
+        AdvanceFuseball(fuseball, game.CurrentLevel, 71);
+        AdvanceFuseball(fuseball, game.CurrentLevel, 26);
+        AdvanceFuseball(fuseball, game.CurrentLevel, 18);
+        Assert.Equal(2, fuseball.W);
+        // Test the production shot path without waiting for a shot to travel the entire tube.
+        game.Player.Move(fuseball.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot shot = Assert.Single(game.Shots);
+        shot.Height = fuseball.Height + 5;
+        game.RunOneStep();
+        Assert.Empty(game.Fuseballs);
+        Assert.Empty(game.Shots);
+        Assert.Equal(1000, game.Score.Score);
+        Assert.Equal(1, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(9, game.CurrentLevel.RemainingEnemies);
+        FuseballScorePopup popup = Assert.Single(game.FuseballScorePopups);
+        Assert.Equal(1000, popup.Points);
+        Assert.Equal(fuseball.Height, popup.Height);
+        VectorRenderer renderer = new(game);
+        int labels = 0;
+        renderer.DrawFuseballScorePopups((text, position, scale) =>
+        {
+            Assert.Equal("1000", text);
+            AssertFinite(position);
+            Assert.Equal(popup.Height / 64 + .5f, scale);
+            labels++;
+        });
+        Assert.Equal(1, labels);
+        Step(game, 29);
+        Assert.Single(game.FuseballScorePopups);
+        game.RunOneStep();
+        Assert.Empty(game.FuseballScorePopups);
+    }
+
+    [Fact]
+    public void FuseballPlayerDeathReconstructsSurvivorAsFreshEggAndRetainsScore()
+    {
+        TempestGame game = HatchDevelopmentFuseball();
+        Fuseball fuseball = Assert.Single(game.Fuseballs);
+        // Advance only this entity to the rim; the game still owns collision and life loss.
+        for (int tick = 0; tick < 1000 &&
+            !(fuseball.State == FuseballState.Lateral && fuseball.Height == Level.Depth); tick++)
+            fuseball.Update(game.CurrentLevel, 0, (_, maximum) => maximum == 3 ? 3 : 1);
+        Assert.Equal(Level.Depth, fuseball.Height);
+        AdvanceFuseball(fuseball, game.CurrentLevel, 18);
+        game.Player.Move(fuseball.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.Score.Add(500);
+        game.RunOneStep();
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Assert.Equal(FuseballState.KillingPlayer, fuseball.State);
+        Assert.Equal(60, game.DeathTicks);
+        Step(game, 60);
+        Assert.Empty(game.Fuseballs);
+        Assert.Equal(2, game.Player.Lives);
+        Assert.Equal(500, game.Score.Score);
+        Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Equal(4, game.Eggs.Count);
+        Assert.Equal(6, game.CurrentLevel.ReserveEggs);
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Fuseball fresh = Assert.Single(game.Fuseballs);
+        Assert.NotSame(fuseball, fresh);
+        Assert.Equal(0, fresh.Height);
+        Assert.Equal(0, fresh.W);
+        Assert.Equal(1, fresh.Direction);
+    }
+
+    [Fact]
+    public void FuseballBlocksCompletionUntilItsUnitIsResolved()
+    {
+        TempestGame game = HatchDevelopmentFuseball();
+        Fuseball fuseball = Assert.Single(game.Fuseballs);
+        AdvanceFuseball(fuseball, game.CurrentLevel, 71);
+        AdvanceFuseball(fuseball, game.CurrentLevel, 26);
+        AdvanceFuseball(fuseball, game.CurrentLevel, 18);
+        // Resolve the other nine Egg units without introducing extra runtime enemies.
+        for (int unit = 0; unit < 9; unit++)
+        {
+            if (game.Eggs.Count == 0)
+                for (int tick = 0; tick < 50; tick++)
+                    game.CurrentLevel.UpdateEggRelease();
+            MakeReady(game.Eggs[0], game.CurrentLevel);
+            Assert.NotNull(game.CurrentLevel.HatchReadyEnemy(lane => new Fuseball(lane)));
+            game.CurrentLevel.RecordEnemyDestroyed();
+        }
+        game.RunOneStep();
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(1, game.CurrentLevel.RemainingEnemies);
+        game.Player.Move(fuseball.EdgeIndex - game.Player.EdgeIndex, 16);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Assert.Single(game.Shots).Height = fuseball.Height + 5;
+        game.RunOneStep();
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        Assert.Empty(game.Fuseballs);
+        Assert.Equal(10, game.CurrentLevel.EnemiesDestroyed);
+    }
+
+    [Fact]
+    public void FuseballAnimationHasFourSharedFramesFiveColoredArmsAndFiniteProjection()
+    {
+        TempestGame game = HatchDevelopmentFuseball();
+        Fuseball fuseball = Assert.Single(game.Fuseballs);
+        VectorRenderer renderer = new(game);
+        HashSet<int> frames = [];
+        Vector2[] firstArmPoints = [new(7, -5), new(6, -8), new(5, -8), new(6, -6)];
+        Raylib_cs.Color[] colors =
+        [
+            new(255, 255, 0, 255), new(0, 255, 0, 255), new(255, 0, 255, 255),
+            new(0, 255, 255, 255), new(255, 0, 0, 255)
+        ];
+        for (int tick = 0; tick < 16; tick++)
+        {
+            Assert.Equal((tick + 1) % 16 / 4, game.FuseballAnimationFrame);
+            frames.Add(game.FuseballAnimationFrame);
+            List<(Vector2 Start, Vector2 End, Raylib_cs.Color Color)> lines = [];
+            renderer.DrawFuseballs((start, end, color) => lines.Add((start, end, color)));
+            Assert.Equal(25, lines.Count);
+            Assert.Equal(5, lines.Select(line => line.Color).Distinct().Count());
+            Assert.All(lines, line => { AssertFinite(line.Start); AssertFinite(line.End); });
+            for (int arm = 0; arm < 5; arm++)
+                Assert.Equal(colors[arm], lines[arm * 5].Color);
+            float scale = (8 / ((Level.Position + Level.Depth - fuseball.Height + Projection.ZOffset) /
+                Projection.K) + .25f) / 6;
+            Vector2 expectedTip = firstArmPoints[game.FuseballAnimationFrame] * scale;
+            Assert.InRange(Vector2.Distance(expectedTip, lines[0].End - lines[0].Start), 0, .0001f);
+            Vector2 point = Vector2.Lerp(game.CurrentLevel.Definition.Points[fuseball.EdgeIndex],
+                game.CurrentLevel.Definition.Points[game.CurrentLevel.NextEdge(fuseball.EdgeIndex)],
+                fuseball.W / 8f);
+            Assert.Equal(Projection.Project(point.X, point.Y, Level.Position + Level.Depth - fuseball.Height,
+                game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset),
+                renderer.ProjectFuseballCenter(fuseball));
+            game.RunOneStep();
+        }
+        Assert.Equal(4, frames.Count);
+    }
+
+    private static TempestGame HatchDevelopmentFuseball()
+    {
+        TempestGame game = new(fuseballTest: true, random: new MinimumRandom());
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        return game;
+    }
+
+    private static Fuseball CreateRimFuseball(Level level)
+    {
+        Fuseball fuseball = new(0, Level.Depth);
+        AdvanceFuseball(fuseball, level, 74);
+        Assert.Equal(Level.Depth, fuseball.Height);
+        Assert.Equal(FuseballState.Lateral, fuseball.State);
+        return fuseball;
+    }
+
+    private static void AdvanceFuseball(Fuseball fuseball, Level level, int ticks,
+        Func<int, int, int>? randomInclusive = null)
+    {
+        for (int tick = 0; tick < ticks; tick++)
+            fuseball.Update(level, 0, randomInclusive ?? ((minimum, _) => minimum));
+    }
+
+    private sealed class MinimumRandom : Random
+    {
+        public override int Next(int minValue, int maxValue) => minValue;
+    }
+
     // --- Tanker development scenario (--tanker-test): flags, slot identity, climb and release ---
 
     [Fact]

@@ -124,6 +124,27 @@ Tankers fire no bullets in this milestone; existing Flipper bullets are enabled
 only by additionally passing `--enemy-bullets-test`. `--tanker-test` cannot be
 combined with `--spiker-test`.
 
+## Fuseball development wave
+
+```powershell
+dotnet run --project src\Tempest.Game -- --fuseball-test --lives 10
+```
+
+This development-only wave hatches all ten ordinary enemy units directly as
+Fuseballs on the existing tube. It keeps the established Egg release schedule
+and uses Incitti's unscaled 3.3 climb speed; it is not arcade level composition.
+The flag is mutually exclusive with `--spiker-test` and `--tanker-test`.
+`--enemy-bullets-test` adds no firing to this Fuseball-only wave.
+
+Compare lateral boundary travel, climb/descent phases, five-color vector
+animation, and the 250–1250 height-based score labels. Shots hit only inside
+`1 < w < 7` and strictly within 16 depth units below a Fuseball. Only lateral
+travel at the rim is lethal. Source `cnt > 8` means lateral steps are actually
+nine updates apart (the earlier analysis called this eight); vertical duration
+is rerolled each update. Surviving units return as fresh Eggs after life loss.
+Normal Level 1 remains unchanged. Tanker cargo, hurry-up, Zapper, audio and
+progression are not part of this milestone.
+
 ## Reference mapping
 - `tempest.bmx` -> gameplay and state behavior
 - `transformfunctions.bmx` -> `Rendering/Projection.cs`

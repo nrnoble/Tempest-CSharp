@@ -2,7 +2,7 @@
 // Raylib window, input and rendering together; all gameplay simulation belongs in TempestGame so
 // it stays headless-testable. Keep it that way — logic added here is invisible to the test suite.
 //
-// Development command-line modes (see DebugController): --spiker-test and --tanker-test select
+// Development command-line modes (see DebugController): --spiker-test, --tanker-test and --fuseball-test select
 // isolated enemy-development waves and are mutually exclusive; --enemy-bullets-test and --lives
 // compose with either. With no flags the game runs normal Level 1, the only validated
 // production configuration.
@@ -14,7 +14,7 @@ using Tempest.Game.Debug;
 
 if (DebugController.HasConflictingScenarios(args))
 {
-    Console.Error.WriteLine("--tanker-test and --spiker-test are mutually exclusive.");
+    Console.Error.WriteLine("--tanker-test, --spiker-test and --fuseball-test are mutually exclusive.");
     return 2;
 }
 
@@ -29,7 +29,8 @@ Raylib.SetTargetFPS(60);
 TempestGame game = new(DebugController.UseSpikerWave(args),
     startingLives: DebugController.GetStartingLives(args),
     enemyBulletsTest: DebugController.UseEnemyBulletsTest(args),
-	tankerTest: DebugController.UseTankerTest(args));
+	tankerTest: DebugController.UseTankerTest(args),
+    fuseballTest: DebugController.UseFuseballTest(args));
 InputSystem input = new();
 VectorRenderer renderer = new(game);
 

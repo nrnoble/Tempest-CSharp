@@ -22,6 +22,36 @@ public sealed class VectorRenderer
 	public const int EggPointSize = 3;
 	private static readonly Color SpikerColor = new(0, 255, 0, 255);
 	private static readonly Color TankerColor = new(255, 0, 255, 255);
+	private static readonly Color[] FuseballArmColors =
+	[
+		new(255, 255, 0, 255), new(0, 255, 0, 255), new(255, 0, 255, 255),
+		new(0, 255, 255, 255), new(255, 0, 0, 255)
+	];
+	// Incitti ReadFuseballData: four frames, five colored arms, six points per arm.
+	// Values are scaled by 1/6 at draw time; do not replace this asymmetric flicker with rotation.
+	private static readonly int[,] FuseballArmPoints =
+	{
+		{ 0,0, 7,-5, 6,-8, 9,-10, 7,-13, 11,-15 },
+		{ 0,0, 6,3, 6,6, 10,4, 12,4, 13,12 },
+		{ 0,0, 2,7, -4,10, 1,14, -4,17, 1,20 },
+		{ 0,0, -7,4, -7,1, -9,1, -11,6, -14,8 },
+		{ 0,0, -4,-5, -3,-10, -5,-13, -9,-13, -9,-15 },
+		{ 0,0, 6,-8, 5,-11, 9,-14, 7,-18, 6,-20 },
+		{ 0,0, 7,-3, 6,6, 10,6, 6,11, 11,16 },
+		{ 0,0, -3,8, -7,6, -5,12, -7,17, -3,21 },
+		{ 0,0, -6,3, -7,-4, -10,2, -11,-4, -18,4 },
+		{ 0,0, -3,-6, 2,-11, -4,-13, 2,-16, -2,-21 },
+		{ 0,0, 5,-8, 7,-7, 7,-12, 10,-16, 14,-14 },
+		{ 0,0, 7,1, 8,5, 11,6, 10,9, 14,10 },
+		{ 0,0, -5,6, -6,11, -3,11, -6,16, -6,19 },
+		{ 0,0, -6,1, -8,4, -11,3, -14,5, -16,6 },
+		{ 0,0, -2,-8, -7,-8, -5,-14, -8,-14, -10,-11 },
+		{ 0,0, 6,-6, 7,-12, 11,-6, 12,-12, 16,-12 },
+		{ 0,0, 6,5, 6,8, 11,9, 12,14, 16,14 },
+		{ 0,0, -3,6, -4,10, -9,11, -6,18, -9,21 },
+		{ 0,0, -4,2, -6,1, -7,2, -12,1, -15,6 },
+		{ 0,0, 1,-11, 3,-8, 5,-14, 3,-17, 6,-24 }
+	};
 
 	private readonly TempestGame game;
 	public IReadOnlyList<Egg> Eggs => game.Eggs;
@@ -59,6 +89,7 @@ public sealed class VectorRenderer
 			DrawFlippers(game.CurrentLevel.Definition.Points);
 			DrawSpikers((start, end) => Raylib.DrawLineV(start, end, SpikerColor));
 			DrawTankers((start, end) => Raylib.DrawLineV(start, end, TankerColor));
+			DrawFuseballs((start, end, color) => Raylib.DrawLineV(start, end, color));
 			if (game.EnemyBulletsTest)
 				DrawEnemyBullets((start, end) => Raylib.DrawLineV(start, end, Color.White));
 		}
@@ -66,6 +97,9 @@ public sealed class VectorRenderer
 		{
 			DrawPlayerShots(game.CurrentLevel.Definition.Points);
 		}
+
+		DrawFuseballScorePopups((text, position, scale) =>
+			Raylib.DrawTextEx(Raylib.GetFontDefault(), text, position, scale * 7, scale, Color.White));
 
 		if (!game.GameOver)
 		{
@@ -80,6 +114,45 @@ public sealed class VectorRenderer
 	}
 
 	private static int NextEdge(int edge, int edgeCount) => (edge + 1) % edgeCount;
+
+	public Vector2 ProjectFuseballCenter(Fuseball fuseball)
+	{
+		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
+		// Incitti edges use p2 = points[lane], p1 = points[next]; w runs p2 -> p1.
+		Vector2 position = Vector2.Lerp(points[fuseball.EdgeIndex],
+			points[NextEdge(fuseball.EdgeIndex, points.Count)], fuseball.W / 8f);
+		return Projection.Project(position.X, position.Y, Level.Position + Level.Depth - fuseball.Height,
+			game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+	}
+
+	public void DrawFuseballs(Action<Vector2, Vector2, Color> drawLine)
+	{
+		foreach (Fuseball fuseball in game.Fuseballs)
+		{
+			Vector2 center = ProjectFuseballCenter(fuseball);
+			float depth = Level.Position + Level.Depth - fuseball.Height;
+			float scale = (8 / ((depth + Projection.ZOffset) / Projection.K) + .25f) / 6;
+			for (int arm = 0; arm < 5; arm++)
+			{
+				int row = game.FuseballAnimationFrame * 5 + arm;
+				for (int point = 0; point < 5; point++)
+				{
+					Vector2 start = new(FuseballArmPoints[row, point * 2], FuseballArmPoints[row, point * 2 + 1]);
+					Vector2 end = new(FuseballArmPoints[row, point * 2 + 2], FuseballArmPoints[row, point * 2 + 3]);
+					drawLine(center + start * scale, center + end * scale, FuseballArmColors[arm]);
+				}
+			}
+		}
+	}
+
+	public void DrawFuseballScorePopups(Action<string, Vector2, float> drawText)
+	{
+		foreach (FuseballScorePopup popup in game.FuseballScorePopups)
+		{
+			Vector2 center = ProjectLane(popup.EdgeIndex, Level.Position + Level.Depth - popup.Height);
+			drawText(popup.Points.ToString(), center - new Vector2(popup.Scale * 1.5f, 0), popup.Scale);
+		}
+	}
 
 	public Vector2 ProjectTankerCenter(Tanker tanker) =>
 		ProjectLane(tanker.EdgeIndex, Level.Position + Level.Depth - tanker.Height);
@@ -430,9 +503,10 @@ public sealed class VectorRenderer
 		else
 		{
 			int remaining = Level.EnemyTotal - game.CurrentLevel.EnemiesDestroyed;
-			string enemyLabel = game.CurrentLevel.SpikerDevelopmentWave ? "ENEMIES" : "FLIPPERS";
+			string enemyLabel = game.FuseballTest ? "FUSEBALLS" :
+				game.CurrentLevel.SpikerDevelopmentWave ? "ENEMIES" : "FLIPPERS";
 			Raylib.DrawText($"{enemyLabel} {remaining}", 10, 72, 18, Color.Red);
-			Raylib.DrawText($"ACTIVE {game.Eggs.Count + game.Flippers.Count + game.Spikers.Count}", 10, 96, 18, Color.Gray);
+			Raylib.DrawText($"ACTIVE {game.Eggs.Count + game.Flippers.Count + game.Spikers.Count + game.Fuseballs.Count}", 10, 96, 18, Color.Gray);
 		}
 
 		if (game.GameOver)
