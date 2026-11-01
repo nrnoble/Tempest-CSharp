@@ -19,6 +19,10 @@ if (DebugController.HasConflictingScenarios(args))
     return 2;
 }
 
+// DEVELOPMENT ONLY: observe the same Raylib input framework without running game actions.
+if (DebugController.UseInputDiagnostic(args))
+    return InputDiagnostic.Run();
+
 Projection.K = 70;
 Projection.ZOffset = 5;
 
@@ -43,7 +47,7 @@ InputSystem input = new();
 VectorRenderer renderer = new(game);
 int activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
 
-while (!Raylib.WindowShouldClose())
+while (!input.QuitRequested())
 {
     // Input routing mirrors the simulation phases: frozen end states only accept restart; the
     // death freeze and automated exit travel ignore the player entirely (except the spike-exit

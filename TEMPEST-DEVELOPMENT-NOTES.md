@@ -94,6 +94,60 @@ Tempest is fundamentally designed around a spinner. Keyboard/mouse fallback may 
 
 Firing currently accepts keyboard Ctrl and left mouse/arcade-button input. The existing maximum active player-shot limit and shot timing should remain unless intentionally changed from a verified source.
 
+### Controller keyboard compatibility (2026-10-31)
+
+Neal's physical USB controller run in `--input-diagnostic` confirmed ordinary
+Raylib keyboard press and release events for P, Enter, Space, left Ctrl,
+left Alt, left Shift, Z, X, C and V. Text-producing buttons also exposed
+character events, but production input uses only the existing key-state APIs.
+This establishes usable Raylib events, not a particular USB/HID or Windows
+injection mechanism. Subsequent physical-controller gameplay testing passed
+for Space when available, resolving the earlier uncertainty for practical
+validation without attributing a cause to the earlier isolated failure.
+
+P is an additive R alias for the existing Game Over/Level Complete restart/
+replay request, using `IsKeyPressed` and the same state gates. V is an
+additive quit alias alongside Raylib's unchanged default Escape/window-close
+condition, exiting before the next simulation step through the existing
+cursor/window cleanup. Space/right mouse zap, Ctrl/left mouse Fire, spinner
+and keyboard arrows are unchanged. Z/X/C/Enter/Alt/Shift/1/5 have no new
+actions. These are control convenience decisions, not ARCADE VERIFIED rules.
+
+The small red Atari-style Player 1/Player 2 volcano buttons under Turbo Mode
+produced no observable Raylib diagnostic event. Their investigation, including
+a possible future Player 1 Start binding, is explicitly deferred; no lower-
+level Windows hook, Raw Input or remapping software was introduced.
+
+The standalone DEVELOPMENT ONLY diagnostic remains available and does not
+run during gameplay. Its readability and Neal's reported Tee-Object capture
+issue are non-blocking diagnostic usability concerns, not part of this change.
+Manual controller/input validation completed PASS on 2026-10-31 on both the
+ordinary keyboard and physical USB controller. Spinner, existing Fire,
+controller/keyboard Space, controller P in applicable restart/replay states,
+keyboard R, controller V and keyboard Escape worked normally. Existing
+controls were preserved and no obvious gameplay regression was observed.
+The additive P/V aliases are manually accepted.
+
+### Deferred fidelity comparisons
+
+- **Spinner:** current C# movement is good, very playable and not a blocker.
+  Using the same physical USB spinner, Neal found Incitti's response
+  effectively perfect without changing Windows mouse settings. A dedicated
+  future task should compare actual spinner/input/movement processing before
+  changing sensitivity; no spinner refinement is part of this checkpoint.
+- **Timing:** Neal's qualitative assessment, informed by extensive Atari
+  arcade experience, is that Incitti's timing feels extremely close to the
+  arcade. C#/Incitti timing differences are useful future investigation
+  targets, not grounds for casual dismissal. Direct arcade observations
+  remain highest authority; Incitti remains an engineering/reference source,
+  not automatically ARCADE VERIFIED.
+- **Visuals:** Neal rates C# Blaster/enemy rendering impressive and reasonably
+  faithful at roughly 3.5/5, versus approximately 5/5 for Incitti's arcade
+  resemblance. These subjective ratings are neither measurements nor
+  automated acceptance criteria. Defer a visual-fidelity milestone comparing
+  actual vector/object definitions, transforms, projection, scale, animation
+  and rendering behavior before changing graphics.
+
 ## Confirmed Player Projectile Behavior
 
 Established prototype behavior includes:

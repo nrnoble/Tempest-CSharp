@@ -7,7 +7,17 @@ public readonly record struct PlayerInput(
 
 public sealed class InputSystem
 {
-	public bool RestartPressed() => Raylib.IsKeyPressed(KeyboardKey.R);
+	public bool RestartPressed() => IsRestartPressed(
+		Raylib.IsKeyPressed(KeyboardKey.R), Raylib.IsKeyPressed(KeyboardKey.P));
+
+	public bool QuitRequested() => IsQuitRequested(
+		Raylib.WindowShouldClose(), Raylib.IsKeyPressed(KeyboardKey.V));
+
+	public static bool IsRestartPressed(bool rPressed, bool pPressed) =>
+		rPressed || pPressed;
+
+	public static bool IsQuitRequested(bool windowShouldClose, bool vPressed) =>
+		windowShouldClose || vPressed;
 
 	public static bool IsSuperZapperPressed(bool spacePressed, bool rightMousePressed) =>
 		spacePressed || rightMousePressed;

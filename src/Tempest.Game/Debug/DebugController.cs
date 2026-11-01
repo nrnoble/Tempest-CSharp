@@ -10,9 +10,13 @@ using Tempest.Game.Gameplay;
 /// diagnostic. Both are terminal and do not enable progression. Scenario flags are mutually
 /// exclusive; --enemy-bullets-test (opt-in Flipper firing) and --lives (starting-life override)
 /// compose with any scenario or normal play.
+/// --input-diagnostic instead opens a standalone development-only input window with no gameplay.
 /// </summary>
 public sealed class DebugController
 {
+	public static bool UseInputDiagnostic(IEnumerable<string> arguments) =>
+		arguments.Contains("--input-diagnostic", StringComparer.Ordinal);
+
 	public static bool UseSpikerWave(IEnumerable<string> arguments) =>
 		arguments.Contains("--spiker-test", StringComparer.Ordinal);
 

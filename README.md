@@ -67,6 +67,64 @@ The HUD's ACTIVE counter includes active Eggs and active enemies.
 Tests run headlessly without initializing a Raylib window. Visual appearance,
 spinner feel and cursor capture still require manual gameplay testing.
 
+## Controls
+
+- **Fire:** left/right Ctrl or left mouse button (existing arcade Fire input).
+- **Movement:** horizontal spinner/mouse movement or Left/Right arrow keys.
+- **Super Zapper:** Space or right mouse button, during eligible active play.
+- **Restart/Start/Replay:** R or P, only at Game Over or Level Complete.
+  Both invoke the same existing restart/replay behavior; neither starts a
+  new game during active play, death or exit travel. Hold does not repeat.
+- **Quit:** Escape, V or window close; all use normal application shutdown.
+
+P and V are additive controller-friendly keyboard aliases, not arcade-verified
+gameplay rules. All previous controls remain available without the controller.
+The physical controller diagnostic confirmed ordinary Raylib key presses,
+including Space; no character-input workaround or new zap key was added.
+
+## Development-only controller input diagnostic
+
+From the repository root in PowerShell:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --input-diagnostic |
+    Tee-Object -FilePath "$env:TEMP\Tempest-controller-input.txt"
+```
+
+`--input-diagnostic` opens a standalone **DEVELOPMENT ONLY** Raylib window
+at the game's size, cursor capture and 60 FPS target. It runs no simulation,
+spends no charges and assigns no controller buttons. Launch it by itself;
+gameplay options are not used in this mode (conflicting scenario flags are
+still rejected). Normal launches and all existing controls are unchanged.
+
+Only test button input: all keyboard input delivered to this diagnostic is
+logged, so do not type private text. Click the diagnostic window and verify
+`FOCUS focused=True`. The terminal/file holds the full log; the window shows
+recent lines and a live frame counter.
+
+1. First use the ordinary keyboard: tap Space, R and Enter; hold/release Ctrl.
+2. Then test controller buttons in this order: P, Enter, Space, Ctrl, Alt,
+   Shift, Z, X, C, V, 1, 5. Test the two unknown small red buttons afterward.
+3. For each button, tap twice about a second apart; then hold for two seconds
+   and release. Leave a three-second gap before the next button. Note the
+   order and any button with no output. Do not move the spinner while testing.
+4. Close with ordinary keyboard Escape or the window X. Send the captured
+   log and the physical-button/order notes, including any focus loss and
+   whether holding a button produced repeats or a sustained held key.
+
+`STATE` records Raylib down/pressed/released/repeat flags; `KEY_QUEUE` records
+queued key codes even when no sampled press edge survives; `CHAR_QUEUE`
+records Unicode text (`U+0020` is Space). `MOUSE` records mouse-button flags.
+Matching frame numbers show signals observed together. `HEARTBEAT` confirms
+focus and held keys during quiet/held intervals. Escape is still Raylib's
+default close key, so its press can close before a diagnostic event line.
+This log is evidence of what Raylib exposes, not raw USB/Windows messages or
+proof of the controller's input mechanism. Neal's physical test confirmed
+ordinary key events and led to the production P/V aliases above. This
+standalone diagnostic retains its original controls: V is logged, not used
+to quit, so its input can still be inspected. The two volcano Player 1/2
+buttons produced no observable Raylib event; further investigation is deferred.
+
 ## Level 2 square/canflip and direct development access
 
 ```powershell
