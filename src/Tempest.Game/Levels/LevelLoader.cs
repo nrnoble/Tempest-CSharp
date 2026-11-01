@@ -21,4 +21,13 @@ public static class LevelLoader
 			new(-161, -161), new( -80, -161), new(   0, -161), new(  80, -161),
 			new( 161, -161), new( 161,  -80), new( 161,    0), new( 161,   80)
 		}, "Level 2 square");
+
+	public static LevelDefinition LoadLevel3Plus() => new(true, 400, -80,
+		Array.AsReadOnly(new Vector2[]
+		{
+			new(  98,   98), new(  98,  197), new(   0,  197), new( -98,  197),
+			new( -98,   98), new(-197,   98), new(-197,    0), new(-197,  -98),
+			new( -98,  -98), new( -98, -197), new(   0, -197), new(  98, -197),
+			new(  98,  -98), new( 197,  -98), new( 197,    0), new( 197,   98)
+		}), "Level 3 - plus");
 }

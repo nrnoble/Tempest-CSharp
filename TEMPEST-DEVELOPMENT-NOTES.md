@@ -861,8 +861,11 @@ shots only on that destination, and can kill before angular completion.
 A lane pause newly reaching the occupied rim signals arrival; merely moving
 under an already-paused rim Flipper does not introduce a new collision policy.
 The shared literal direction helper was extracted from Pulsar without changing
-its behavior; the legacy Level 1 helper is unchanged. Tanker cargo keeps its
-separate direction and 24-update below-rim pause.
+its behavior. At this B2 checkpoint, Level 1 still used its legacy turn
+geometry; C1.5 later replaced it with the shared directed endpoint geometry.
+That geometry and its inward-pivot correction were manually accepted by Neal
+on 2026-10-31 as recorded in the C1/C1.5 section below. Tanker cargo keeps
+its separate direction and 24-update below-rim pause.
 
 Neal completed B2 manual validation on 2026-10-31. **ARCADE VERIFIED**:
 below-rim lane changes broadly resembled Atari Level 2; straight-side and
@@ -935,6 +938,105 @@ development flag remains terminal and replayable; it is mutually exclusive
 with the Spiker, Tanker, Fuseball and Pulsar development scenarios. `--lives`
 and the separately opt-in `--enemy-bullets-test` remain orthogonal and do not
 disable normal progression.
+
+## Isolated Level 3 plus-board geometry diagnostic
+
+`LevelConfiguration.Level3Plus` is one source-derived configuration object for
+the closed 16-vertex/16-lane `Level 3 - plus` board (board 2, palette 0,
+center Y 400, Y offset -80). It records internal/displayed identity 2/3,
+depth/position 400/50, player lane 7 at offset 0.5, configured supply 15,
+four initial Eggs and eleven reserve units. Its deterministic spawn sequence
+is a C# diagnostic policy, not the Incitti Level 3 Egg schedule or an
+arcade-verified schedule.
+
+`--level3-geometry-test` is **DEVELOPMENT ONLY**. It selects this same
+configuration for a controlled Flipper-only geometry run; this is not a
+production Level 3 mixed wave and does not claim production composition.
+Flippers use the existing early-level values (climb 2, turn 8, below-rim pause
+21, rim pause 24) with canflip enabled. The endpoint-hinge geometry mode is
+shared with Level 1, Level 2 and the plus-board diagnostic. A directed
+transition retains its source and destination lanes, selected direction,
+shared hinge, and full sweep magnitude for duration. Its C1.5
+`SignedSweepDegrees` remains separate from `SpatialSweepDegrees`, which selects
+the inward side from polygon winding and the local convex/reflex turn. The
+rendered free endpoint is also limited to the first polygon boundary along
+that inward ray, preventing narrow concave geometry from crossing the far rim.
+This preserves full 90/180/270 sweeps while moving the glyph into the tube/web.
+The plus board's straight runs remain 180 degrees, outer corners 90 degrees,
+and reflex corners 270 degrees, including the 15/0 wrap. The Flipper renderer
+and update timer consume the same transition progress; its configured
+8-degree step takes 12, 23, or 34 updates for 90, 180, or 270 degrees.
+
+Pulsars retain the selected source/destination transition and use the same
+inward spatial geometry; their 12-degree step therefore takes 8, 15, or 23
+updates at those angles. Their logical `EdgeIndex` changes when the lane pause
+expires, before the rendered pivot completes; the active transition preserves
+both endpoints. The Blaster keeps its existing input signs and exact-boundary
+lane convention, but normalized movement is interpreted as angular distance
+(`movement * 180 degrees`) and traversal is weighted by the lane's hinge angle.
+It follows the rim and does not use the enemy inward-pivot transform. Tanker
+cargo keeps its project-selected outward lane route, fixed below-rim direction,
+identity, release accounting, and next-tick activation; its initial and later
+pivots use the inward spatial arc, retain the full sweep, and can reach the rim
+before a long pivot finishes. The visible geometry and timing behaviors
+described in the C1/C1.5 acceptance section below are **ARCADE VERIFIED** only
+to the extent Neal observed them; exact source constants and internal state
+remain reference/project details. Cargo remains unavailable in this diagnostic.
+
+The flag is mutually exclusive with `--level2-test`, `--spiker-test`,
+`--tanker-test`, `--fuseball-test` and `--pulsar-test`. `--lives` and the
+optional `--enemy-bullets-test` remain composable. The diagnostic is terminal:
+R replays the plus-board setup, Game Over restart returns to it, and life
+reconstruction retains its Level configuration. It uses the existing
+configured-supply accounting only; no production cargo ledger is added.
+
+Natural campaign progression remains Level 1 -> Level 2 and terminal after
+Level 2. Level 3 mixed-wave accounting, production Tanker composition and
+Tanker firing remain deferred to later C2/C3/C4 work. The exact board is
+**REFERENCE VERIFIED** from Incitti; manual validation establishes only the
+specific visible behaviors Neal observed. The earlier C1 manual rejection led
+to the C1.5 directed-rotation correction and inward spatial correction. Neal
+completed manual C1/C1.5 validation on 2026-10-31 and passed Level 1, Level 2,
+Level 3 plus-board, Pulsar and Tanker observations. The behavior specification
+now records those observations as **ARCADE VERIFIED**; exact timing constants,
+complete Atari cargo routes, internal C# geometry and development diagnostic
+composition are not thereby arcade-verified.
+
+### C1/C1.5 manual acceptance — PASS (2026-10-31)
+
+Neal manually passed the combined Level 3 geometry, directed-rotation and
+inward-pivot checkpoint:
+
+- Normal Level 1 and Level 2 square Flippers swing inward through the web.
+- On the Level 3 plus-board diagnostic, convex 90-degree and reflex
+  270-degree pivots swing inward; the reflex route takes the full long route,
+  not the opposite 90-degree shortcut. 180-degree transitions look sensible,
+  and Flippers land on the correct lane.
+- Blaster direction and movement feel correct during Level 3 validation. The
+  longer 270-degree enemy transition preserves an opportunity to shoot or
+  move underneath. No outward arc, snapping, strange tube crossing or crash
+  was observed.
+- Pulsars change lanes inward through the web with sensible direction and
+  geometry-dependent duration. Pulse visuals and hazard remain normal; no
+  unrelated regression or crash was observed.
+- Tanker destruction releases two cargo Flippers on distinct non-Tanker lanes.
+  Their established outward **lane route** remains correct while their visible
+  pivot swings inward. Below-rim direction remains stable; rim arrival and
+  subsequent behavior look correct, with no new collision problem or crash.
+
+Keep the properties separate: destination/lane direction selects the route;
+the full directed sweep determines its duration; spatial pivot side determines
+whether the enemy arc swings inward through the web. The observed 270-degree
+route must retain its long sweep and duration rather than normalize to 90
+degrees. Blaster movement follows the rim and is not part of the enemy inward
+transform.
+
+This is **ARCADE VERIFIED** for the listed visible observations only.
+Implementation data structures, polygon winding/interior math, source-derived
+rates, exact tick counts, the complete Atari Tanker-cargo route, and the
+diagnostic's artificial Level 3 composition remain **PROJECT DECISION**,
+**REFERENCE VERIFIED**, or **DEVELOPMENT ONLY** as applicable. C1/C1.5 is
+manually accepted; no C2 work is authorized by this acceptance.
 
 ## Deferred manual observations outside Stage A
 

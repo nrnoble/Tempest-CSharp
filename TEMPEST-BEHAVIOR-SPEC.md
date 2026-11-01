@@ -248,6 +248,42 @@ record the uncertainty rather than guessing.
   and corner transitions appeared mechanically correct; no snapping or
   wrong-lane landing was observed. Rim pursuit and the previously validated
   completed-pivot collision behavior remained normal.
+
+### Directed enemy pivots and C1/C1.5 manual validation
+
+- **ARCADE VERIFIED** — Neal's 2026-10-31 manual validation of the C1/C1.5
+  correction confirmed that Flippers swing inward through the tube/web on
+  normal Level 1, Level 2 square, and the Level 3 plus-board geometry
+  diagnostic. On the plus board, 90-degree convex and full 270-degree reflex
+  pivots swing inward; the reflex route takes the long route rather than the
+  opposite 90-degree shortcut. The 180-degree transitions looked sensible,
+  Flippers landed on the intended lane, and no outward arc, strange tube
+  crossing, snapping or crash was observed. The longer 270-degree transition
+  retains the observed opportunity to shoot or move underneath. These are
+  observed outcomes, not claims about Atari's internal pivot representation
+  or exact tick timing.
+- **ARCADE VERIFIED** — In the isolated Pulsar diagnostic, Neal observed
+  inward lane changes through the web, sensible direction, and transition
+  duration that varied with geometry rather than appearing constant. Pulsing
+  and its hazard remained normal; no unrelated regression or crash was
+  observed. This does not establish exact Pulsar rates, pauses or timer values.
+- **ARCADE VERIFIED** — In the Tanker diagnostic, ordinary Tanker destruction
+  released two live cargo Flippers on distinct non-Tanker lanes. Their
+  established outward lane route remained correct while their visible pivots
+  swung inward; below-rim direction remained stable, and rim arrival and
+  subsequent behavior looked correct. Neal observed no new collision problem
+  or crash. The exact intermediate Atari lane sequence and timing remain
+  unknown.
+- **ARCADE VERIFIED** — In the Level 3 diagnostic, Neal reported that Blaster
+  direction and movement felt correct while observing the enemy-pivot fix.
+  This does not establish exact Blaster sensitivity or timing and does not
+  apply the enemy pivot rule to the Blaster.
+- **PROJECT DECISION** — Destination lane/direction, full directed
+  sweep/duration, and spatial pivot side are separate properties in this
+  recreation. A required 270-degree route retains its full directed sweep and
+  duration while its visible enemy arc swings inward; the spatial correction
+  must not replace it with a 90-degree shortcut. This is an implementation
+  representation, not a claim that the arcade uses the same data model.
 - **REFERENCE VERIFIED** — Incitti disables `canflip` only at zero-based
   level 0 and enables it thereafter. Its ordinary Level 2 path adds 2 height
   on the first climb, enters an initially zero pause, attempts firing, then
@@ -366,9 +402,12 @@ record the uncertainty rather than guessing.
   behavior.
 - **PROJECT DECISION** — The recreation uses deterministic outward initial
   pivots to produce the observed two-live-child, distinct non-Tanker-lane
-  result and keep the former Tanker lane clear. This is not a claim that the
-  complete unseen Atari route is known. The exact initial route, pause timing,
-  climb increments, and Tanker release timing remain unverified.
+  result and keep the former Tanker lane clear. Neal's 2026-10-31 manual
+  validation confirmed this lane-routing result and separately observed that
+  the children's visible pivots swing inward through the web. The route and
+  its distinction from pivot side are recreation behavior; the complete
+  unseen Atari route remains unknown. Exact pause timing, climb increments,
+  and Tanker release timing remain unverified.
 - **REFERENCE VERIFIED** — The source-derived route has an initial inward
   pivot; this conflicts with Neal's direct arcade observation of the final
   visible release result. Direct arcade evidence takes precedence.
@@ -541,7 +580,8 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
 
 - **ARCADE VERIFIED scope** — Direct arcade observations explicitly listed
   above cover the Flipper pivot collision rule, the qualitative Level 2
-  below-rim transition observations, the itemized Fuseball
+  below-rim transition observations, inward Flipper/Pulsar/cargo pivots and
+  the observed full 270-degree route, the itemized Fuseball
   behaviors, the Pulsar behaviors Neal observed in the isolated development
   scenario, the listed Super Zapper scenario validation, the Tanker-cargo
   release and movement observations, and the broad all-rim behavior Neal
@@ -645,13 +685,15 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   separately confirmed that Tanker cargo does not track the Blaster below the
   rim, that a player-shot Tanker destruction leaves both cargo Flippers alive
   in distinct non-Tanker lanes, and that another in-flight shot produced no
-  unusual cargo behavior in his test. The original source-derived inward
-  pivot was tried, then replaced by the final outward recreation geometry,
-  which Neal manually validated. The observed release result is
-  **ARCADE VERIFIED**; the exact intermediate Atari route, pause timing, climb
-  increments, Tanker release timing, unlock level, and `canflip` progression
-  remain unverified. Outward initial routing is a **PROJECT DECISION**
-  matching the observed result.
+  unusual cargo behavior in his test. The 2026-10-31 C1/C1.5 manual validation
+  additionally confirmed the children's visible pivots swing inward through
+  the web while the established outward lane route, fixed below-rim
+  direction, rim arrival and subsequent behavior remain correct. These
+  observed results are **ARCADE VERIFIED**. The exact intermediate Atari
+  route, pause timing, climb increments, Tanker release timing, unlock level,
+  and `canflip` progression remain unverified. Outward initial lane routing
+  remains a **PROJECT DECISION** matching the observed result; it is distinct
+  from the spatial direction of the pivot.
 - **All-rim completion implementation and manual validation** — Neal manually
   ran and passed normal Level 1 (`--lives 10`) and the Fuseball, Pulsar, Tanker,
   and Spiker development scenarios. He observed that after incoming Eggs were

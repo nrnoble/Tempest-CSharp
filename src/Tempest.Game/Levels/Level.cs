@@ -280,9 +280,7 @@ public sealed class Level
         return 1 - randomInclusive(0, 1) * 2;
     }
 
-    // Pivot sweep for a Flipper moving between two lanes: the angle between the lanes' edge
-    // direction vectors, folded into [0, 180]. On a regular 16-lane tube this is constant, but it
-    // is computed from geometry so irregular future tubes keep correct flip arcs.
+    // Legacy lane-heading helper retained for callers that inspect the original C# calculation.
     public float CalculateEdgeTurnAngle(int sourceEdge, int destinationEdge)
     {
         IReadOnlyList<Vector2> points = Definition.Points;
@@ -295,53 +293,135 @@ public sealed class Level
         return difference > 180 ? 360 - difference : difference;
     }
 
+    public DirectedLaneTransition CalculateDirectedLaneTransition(
+        int sourceLane, int destinationLane, int direction)
+    {
+        if (direction is not (-1 or 1))
+            throw new ArgumentOutOfRangeException(nameof(direction));
+
+        IReadOnlyList<Vector2> points = Definition.Points;
+        if ((uint)sourceLane >= (uint)PlayableLaneCount)
+            throw new ArgumentOutOfRangeException(nameof(sourceLane));
+
+        int expectedDestination = direction > 0
+            ? PreviousEdge(sourceLane)
+            : NextEdge(sourceLane);
+        if (destinationLane != expectedDestination)
+            throw new ArgumentException(
+                "A directed lane transition must connect the adjacent lane selected by its direction.",
+                nameof(destinationLane));
+
+        int hingeVertex;
+        int sourceFreeVertex;
+        int destinationFreeVertex;
+        bool hingeIsStart;
+        if (direction > 0)
+        {
+            hingeVertex = sourceLane;
+            sourceFreeVertex = NextEdge(sourceLane);
+            destinationFreeVertex = PreviousEdge(sourceLane);
+            hingeIsStart = false;
+        }
+        else
+        {
+            hingeVertex = NextEdge(sourceLane);
+            sourceFreeVertex = sourceLane;
+            destinationFreeVertex = NextEdge(hingeVertex);
+            hingeIsStart = true;
+        }
+
+        Vector2 previous = points[PreviousEdge(hingeVertex)];
+        Vector2 hinge = points[hingeVertex];
+        Vector2 next = points[NextEdge(hingeVertex)];
+        int windingSign = Continuous ? CalculatePolygonWindingSign(points) : 0;
+        float hingeAngle = Continuous
+            ? CalculateInteriorVertexAngle(previous, hinge, next, windingSign)
+            : CalculateReferenceVertexAngle(previous, hinge, next);
+        float signedSweep = direction > 0 ? -hingeAngle : hingeAngle;
+        // Open tubes have no enclosed web side; preserve their existing directed spatial convention.
+        float spatialSweep = Continuous ? direction * windingSign * hingeAngle : signedSweep;
+        return new DirectedLaneTransition(
+            sourceLane,
+            destinationLane,
+            direction,
+            hingeVertex,
+            sourceFreeVertex,
+            destinationFreeVertex,
+            hingeIsStart,
+            signedSweep,
+            spatialSweep);
+    }
+
     public float CalculateFlipperTurnAngle(int sourceEdge, int destinationEdge) =>
         Configuration.FlipperPivotMode switch
         {
             FlipperPivotGeometry.LegacyLaneTurn =>
                 CalculateEdgeTurnAngle(sourceEdge, destinationEdge),
-            FlipperPivotGeometry.SquareEndpointHinge =>
-                MathF.Abs(CalculateSquareFlipperHingeRotation(sourceEdge, destinationEdge).Degrees),
+            FlipperPivotGeometry.EndpointHinge =>
+                CalculateDirectedLaneTransition(
+                    sourceEdge, destinationEdge, GetTransitionDirection(sourceEdge, destinationEdge))
+                    .SweepMagnitudeDegrees,
             _ => throw new InvalidOperationException("The configured Flipper pivot geometry is unsupported.")
         };
 
-    public float CalculateSquareFlipperHingeRotationDegrees(int sourceEdge, int destinationEdge)
-    {
-        if (Configuration.FlipperPivotMode != FlipperPivotGeometry.SquareEndpointHinge)
-            throw new InvalidOperationException("Square hinge angles require the square Flipper pivot configuration.");
+    public float CalculateFlipperTurnAngle(int sourceEdge, int destinationEdge, int direction) =>
+        Configuration.FlipperPivotMode switch
+        {
+            FlipperPivotGeometry.LegacyLaneTurn =>
+                CalculateEdgeTurnAngle(sourceEdge, destinationEdge),
+            FlipperPivotGeometry.EndpointHinge =>
+                CalculateDirectedLaneTransition(sourceEdge, destinationEdge, direction)
+                    .SweepMagnitudeDegrees,
+            _ => throw new InvalidOperationException("The configured Flipper pivot geometry is unsupported.")
+        };
 
-        return CalculateSquareFlipperHingeRotation(sourceEdge, destinationEdge).Degrees;
+    public float CalculateEndpointHingeRotationDegrees(int sourceEdge, int destinationEdge)
+    {
+        if (Configuration.FlipperPivotMode != FlipperPivotGeometry.EndpointHinge)
+            throw new InvalidOperationException("Endpoint-hinge angles require the configured endpoint-hinge geometry.");
+
+        return CalculateDirectedLaneTransition(
+            sourceEdge, destinationEdge, GetTransitionDirection(sourceEdge, destinationEdge)).SignedSweepDegrees;
     }
 
-    public (Vector2 Start, Vector2 End) CalculateSquareFlipperPivotEndpoints(
+    public (Vector2 Start, Vector2 End) CalculateFlipperPivotEndpoints(
         int sourceEdge, int destinationEdge, float progress)
+        => CalculateFlipperPivotEndpoints(
+            sourceEdge, destinationEdge, GetTransitionDirection(sourceEdge, destinationEdge), progress);
+
+    public (Vector2 Start, Vector2 End) CalculateFlipperPivotEndpoints(
+        int sourceEdge, int destinationEdge, int direction, float progress)
+        => CalculateFlipperPivotEndpoints(
+            CalculateDirectedLaneTransition(sourceEdge, destinationEdge, direction), progress);
+
+    public (Vector2 Start, Vector2 End) CalculateFlipperPivotEndpoints(
+        DirectedLaneTransition transition, float progress)
     {
-        if (Configuration.FlipperPivotMode != FlipperPivotGeometry.SquareEndpointHinge)
-            throw new InvalidOperationException("Square hinge endpoints require the square Flipper pivot configuration.");
+        if (Configuration.FlipperPivotMode != FlipperPivotGeometry.EndpointHinge)
+            throw new InvalidOperationException("Endpoint-hinge endpoints require the configured endpoint-hinge geometry.");
         if (!float.IsFinite(progress))
             throw new ArgumentOutOfRangeException(nameof(progress));
 
         IReadOnlyList<Vector2> points = Definition.Points;
-        if ((uint)sourceEdge >= (uint)points.Count)
-            throw new ArgumentOutOfRangeException(nameof(sourceEdge));
+        DirectedLaneTransition expected = CalculateDirectedLaneTransition(
+            transition.SourceLane, transition.DestinationLane, transition.Direction);
+        if (transition != expected)
+            throw new ArgumentException("The transition does not match this Level's geometry.", nameof(transition));
 
         progress = Math.Clamp(progress, 0, 1);
-        (int pivotIndex, int movingIndex, int destinationIndex, bool movingStart, float degrees) =
-            CalculateSquareFlipperHingeRotation(sourceEdge, destinationEdge);
-
-        Vector2 pivot = points[pivotIndex];
-        Vector2 moving = points[movingIndex];
-        Vector2 destination = points[destinationIndex];
+        Vector2 pivot = points[transition.HingeVertex];
+        Vector2 moving = points[transition.SourceFreeVertex];
+        Vector2 destination = points[transition.DestinationFreeVertex];
         if (progress == 0)
-            return (points[sourceEdge], points[NextEdge(sourceEdge)]);
+            return (points[transition.SourceLane], points[NextEdge(transition.SourceLane)]);
         if (progress == 1)
-            return movingStart ? (pivot, destination) : (destination, pivot);
+            return transition.HingeIsStart
+                ? (pivot, destination)
+                : (destination, pivot);
 
         Vector2 initialVector = moving - pivot;
         Vector2 destinationVector = destination - pivot;
-        // The reference square's rounded side segments alternate lengths 80 and 81; preserve the
-        // endpoint hinge arc while adjusting radius so the free endpoint lands on the exact lane.
-        float angle = degrees * progress * MathF.PI / 180;
+        float angle = transition.SpatialSweepDegrees * progress * MathF.PI / 180;
         float sin = MathF.Sin(angle);
         float cos = MathF.Cos(angle);
         Vector2 rotated = new(
@@ -349,58 +429,152 @@ public sealed class Level
             initialVector.X * sin + initialVector.Y * cos);
         float radius = initialVector.Length() +
             (destinationVector.Length() - initialVector.Length()) * progress;
+        if (Continuous)
+        {
+            // Narrow concave sections can otherwise let an inward ray cross the far rim.
+            radius = MathF.Min(radius, CalculateFirstPolygonBoundaryDistance(
+                pivot, Vector2.Normalize(rotated)));
+        }
         rotated = Vector2.Normalize(rotated) * radius;
         Vector2 movedEndpoint = pivot + rotated;
 
-        return movingStart
+        return transition.HingeIsStart
             ? (pivot, movedEndpoint)
             : (movedEndpoint, pivot);
     }
 
-    private (int PivotIndex, int MovingIndex, int DestinationIndex, bool MovingStart, float Degrees)
-        CalculateSquareFlipperHingeRotation(int sourceEdge, int destinationEdge)
+    public float CalculateLaneTransitionAngle(int sourceLane, int destinationLane)
+    {
+        int direction = destinationLane == NextEdge(sourceLane) ? -1 : 1;
+        return CalculateDirectedLaneTransition(sourceLane, destinationLane, direction)
+            .SweepMagnitudeDegrees;
+    }
+
+    private int GetTransitionDirection(int sourceLane, int destinationLane)
+    {
+        if (destinationLane == PreviousEdge(sourceLane))
+            return 1;
+        if (destinationLane == NextEdge(sourceLane))
+            return -1;
+        throw new ArgumentException("Flipper pivots must connect adjacent lanes.", nameof(destinationLane));
+    }
+
+    private static float CalculateInteriorVertexAngle(
+        Vector2 previous, Vector2 hinge, Vector2 next, int windingSign)
+    {
+        Vector2 incoming = hinge - previous;
+        Vector2 outgoing = next - hinge;
+        if (incoming.LengthSquared() == 0 || outgoing.LengthSquared() == 0 ||
+            !float.IsFinite(incoming.X) || !float.IsFinite(incoming.Y) ||
+            !float.IsFinite(outgoing.X) || !float.IsFinite(outgoing.Y))
+            throw new InvalidOperationException("Directed transitions require finite, nonzero endpoint rays.");
+
+        float signedTurn = MathF.Atan2(Cross(incoming, outgoing), Vector2.Dot(incoming, outgoing)) *
+            180 / MathF.PI;
+        float interiorAngle = 180 - windingSign * signedTurn;
+        if (!float.IsFinite(interiorAngle) || interiorAngle <= 0 || interiorAngle >= 360)
+            throw new InvalidOperationException("Directed transitions require a finite, nondegenerate polygon vertex.");
+        return interiorAngle;
+    }
+
+    private float CalculateFirstPolygonBoundaryDistance(Vector2 origin, Vector2 rayDirection)
     {
         IReadOnlyList<Vector2> points = Definition.Points;
-        if ((uint)sourceEdge >= (uint)points.Count)
-            throw new ArgumentOutOfRangeException(nameof(sourceEdge));
-
-        int previous = PreviousEdge(sourceEdge);
-        int next = NextEdge(sourceEdge);
-        int pivotIndex;
-        int movingIndex;
-        int destinationIndex;
-        bool movingStart;
-        if (destinationEdge == previous)
+        float nearestDistance = float.PositiveInfinity;
+        for (int index = 0; index < points.Count; index++)
         {
-            pivotIndex = sourceEdge;
-            movingIndex = next;
-            destinationIndex = previous;
-            movingStart = false;
-        }
-        else if (destinationEdge == next)
-        {
-            pivotIndex = next;
-            movingIndex = sourceEdge;
-            destinationIndex = NextEdge(next);
-            movingStart = true;
-        }
-        else
-        {
-            throw new ArgumentException("Square Flipper pivots must connect adjacent lanes.", nameof(destinationEdge));
+            Vector2 start = points[index];
+            Vector2 edge = points[(index + 1) % points.Count] - start;
+            Vector2 offset = start - origin;
+            float denominator = Cross(rayDirection, edge);
+            if (MathF.Abs(denominator) < 0.000001f)
+            {
+                if (MathF.Abs(Cross(offset, rayDirection)) < 0.0001f)
+                {
+                    float startDistance = Vector2.Dot(offset, rayDirection);
+                    float endDistance = Vector2.Dot(offset + edge, rayDirection);
+                    if (startDistance > 0.0001f)
+                        nearestDistance = MathF.Min(nearestDistance, startDistance);
+                    if (endDistance > 0.0001f)
+                        nearestDistance = MathF.Min(nearestDistance, endDistance);
+                }
+
+                continue;
+            }
+
+            float distance = Cross(offset, edge) / denominator;
+            float edgeProgress = Cross(offset, rayDirection) / denominator;
+            if (distance > 0.0001f && edgeProgress >= -0.0001f && edgeProgress <= 1.0001f)
+                nearestDistance = MathF.Min(nearestDistance, distance);
         }
 
-        Vector2 pivot = points[pivotIndex];
-        // Straight square lanes share a 0-degree heading change; the Flipper instead sweeps
-        // between endpoint rays around their shared vertex.
-        Vector2 from = points[movingIndex] - pivot;
-        Vector2 to = points[destinationIndex] - pivot;
-        float cross = from.X * to.Y - from.Y * to.X;
-        float dot = Vector2.Dot(from, to);
-        float degrees = MathF.Atan2(cross, dot) * 180 / MathF.PI;
-        if (cross == 0 && dot < 0)
-            degrees = movingStart ? -180 : 180;
+        if (!float.IsFinite(nearestDistance))
+            throw new InvalidOperationException("An inward pivot ray did not intersect its closed tube polygon.");
 
-        return (pivotIndex, movingIndex, destinationIndex, movingStart, degrees);
+        return nearestDistance;
+    }
+
+    private static float CalculateReferenceVertexAngle(Vector2 previous, Vector2 hinge, Vector2 next)
+    {
+        Vector2 previousRay = previous - hinge;
+        Vector2 nextRay = next - hinge;
+        if (previousRay.LengthSquared() == 0 || nextRay.LengthSquared() == 0 ||
+            !float.IsFinite(previousRay.X) || !float.IsFinite(previousRay.Y) ||
+            !float.IsFinite(nextRay.X) || !float.IsFinite(nextRay.Y))
+            throw new InvalidOperationException("Directed transitions require finite, nonzero endpoint rays.");
+
+        float angle = ReferenceAtan2Degrees(
+            Cross(previousRay, nextRay), Vector2.Dot(previousRay, nextRay));
+        if (angle == 0)
+            angle = 180;
+        if (angle != 180)
+        {
+            float rotation = angle < 90 ? -(179 - angle) : -1;
+            float radians = rotation * MathF.PI / 180;
+            float sin = MathF.Sin(radians);
+            float cos = MathF.Cos(radians);
+            Vector2 rotatedPreviousRay = new(
+                previousRay.X * cos - previousRay.Y * sin,
+                previousRay.X * sin + previousRay.Y * cos);
+            float rotatedAngle = ReferenceAtan2Degrees(
+                Cross(rotatedPreviousRay, nextRay),
+                Vector2.Dot(rotatedPreviousRay, nextRay));
+            if (rotatedAngle > 90)
+                angle = 360 - angle;
+        }
+
+        return MathF.Abs(angle % 360);
+    }
+
+    private static float ReferenceAtan2Degrees(float opposite, float adjacent)
+    {
+        float angle = MathF.Abs(adjacent) < 0.0001f
+            ? 90
+            : MathF.Abs(MathF.Atan(opposite / adjacent)) * 180 / MathF.PI;
+        if (adjacent < 0)
+            angle = 180 - angle;
+        if (opposite < 0)
+            angle = -angle;
+        return angle;
+    }
+
+    private static float Cross(Vector2 left, Vector2 right) => left.X * right.Y - left.Y * right.X;
+
+    private static int CalculatePolygonWindingSign(IReadOnlyList<Vector2> points)
+    {
+        double twiceArea = 0;
+        for (int index = 0; index < points.Count; index++)
+        {
+            Vector2 current = points[index];
+            Vector2 next = points[(index + 1) % points.Count];
+            twiceArea += (double)current.X * next.Y - (double)current.Y * next.X;
+        }
+
+        if (!double.IsFinite(twiceArea) || Math.Abs(twiceArea) < 0.0001)
+            throw new InvalidOperationException("Inward pivots require a finite, nondegenerate closed tube polygon.");
+
+        // The same winding sign classifies convex/reflex turns and selects the inward spatial arc.
+        return Math.Sign(twiceArea);
     }
 
     private static float NormalizeAngleDegrees(float angle)

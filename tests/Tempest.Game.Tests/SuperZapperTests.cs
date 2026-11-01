@@ -428,8 +428,7 @@ public sealed class SuperZapperTests
         Assert.DoesNotContain(tanker.EdgeIndex, new[] { children[1].SourceEdge, children[1].DestinationEdge });
         Assert.Equal(1, children[0].Direction);
         Assert.Equal(-1, children[1].Direction);
-        Assert.Equal(
-            game.CurrentLevel.CalculateEdgeTurnAngle(children[0].SourceEdge, children[0].DestinationEdge),
+        Assert.Equal(children[0].ActiveTransition!.Value.SweepMagnitudeDegrees,
             children[0].TotalTurnAngle);
 
         game.Player.Move(5, game.CurrentLevel.Definition.Points.Count);

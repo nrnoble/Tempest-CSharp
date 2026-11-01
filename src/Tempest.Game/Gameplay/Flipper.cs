@@ -43,6 +43,7 @@ public sealed class Flipper : Enemy
     public int Direction { get; private set; }
     public float TurnAngle { get; private set; }
     public float TotalTurnAngle { get; private set; }
+    public DirectedLaneTransition? ActiveTransition { get; private set; }
     // Single pending-player-collision signal. Set on a direct rim arrival in the player's lane
     // (Incitti CheckPlayerColl: unconditional for a climbing Flipper) and on a pivot completing
     // into the player's lane at full depth. A player who leaves before either moment is safe.
@@ -125,10 +126,13 @@ public sealed class Flipper : Enemy
             SourceEdge = cargo.SourceLane,
             DestinationEdge = cargo.DestinationLane,
             Direction = cargo.Direction,
-            TotalTurnAngle = level.CalculateEdgeTurnAngle(cargo.SourceLane, cargo.DestinationLane),
             State = FlipperState.Flipping,
             CargoUnitId = cargoUnitId
         };
+        DirectedLaneTransition transition = level.CalculateDirectedLaneTransition(
+            cargo.SourceLane, cargo.DestinationLane, cargo.Direction);
+        flipper.ActiveTransition = transition;
+        flipper.TotalTurnAngle = transition.SweepMagnitudeDegrees;
         return flipper;
     }
 
@@ -183,6 +187,7 @@ public sealed class Flipper : Enemy
     {
         SourceEdge = EdgeIndex;
         DestinationEdge = EdgeIndex;
+        ActiveTransition = null;
         TotalTurnAngle = 0;
         State = FlipperState.Pausing;
         PauseTicks = pauseTicks;
@@ -201,7 +206,10 @@ public sealed class Flipper : Enemy
         DestinationEdge = Direction > 0
             ? level.PreviousEdge(EdgeIndex)
             : level.NextEdge(EdgeIndex);
-        TotalTurnAngle = level.CalculateFlipperTurnAngle(SourceEdge, DestinationEdge);
+        DirectedLaneTransition transition = level.CalculateDirectedLaneTransition(
+            SourceEdge, DestinationEdge, Direction);
+        ActiveTransition = transition;
+        TotalTurnAngle = transition.SweepMagnitudeDegrees;
         TurnAngle = 0;
         State = FlipperState.Flipping;
     }

@@ -13,7 +13,7 @@ public enum LevelEnemyComposition
 public enum FlipperPivotGeometry
 {
     LegacyLaneTurn,
-    SquareEndpointHinge
+    EndpointHinge
 }
 
 // REFERENCE VERIFIED: Incitti lv=0/1 values; exact gameplay fidelity remains unverified.
@@ -76,7 +76,7 @@ public sealed record LevelConfiguration(
         NormalEnemyComposition: LevelEnemyComposition.FlippersOnly)
     {
         Flipper = new(false, 2, 8, 21, 24),
-        FlipperPivotMode = FlipperPivotGeometry.LegacyLaneTurn
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge
     };
 
     public static LevelConfiguration Level2Square { get; } = new(
@@ -101,6 +101,33 @@ public sealed record LevelConfiguration(
         NormalEnemyComposition: LevelEnemyComposition.FlippersOnly)
     {
         Flipper = new(true, 2, 8, 21, 24),
-        FlipperPivotMode = FlipperPivotGeometry.SquareEndpointHinge
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge
+    };
+
+    // DEVELOPMENT ONLY: this source-derived board configuration validates plus-board geometry;
+    // its Flipper-only diagnostic setup is not the eventual production Level 3 composition.
+    public static LevelConfiguration Level3Plus { get; } = new(
+        ProgressionIndex: 2,
+        DisplayedLevel: 3,
+        BoardIndex: 2,
+        PaletteIndex: 0,
+        Definition: LevelLoader.LoadLevel3Plus(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: 15,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(new[] { 12, 4, 9, 1, 14, 6, 10, 2, 15, 7, 3, 11, 0, 8, 5 }),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.Standard,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersOnly)
+    {
+        Flipper = new(true, 2, 8, 21, 24),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge
     };
 }

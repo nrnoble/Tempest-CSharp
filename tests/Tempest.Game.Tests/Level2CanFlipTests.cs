@@ -169,7 +169,7 @@ public sealed class Level2CanFlipTests
                     Assert.Equal(FlipperState.Flipping, flipper.State);
                     float progress = tick * 8 / angle;
                     (Vector2 start, Vector2 end) =
-                        level.CalculateSquareFlipperPivotEndpoints(source, destination, progress);
+                        level.CalculateFlipperPivotEndpoints(source, destination, progress);
                     float depth = Level.Position + Level.Depth - flipper.Height;
                     (Vector2 actualStart, Vector2 actualEnd) = renderer.ProjectFlipperEndpoints(flipper);
                     Assert.Equal(Project(level, start, depth), actualStart);

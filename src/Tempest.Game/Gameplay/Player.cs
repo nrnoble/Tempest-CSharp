@@ -13,6 +13,8 @@ public sealed class Player
 {
     // Arcade-default lives; --lives overrides this for development sessions only.
     public const int DefaultStartingLives = 3;
+    private const float NormalizedLaneDegrees = 180;
+    private const float BoundaryToleranceDegrees = 0.001f;
 
     public Player(int startingLives = DefaultStartingLives)
     {
@@ -54,6 +56,57 @@ public sealed class Player
         {
             EdgeIndex = (EdgeIndex + 1) % edgeCount;
             EdgePosition -= 1;
+        }
+    }
+
+    public void MoveAlongTube(float movement, Level level)
+    {
+        ArgumentNullException.ThrowIfNull(level);
+        if (!float.IsFinite(movement))
+            throw new ArgumentOutOfRangeException(nameof(movement));
+
+        // The Blaster traverses the rim; enemy inward-pivot geometry does not apply here.
+        float remainingDegrees = MathF.Abs(movement) * NormalizedLaneDegrees;
+        if (remainingDegrees == 0)
+            return;
+
+        int edgeCount = level.Definition.Points.Count;
+        if (movement > 0)
+        {
+            while (remainingDegrees > 0)
+            {
+                int nextLane = level.NextEdge(EdgeIndex);
+                float crossingAngle = level.CalculateLaneTransitionAngle(EdgeIndex, nextLane);
+                float degreesToBoundary = (1 - EdgePosition) * crossingAngle;
+                if (remainingDegrees <= degreesToBoundary + BoundaryToleranceDegrees)
+                {
+                    EdgePosition = MathF.Min(1, EdgePosition + remainingDegrees / crossingAngle);
+                    break;
+                }
+
+                remainingDegrees -= degreesToBoundary;
+                EdgeIndex = nextLane;
+                EdgePosition = 0;
+            }
+        }
+        else
+        {
+            while (remainingDegrees > 0)
+            {
+                int previousLane = (EdgeIndex - 1 + edgeCount) % edgeCount;
+                float crossingAngle = level.CalculateLaneTransitionAngle(
+                    EdgeIndex, level.NextEdge(EdgeIndex));
+                float degreesToBoundary = EdgePosition * crossingAngle;
+                if (remainingDegrees <= degreesToBoundary + BoundaryToleranceDegrees)
+                {
+                    EdgePosition = MathF.Max(0, EdgePosition - remainingDegrees / crossingAngle);
+                    break;
+                }
+
+                remainingDegrees -= degreesToBoundary;
+                EdgeIndex = previousLane;
+                EdgePosition = 1;
+            }
         }
     }
 

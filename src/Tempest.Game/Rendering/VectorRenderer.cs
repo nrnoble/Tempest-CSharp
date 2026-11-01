@@ -153,19 +153,30 @@ public sealed class VectorRenderer
 		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
 		foreach (Pulsar pulsar in game.Pulsars)
 		{
-			int next = NextEdge(pulsar.EdgeIndex, points.Count);
 			float projectedDepth = Level.Position + Level.Depth - pulsar.Height;
-			Vector2 p1 = Projection.Project(points[next].X, points[next].Y, projectedDepth,
-				game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
-			Vector2 p2 = Projection.Project(points[pulsar.EdgeIndex].X, points[pulsar.EdgeIndex].Y,
-				projectedDepth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
-
+			Vector2 p1;
+			Vector2 p2;
 			if (pulsar.State is PulsarState.Flipping or PulsarState.FlippingWithoutClimb)
 			{
-				if (pulsar.Direction == -1)
-					p1 = RotatePoint(p1, p2, -pulsar.TurnAngle + pulsar.TotalTurnAngle);
-				else
-					p2 = RotatePoint(p2, p1, -(pulsar.TotalTurnAngle - pulsar.TurnAngle));
+				DirectedLaneTransition transition = pulsar.ActiveTransition ??
+					throw new InvalidOperationException("A rendered Pulsar flip requires an active transition.");
+				float progress = pulsar.TotalTurnAngle <= 0
+					? 1
+					: Math.Clamp(pulsar.TurnAngle / pulsar.TotalTurnAngle, 0, 1);
+				(Vector2 start, Vector2 end) =
+					game.CurrentLevel.CalculateFlipperPivotEndpoints(transition, progress);
+				p1 = Projection.Project(end.X, end.Y, projectedDepth,
+					game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+				p2 = Projection.Project(start.X, start.Y, projectedDepth,
+					game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+			}
+			else
+			{
+				int next = NextEdge(pulsar.EdgeIndex, points.Count);
+				p1 = Projection.Project(points[next].X, points[next].Y, projectedDepth,
+					game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+				p2 = Projection.Project(points[pulsar.EdgeIndex].X, points[pulsar.EdgeIndex].Y,
+					projectedDepth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
 			}
 
 			Vector2 delta = p2 - p1;
@@ -469,15 +480,15 @@ public sealed class VectorRenderer
 	private (Vector2 Start, Vector2 End) ProjectFlipperEndpoints(
 		Flipper flipper, IReadOnlyList<Vector2> points, float projectedDepth)
 	{
-		// Keep Level 1's established turn calculation and signed renderer transform unchanged.
-		if (flipper.State == FlipperState.Flipping &&
-			game.CurrentLevel.Configuration.FlipperPivotMode == FlipperPivotGeometry.SquareEndpointHinge)
+		if (flipper.State == FlipperState.Flipping)
 		{
+			DirectedLaneTransition transition = flipper.ActiveTransition ??
+				throw new InvalidOperationException("A rendered Flipper pivot requires an active transition.");
 			float progress = flipper.TotalTurnAngle <= 0
 				? 1
 				: Math.Clamp(flipper.TurnAngle / flipper.TotalTurnAngle, 0, 1);
-			(Vector2 start, Vector2 end) = game.CurrentLevel.CalculateSquareFlipperPivotEndpoints(
-				flipper.SourceEdge, flipper.DestinationEdge, progress);
+			(Vector2 start, Vector2 end) = game.CurrentLevel.CalculateFlipperPivotEndpoints(
+				transition, progress);
 			return (
 				Projection.Project(start.X, start.Y, projectedDepth,
 					game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset),
@@ -495,31 +506,7 @@ public sealed class VectorRenderer
 		Vector2 p2 = Projection.Project(points[next].X, points[next].Y, projectedDepth,
 			game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
 
-		if (flipper.State == FlipperState.Flipping)
-			ApplyLegacyFlipperPivot(flipper, ref p1, ref p2);
 		return (p1, p2);
-	}
-
-	// Rotates the trailing endpoint of the source lane about the leading endpoint by the pivot
-	// progress so far. The legacy Level 1 path is preserved byte-for-byte in behavior.
-	private void ApplyLegacyFlipperPivot(Flipper flipper, ref Vector2 p1, ref Vector2 p2)
-	{
-		float angle = MathF.Min(flipper.TurnAngle, flipper.TotalTurnAngle);
-		if (flipper.Direction > 0)
-			p2 = RotatePoint(p2, p1, -angle);
-		else
-			p1 = RotatePoint(p1, p2, angle);
-	}
-
-	private Vector2 RotatePoint(Vector2 point, Vector2 pivot, float degrees)
-	{
-		float radians = degrees * MathF.PI / 180;
-		float sin = MathF.Sin(radians);
-		float cos = MathF.Cos(radians);
-		Vector2 translated = point - pivot;
-		return pivot + new Vector2(
-			translated.X * cos - translated.Y * sin,
-			translated.X * sin + translated.Y * cos);
 	}
 
 	// Flipper body: six red lines forming the bow-tie glyph between the two projected lane
@@ -634,6 +621,8 @@ public sealed class VectorRenderer
 		}
 		if (game.Level2Test)
 			Raylib.DrawText("LEVEL 2 TEST - DEVELOPMENT ONLY", 10, 120, 16, Color.Gray);
+		else if (game.Level3GeometryTest)
+			Raylib.DrawText("LEVEL 3 GEOMETRY DIAGNOSTIC - DEVELOPMENT ONLY", 10, 120, 16, Color.Gray);
 
 		if (game.GameOver)
 		{
@@ -652,10 +641,12 @@ public sealed class VectorRenderer
 			}
 			else
 			{
-				DrawCenteredText(game.Level2Test ? "LEVEL 2 TEST COMPLETE" :
+				DrawCenteredText(game.Level3GeometryTest ? "LEVEL 3 GEOMETRY DIAGNOSTIC COMPLETE" :
+					game.Level2Test ? "LEVEL 2 TEST COMPLETE" :
 					$"LEVEL {game.CurrentLevel.Configuration.DisplayedLevel} COMPLETE",
 					250, 36, Color.Yellow);
-				DrawCenteredText(game.Level2Test ? "PRESS R TO REPLAY TEST" : "PRESS R TO REPLAY",
+				DrawCenteredText(game.Level3GeometryTest ? "PRESS R TO REPLAY DIAGNOSTIC" :
+					game.Level2Test ? "PRESS R TO REPLAY TEST" : "PRESS R TO REPLAY",
 					296, 24, Color.Gray);
 			}
 			return;
@@ -663,7 +654,7 @@ public sealed class VectorRenderer
 
 		if (game.DeathTicks > 0)
 			Raylib.DrawText("PLAYER DESTROYED", 10,
-				game.TankerTest || game.Level2Test ? 144 : 120, 18, Color.Red);
+				game.TankerTest || game.Level2Test || game.Level3GeometryTest ? 144 : 120, 18, Color.Red);
 	}
 
 	private void DrawCenteredText(string text, int y, int size, Color color)

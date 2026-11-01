@@ -11,9 +11,10 @@ namespace Tempest.Game;
 /// renderer only reads the public state exposed here.
 /// </summary>
 /// <remarks>
-/// Normal play progresses from Level 1 to the configured square Level 2. Direct Level 2 access and
-/// the Spiker, Tanker, Fuseball and Pulsar scenarios are development-only; enemy bullets remain an
-/// orthogonal test option. Flipper waves use the existing accounting and shot path.
+/// Normal play progresses from Level 1 to the configured square Level 2. Direct Level 2 access,
+/// the Level 3 geometry diagnostic, and the Spiker, Tanker, Fuseball and Pulsar scenarios are
+/// development-only; enemy bullets remain an orthogonal test option. Flipper waves use the
+/// existing accounting and shot path.
 /// </remarks>
 public sealed class TempestGame
 {
@@ -56,6 +57,7 @@ public sealed class TempestGame
     private readonly bool spikerDevelopmentWave;
     private readonly bool enemyBulletsTest;
     private readonly bool tankerTest;
+    private readonly bool level3GeometryTest;
     private Level? currentLevel;
     private int pulsePhase;
     private float pulseZh;
@@ -81,6 +83,7 @@ public sealed class TempestGame
     public bool FuseballTest { get; }
     public bool PulsarTest { get; }
     public bool Level2Test { get; }
+    public bool Level3GeometryTest => level3GeometryTest;
     public bool NaturalProgressionEnabled => naturalProgressionEnabled;
     public bool HurryUp { get; private set; }
     public int PulsePhase => pulsePhase;
@@ -129,21 +132,25 @@ public sealed class TempestGame
     public TempestGame(bool spikerDevelopmentWave = false, Random? random = null,
         int startingLives = Player.DefaultStartingLives, bool enemyBulletsTest = false,
         bool tankerTest = false, bool fuseballTest = false, bool pulsarTest = false,
-        bool level2Test = false)
+        bool level2Test = false, bool level3GeometryTest = false)
     {
-        if ((level2Test ? 1 : 0) + (spikerDevelopmentWave ? 1 : 0) + (tankerTest ? 1 : 0) +
+        if ((level2Test ? 1 : 0) + (level3GeometryTest ? 1 : 0) +
+            (spikerDevelopmentWave ? 1 : 0) + (tankerTest ? 1 : 0) +
             (fuseballTest ? 1 : 0) + (pulsarTest ? 1 : 0) > 1)
-            throw new ArgumentException("Level 2, Tanker, Spiker, Fuseball and Pulsar development scenarios cannot be combined.");
+            throw new ArgumentException("Level 2, Level 3 geometry, Tanker, Spiker, Fuseball and Pulsar development scenarios cannot be combined.");
         this.random = random ?? Random.Shared;
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
         this.launchConfiguration = level2Test
             ? LevelConfiguration.Level2Square
+            : level3GeometryTest
+                ? LevelConfiguration.Level3Plus
             : LevelConfiguration.Level1;
         this.spikerDevelopmentWave = spikerDevelopmentWave;
         this.enemyBulletsTest = enemyBulletsTest;
         this.tankerTest = tankerTest;
+        this.level3GeometryTest = level3GeometryTest;
         naturalProgressionEnabled = !level2Test && !spikerDevelopmentWave && !tankerTest &&
-            !fuseballTest && !pulsarTest;
+            !fuseballTest && !pulsarTest && !level3GeometryTest;
         FuseballTest = fuseballTest;
         PulsarTest = pulsarTest;
         Level2Test = level2Test;
@@ -410,7 +417,7 @@ public sealed class TempestGame
         if (input.Right)
             movement += PlayerSpeed;
 
-        Player.Move(movement, CurrentLevel.Definition.Points.Count);
+        Player.MoveAlongTube(movement, CurrentLevel);
     }
 
     private IEnumerable<Enemy> GetZapperSourceOrder()

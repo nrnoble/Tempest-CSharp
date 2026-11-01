@@ -52,6 +52,7 @@ public sealed class Pulsar : Enemy
     public int Direction { get; private set; }
     public float TurnAngle { get; private set; }
     public float TotalTurnAngle { get; private set; }
+    public DirectedLaneTransition? ActiveTransition { get; private set; }
 
     public void Update(Level level, int playerEdge, Func<int, int, int> randomInclusive,
         bool hurryUp = false)
@@ -112,16 +113,17 @@ public sealed class Pulsar : Enemy
 
             case PulsarState.Flipping:
             case PulsarState.FlippingWithoutClimb:
-                // Source state 2 is modeled for its draw/collision rules, but no normal transition
-                // in the inspected direct-hatch path enters it.
+                DirectedLaneTransition transition = ActiveTransition ??
+                    throw new InvalidOperationException("A Pulsar flip requires an active directed transition.");
                 TurnAngle += PulseFlipSpeed;
                 if (State == PulsarState.Flipping && Height < Level.Depth)
                     Height = MathF.Min(Level.Depth, Height + 1);
 
-                TotalTurnAngle = GetTurnAngle(level, EdgeIndex, Direction);
+                TotalTurnAngle = transition.SweepMagnitudeDegrees;
                 if (TurnAngle >= TotalTurnAngle)
                 {
                     TurnAngle = 0;
+                    ActiveTransition = null;
                     oldState = PulsarState.Climbing;
                     State = PulsarState.RimPause;
                     PauseTicks = RimPauseDuration;
@@ -133,8 +135,11 @@ public sealed class Pulsar : Enemy
                 {
                     TimeToFlip = 0;
                     State = oldState;
+                    int sourceEdge = EdgeIndex;
                     MoveToAdjacentEdge(level);
-                    TotalTurnAngle = GetTurnAngle(level, EdgeIndex, Direction);
+                    ActiveTransition = level.CalculateDirectedLaneTransition(
+                        sourceEdge, EdgeIndex, Direction);
+                    TotalTurnAngle = ActiveTransition.Value.SweepMagnitudeDegrees;
                 }
                 break;
 
@@ -191,6 +196,7 @@ public sealed class Pulsar : Enemy
     {
         oldState = resume;
         State = PulsarState.LanePause;
+        ActiveTransition = null;
         PauseTicks = LanePauseDuration;
         TimeToFlip = 0;
     }
@@ -223,14 +229,4 @@ public sealed class Pulsar : Enemy
             EdgeIndex = Math.Clamp(EdgeIndex, 0, lastEdge);
     }
 
-    private static float GetTurnAngle(Level level, int sourceEdge, int direction)
-    {
-        int edgeCount = level.Continuous
-            ? level.Definition.Points.Count
-            : level.Definition.Points.Count - 1;
-        int destinationEdge = direction == 1
-            ? (sourceEdge - 1 + edgeCount) % edgeCount
-            : (sourceEdge + 1) % edgeCount;
-        return level.CalculateEdgeTurnAngle(sourceEdge, destinationEdge);
-    }
 }

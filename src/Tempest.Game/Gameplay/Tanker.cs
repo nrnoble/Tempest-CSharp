@@ -126,9 +126,8 @@ public sealed class Tanker : Enemy
 
     public bool HitsPlayer(Player player) => false;
 
-    // Both cargo Flippers appear on opposite adjacent lanes at the Tanker's height. Their
-    // project-selected first pivots continue outward, keeping the Tanker's lane clear. Same-tick
-    // policy: the caller adds them after that tick's Flipper update, so they first move next tick.
+    // Cargo follows the project-selected outward lane route; its shared Flipper geometry still
+    // pivots inward into the web. Same-tick policy: children first move on the next tick.
     // Fails closed if already released.
     public TankerReleaseResult ReleaseFlipperCargo(
         Level level, int firstSideDirection, TankerReleaseKind kind)
@@ -147,9 +146,7 @@ public sealed class Tanker : Enemy
         int secondDirection = -side;
         TankerCargoSpawn[] cargo =
         [
-            // Neal observed both children emerge outside the Tanker's lane. Incitti's inward pivot
-            // is intentionally not copied here; outward routing is a project decision pending exact
-            // arcade intermediate-lane observations. Direction uses this project's Flipper convention.
+            // Lane routing away from the Tanker is independent of the inward spatial pivot.
             new TankerCargoSpawn(firstLane,
                 firstDirection > 0 ? level.PreviousEdge(firstLane) : level.NextEdge(firstLane),
                 firstDirection, Height),

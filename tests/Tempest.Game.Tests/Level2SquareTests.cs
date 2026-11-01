@@ -47,7 +47,7 @@ public sealed class Level2SquareTests
         Assert.Equal(LevelEnemyComposition.FlippersOnly, configuration.NormalEnemyComposition);
         Assert.True(configuration.FlipperCanFlip);
         Assert.Equal(new FlipperConfiguration(true, 2, 8, 21, 24), configuration.Flipper);
-        Assert.Equal(FlipperPivotGeometry.SquareEndpointHinge, configuration.FlipperPivotMode);
+        Assert.Equal(FlipperPivotGeometry.EndpointHinge, configuration.FlipperPivotMode);
         Assert.All(configuration.SpawnLaneSequence, lane => Assert.InRange(lane, 0, 15));
         Assert.All(configuration.EggDirectionSequence, direction => Assert.Contains(direction, new[] { -1, 1 }));
     }
@@ -215,7 +215,7 @@ public sealed class Level2SquareTests
     }
 
     [Fact]
-    public void LegacyTurnHelperRemainsUnchangedAndExposesSquareZeroAnglePairs()
+    public void LegacyHeadingHelperRemainsUnchangedAndLevelOneUsesReferencePivotGeometry()
     {
         Level square = new(LevelConfiguration.Level2Square);
         float[] expectedSquareTurns =
@@ -232,9 +232,11 @@ public sealed class Level2SquareTests
         for (int edge = 0; edge < 16; edge++)
         {
             int next = circle.NextEdge(edge);
-            Assert.Equal(circle.CalculateEdgeTurnAngle(edge, next),
-                circle.CalculateFlipperTurnAngle(edge, next));
+            Assert.Equal(FlipperPivotGeometry.EndpointHinge, circle.Configuration.FlipperPivotMode);
+            Assert.True(circle.CalculateFlipperTurnAngle(edge, next) > 150);
         }
+        Assert.Equal(23.777, circle.CalculateEdgeTurnAngle(0, 15), 3);
+        Assert.Equal(156.223, circle.CalculateFlipperTurnAngle(0, 15), 3);
     }
 
     [Fact]
@@ -246,8 +248,8 @@ public sealed class Level2SquareTests
         {
             int previous = level.PreviousEdge(source);
             int next = level.NextEdge(source);
-            float previousAngle = level.CalculateSquareFlipperHingeRotationDegrees(source, previous);
-            float nextAngle = level.CalculateSquareFlipperHingeRotationDegrees(source, next);
+            float previousAngle = level.CalculateEndpointHingeRotationDegrees(source, previous);
+            float nextAngle = level.CalculateEndpointHingeRotationDegrees(source, next);
 
             Assert.Equal(ExpectedHingeAngle(source, previous), MathF.Abs(previousAngle), 3);
             Assert.Equal(ExpectedHingeAngle(source, next), MathF.Abs(nextAngle), 3);
@@ -260,21 +262,21 @@ public sealed class Level2SquareTests
             foreach (float progress in new[] { 0f, .25f, .5f, .75f, 1f })
             {
                 (Vector2 start, Vector2 end) =
-                    level.CalculateSquareFlipperPivotEndpoints(source, previous, progress);
+                    level.CalculateFlipperPivotEndpoints(source, previous, progress);
                 AssertFinite(start);
                 AssertFinite(end);
-                (start, end) = level.CalculateSquareFlipperPivotEndpoints(source, next, progress);
+                (start, end) = level.CalculateFlipperPivotEndpoints(source, next, progress);
                 AssertFinite(start);
                 AssertFinite(end);
             }
         }
 
-        Assert.Equal(180, level.CalculateSquareFlipperHingeRotationDegrees(1, 0));
-        Assert.Equal(-180, level.CalculateSquareFlipperHingeRotationDegrees(0, 1));
-        Assert.Equal(-90, level.CalculateSquareFlipperHingeRotationDegrees(3, 4));
-        Assert.Equal(180, level.CalculateSquareFlipperHingeRotationDegrees(3, 2));
-        Assert.Equal(90, level.CalculateSquareFlipperHingeRotationDegrees(0, 15));
-        Assert.Equal(-90, level.CalculateSquareFlipperHingeRotationDegrees(15, 0));
+        Assert.Equal(-180, level.CalculateEndpointHingeRotationDegrees(1, 0));
+        Assert.Equal(180, level.CalculateEndpointHingeRotationDegrees(0, 1));
+        Assert.Equal(90, level.CalculateEndpointHingeRotationDegrees(3, 4));
+        Assert.Equal(-180, level.CalculateEndpointHingeRotationDegrees(3, 2));
+        Assert.Equal(-90, level.CalculateEndpointHingeRotationDegrees(0, 15));
+        Assert.Equal(90, level.CalculateEndpointHingeRotationDegrees(15, 0));
     }
 
     [Fact]
@@ -434,7 +436,7 @@ public sealed class Level2SquareTests
 
         float progress = flipper.TurnAngle / flipper.TotalTurnAngle;
         (Vector2 expectedStart, Vector2 expectedEnd) =
-            game.CurrentLevel.CalculateSquareFlipperPivotEndpoints(source, destination, progress);
+            game.CurrentLevel.CalculateFlipperPivotEndpoints(source, destination, progress);
         float depth = Level.Position + Level.Depth - flipper.Height;
         expectedStart = Projection.Project(expectedStart.X, expectedStart.Y, depth,
             game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
@@ -547,12 +549,12 @@ public sealed class Level2SquareTests
     private static void AssertDestinationEndpoints(Level level, int source, int destination)
     {
         (Vector2 initialStart, Vector2 initialEnd) =
-            level.CalculateSquareFlipperPivotEndpoints(source, destination, progress: 0);
+            level.CalculateFlipperPivotEndpoints(source, destination, progress: 0);
         Assert.Equal(level.Definition.Points[source], initialStart);
         Assert.Equal(level.Definition.Points[level.NextEdge(source)], initialEnd);
 
         (Vector2 start, Vector2 end) =
-            level.CalculateSquareFlipperPivotEndpoints(source, destination, progress: 1);
+            level.CalculateFlipperPivotEndpoints(source, destination, progress: 1);
         Assert.Equal(level.Definition.Points[destination], start);
         Assert.Equal(level.Definition.Points[level.NextEdge(destination)], end);
     }

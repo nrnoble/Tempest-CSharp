@@ -1070,9 +1070,19 @@ public sealed class SimulationTests
         Assert.Equal(Pulsar.PulseFlipSpeed, pulsar.TurnAngle);
         Assert.Equal(initialHeight, pulsar.Height);
         pulsar.Update(level, 2, Roll);
+        Assert.Equal(PulsarState.Flipping, pulsar.State);
+        Assert.Equal(Pulsar.PulseFlipSpeed * 2, pulsar.TurnAngle);
+        int flipTicks = (int)MathF.Ceiling(pulsar.TotalTurnAngle / Pulsar.PulseFlipSpeed);
+        int actualTicks = 2;
+        while (pulsar.State == PulsarState.Flipping)
+        {
+            pulsar.Update(level, 2, Roll);
+            actualTicks++;
+        }
         Assert.Equal(PulsarState.RimPause, pulsar.State);
         Assert.Equal(Pulsar.RimPauseDuration, pulsar.PauseTicks);
         Assert.Equal(PulsarState.Climbing, pulsar.ResumeState);
+        Assert.Equal(flipTicks, actualTicks);
     }
 
     [Fact]
@@ -1192,6 +1202,39 @@ public sealed class SimulationTests
         game.RunOneStep();
         renderer.DrawPulsars((start, end, color) => lines.Add((start, end, color)));
         Assert.NotEqual(unpulsedInnerVertex, lines[0].End);
+    }
+
+    [Fact]
+    public void PulsarRendererUsesItsActiveDirectedTransitionDuringTheSweep()
+    {
+        TempestGame game = HatchDevelopmentPulsar();
+        Pulsar pulsar = Assert.Single(game.Pulsars);
+        Level level = game.CurrentLevel;
+        for (int tick = 0; tick < 51; tick++)
+            pulsar.Update(level, playerEdge: 8, (_, _) => 1);
+        Assert.Equal(PulsarState.LanePause, pulsar.State);
+        for (int tick = 0; tick < Pulsar.LanePauseDuration; tick++)
+            pulsar.Update(level, playerEdge: 8, (_, _) =>
+                throw new InvalidOperationException("A pause update must not request randomness."));
+        Assert.Equal(PulsarState.Flipping, pulsar.State);
+
+        pulsar.Update(level, playerEdge: 8, (_, _) =>
+            throw new InvalidOperationException("A flip update must not request randomness."));
+        DirectedLaneTransition transition = pulsar.ActiveTransition!.Value;
+        float progress = pulsar.TurnAngle / pulsar.TotalTurnAngle;
+        (Vector2 expectedStart, Vector2 expectedEnd) =
+            level.CalculateFlipperPivotEndpoints(transition, progress);
+        float depth = level.Configuration.Position + level.Configuration.Depth - pulsar.Height;
+        expectedStart = Projection.Project(expectedStart.X, expectedStart.Y, depth,
+            level.Definition.CenterY, level.Definition.YOffset);
+        expectedEnd = Projection.Project(expectedEnd.X, expectedEnd.Y, depth,
+            level.Definition.CenterY, level.Definition.YOffset);
+
+        List<(Vector2 Start, Vector2 End, Color Color)> lines = [];
+        new VectorRenderer(game).DrawPulsars((start, end, color) => lines.Add((start, end, color)));
+        Assert.Equal(6, lines.Count);
+        Assert.Equal(expectedStart, lines[0].Start);
+        Assert.Equal(expectedEnd, lines[^1].End);
     }
 
     [Fact]
@@ -2317,7 +2360,7 @@ public sealed class SimulationTests
         Assert.Equal(cargo[0].SourceLane, first.SourceEdge);
         Assert.Equal(cargo[0].DestinationLane, first.DestinationEdge);
         Assert.Equal(cargo[0].Direction, first.Direction);
-        Assert.Equal(level.CalculateEdgeTurnAngle(first.SourceEdge, first.DestinationEdge), first.TotalTurnAngle);
+        Assert.Equal(first.ActiveTransition!.Value.SweepMagnitudeDegrees, first.TotalTurnAngle);
         Assert.Equal(0, first.TurnAngle);
         Assert.Equal(0, second.TurnAngle);
         Assert.Equal(-first.Direction, second.Direction);
@@ -2352,7 +2395,7 @@ public sealed class SimulationTests
         int playerEdge = 8;
         int firstPivotTicks = 0;
 
-        while (flipper.State == FlipperState.Flipping && firstPivotTicks < 10)
+        while (flipper.State == FlipperState.Flipping)
         {
             flipper.Update(level, playerEdge);
             playerEdge = (playerEdge + 5) % level.Definition.Points.Count;
@@ -2381,7 +2424,7 @@ public sealed class SimulationTests
         Assert.False(flipper.CompletedIntoPlayer);
 
         int secondPivotTicks = 0;
-        while (flipper.State == FlipperState.Flipping && secondPivotTicks < 10)
+        while (flipper.State == FlipperState.Flipping)
         {
             flipper.Update(level, playerEdge);
             playerEdge = (playerEdge + 3) % level.Definition.Points.Count;
@@ -2409,7 +2452,7 @@ public sealed class SimulationTests
         while (flipper.State == FlipperState.Flipping)
             flipper.Update(level, 15);
         Assert.Equal(14, flipper.EdgeIndex);
-        Assert.True(flipper.Height < Level.Depth);
+        Assert.Equal(Level.Depth, flipper.Height);
 
         int pauseTicks = flipper.PauseTicks;
         for (int tick = 0; tick < pauseTicks; tick++)
@@ -2420,7 +2463,7 @@ public sealed class SimulationTests
         Assert.Equal(-1, flipper.Direction);
         Assert.Equal(15, flipper.DestinationEdge);
 
-        for (int tick = 0; !flipper.CompletedIntoPlayer && tick < 10; tick++)
+        for (int tick = 0; !flipper.CompletedIntoPlayer; tick++)
             flipper.Update(level, 15);
         Assert.True(flipper.CompletedIntoPlayer);
         Assert.Equal(15, flipper.EdgeIndex);
@@ -2463,12 +2506,14 @@ public sealed class SimulationTests
         Tanker tanker = CreatePendingTanker(0);
         TankerCargoSpawn cargo = tanker.ReleaseFlipperCargo(level, 1, TankerReleaseKind.Natural).Cargo[0];
         Flipper flipper = Flipper.CreateTankerCargo(level, cargo, 0);
-        int ticks = 0;
-        while (flipper.State == FlipperState.Flipping && ticks++ < 10)
+        while (flipper.State == FlipperState.Flipping && flipper.Height < Level.Depth)
             flipper.Update(level, cargo.DestinationLane);
-        Assert.True(flipper.Height < Level.Depth);
         Assert.False(flipper.CompletedIntoPlayer);
-        Assert.Equal(FlipperState.Pausing, flipper.State);
+        Assert.Equal(Level.Depth, flipper.Height);
+        Assert.Equal(FlipperState.Flipping, flipper.State);
+        while (flipper.State == FlipperState.Flipping)
+            flipper.Update(level, cargo.DestinationLane);
+        Assert.True(flipper.CompletedIntoPlayer);
     }
 
     // --- Flipper rim-arrival collision/timing regressions (direct climb into the player lane) ---
@@ -2666,7 +2711,7 @@ public sealed class SimulationTests
             level.NextEdge(level.NextEdge(lane))
         }, cargo.Select(child => child.DestinationEdge));
         foreach (Flipper child in cargo)
-            for (int tick = 0; child.State == FlipperState.Flipping && tick < 10; tick++)
+            for (int tick = 0; child.State == FlipperState.Flipping; tick++)
                 child.Update(level, 0);
 
         Assert.Equal(2, game.ActiveTankerCargoFlippers);
@@ -2968,15 +3013,6 @@ public sealed class SimulationTests
         for (int slotId = 1; slotId < Level.EnemyTotal; slotId++)
             DestroyOriginalFlipperSlot(game, slotId);
 
-        Flipper survivor = Assert.Single(game.Flippers, flipper => flipper.IsTankerCargo);
-        game.Player.Move((survivor.EdgeIndex + 8) % game.CurrentLevel.Definition.Points.Count -
-            game.Player.EdgeIndex, game.CurrentLevel.Definition.Points.Count);
-        for (int tick = 0; tick < 300 && survivor.Height < Level.Depth; tick++)
-            survivor.Update(game.CurrentLevel, game.Player.EdgeIndex);
-        Assert.Equal(Level.Depth, survivor.Height);
-        int scoreBeforeRimClear = game.Score.Score;
-        game.RunOneStep();
-
         Assert.Equal(LevelState.ExitDelay, game.State);
         Assert.Empty(game.Flippers);
         Assert.Equal(10, game.TankerOriginalSlotsDestroyed + game.TankerOriginalSlotsEscaped);
@@ -2986,7 +3022,7 @@ public sealed class SimulationTests
         Assert.Equal(2, game.TankerCargoUnitsResolved);
         Assert.Equal(0, game.TankerCargoUnitsRemaining);
         Assert.Equal(12, game.TankerAccountingTotal);
-        Assert.Equal(scoreBeforeRimClear, game.Score.Score);
+        Assert.Equal(1700, game.Score.Score);
         AssertTankerAccounting(game);
     }
 
@@ -3526,7 +3562,7 @@ public sealed class SimulationTests
     {
         TempestGame game = PreparePivotWithStartingLives(10);
         game.Player.Lives = 1;
-        Step(game, 63);
+        Step(game, GetFlipperPivotTicks(game) + TempestGame.PlayerDeathTicks);
         Assert.True(game.GameOver);
         Assert.Equal(0, game.Player.Lives);
         game.RunOneStep(restartPressed: true);
@@ -3540,7 +3576,7 @@ public sealed class SimulationTests
     {
         TempestGame game = PreparePivotWithStartingLives(10);
         game.Score.Add(125);
-        Step(game, 63);
+        Step(game, GetFlipperPivotTicks(game) + TempestGame.PlayerDeathTicks);
         Assert.False(game.GameOver);
 
         Assert.Equal(9, game.Player.Lives);
@@ -4808,7 +4844,9 @@ public sealed class SimulationTests
         Assert.Equal(394, shot.Height);
         Assert.Equal(15, shot.Rotation);
         Assert.Equal(8, game.Player.EdgeIndex);
-        Assert.Equal(0.5f, game.Player.EdgePosition);
+        float boundaryAngle = game.CurrentLevel.CalculateLaneTransitionAngle(7, 8);
+        float nextLaneAngle = game.CurrentLevel.CalculateLaneTransitionAngle(8, 9);
+        Assert.Equal((180 - boundaryAngle * 0.5f) / nextLaneAngle, game.Player.EdgePosition, 5);
     }
 
     [Fact]
@@ -4816,7 +4854,8 @@ public sealed class SimulationTests
     {
         TempestGame game = new();
         game.RunOneStep(new PlayerInput(false, -8, true, false));
-        Assert.Equal(0.5f + -8 * 0.0125f - 0.05f, game.Player.EdgePosition);
+        float laneAngle = game.CurrentLevel.CalculateLaneTransitionAngle(7, 8);
+        Assert.Equal(0.5f - 27 / laneAngle, game.Player.EdgePosition, 5);
         game.RunOneStep(new PlayerInput(false, 8, false, true));
         Assert.Equal(0.5f, game.Player.EdgePosition);
     }
@@ -4936,7 +4975,9 @@ public sealed class SimulationTests
         Assert.Equal(7, flipper.DestinationEdge);
 
         int visibleTicks = 0;
-        while (!flipper.CompletedIntoPlayer && visibleTicks < 10)
+        int expectedVisibleTicks = (int)MathF.Ceiling(
+            flipper.TotalTurnAngle / level.Configuration.Flipper.TurnSpeedDegrees);
+        while (!flipper.CompletedIntoPlayer)
         {
             Assert.True(flipper.IsHitBy(new Shot { EdgeIndex = 6, Height = 394 }));
             Assert.True(flipper.IsHitBy(new Shot { EdgeIndex = 7, Height = 394 }));
@@ -4944,7 +4985,7 @@ public sealed class SimulationTests
             flipper.Update(level, 7);
             visibleTicks++;
         }
-        Assert.Equal(3, visibleTicks);
+        Assert.Equal(expectedVisibleTicks, visibleTicks);
         Assert.True(flipper.CompletedIntoPlayer);
     }
 
@@ -4958,7 +4999,10 @@ public sealed class SimulationTests
         Assert.Equal(flipper.DestinationEdge, game.Player.EdgeIndex);
         Assert.Equal(0, game.DeathTicks);
         game.RunOneStep(new PlayerInput(false, 80, false, false));
-        game.RunOneStep();
+        int pivotTicks = (int)MathF.Ceiling(
+            flipper.TotalTurnAngle / game.CurrentLevel.Configuration.Flipper.TurnSpeedDegrees);
+        for (int tick = 0; flipper.State == FlipperState.Flipping && tick < pivotTicks; tick++)
+            game.RunOneStep();
         Assert.Equal(0, game.DeathTicks);
         Assert.Equal(FlipperState.Pausing, flipper.State);
     }
@@ -4967,14 +5011,16 @@ public sealed class SimulationTests
     public void CollisionUsesPlayerLaneOnCompletionTick()
     {
         TempestGame game = PreparePivot();
-        Step(game, 2);
+        int pivotTicks = GetFlipperPivotTicks(game);
+        Step(game, pivotTicks - 1);
         Assert.Equal(0, game.DeathTicks);
         game.RunOneStep(new PlayerInput(false, 80, false, false));
         Assert.Equal(0, game.DeathTicks);
 
         game = PreparePivot();
         game.Player.Move(1, 16);
-        Step(game, 2);
+        pivotTicks = GetFlipperPivotTicks(game);
+        Step(game, pivotTicks - 1);
         game.RunOneStep(new PlayerInput(false, -80, false, false));
         Assert.Equal(60, game.DeathTicks);
     }
@@ -4984,7 +5030,7 @@ public sealed class SimulationTests
     {
         TempestGame game = PreparePivot();
         Flipper flipper = game.Flippers[0];
-        Step(game, 2);
+        Step(game, GetFlipperPivotTicks(game, flipper) - 1);
         game.RunOneStep(new PlayerInput(true, 0, false, false));
         Assert.DoesNotContain(flipper, game.Flippers);
         Assert.Equal(0, game.DeathTicks);
@@ -4997,7 +5043,7 @@ public sealed class SimulationTests
     public void DeathFreezesSimulationForSixtyTicksThenResetsPendingEnemies()
     {
         TempestGame game = PreparePivot();
-        Step(game, 3);
+        Step(game, GetFlipperPivotTicks(game));
         Assert.Equal(60, game.DeathTicks);
         float height = game.Flippers[1].Height;
         Step(game, 59, new PlayerInput(true, 80, false, false));
@@ -5023,7 +5069,7 @@ public sealed class SimulationTests
         TempestGame game = PreparePivot();
         game.Player.Lives = 1;
         game.Score.Add(150);
-        Step(game, 63);
+        Step(game, GetFlipperPivotTicks(game) + TempestGame.PlayerDeathTicks);
         Assert.True(game.GameOver);
         Assert.Equal(0, game.Player.Lives);
         Assert.Empty(game.Flippers);
@@ -5446,6 +5492,11 @@ public sealed class SimulationTests
 
     private static TempestGame PreparePivot()
         => PreparePivotWithStartingLives(Player.DefaultStartingLives);
+
+    private static int GetFlipperPivotTicks(TempestGame game, Flipper? flipper = null) =>
+        (int)MathF.Ceiling(
+            (flipper ?? game.Flippers[0]).TotalTurnAngle /
+            game.CurrentLevel.Configuration.Flipper.TurnSpeedDegrees);
 
     private static TempestGame PreparePivotWithStartingLives(int startingLives)
     {

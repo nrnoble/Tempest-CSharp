@@ -43,9 +43,11 @@ Manual play confirmed two usable Super Zapper charges at Level 2 start; the
 exact internal recharge/flash-reset timing remains a project implementation
 detail. The recreation adds no level bonus, bonus life, startbonus
 presentation, entry animation or audio.
-Level 2 is terminal because Level 3 is not implemented. Pressing R there starts
-a new Level 1 campaign with reset score and configured starting lives. Game
-Over in a normal campaign also restarts at Level 1.
+Natural Level 2 remains terminal because its production Level 3 wave is not
+implemented. Pressing R there starts a new Level 1 campaign with reset score
+and configured starting lives. Game Over in a normal campaign also restarts
+at Level 1. The separate Level 3 geometry diagnostic below does not change
+normal progression.
 
 The closed definition has 16 ordered vertices and 16 playable lanes. The
 topology metadata distinguishes these counts: an open definition with 16
@@ -119,6 +121,33 @@ Atari has a brief between-level approach through space with an interactive
 distant Blaster before combat engagement. This presentation is not implemented
 and is deferred; its duration and timing details have not been measured.
 
+## Level 3 plus-board geometry diagnostic
+
+```powershell
+dotnet run --project src/Tempest.Game -- --level3-geometry-test --lives 10
+```
+
+`--level3-geometry-test` is **DEVELOPMENT ONLY**. It exposes the single
+source-derived, closed 16-lane Level 3 plus-board configuration for rendering,
+rim movement, Eggs, shots, Flipper canflip pivots, Super Zapper flash and
+projection checks. Its controlled Flipper-only setup uses the project's
+deterministic Egg schedule; it is not a production Level 3 mixed wave and does
+not claim the eventual Level 3 composition or Egg schedule. Tanker-cargo
+geometry is covered by headless tests only in this checkpoint; it is not
+graphically included in this diagnostic.
+
+The diagnostic is terminal and R replays it; Game Over restart stays on the
+same board. It conflicts with other scenario-selection flags and composes
+with `--lives` and the existing optional `--enemy-bullets-test`. Normal play
+still progresses only from Level 1 to Level 2, then stops. Production Tanker
+mixed accounting and Tanker firing remain deferred. Level 1/2 wave policy and
+progression remain unchanged, but C1.5 changed directed enemy pivot
+geometry/timing. Neal manually validated and passed the inward-pivot,
+directed-sweep and geometry behavior for Level 1, Level 2, the Level 3
+diagnostic, Pulsars and Tanker cargo. See
+`TEMPEST-BEHAVIOR-SPEC.md` for the precise **ARCADE VERIFIED** observations;
+automated geometry and source-derived values do not extend that evidence.
+
 ## Spiker development wave
 
 Normal startup still runs the validated Flipper-only Level 1. To explicitly run
@@ -169,11 +198,14 @@ dotnet run --project src/Tempest.Game -- --tanker-test --lives 10
 
 The scenario starts one Tanker carrying two Flippers; other original wave slots
 remain Flippers. The Tanker climbs on one lane and releases two live Flippers on
-opposite adjacent lanes near the rim. Each child initially pivots outward,
-away from the Tanker's former lane, and keeps its direction through below-rim
+opposite adjacent lanes near the rim. Each child follows the project-selected
+outward lane route away from the Tanker's former lane, while its spatial pivot
+swings inward into the web. It keeps its direction through below-rim
 pivot/pause cycles without tracking the Blaster; rim pivots pursue the current
 Blaster lane. Neal verified the cargo survival and no-mid-tube-pursuit behavior;
-the exact intermediate arcade lane sequence and timing remain unverified.
+Neal has since manually confirmed the inward arc, stable below-rim direction,
+correct rim behavior and preserved outward lane route. The exact intermediate
+arcade lane sequence and timing remain unknown.
 Shoot the Tanker for 200 points, or let it release naturally for no Tanker
 score. Children remain independently shootable. Tankers and Flippers fire no
 bullets unless `--enemy-bullets-test` is combined with this scenario; Tankers
@@ -276,9 +308,12 @@ unaffected. Fuseball expiry uses its current height for both score and popup.
 
 In `--tanker-test`, carrier zap expiry awards 200 and materializes two distinct
 unresolved cargo IDs as adjacent Flippers with eight-update zap timers. Their
-mandatory initial pivot proceeds outward, away from the Tanker's former lane;
-the corrected movement keeps their direction fixed below the rim, then resumes
-player pursuit at the rim. Their timers begin on the next simulation tick.
+mandatory initial pivot follows the project-selected outward lane route away
+from the Tanker's former lane, but the spatial arc is inward into the web. Their
+direction stays fixed below the rim, then resumes player pursuit at the rim.
+Their timers begin on the next simulation tick.
+Neal manually confirmed that their visible pivots swing inward through the
+web while their established outward lane route remains correct.
 Cargo remains unresolved until a normal outcome or timer expiry; life loss
 reconstructs each unresolved ID as a fresh Egg and discards its pending timer.
 Completion remains blocked until all original slots and materialized cargo
@@ -302,13 +337,15 @@ campaign progression remain out of scope.
 
 The Tanker-cargo correction preserves normal Flippers and Super Zapper
 semantics. Manual validation confirmed that cargo no longer tracks the Blaster
-below the rim, then exposed a separate shot-collision problem: the inward
-reference-derived pivot put both children on the Tanker's lane and allowed a
-second in-flight shot to destroy them. Cargo now takes a project-selected
-outward initial pivot, retains its direction below the rim, and resumes player
-pursuit at the rim. Neal confirmed both released Flippers should survive and
-appear in distinct non-Tanker lanes. Exact arcade intermediate lane sequence
-and timing remain unverified. See
+below the rim, then exposed a separate shot-collision problem: the source-
+derived inward lane route put both children on the Tanker's lane and allowed a
+second in-flight shot to destroy them. Cargo keeps the project-selected
+outward lane route and fixed below-rim direction; this route is independent of
+the spatial pivot side, which now swings inward into the web. Neal confirmed
+both released Flippers should survive and appear in distinct non-Tanker lanes.
+Neal has since manually validated the corrected inward arc, the distinct
+non-Tanker lanes and the preserved outward lane route. The exact arcade
+intermediate lane sequence and timing remain unknown. See
 `AI-Logs/Reports/2026-10-30-tanker-cargo-direction-correction-report.md`.
 
 ## All-rim completion

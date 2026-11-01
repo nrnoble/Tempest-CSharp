@@ -6,9 +6,10 @@ using Tempest.Game.Gameplay;
 /// Parses the development/testing command-line switches. These are controlled engineering tools
 /// for exercising one mechanic in isolation; they are not the finished arcade level-selection or
 /// progression system. No flags = normal Level 1. --level2-test selects an isolated square Level 2
-/// square/canflip run; it is terminal and does not enable progression. --level2-test, --spiker-test,
-/// --tanker-test, --fuseball-test and --pulsar-test are mutually exclusive; --enemy-bullets-test
-/// (opt-in Flipper firing) and --lives (starting-life override) compose with any scenario or normal play.
+/// square/canflip run; --level3-geometry-test selects a non-production plus-board geometry
+/// diagnostic. Both are terminal and do not enable progression. Scenario flags are mutually
+/// exclusive; --enemy-bullets-test (opt-in Flipper firing) and --lives (starting-life override)
+/// compose with any scenario or normal play.
 /// </summary>
 public sealed class DebugController
 {
@@ -18,6 +19,10 @@ public sealed class DebugController
 	// DEVELOPMENT ONLY: this fixed launch configuration is terminal and never enables progression.
 	public static bool UseLevel2Test(IEnumerable<string> arguments) =>
 		arguments.Contains("--level2-test", StringComparer.Ordinal);
+
+	// DEVELOPMENT ONLY: validates the source-derived plus board, not a production mixed wave.
+	public static bool UseLevel3GeometryTest(IEnumerable<string> arguments) =>
+		arguments.Contains("--level3-geometry-test", StringComparer.Ordinal);
 
 	public static bool UseEnemyBulletsTest(IEnumerable<string> arguments) =>
 		arguments.Contains("--enemy-bullets-test", StringComparer.Ordinal);
@@ -32,7 +37,8 @@ public sealed class DebugController
 		arguments.Contains("--pulsar-test", StringComparer.Ordinal);
 
 	public static bool HasConflictingScenarios(IEnumerable<string> arguments) =>
-		(UseLevel2Test(arguments) ? 1 : 0) + (UseTankerTest(arguments) ? 1 : 0) +
+		(UseLevel2Test(arguments) ? 1 : 0) + (UseLevel3GeometryTest(arguments) ? 1 : 0) +
+		(UseTankerTest(arguments) ? 1 : 0) +
 		(UseSpikerWave(arguments) ? 1 : 0) + (UseFuseballTest(arguments) ? 1 : 0) +
 		(UsePulsarTest(arguments) ? 1 : 0) > 1;
 
