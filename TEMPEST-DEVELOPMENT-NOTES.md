@@ -1154,6 +1154,190 @@ inputs are **REFERENCE VERIFIED**; production Level 3 has not received manual
 arcade acceptance. Existing `--tanker-test` accounting and silent/combined
 firing behavior remain separate.
 
+The diagrams summarize C3a ownership and identity lifecycle:
+
+### C3a architecture and ownership
+
+```mermaid
+flowchart LR
+  subgraph orchestration["Configuration and orchestration"]
+    cfg["LevelConfiguration.Level3Mixed<br/>DEVELOPMENT ONLY access"]
+    game["TempestGame<br/>simulation and lifecycle orchestration"]
+    selection["Level3WaveSelection<br/>original enemy type choice"]
+    cfg --> game
+  end
+
+  subgraph authority["Authoritative identity and accounting"]
+    level["Level<br/>geometry, reserve and Egg scheduling"]
+    ledger["Level3WaveLedger<br/>original and cargo IDs, types,<br/>ownership, states and outcomes"]
+    cargoIds["Tanker cargo identities<br/>owner original ID + ordinal"]
+    level -->|"owns Egg collection and ledger"| ledger
+    ledger -->|"allocates exactly once<br/>at first Tanker commitment"| cargoIds
+  end
+
+  subgraph runtime["Runtime representations and timers"]
+    eggs["Eggs<br/>carry one original OR cargo ID"]
+    enemies["Flippers and Tankers<br/>runtime enemy objects"]
+    pending["Shot-released cargo<br/>pending-activation list"]
+    shots["Player shots and shot cooldown<br/>TempestGame"]
+    bullets["Enemy bullets<br/>TempestGame collection"]
+    firing["Enemy firing state<br/>ammunition and bullet timer<br/>on Flipper / Tanker"]
+    zapper["SuperZapperSystem<br/>charges and flash"]
+    zapTimer["Pending zap countdown<br/>on each Enemy"]
+  end
+
+  subgraph outcomes["Lifecycle outcomes"]
+    death["Ordinary death<br/>discard runtime objects"]
+    rebuild["Reconstruct unresolved IDs<br/>as reserve / fresh Eggs"]
+    ordinary["Ordinary completion<br/>all obligations resolved"]
+    allrim["All-rim completion<br/>exact represented-set match;<br/>record RimCleared"]
+  end
+
+  game -->|"steps"| level
+  level -->|"releases"| eggs
+  eggs -->|"hatch"| game
+  game -->|"selects type at hatch"| selection
+  selection --> game
+  game -->|"commits original type/state"| ledger
+  ledger -->|"validates identity representation"| eggs
+  ledger -->|"validates identity representation"| enemies
+
+  game --> enemies
+  enemies -.->|"Tanker carries two latent units;<br/>IDs remain ledger-owned"| cargoIds
+  game --> pending
+  game --> shots
+  game --> bullets
+  enemies --> firing
+  zapper -->|"TryZap"| zapTimer
+
+  enemies -->|"natural Tanker release"| game
+  game -->|"materialize live cargo;<br/>original becomes Escaped"| ledger
+  game -->|"create cargo Flippers"| enemies
+
+  shots -->|"hit Tanker"| game
+  game -->|"queue cargo identities"| ledger
+  game -->|"defer children"| pending
+  pending -->|"activate after enemy updates"| ledger
+  pending --> enemies
+
+  zapTimer -->|"Tanker expiry"| game
+  game -->|"materialize timed/stillborn cargo;<br/>original becomes Destroyed"| ledger
+
+  shots -->|"destroy Flipper"| ledger
+  zapTimer -->|"expire on Flipper"| ledger
+  enemies -->|"reach all-rim"| allrim
+  allrim -->|"mark each exact identity"| ledger
+
+  game -->|"death: clear enemies, shots, bullets"| death
+  death -->|"same Level and ledger"| rebuild
+  rebuild -->|"preserve selected type, ownership,<br/>terminal outcomes; reuse unresolved IDs"| ledger
+  rebuild --> eggs
+  ledger -->|"unresolved sets empty and runtime empty"| ordinary
+  ledger -->|"unresolved sets equal active identities"| allrim
+
+  classDef project fill:#eef,stroke:#557;
+  classDef reference fill:#efe,stroke:#585;
+  classDef dev fill:#fff4d6,stroke:#a70;
+  class ledger,death,rebuild,ordinary,allrim project;
+  class selection reference;
+  class cfg dev;
+```
+
+### Level 3 identity and lifecycle
+
+```mermaid
+flowchart LR
+  subgraph originals["A. Original identity namespace"]
+    OReserve["Reserve"]
+    OEgg["Egg"]
+    Choose["Hatch commitment<br/>Level3WaveSelection"]
+    OFlipper["Active original Flipper"]
+    OTanker["Active original Tanker"]
+    ODestroyed["Destroyed"]
+    OEscaped["Escaped<br/>natural Tanker release"]
+    ORim["Rim-cleared"]
+
+    OReserve --> OEgg --> Choose
+    Choose -->|"Flipper"| OFlipper
+    Choose -->|"Tanker"| OTanker
+    OFlipper -->|"shot / zap"| ODestroyed
+    OFlipper -->|"all-rim"| ORim
+    OTanker -->|"shot / zap"| ODestroyed
+    OTanker -->|"natural release"| OEscaped
+    OTanker -->|"all-rim, after cargo materializes"| ORim
+
+    ODeath["Ordinary death:<br/>unresolved original IDs re-enter;<br/>committed type is retained"]
+    OEgg -.-> ODeath
+    OFlipper -.-> ODeath
+    OTanker -.-> ODeath
+    ODeath -.-> OReserve
+  end
+
+  subgraph cargo["B. Tanker-owned cargo identity namespace"]
+    Allocate["First Tanker commitment:<br/>allocate exactly once<br/>two IDs (owner, ordinal)"]
+    Latent["Latent"]
+    Pending["Pending shot activation"]
+    Reentry["Re-entry reserve"]
+    CEgg["Cargo Egg"]
+    CFlipper["Active cargo Flipper"]
+    Timed["Active timed / stillborn cargo<br/>PendingZapTicks"]
+    CDestroyed["Destroyed"]
+    CRim["Rim-cleared"]
+
+    OTanker -->|"ledger allocates once"| Allocate --> Latent
+    Latent -->|"natural release:<br/>live cargo"| CFlipper
+    Latent -->|"player-shot destruction"| Pending
+    Pending -->|"activation after enemy updates"| CFlipper
+    Latent -->|"Super Zapper expiry:<br/>timed/stillborn cargo"| Timed
+    Timed -->|"zap timer expires"| CDestroyed
+    CFlipper -->|"shot / zap"| CDestroyed
+    CFlipper -->|"all-rim"| CRim
+
+    Reentry --> CEgg --> CFlipper
+    CDeath["Ordinary death:<br/>unresolved materialized cargo<br/>reuses the same IDs"]
+    Pending -.-> CDeath
+    CEgg -.-> CDeath
+    CFlipper -.-> CDeath
+    Timed -.-> CDeath
+    CDeath -.-> Reentry
+  end
+
+  ReentryNote["Unreleased latent cargo stays latent.<br/>Destroyed, escaped and rim-cleared identities are terminal;<br/>they never return."]
+  ODeath -.-> ReentryNote
+  CDeath -.-> ReentryNote
+
+  Ordinary["Ordinary completion<br/>every original and cargo obligation resolved;<br/>no reserve, Egg, active or pending representation"]
+  AllRim["All-rim completion<br/>active represented originals == unresolved originals<br/>AND active represented cargo == unresolved cargo;<br/>record RimCleared outcomes"]
+
+  ODestroyed --> Ordinary
+  OEscaped --> Ordinary
+  ORim --> Ordinary
+  CDestroyed --> Ordinary
+  CRim --> Ordinary
+  OFlipper -->|"all active identities at rim"| AllRim
+  OTanker -->|"all active identities at rim"| AllRim
+  CFlipper -->|"all active identities at rim"| AllRim
+  AllRim --> ORim
+  AllRim --> CRim
+
+  DeathTimers["Reconstruction creates fresh runtime entities:<br/>per-enemy firing state/timers and per-enemy PendingZapTicks<br/>do not carry over.<br/>Game-level SuperZapperSystem charge/flash state is separate<br/>and follows its established lifecycle policy."]
+  ODeath -.-> DeathTimers
+```
+
+Tanker/cargo and source-derived selection behavior remain **REFERENCE
+VERIFIED** where classified as such; C# identity, representation,
+reconstruction and completion policies remain **PROJECT DECISIONS**.
+Configuration-based headless Level 3 access remains **DEVELOPMENT ONLY**.
+Previously established directly observed/accepted arcade behavior retains its
+existing classification.
+
+The all-rim guards for an active Tanker with latent cargo at the rim and for
+pending shot-activation cargo at all-rim evaluation are defensive checks.
+Neither state is production-reachable: Tanker cargo releases after height
+exceeds 385, before the depth-400 all-rim evaluation, and pending shot
+activation occurs earlier in `RunOneStep`. Do not artificially manufacture
+these states in tests.
+
 ## Deferred manual observations outside Stage A
 
 - **Historical Tanker firing observation (superseded by C2 PASS above):**
