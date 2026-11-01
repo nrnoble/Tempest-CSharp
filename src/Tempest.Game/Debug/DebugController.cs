@@ -9,7 +9,8 @@ using Tempest.Game.Gameplay;
 /// square/canflip run; --level3-geometry-test selects a non-production plus-board geometry
 /// diagnostic. Both are terminal and do not enable progression. Scenario flags are mutually
 /// exclusive; --enemy-bullets-test (opt-in Flipper firing) and --lives (starting-life override)
-/// compose with any scenario or normal play.
+/// compose with any scenario or normal play. --level3-test directly selects the production-shaped
+/// mixed Level 3 wave and remains terminal; --level3-geometry-test remains Flipper-only.
 /// --input-diagnostic instead opens a standalone development-only input window with no gameplay.
 /// </summary>
 public sealed class DebugController
@@ -23,6 +24,10 @@ public sealed class DebugController
 	// DEVELOPMENT ONLY: this fixed launch configuration is terminal and never enables progression.
 	public static bool UseLevel2Test(IEnumerable<string> arguments) =>
 		arguments.Contains("--level2-test", StringComparer.Ordinal);
+
+	// DEVELOPMENT ONLY: direct access to the production-shaped mixed Level 3 wave.
+	public static bool UseLevel3Test(IEnumerable<string> arguments) =>
+		arguments.Contains("--level3-test", StringComparer.Ordinal);
 
 	// DEVELOPMENT ONLY: validates the source-derived plus board, not a production mixed wave.
 	public static bool UseLevel3GeometryTest(IEnumerable<string> arguments) =>
@@ -41,7 +46,8 @@ public sealed class DebugController
 		arguments.Contains("--pulsar-test", StringComparer.Ordinal);
 
 	public static bool HasConflictingScenarios(IEnumerable<string> arguments) =>
-		(UseLevel2Test(arguments) ? 1 : 0) + (UseLevel3GeometryTest(arguments) ? 1 : 0) +
+		(UseLevel2Test(arguments) ? 1 : 0) + (UseLevel3Test(arguments) ? 1 : 0) +
+		(UseLevel3GeometryTest(arguments) ? 1 : 0) +
 		(UseTankerTest(arguments) ? 1 : 0) +
 		(UseSpikerWave(arguments) ? 1 : 0) + (UseFuseballTest(arguments) ? 1 : 0) +
 		(UsePulsarTest(arguments) ? 1 : 0) > 1;

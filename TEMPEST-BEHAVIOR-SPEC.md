@@ -164,11 +164,12 @@ record the uncertainty rather than guessing.
   fresh-runtime replacement, accounting/list/callback cleanup, projection
   reset, player offset and Egg sequencing describe implementation policy;
   they were not measured as Atari internals.
-- **PROJECT DECISION** — The C# game has no Level 3 configuration. Natural
-  Level 2 completion is terminal and displays “LEVEL 2 COMPLETE / NEXT LEVEL
-  NOT IMPLEMENTED / PRESS R TO START A NEW CAMPAIGN.” R starts a new Level 1
-  campaign and resets score. This is the current recreation policy, not a
-  claim that Atari Level 2 is terminal.
+- **PROJECT DECISION** — Natural Level 2 completion is terminal and displays
+  “LEVEL 2 COMPLETE / NEXT LEVEL NOT IMPLEMENTED / PRESS R TO START A NEW
+  CAMPAIGN.” R starts a new Level 1 campaign and resets score. Direct
+  `--level3-test` access to the mixed Level 3 configuration is **DEVELOPMENT
+  ONLY** and does not add natural progression. The Level 2 policy is a
+  recreation decision, not a claim that Atari Level 2 is terminal.
 - **ARCADE VERIFIED** — In the natural transition run, Neal observed Level 2
   start with four visible Eggs and the 12-unit wave, score and current lives
   carried, and Super Zapper restored to two usable charges. Previously
@@ -347,14 +348,15 @@ record the uncertainty rather than guessing.
   fire a bullet after a growth-driven retreat decision; its separate firing
   roll is strictly greater than 70. This optional behavior is also not
   arcade-verified.
-- **DEVELOPMENT ONLY** — Enemy bullets are opt-in in the C# recreation through
-  `--enemy-bullets-test`; they are not enabled in the ordinary launch. Bullet
-  hits do not count as enemy kills. The recreation clears bullets on life
-  reconstruction and when exit begins.
+- **DEVELOPMENT ONLY** — Enemy bullets are not enabled in the ordinary
+  Level 1/2 launch; `--enemy-bullets-test` enables development firing policies
+  in scenarios that support them. Bullet hits do not count as enemy kills.
+  The recreation clears bullets on life reconstruction and when exit begins.
 - **DEVELOPMENT ONLY** — Spiker retreat bullets require the Spiker and enemy
-  bullet test options together. Tanker bullets require the Tanker and enemy
-  bullet test options together. Neither combination establishes normal arcade
-  wave behavior.
+  bullet test options together. Isolated `--tanker-test` bullets require the
+  enemy-bullet option; production-shaped Tanker bullets in direct
+  `--level3-test` access are visible without it. Neither development route
+  establishes unknown arcade firing probabilities or timers.
 
 ## 5. Spikers and spikes
 
@@ -576,6 +578,8 @@ These controls are test conveniences, not arcade level-selection or composition:
 | Option | Development behavior |
 |---|---|
 | `--level2-test` | Direct access to the shared closed 16-lane square, supply-12 Flipper-only canflip configuration; terminal development replay, no progression selection. |
+| `--level3-geometry-test` | Direct access to the Flipper-only Level 3 plus-board geometry diagnostic; separate from the mixed production-shaped wave. |
+| `--level3-test` | Direct graphical access to the existing production-shaped mixed Level 3 configuration; terminal replay, no natural Level 2-to-Level 3 progression. Production Tanker bullets are visible without `--enemy-bullets-test`; ordinary/cargo Flippers are silent by default. |
 | `--spiker-test` | Replaces the normal wave with a Spiker/Flipper test wave and height-60 spikes on every lane. |
 | `--tanker-test` | Replaces the normal wave with one controlled Tanker plus ordinary Flipper slots and cargo. |
 | `--fuseball-test` | Direct-hatches the ten-unit supply as Fuseballs, with source-derived late-wave hurry-up. |
@@ -587,6 +591,14 @@ The Level 2 and enemy-specific wave options are mutually exclusive. Deterministi
 seams, controlled selection, artificial wave composition, extra lives, and
 test-only rendering/collision instrumentation are all **DEVELOPMENT ONLY**.
 Passing a simulation test establishes a C# invariant, not arcade fidelity.
+- **DEVELOPMENT ONLY — C3b manual graphical acceptance (C# behavior only)** —
+  Across multiple direct Level 3 runs, Neal accepted the entry/HUD, visible
+  production Tanker bullets without `--enemy-bullets-test`, silent default
+  ordinary/cargo Flippers, player-shot and natural Tanker cargo release,
+  Super Zapper behavior, death/re-entry, and completion/replay. No crashes or
+  other observed problems were reported; overall rating: **5/5 —
+  "Impressive."** This does not verify hidden identity sets, RNG ordering,
+  exact timers/probabilities, or unknown Atari behavior.
 - **DEVELOPMENT ONLY** — Neal manually checked that the isolated Pulsar
   scenario does not spawn unrelated enemy types. This validates the test
   scenario's isolation, not authentic arcade wave composition.

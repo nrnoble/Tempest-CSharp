@@ -1129,19 +1129,39 @@ cargo, Super Zapper and input remained normal, with no unrelated regression.
 This validates observable two-before-release capability, not a guaranteed
 per-Tanker count or exact Atari internals. The randomized policy is accepted;
 the 1.75 increment remains **REFERENCE VERIFIED**, not arcade-measured.
-Firing remains development-only; C3 and natural Level 3 are not authorized.
+Firing remains development-only; natural Level 2-to-Level 3 progression is
+not authorized.
 
-## C3a headless Level 3 mixed-wave model
+## C3a Level 3 mixed-wave model and C3b direct graphical access
 
 The production-shaped `LevelConfiguration.Level3Mixed` shares the Level 3 plus
 board definition with the Flipper-only geometry diagnostic. A configuration-
 based `TempestGame` entry exercises the actual Level 3 scheduler, randomized
 Flipper/Tanker selection, Tanker firing, owned cargo identities, Super Zapper,
-death reconstruction and terminal completion paths. It is headless only:
-there is no `--level3-test`, Program routing, production HUD/bullet rendering
-policy, graphical/manual access, or natural Level 2-to-Level 3 progression.
-Level 3 remains terminal; C3b access/manual acceptance and C4 progression are
-not implemented.
+death reconstruction and terminal completion paths.
+
+C3b adds the direct graphical command
+`dotnet run --project src/Tempest.Game -- --level3-test --lives 10`. Program
+routes it to the same `Level3Mixed` configuration and existing game/renderer;
+this is not another composition or simulation and does not add natural Level
+2-to-Level 3 progression. The Level 3 HUD reads unresolved original/cargo
+counts from the authoritative ledger and counts active Tankers with other
+enemies. Production Tanker bullets use the existing renderer path without the
+optional `--enemy-bullets-test` flag; ordinary/cargo Flipper firing remains
+silent by default. Direct access is terminal and replay/restart use the
+established lifecycle. This is **DEVELOPMENT ONLY**.
+
+Neal manually accepted the visible C# graphical behavior across multiple
+production-mode runs using the command above, without relying on
+`--enemy-bullets-test`: entry/HUD, visible production Tanker bullets, silent
+ordinary/cargo Flippers by default, player-shot and natural Tanker cargo
+release, Super Zapper behavior, death/re-entry, and completion/replay all
+passed. No crashes or other observed problems were reported. Overall rating:
+**5/5 — "Impressive."** This is acceptance of the visible recreation only,
+not verification of hidden identity/timer/RNG internals or unknown Atari
+behavior. Composition probabilities and source-derived mechanics remain
+**REFERENCE VERIFIED**; C# identity and lifecycle policy remains **PROJECT
+DECISIONS**.
 
 The 15 original IDs and each committed Tanker's two `(owner, ordinal)` cargo
 IDs are tracked by the Level-3-only ledger. Materialized cargo, reserve/Egg
@@ -1327,7 +1347,8 @@ flowchart LR
 Tanker/cargo and source-derived selection behavior remain **REFERENCE
 VERIFIED** where classified as such; C# identity, representation,
 reconstruction and completion policies remain **PROJECT DECISIONS**.
-Configuration-based headless Level 3 access remains **DEVELOPMENT ONLY**.
+Direct and configuration-based Level 3 access remain **DEVELOPMENT ONLY**;
+manual graphical acceptance remains pending.
 Previously established directly observed/accepted arcade behavior retains its
 existing classification.
 

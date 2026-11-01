@@ -43,7 +43,7 @@ Manual play confirmed two usable Super Zapper charges at Level 2 start; the
 exact internal recharge/flash-reset timing remains a project implementation
 detail. The recreation adds no level bonus, bonus life, startbonus
 presentation, entry animation or audio.
-Natural Level 2 remains terminal because its production Level 3 wave is not
+Natural Level 2 remains terminal because natural Level 3 progression is not
 implemented. Pressing R there starts a new Level 1 campaign with reset score
 and configured starting lives. Game Over in a normal campaign also restarts
 at Level 1. The separate Level 3 geometry diagnostic below does not change
@@ -198,13 +198,41 @@ The diagnostic is terminal and R replays it; Game Over restart stays on the
 same board. It conflicts with other scenario-selection flags and composes
 with `--lives` and the existing optional `--enemy-bullets-test`. Normal play
 still progresses only from Level 1 to Level 2, then stops. Production Tanker
-mixed accounting and Tanker firing remain deferred. Level 1/2 wave policy and
+mixed-wave access is provided separately below; natural progression remains
+deferred. Level 1/2 wave policy and
 progression remain unchanged, but C1.5 changed directed enemy pivot
 geometry/timing. Neal manually validated and passed the inward-pivot,
 directed-sweep and geometry behavior for Level 1, Level 2, the Level 3
 diagnostic, Pulsars and Tanker cargo. See
 `TEMPEST-BEHAVIOR-SPEC.md` for the precise **ARCADE VERIFIED** observations;
 automated geometry and source-derived values do not extend that evidence.
+
+## Direct Level 3 mixed-wave access
+
+```powershell
+dotnet run --project src/Tempest.Game -- --level3-test --lives 10
+```
+
+`--level3-test` is **DEVELOPMENT ONLY** direct graphical access to the existing
+`LevelConfiguration.Level3Mixed` model. It displays Level 3, uses the production
+randomized mixed Flipper/Tanker wave and remains terminal; it does not add
+natural Level 2-to-Level 3 progression. The window title and HUD label this as
+a Level 3 mixed-wave test. The HUD uses the Level 3 identity ledger's unresolved
+original and cargo counts and includes Eggs, Flippers and Tankers in its active
+count.
+
+Production Tanker bullets use the existing renderer path and are visible
+without `--enemy-bullets-test`. Ordinary and cargo Flippers remain silent by
+default; the optional flag may enable their development firing behavior. On
+successful completion, R replays a fresh Level 3 mixed wave while retaining
+score and lives. Game Over restart follows the existing full new-game behavior.
+Neal manually accepted the visible graphical behavior across multiple runs,
+including production Tanker bullets, both Tanker cargo release paths,
+Super Zapper behavior, death/re-entry, and completion/replay. No crashes or
+other observed problems were reported; the overall rating was **5/5 —
+"Impressive."** This accepts the visible C# behavior, not unknown Atari
+internals. Existing **REFERENCE VERIFIED** and **PROJECT DECISIONS** evidence
+classifications are unchanged.
 
 ## Spiker development wave
 

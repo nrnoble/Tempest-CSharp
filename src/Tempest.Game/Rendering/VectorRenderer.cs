@@ -56,6 +56,8 @@ public sealed class VectorRenderer
 
 	private readonly TempestGame game;
 	public IReadOnlyList<Egg> Eggs => game.Eggs;
+	public bool ShouldDrawEnemyBullets =>
+		game.EnemyBulletsTest || game.CurrentLevel.IsLevel3Mixed;
 	// During normal play Player.Depth == Level.Depth, so this is Level.Position (the near rim).
 	// During exit travel Player.Depth shrinks toward 0, moving the projected player down the tube.
 	public float PlayerProjectedDepth => Level.Position + Level.Depth - game.Player.Depth;
@@ -93,7 +95,7 @@ public sealed class VectorRenderer
 			DrawTankers((start, end) => Raylib.DrawLineV(start, end, TankerColor));
 			DrawFuseballs((start, end, color) => Raylib.DrawLineV(start, end, color));
 			DrawPulsars((start, end, color) => Raylib.DrawLineV(start, end, color));
-			if (game.EnemyBulletsTest)
+			if (ShouldDrawEnemyBullets)
 				DrawEnemyBullets((start, end) => Raylib.DrawLineV(start, end, Color.White));
 		}
 		else if (game.SpikeExitControlsEnabled)
@@ -604,23 +606,19 @@ public sealed class VectorRenderer
 		Raylib.DrawText(game.Score.Score.ToString(), 10, 10, 28, Color.Yellow);
 		Raylib.DrawText($"LIVES {game.Player.Lives}", 10, 44, 20, Color.Yellow);
 		Raylib.DrawText($"LEVEL {game.CurrentLevel.Configuration.DisplayedLevel}", 640, 10, 20, Color.Yellow);
-		if (game.TankerTest)
+		IReadOnlyList<string> waveLines = GetWaveHudLines();
+		for (int index = 0; index < waveLines.Count; index++)
 		{
-			Raylib.DrawText($"ORIGINAL {game.TankerOriginalSlotsRemaining}", 10, 72, 18, Color.Red);
-			Raylib.DrawText($"CARGO {game.TankerCargoUnitsRemaining}", 10, 96, 18, TankerColor);
-			Raylib.DrawText($"ACTIVE {game.TankerActiveTotal}", 10, 120, 18, Color.Gray);
-		}
-		else
-		{
-			int remaining = game.CurrentLevel.RemainingEnemies;
-			string enemyLabel = game.PulsarTest ? "PULSARS" :
-				game.FuseballTest ? "FUSEBALLS" :
-				game.CurrentLevel.SpikerDevelopmentWave ? "ENEMIES" : "FLIPPERS";
-			Raylib.DrawText($"{enemyLabel} {remaining}", 10, 72, 18, Color.Red);
-			Raylib.DrawText($"ACTIVE {game.Eggs.Count + game.Flippers.Count + game.Spikers.Count + game.Fuseballs.Count + game.Pulsars.Count}", 10, 96, 18, Color.Gray);
+			Color color = index == 0 ? Color.Red :
+				(game.TankerTest || game.CurrentLevel.IsLevel3Mixed) && index == 1
+					? TankerColor
+					: Color.Gray;
+			Raylib.DrawText(waveLines[index], 10, 72 + index * 24, 18, color);
 		}
 		if (game.Level2Test)
 			Raylib.DrawText("LEVEL 2 TEST - DEVELOPMENT ONLY", 10, 120, 16, Color.Gray);
+		else if (game.Level3Test)
+			Raylib.DrawText("LEVEL 3 MIXED WAVE TEST - DEVELOPMENT ONLY", 10, 144, 16, Color.Gray);
 		else if (game.Level3GeometryTest)
 			Raylib.DrawText("LEVEL 3 GEOMETRY DIAGNOSTIC - DEVELOPMENT ONLY", 10, 120, 16, Color.Gray);
 
@@ -641,11 +639,13 @@ public sealed class VectorRenderer
 			}
 			else
 			{
-				DrawCenteredText(game.Level3GeometryTest ? "LEVEL 3 GEOMETRY DIAGNOSTIC COMPLETE" :
+				DrawCenteredText(game.Level3Test ? "LEVEL 3 MIXED WAVE TEST COMPLETE" :
+					game.Level3GeometryTest ? "LEVEL 3 GEOMETRY DIAGNOSTIC COMPLETE" :
 					game.Level2Test ? "LEVEL 2 TEST COMPLETE" :
 					$"LEVEL {game.CurrentLevel.Configuration.DisplayedLevel} COMPLETE",
 					250, 36, Color.Yellow);
-				DrawCenteredText(game.Level3GeometryTest ? "PRESS R TO REPLAY DIAGNOSTIC" :
+				DrawCenteredText(game.Level3Test ? "PRESS R TO REPLAY LEVEL 3 TEST" :
+					game.Level3GeometryTest ? "PRESS R TO REPLAY DIAGNOSTIC" :
 					game.Level2Test ? "PRESS R TO REPLAY TEST" : "PRESS R TO REPLAY",
 					296, 24, Color.Gray);
 			}
@@ -654,7 +654,44 @@ public sealed class VectorRenderer
 
 		if (game.DeathTicks > 0)
 			Raylib.DrawText("PLAYER DESTROYED", 10,
-				game.TankerTest || game.Level2Test || game.Level3GeometryTest ? 144 : 120, 18, Color.Red);
+				game.Level3Test ? 168 :
+				game.TankerTest || game.Level2Test || game.Level3GeometryTest ? 144 : 120,
+				18, Color.Red);
+	}
+
+	public IReadOnlyList<string> GetWaveHudLines()
+	{
+		if (game.TankerTest)
+		{
+			return
+			[
+				$"ORIGINAL {game.TankerOriginalSlotsRemaining}",
+				$"CARGO {game.TankerCargoUnitsRemaining}",
+				$"ACTIVE {game.TankerActiveTotal}"
+			];
+		}
+
+		if (game.CurrentLevel.IsLevel3Mixed)
+		{
+			Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger
+				?? throw new InvalidOperationException("The mixed Level 3 wave has no identity ledger.");
+			return
+			[
+				$"ORIGINAL {ledger.UnresolvedOriginalIds.Count}",
+				$"CARGO {ledger.UnresolvedCargoIds.Count}",
+				$"ACTIVE {game.Eggs.Count + game.Flippers.Count + game.Tankers.Count}"
+			];
+		}
+
+		int remaining = game.CurrentLevel.RemainingEnemies;
+		string enemyLabel = game.PulsarTest ? "PULSARS" :
+			game.FuseballTest ? "FUSEBALLS" :
+			game.CurrentLevel.SpikerDevelopmentWave ? "ENEMIES" : "FLIPPERS";
+		return
+		[
+			$"{enemyLabel} {remaining}",
+			$"ACTIVE {game.Eggs.Count + game.Flippers.Count + game.Spikers.Count + game.Fuseballs.Count + game.Pulsars.Count}"
+		];
 	}
 
 	private void DrawCenteredText(string text, int y, int size, Color color)

@@ -82,7 +82,7 @@ public sealed class Level3GeometryTests
 
         string[] scenarioFlags =
         [
-            "--level2-test", "--spiker-test", "--tanker-test",
+            "--level2-test", "--level3-test", "--spiker-test", "--tanker-test",
             "--fuseball-test", "--pulsar-test"
         ];
         foreach (string scenario in scenarioFlags)
@@ -95,6 +95,7 @@ public sealed class Level3GeometryTests
                 fuseballTest: DebugController.UseFuseballTest(conflicting),
                 pulsarTest: DebugController.UsePulsarTest(conflicting),
                 level2Test: DebugController.UseLevel2Test(conflicting),
+                level3Test: DebugController.UseLevel3Test(conflicting),
                 level3GeometryTest: DebugController.UseLevel3GeometryTest(conflicting)));
         }
 

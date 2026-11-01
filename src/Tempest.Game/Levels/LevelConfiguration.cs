@@ -132,8 +132,8 @@ public sealed record LevelConfiguration(
         FlipperPivotMode = FlipperPivotGeometry.EndpointHinge
     };
 
-    // Composition is REFERENCE VERIFIED; the configuration-based headless model is DEVELOPMENT
-    // ONLY and adds no CLI route, manual access or natural campaign progression.
+    // Composition is REFERENCE VERIFIED; direct --level3-test access is DEVELOPMENT ONLY and
+    // remains terminal without adding natural campaign progression.
     public static LevelConfiguration Level3Mixed { get; } = Level3Plus with
     {
         NormalEnemyComposition = LevelEnemyComposition.FlippersAndTankers
