@@ -22,6 +22,7 @@ public sealed class Level
     private readonly List<Spike> spikes = [];
     private readonly Queue<int> tankerPendingOriginalSlots = new();
     private readonly Queue<int> tankerPendingCargoUnits = new();
+    private readonly Func<int, int, int> nextRandomInclusive;
     private int spawnTimer;
     private int hatchSelectionTimer;
     private int nextSpawnLaneIndex;
@@ -33,11 +34,15 @@ public sealed class Level
     public int EnemiesSpawned { get; private set; }
     public int EnemiesDestroyed { get; private set; }
     public int EnemiesRimCleared { get; private set; }
+    public int Level3CargoReserveEggs =>
+        IsLevel3Mixed ? Level3Ledger!.CargoIdsInReentryReserve().Count : 0;
     // Development-only tanker accounting counts reserve as queued original slots; normal (and
     // Spiker) accounting derives reserve from the configured supply.
-    public int ReserveEggs => TankerDevelopmentWave
-        ? tankerPendingOriginalSlots.Count
-        : EnemySupply - EnemiesSpawned;
+    public int ReserveEggs => IsLevel3Mixed
+        ? Level3Ledger!.OriginalIdsInReserve().Count
+        : TankerDevelopmentWave
+            ? tankerPendingOriginalSlots.Count
+            : EnemySupply - EnemiesSpawned;
     public int PendingTankerCargoEggs => TankerDevelopmentWave ? tankerPendingCargoUnits.Count : 0;
     public int RemainingEnemies => EnemySupply - EnemiesDestroyed - EnemiesRimCleared;
     public IReadOnlyList<Egg> Eggs => eggs;
@@ -45,6 +50,9 @@ public sealed class Level
     public event Action<Spike>? SpikeCreated;
     public bool SpikerDevelopmentWave { get; }
     public bool TankerDevelopmentWave { get; }
+    public bool IsLevel3Mixed =>
+        Configuration.NormalEnemyComposition == LevelEnemyComposition.FlippersAndTankers;
+    public Level3WaveLedger? Level3Ledger { get; private set; }
     // Level stores the state value, but every transition is owned by TempestGame's step logic;
     // nothing in Level changes State.
     public LevelState State { get; set; } = LevelState.Begin;
@@ -56,12 +64,14 @@ public sealed class Level
     }
 
     public Level(LevelConfiguration configuration, bool spikerDevelopmentWave = false,
-        bool tankerDevelopmentWave = false)
+        bool tankerDevelopmentWave = false,
+        Func<int, int, int>? randomInclusive = null)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         Configuration = configuration;
         SpikerDevelopmentWave = spikerDevelopmentWave;
         TankerDevelopmentWave = tankerDevelopmentWave;
+        nextRandomInclusive = randomInclusive ?? NextSharedRandomInclusive;
         Reset();
     }
 
@@ -71,6 +81,8 @@ public sealed class Level
         EnemiesRimCleared = 0;
         tankerPendingOriginalSlots.Clear();
         tankerPendingCargoUnits.Clear();
+        if (IsLevel3Mixed)
+            Level3Ledger = new Level3WaveLedger(EnemySupply);
         if (TankerDevelopmentWave)
         {
             for (int originalSlotId = 0; originalSlotId < EnemySupply; originalSlotId++)
@@ -101,6 +113,19 @@ public sealed class Level
     // wave construction instead uses the configured initial Egg count in Reset.
     public void ResetAfterDeath()
     {
+        if (IsLevel3Mixed)
+        {
+            Level3Ledger!.RebuildAfterDeath();
+            ReturnSurvivorsToReserve();
+
+            for (int eggIndex = 0;
+                 eggIndex < Configuration.InitialActiveEggCount &&
+                 ReserveEggs + Level3CargoReserveEggs > 0;
+                 eggIndex++)
+                ReleaseEgg();
+            return;
+        }
+
         ReturnSurvivorsToReserve();
         for (int eggIndex = 0; eggIndex < Configuration.MaximumActiveEggs && ReserveEggs > 0; eggIndex++)
             ReleaseEgg();
@@ -114,7 +139,9 @@ public sealed class Level
         eggs.Clear();
         spawnTimer = 0;
         hatchSelectionTimer = 0;
-        EnemiesSpawned = EnemiesDestroyed + EnemiesRimCleared;
+        EnemiesSpawned = IsLevel3Mixed
+            ? EnemySupply - Level3Ledger!.OriginalIdsInReserve().Count
+            : EnemiesDestroyed + EnemiesRimCleared;
         nextSpawnLaneIndex = EnemiesSpawned % Configuration.SpawnLaneSequence.Count;
     }
 
@@ -130,6 +157,16 @@ public sealed class Level
             return;
 
         spawnTimer = 0;
+
+        if (IsLevel3Mixed)
+        {
+            for (int released = 0; released < 6 &&
+                 ReserveEggs + Level3CargoReserveEggs > 0;
+                 released++)
+                ReleaseEgg();
+            return;
+        }
+
         if (eggs.Count < Configuration.MaximumActiveEggs &&
             (ReserveEggs > 0 || PendingTankerCargoEggs > 0))
             ReleaseEgg();
@@ -137,6 +174,12 @@ public sealed class Level
 
     private void ReleaseEgg()
     {
+        if (IsLevel3Mixed)
+        {
+            ReleaseLevel3MixedEgg();
+            return;
+        }
+
         int lane = Configuration.SpawnLaneSequence[nextSpawnLaneIndex % Configuration.SpawnLaneSequence.Count];
         int direction = Configuration.EggDirectionSequence[
             nextSpawnLaneIndex % Configuration.EggDirectionSequence.Count];
@@ -210,8 +253,40 @@ public sealed class Level
 
     public IReadOnlyList<int> PendingTankerCargoUnitIds => tankerPendingCargoUnits.ToArray();
 
+    private void ReleaseLevel3MixedEgg()
+    {
+        int lane = nextRandomInclusive(0, PlayableLaneCount - 1);
+        int direction = nextRandomInclusive(0, 1) == 0 ? -1 : 1;
+        int cargoId = Level3Ledger!.CargoIdsInReentryReserve().FirstOrDefault(-1);
+        int originalId = -1;
+
+        if (cargoId >= 0)
+            Level3Ledger.MarkCargoEgg(cargoId);
+        else
+        {
+            originalId = Level3Ledger.OriginalIdsInReserve().FirstOrDefault(-1);
+            if (originalId < 0)
+                throw new InvalidOperationException("No Level 3 identity is available for Egg release.");
+            Level3Ledger.MarkOriginalEgg(originalId);
+        }
+
+        eggs.Add(new Egg(lane, direction,
+            originalSlotId: originalId,
+            cargoUnitId: cargoId));
+        EnemiesSpawned++;
+    }
+
+    private static int NextSharedRandomInclusive(int minimum, int maximum) =>
+        Random.Shared.Next(minimum, checked(maximum + 1));
+
     public void UpdateEggs()
     {
+        if (IsLevel3Mixed)
+        {
+            UpdateLevel3MixedEggs(0, nextRandomInclusive);
+            return;
+        }
+
         hatchSelectionTimer++;
         if (hatchSelectionTimer >= Configuration.HatchSelectionIntervalTicks)
         {
@@ -224,6 +299,56 @@ public sealed class Level
 
         foreach (Egg egg in eggs)
             egg.Update(this);
+    }
+
+    public void UpdateLevel3MixedEggs(
+        int activeEnemyUnits,
+        Func<int, int, int> randomInclusive)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(activeEnemyUnits);
+        ArgumentNullException.ThrowIfNull(randomInclusive);
+
+        int approachingEggs = eggs.Count(egg => egg.State != EggState.Roaming);
+        if (activeEnemyUnits < 9 && approachingEggs < 2)
+        {
+            bool nearEnd = activeEnemyUnits + eggs.Count < 4;
+            if (nearEnd || randomInclusive(0, 100) > 95)
+            {
+                eggs.FirstOrDefault(egg => egg.State == EggState.Roaming)
+                    ?.BeginApproach();
+            }
+        }
+
+        foreach (Egg egg in eggs)
+            egg.Update(this);
+    }
+
+    public void HatchReadyMixedEnemies(
+        Func<Egg, Enemy?> createEnemy,
+        Action<Enemy> addEnemy)
+    {
+        ArgumentNullException.ThrowIfNull(createEnemy);
+        ArgumentNullException.ThrowIfNull(addEnemy);
+
+        for (int index = 0; index < eggs.Count;)
+        {
+            Egg egg = eggs[index];
+            if (egg.State != EggState.ReadyToHatch)
+            {
+                index++;
+                continue;
+            }
+
+            Enemy? enemy = createEnemy(egg);
+            if (enemy is null)
+            {
+                index++;
+                continue;
+            }
+
+            eggs.RemoveAt(index);
+            addEnemy(enemy);
+        }
     }
 
     public Flipper? HatchReadyEgg() => (Flipper?)HatchReadyEnemy(lane => new Flipper(lane, 0));

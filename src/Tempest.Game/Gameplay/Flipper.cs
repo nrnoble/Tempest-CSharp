@@ -51,7 +51,7 @@ public sealed class Flipper : Enemy
     public int BulletAmmunition { get; private set; }
     public int BulletTimer { get; private set; }
     // Tanker identity: slot of the original enemy this unit stands for (-1 if none) and cargo
-    // unit id (-1 if not Tanker cargo). Used by the development Tanker ledger only.
+    // unit id (-1 if not Tanker cargo). The two IDs belong to separate ledger namespaces.
     public int OriginalSlotId { get; private set; } = -1;
     public int CargoUnitId { get; private set; } = -1;
     public bool IsTankerCargo => CargoUnitId >= 0;

@@ -29,14 +29,15 @@ public readonly record struct TankerCargoSpawn(
     int SourceLane, int DestinationLane, int Direction, float Height);
 
 /// <summary>
-/// Development-only (<c>--tanker-test</c>) Tanker. Climbs at 1.75 (reference-derived, not arcade-measured) and
-/// carries two latent Flipper cargo units. Release happens once: naturally when height passes
+/// A Tanker used by the isolated <c>--tanker-test</c> scenario and the headless Level 3 mixed
+/// model. Climbs at 1.75 (reference-derived, not arcade-measured) and carries two latent Flipper
+/// cargo units. Release happens once: naturally when height passes
 /// <see cref="CargoReleaseThreshold"/> (no score), when shot (200 points), or when a zap expires
 /// (200 points plus stillborn cargo), with scoring and accounting owned by TempestGame.
-/// The Tanker never collides with the player directly, but when armed (TempestGame combines
-/// <c>--tanker-test</c> with <c>--enemy-bullets-test</c>) it fires the shared EnemyBullet using
-/// Incitti's Tanker rules. OriginalSlotId is the enemy slot it represents; cargo identity is
-/// tracked separately by TempestGame.
+/// The Tanker never collides with the player directly, but when armed by production composition
+/// or by combining the diagnostic with <c>--enemy-bullets-test</c>, it fires the shared
+/// EnemyBullet using Incitti's Tanker rules. OriginalSlotId is the enemy slot it represents;
+/// cargo identity is tracked separately.
 /// </summary>
 public sealed class Tanker : Enemy
 {

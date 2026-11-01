@@ -9,6 +9,7 @@ using Xunit;
 
 namespace Tempest.Game.Tests;
 
+[Collection("Level 2 tests")]
 public sealed class Level3GeometryTests
 {
     private static readonly Vector2[] PlusPoints =

@@ -12,9 +12,9 @@ namespace Tempest.Game;
 /// </summary>
 /// <remarks>
 /// Normal play progresses from Level 1 to the configured square Level 2. Direct Level 2 access,
-/// the Level 3 geometry diagnostic, and the Spiker, Tanker, Fuseball and Pulsar scenarios are
-/// development-only; enemy bullets remain an orthogonal test option. Flipper waves use the
-/// existing accounting and shot path.
+/// the Level 3 geometry diagnostic, the configuration-based headless Level 3 mixed model, and the
+/// Spiker, Tanker, Fuseball and Pulsar scenarios are development-only; enemy bullets remain an
+/// orthogonal test option. Flipper waves use the existing accounting and shot path.
 /// </remarks>
 public sealed class TempestGame
 {
@@ -132,30 +132,46 @@ public sealed class TempestGame
     public TempestGame(bool spikerDevelopmentWave = false, Random? random = null,
         int startingLives = Player.DefaultStartingLives, bool enemyBulletsTest = false,
         bool tankerTest = false, bool fuseballTest = false, bool pulsarTest = false,
-        bool level2Test = false, bool level3GeometryTest = false)
+        bool level2Test = false, bool level3GeometryTest = false,
+        LevelConfiguration? startingConfiguration = null)
     {
         if ((level2Test ? 1 : 0) + (level3GeometryTest ? 1 : 0) +
             (spikerDevelopmentWave ? 1 : 0) + (tankerTest ? 1 : 0) +
-            (fuseballTest ? 1 : 0) + (pulsarTest ? 1 : 0) > 1)
+            (fuseballTest ? 1 : 0) + (pulsarTest ? 1 : 0) > 1 ||
+            startingConfiguration is not null &&
+            (level2Test || level3GeometryTest || spikerDevelopmentWave ||
+             tankerTest || fuseballTest || pulsarTest))
             throw new ArgumentException("Level 2, Level 3 geometry, Tanker, Spiker, Fuseball and Pulsar development scenarios cannot be combined.");
+
         this.random = random ?? Random.Shared;
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
-        this.launchConfiguration = level2Test
+        this.launchConfiguration = startingConfiguration ?? (level2Test
             ? LevelConfiguration.Level2Square
             : level3GeometryTest
                 ? LevelConfiguration.Level3Plus
-            : LevelConfiguration.Level1;
+            : LevelConfiguration.Level1);
         this.spikerDevelopmentWave = spikerDevelopmentWave;
         this.enemyBulletsTest = enemyBulletsTest;
         this.tankerTest = tankerTest;
         this.level3GeometryTest = level3GeometryTest;
-        naturalProgressionEnabled = !level2Test && !spikerDevelopmentWave && !tankerTest &&
+        naturalProgressionEnabled = startingConfiguration is null &&
+            !level2Test && !spikerDevelopmentWave && !tankerTest &&
             !fuseballTest && !pulsarTest && !level3GeometryTest;
         FuseballTest = fuseballTest;
         PulsarTest = pulsarTest;
         Level2Test = level2Test;
         Player = new Player(this.startingLives);
         InitializeFreshWave(launchConfiguration);
+    }
+
+    public TempestGame(
+        LevelConfiguration startingConfiguration,
+        Random? random = null,
+        int startingLives = Player.DefaultStartingLives)
+        : this(spikerDevelopmentWave: false, random: random, startingLives: startingLives,
+            startingConfiguration: startingConfiguration ??
+                throw new ArgumentNullException(nameof(startingConfiguration)))
+    {
     }
 
     public void RunOneStep(PlayerInput input = default, bool restartPressed = false)
@@ -227,7 +243,11 @@ public sealed class TempestGame
                 return;
 
             CurrentLevel.UpdateEggRelease();
-            CurrentLevel.UpdateEggs();
+            if (CurrentLevel.IsLevel3Mixed)
+                CurrentLevel.UpdateLevel3MixedEggs(
+                    CountLevel3ActiveEnemyUnits(), NextRandomInclusive);
+            else
+                CurrentLevel.UpdateEggs();
             HatchEggs();
             // Accepted delays count this activation tick; expiry skips that enemy's ordinary update.
             UpdateFlippers();
@@ -248,6 +268,8 @@ public sealed class TempestGame
                 return;
             LatchHurryUp();
             CheckForLevelComplete();
+            if (CurrentLevel.IsLevel3Mixed && State != LevelState.GameOver)
+                ValidateLevel3WaveRepresentation();
         }
     }
 
@@ -266,7 +288,8 @@ public sealed class TempestGame
             currentLevel.SpikeCreated -= OnSpikeCreated;
 
         developmentCollisionOrder.Clear();
-        currentLevel = new Level(configuration, spikerDevelopmentWave, tankerTest);
+        currentLevel = new Level(configuration, spikerDevelopmentWave, tankerTest,
+            NextRandomInclusive);
         currentLevel.SpikeCreated += OnSpikeCreated;
         developmentCollisionOrder.AddRange(currentLevel.Spikes);
         CurrentLevel.State = LevelState.Playing;
@@ -287,6 +310,8 @@ public sealed class TempestGame
         fuseballScorePopups.Clear();
         fuseballAnimationTicks = 0;
         ResetTankerLedger();
+        if (CurrentLevel.IsLevel3Mixed)
+            ValidateLevel3WaveRepresentation();
     }
 
     private void OnSpikeCreated(Spike spike) => developmentCollisionOrder.Add(spike);
@@ -332,6 +357,26 @@ public sealed class TempestGame
 
     private void ResetAfterDeath()
     {
+        if (CurrentLevel.IsLevel3Mixed)
+        {
+            ValidateLevel3WaveRepresentation();
+            ResetPlayerPosition();
+            shots.Clear();
+            enemyBullets.Clear();
+            flippers.Clear();
+            shotReleasedCargoPendingActivation.Clear();
+            tankers.Clear();
+            spikers.Clear();
+            fuseballs.Clear();
+            pulsars.Clear();
+            fuseballScorePopups.Clear();
+            developmentCollisionOrder.Clear();
+            CurrentLevel.ResetAfterDeath();
+            CurrentLevel.State = LevelState.Playing;
+            ValidateLevel3WaveRepresentation();
+            return;
+        }
+
         // Reconstruction keeps the same Level/configuration; only a fresh wave creates a new Level.
         // Ordinary life loss: every active enemy, shot and bullet is discarded and unresolved
         // enemies re-enter as fresh Eggs. Destroyed enemies stay destroyed and score is kept.
@@ -422,7 +467,8 @@ public sealed class TempestGame
 
     private IEnumerable<Enemy> GetZapperSourceOrder()
     {
-        if (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest || tankerTest ||
+        if (CurrentLevel.IsLevel3Mixed ||
+            CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest || tankerTest ||
             FuseballTest || PulsarTest)
             // Spikes are not Enemy instances; bullets remain in this source order and reject by default.
             return developmentCollisionOrder.OfType<Enemy>();
@@ -448,7 +494,8 @@ public sealed class TempestGame
         {
             Shot shot = shots[shotIndex];
             shot.Update();
-            bool hit = (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest || tankerTest ||
+            bool hit = (CurrentLevel.IsLevel3Mixed ||
+                CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest || tankerTest ||
                 FuseballTest || PulsarTest)
                 ? shot.Height >= 0 && CheckShotAgainstDevelopmentTargets(shot)
                 : CheckShotAgainstFlippers(shot);
@@ -475,25 +522,100 @@ public sealed class TempestGame
 
     private void HatchEggs()
     {
+        if (CurrentLevel.IsLevel3Mixed)
+        {
+            CurrentLevel.HatchReadyMixedEnemies(
+                CreateLevel3MixedEnemy, AddHatchedEnemy);
+            return;
+        }
+
         while ((tankerTest
             ? CurrentLevel.HatchReadyEnemyWithIdentity(CreateTankerWaveEnemy)
             : CurrentLevel.HatchReadyEnemy(CreateHatchedEnemy)) is Enemy enemy)
-        {
-            if (enemy is Flipper flipper)
-                flippers.Add(flipper);
-            else if (enemy is Spiker spiker)
-                spikers.Add(spiker);
-            else if (enemy is Tanker tanker)
-                tankers.Add(tanker);
-            else if (enemy is Fuseball fuseball)
-                fuseballs.Add(fuseball);
-            else if (enemy is Pulsar pulsar)
-                pulsars.Add(pulsar);
-            if (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest || tankerTest ||
-                FuseballTest || PulsarTest)
-                developmentCollisionOrder.Add(enemy);
-        }
+            AddHatchedEnemy(enemy);
     }
+
+    private void AddHatchedEnemy(Enemy enemy)
+    {
+        if (enemy is Flipper flipper)
+            flippers.Add(flipper);
+        else if (enemy is Spiker spiker)
+            spikers.Add(spiker);
+        else if (enemy is Tanker tanker)
+            tankers.Add(tanker);
+        else if (enemy is Fuseball fuseball)
+            fuseballs.Add(fuseball);
+        else if (enemy is Pulsar pulsar)
+            pulsars.Add(pulsar);
+        else
+            throw new InvalidOperationException($"Unsupported hatched enemy type {enemy.GetType().Name}.");
+
+        if (CurrentLevel.IsLevel3Mixed || CurrentLevel.SpikerDevelopmentWave ||
+            enemyBulletsTest || tankerTest || FuseballTest || PulsarTest)
+            developmentCollisionOrder.Add(enemy);
+    }
+
+    private Enemy? CreateLevel3MixedEnemy(Egg egg)
+    {
+        Level3WaveLedger ledger = CurrentLevel.Level3Ledger
+            ?? throw new InvalidOperationException("Level 3 mixed wave has no identity ledger.");
+
+        if (egg.CargoUnitId >= 0)
+        {
+            if (egg.OriginalSlotId >= 0)
+                throw new InvalidOperationException("A Level 3 Egg cannot hold both identity namespaces.");
+            ledger.MarkCargoActive(egg.CargoUnitId);
+            return Flipper.CreateFreshTankerCargo(
+                egg.EdgeIndex, egg.CargoUnitId,
+                enemyBulletsTest ? random.Next(1, 4) : 0);
+        }
+
+        int originalId = egg.OriginalSlotId;
+        if (originalId < 0)
+            throw new InvalidOperationException("A production Level 3 Egg has no stable identity.");
+
+        Level3OriginalType selectedType = ledger.GetOriginalType(originalId);
+        if (selectedType == Level3OriginalType.Unselected)
+        {
+            selectedType = SelectLevel3OriginalType();
+            if (selectedType == Level3OriginalType.Tanker)
+                Level3WaveSelection.SelectTwoFlipperCargo(NextRandomInclusive);
+        }
+
+        if (selectedType == Level3OriginalType.Tanker)
+        {
+            if (tankers.Count >= 6)
+                return null;
+
+            int ammunition = NextRandomInclusive(1, 2);
+            int timer = 16 + NextRandomInclusive(1, 64);
+            Tanker tanker = new(egg.EdgeIndex, originalId,
+                bulletAmmunition: ammunition, bulletTimer: timer);
+            if (ledger.GetOriginalState(originalId) == Level3OriginalState.Egg)
+                ledger.CommitOriginalAsTanker(originalId);
+            return tanker;
+        }
+
+        if (selectedType != Level3OriginalType.Flipper)
+            throw new InvalidOperationException($"Unsupported Level 3 original type {selectedType}.");
+
+        Flipper flipper = new(egg.EdgeIndex, 0,
+            bulletAmmunition: enemyBulletsTest ? random.Next(1, 4) : 0);
+        flipper.SetOriginalSlotId(originalId);
+        if (ledger.GetOriginalState(originalId) == Level3OriginalState.Egg)
+            ledger.CommitOriginalAsFlipper(originalId);
+        return flipper;
+    }
+
+    private Level3OriginalType SelectLevel3OriginalType()
+        => Level3WaveSelection.SelectOriginalType(
+            NextRandomInclusive,
+            tankers.Count,
+            CountLevel3ActiveEnemyUnits(),
+            Eggs.Count);
+
+    private int CountLevel3ActiveEnemyUnits() =>
+        flippers.Count + tankers.Count + shotReleasedCargoPendingActivation.Count;
 
     private Enemy CreateTankerWaveEnemy(Egg egg)
     {
@@ -599,14 +721,21 @@ public sealed class TempestGame
                 case Tanker tanker when tanker.IsHitBy(shot):
                     tankers.Remove(tanker);
                     developmentCollisionOrder.Remove(tanker);
-                    ResolveOriginalSlotDestroyed(tanker.OriginalSlotId);
-                    Score.Add(200);
+                    if (!CurrentLevel.IsLevel3Mixed)
+                    {
+                        ResolveOriginalSlotDestroyed(tanker.OriginalSlotId);
+                        Score.Add(200);
+                    }
                     ReleaseTankerCargo(tanker, TankerReleaseKind.PlayerShotDestruction);
                     return true;
                 case Flipper flipper when flipper.IsHitBy(shot):
                     flippers.Remove(flipper);
                     developmentCollisionOrder.Remove(flipper);
-                    if (tankerTest)
+                    if (CurrentLevel.IsLevel3Mixed && flipper.IsTankerCargo)
+                        CurrentLevel.Level3Ledger!.MarkCargoDestroyed(flipper.CargoUnitId);
+                    else if (CurrentLevel.IsLevel3Mixed)
+                        CurrentLevel.Level3Ledger!.MarkOriginalDestroyed(flipper.OriginalSlotId);
+                    else if (tankerTest)
                     {
                         if (flipper.IsTankerCargo)
                             ResolveCargoUnit(flipper.CargoUnitId);
@@ -769,14 +898,19 @@ public sealed class TempestGame
             {
                 tankers.RemoveAt(index--);
                 developmentCollisionOrder.Remove(tanker);
-                ResolveOriginalSlotDestroyed(tanker.OriginalSlotId);
-                Score.Add(200);
+                if (!CurrentLevel.IsLevel3Mixed)
+                {
+                    ResolveOriginalSlotDestroyed(tanker.OriginalSlotId);
+                    Score.Add(200);
+                }
                 ReleaseTankerCargo(tanker, TankerReleaseKind.SuperZapperDestruction);
                 continue;
             }
 
             TankerUpdateResult result = tanker.UpdateForDevelopment(
-                enemyBulletsTest ? NextRandomInclusive : null, out EnemyBullet? bullet);
+                enemyBulletsTest || CurrentLevel.IsLevel3Mixed
+                    ? NextRandomInclusive
+                    : null, out EnemyBullet? bullet);
             if (bullet is not null)
             {
                 // UpdateEnemyBullets already ran this tick, so a bullet created here first moves
@@ -792,7 +926,8 @@ public sealed class TempestGame
 
             tankers.RemoveAt(index--);
             developmentCollisionOrder.Remove(tanker);
-            ResolveOriginalSlotEscaped(tanker.OriginalSlotId);
+            if (!CurrentLevel.IsLevel3Mixed)
+                ResolveOriginalSlotEscaped(tanker.OriginalSlotId);
             ReleaseTankerCargo(tanker, TankerReleaseKind.Natural);
         }
     }
@@ -803,6 +938,55 @@ public sealed class TempestGame
         // Children are added after this tick's Flipper update, so their first update is next tick.
         TankerReleaseResult result = tanker.ReleaseFlipperCargo(
             CurrentLevel, firstSideDirection: 1, releaseKind);
+
+        if (CurrentLevel.IsLevel3Mixed)
+        {
+            if (result.Cargo.Count != Tanker.CarriedFlipperCount)
+                throw new InvalidOperationException(
+                    $"Tanker {tanker.OriginalSlotId} did not release its complete cargo pair.");
+
+            Level3WaveLedger ledger = CurrentLevel.Level3Ledger
+                ?? throw new InvalidOperationException("Level 3 mixed wave has no identity ledger.");
+            IReadOnlyList<int> cargoIds = releaseKind switch
+            {
+                TankerReleaseKind.Natural => ledger.MaterializeLiveCargo(tanker.OriginalSlotId),
+                TankerReleaseKind.PlayerShotDestruction => ledger.QueueCargoForShotActivation(tanker.OriginalSlotId),
+                TankerReleaseKind.SuperZapperDestruction => ledger.MaterializeStillbornCargo(tanker.OriginalSlotId),
+                _ => throw new ArgumentOutOfRangeException(nameof(releaseKind))
+            };
+
+            if (cargoIds.Count != result.Cargo.Count)
+                throw new InvalidOperationException("Tanker cargo identities do not match released cargo.");
+
+            if (releaseKind == TankerReleaseKind.Natural)
+                ledger.MarkOriginalEscaped(tanker.OriginalSlotId);
+            else
+            {
+                ledger.MarkOriginalDestroyed(tanker.OriginalSlotId);
+                Score.Add(200);
+            }
+
+            for (int index = 0; index < result.Cargo.Count; index++)
+            {
+                int cargoId = cargoIds[index];
+                Flipper child = Flipper.CreateTankerCargo(
+                    CurrentLevel, result.Cargo[index], cargoId,
+                    enemyBulletsTest ? random.Next(1, 4) : 0);
+
+                if (releaseKind == TankerReleaseKind.SuperZapperDestruction)
+                    child.TryZap(8);
+
+                if (releaseKind == TankerReleaseKind.PlayerShotDestruction)
+                    shotReleasedCargoPendingActivation.Add(child);
+                else
+                {
+                    flippers.Add(child);
+                    developmentCollisionOrder.Add(child);
+                }
+            }
+            return;
+        }
+
         foreach (TankerCargoSpawn spawn in result.Cargo)
         {
             int cargoUnitId = nextCargoUnitId++;
@@ -866,7 +1050,14 @@ public sealed class TempestGame
             {
                 flippers.RemoveAt(index--);
                 developmentCollisionOrder.Remove(flipper);
-                if (tankerTest)
+                if (CurrentLevel.IsLevel3Mixed)
+                {
+                    if (flipper.IsTankerCargo)
+                        CurrentLevel.Level3Ledger!.MarkCargoDestroyed(flipper.CargoUnitId);
+                    else
+                        CurrentLevel.Level3Ledger!.MarkOriginalDestroyed(flipper.OriginalSlotId);
+                }
+                else if (tankerTest)
                 {
                     if (flipper.IsTankerCargo)
                         ResolveCargoUnit(flipper.CargoUnitId);
@@ -889,7 +1080,8 @@ public sealed class TempestGame
                 continue;
 
             enemyBullets.Add(bullet);
-            if (CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest)
+            if (CurrentLevel.IsLevel3Mixed ||
+                CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest)
                 developmentCollisionOrder.Add(bullet);
         }
     }
@@ -898,6 +1090,8 @@ public sealed class TempestGame
     {
         foreach (Flipper flipper in shotReleasedCargoPendingActivation)
         {
+            if (CurrentLevel.IsLevel3Mixed)
+                CurrentLevel.Level3Ledger!.ActivateShotCargo(flipper.CargoUnitId);
             flippers.Add(flipper);
             developmentCollisionOrder.Add(flipper);
         }
@@ -957,6 +1151,31 @@ public sealed class TempestGame
 
     private bool CheckForLevelComplete()
     {
+        if (CurrentLevel.IsLevel3Mixed)
+        {
+            if (State != LevelState.Playing)
+                return false;
+
+            Level3WaveLedger ledger = CurrentLevel.Level3Ledger
+                ?? throw new InvalidOperationException("Level 3 mixed wave has no identity ledger.");
+            bool mixedComplete = ledger.UnresolvedOriginalIds.Count == 0 &&
+                ledger.UnresolvedCargoIds.Count == 0 &&
+                CurrentLevel.ReserveEggs == 0 &&
+                CurrentLevel.Level3CargoReserveEggs == 0 &&
+                Eggs.Count == 0 &&
+                tankers.Count == 0 &&
+                flippers.Count == 0 &&
+                shotReleasedCargoPendingActivation.Count == 0 &&
+                spikers.Count == 0 &&
+                fuseballs.Count == 0 &&
+                pulsars.Count == 0;
+            if (!mixedComplete)
+                return false;
+
+            ValidateLevel3WaveRepresentation();
+            BeginExit();
+            return true;
+        }
         // Normal Level 1 uses the conservation check in Level.IsComplete. The Tanker scenario
         // has a dynamic ledger (cargo adds units), so it requires every slot and cargo unit resolved.
         if (State != LevelState.Playing)
@@ -976,6 +1195,9 @@ public sealed class TempestGame
 
     private bool TryCompleteAllRim()
     {
+        if (CurrentLevel.IsLevel3Mixed)
+            return TryCompleteLevel3AllRim();
+
         if (!IsAllRimCompletionEligible(out List<Enemy> activeEnemies))
             return false;
 
@@ -1016,6 +1238,159 @@ public sealed class TempestGame
                 case Pulsar pulsar:
                     pulsars.Remove(pulsar);
                     CurrentLevel.RecordEnemyRimCleared();
+                    break;
+            }
+        }
+
+        BeginExit();
+        return true;
+    }
+
+    private void ValidateLevel3WaveRepresentation()
+    {
+        Level3WaveLedger ledger = CurrentLevel.Level3Ledger
+            ?? throw new InvalidOperationException("Level 3 mixed wave has no identity ledger.");
+        if (tankers.Count > 6)
+            throw new InvalidOperationException("A Level 3 mixed wave cannot have more than six active Tankers.");
+
+        List<Level3WaveRepresentation> represented = [];
+
+        represented.AddRange(ledger.OriginalIdsInReserve()
+            .Select(id => new Level3WaveRepresentation(
+                new Level3Identity(Level3IdentityKind.Original, id),
+                Level3RepresentationLocation.Reserve)));
+        represented.AddRange(ledger.CargoIdsInReentryReserve()
+            .Select(id => new Level3WaveRepresentation(
+                new Level3Identity(Level3IdentityKind.Cargo, id),
+                Level3RepresentationLocation.Reserve)));
+
+        foreach (Egg egg in Eggs)
+        {
+            if (egg.OriginalSlotId >= 0 && egg.CargoUnitId >= 0)
+                throw new InvalidOperationException("A Level 3 Egg cannot hold both identity namespaces.");
+            if (egg.OriginalSlotId >= 0)
+                represented.Add(new Level3WaveRepresentation(
+                    new Level3Identity(Level3IdentityKind.Original, egg.OriginalSlotId),
+                    Level3RepresentationLocation.Egg));
+            else if (egg.CargoUnitId >= 0)
+                represented.Add(new Level3WaveRepresentation(
+                    new Level3Identity(Level3IdentityKind.Cargo, egg.CargoUnitId),
+                    Level3RepresentationLocation.Egg));
+            else
+                throw new InvalidOperationException("A production Level 3 Egg has no stable identity.");
+        }
+
+        foreach (Flipper flipper in flippers)
+        {
+            if (flipper.IsTankerCargo)
+            {
+                if (flipper.OriginalSlotId >= 0)
+                    throw new InvalidOperationException("A cargo Flipper cannot also represent an original.");
+                represented.Add(new Level3WaveRepresentation(
+                    new Level3Identity(Level3IdentityKind.Cargo, flipper.CargoUnitId),
+                    Level3RepresentationLocation.ActiveEnemy));
+            }
+            else
+            {
+                ledger.ValidateOriginalRuntimeType(
+                    flipper.OriginalSlotId, Level3OriginalType.Flipper);
+                represented.Add(new Level3WaveRepresentation(
+                    new Level3Identity(Level3IdentityKind.Original, flipper.OriginalSlotId),
+                    Level3RepresentationLocation.ActiveEnemy));
+            }
+        }
+
+        foreach (Tanker tanker in tankers)
+        {
+            ledger.ValidateOriginalRuntimeType(
+                tanker.OriginalSlotId, Level3OriginalType.Tanker);
+            int[] ownedCargo = ledger.GetCargoIdsForOriginal(tanker.OriginalSlotId).ToArray();
+            if (tanker.LatentCargoCount != Tanker.CarriedFlipperCount ||
+                tanker.CargoReleased ||
+                ownedCargo.Length != Tanker.CarriedFlipperCount ||
+                ownedCargo.Any(id => ledger.GetCargoState(id) != Level3CargoState.Latent))
+                throw new InvalidOperationException(
+                    $"Active Tanker {tanker.OriginalSlotId} does not own its unresolved latent cargo pair.");
+            represented.Add(new Level3WaveRepresentation(
+                new Level3Identity(Level3IdentityKind.Original, tanker.OriginalSlotId),
+                Level3RepresentationLocation.ActiveEnemy));
+        }
+
+        foreach (Flipper pending in shotReleasedCargoPendingActivation)
+        {
+            if (!pending.IsTankerCargo || pending.OriginalSlotId >= 0)
+                throw new InvalidOperationException("Pending shot activation must represent cargo only.");
+            represented.Add(new Level3WaveRepresentation(
+                new Level3Identity(Level3IdentityKind.Cargo, pending.CargoUnitId),
+                Level3RepresentationLocation.PendingActivation));
+        }
+
+        ledger.ValidateRuntimeRepresentations(represented);
+
+        HashSet<Enemy> expectedTargets = [.. flippers, .. tankers, .. enemyBullets];
+        List<Enemy> orderedTargets = developmentCollisionOrder.OfType<Enemy>().ToList();
+        if (orderedTargets.Count != expectedTargets.Count ||
+            orderedTargets.Distinct().Count() != orderedTargets.Count ||
+            !expectedTargets.SetEquals(orderedTargets))
+            throw new InvalidOperationException(
+                "Level 3 runtime enemies and insertion-ordered targets do not agree.");
+    }
+
+    private bool TryCompleteLevel3AllRim()
+    {
+        Level3WaveLedger ledger = CurrentLevel.Level3Ledger
+            ?? throw new InvalidOperationException("Level 3 mixed wave has no identity ledger.");
+        if (State != LevelState.Playing ||
+            CurrentLevel.ReserveEggs != 0 ||
+            CurrentLevel.Level3CargoReserveEggs != 0 ||
+            Eggs.Count != 0 ||
+            shotReleasedCargoPendingActivation.Count != 0 ||
+            ledger.HasLatentCargo ||
+            ledger.HasPendingShotActivation)
+            return false;
+
+        List<Enemy> active = [.. flippers, .. tankers];
+        if (active.Count == 0 || active.Any(enemy => !(enemy.Height >= Level.Depth)))
+            return false;
+
+        HashSet<int> representedOriginals = [];
+        HashSet<int> representedCargo = [];
+        foreach (Enemy enemy in active)
+        {
+            bool added = enemy switch
+            {
+                Tanker tanker => representedOriginals.Add(tanker.OriginalSlotId),
+                Flipper flipper when flipper.IsTankerCargo =>
+                    representedCargo.Add(flipper.CargoUnitId),
+                Flipper flipper => representedOriginals.Add(flipper.OriginalSlotId),
+                _ => false
+            };
+            if (!added)
+                throw new InvalidOperationException("A Level 3 all-rim identity is missing or duplicated.");
+        }
+
+        if (!ledger.UnresolvedOriginalIds.SetEquals(representedOriginals) ||
+            !ledger.UnresolvedCargoIds.SetEquals(representedCargo))
+            throw new InvalidOperationException(
+                "Level 3 all-rim represented identities do not match the unresolved ledger.");
+        ValidateLevel3WaveRepresentation();
+
+        foreach (Enemy enemy in active)
+        {
+            developmentCollisionOrder.Remove(enemy);
+            switch (enemy)
+            {
+                case Tanker tanker:
+                    tankers.Remove(tanker);
+                    ledger.MarkOriginalRimCleared(tanker.OriginalSlotId);
+                    break;
+                case Flipper flipper when flipper.IsTankerCargo:
+                    flippers.Remove(flipper);
+                    ledger.MarkCargoRimCleared(flipper.CargoUnitId);
+                    break;
+                case Flipper flipper:
+                    flippers.Remove(flipper);
+                    ledger.MarkOriginalRimCleared(flipper.OriginalSlotId);
                     break;
             }
         }

@@ -8,6 +8,7 @@ using Xunit;
 
 namespace Tempest.Game.Tests;
 
+[Collection("Level 2 tests")]
 public sealed class SimulationTests
 {
     // --- Incitti rimit: end-of-tick latch, confined to the direct development waves ---

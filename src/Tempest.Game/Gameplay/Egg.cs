@@ -11,7 +11,7 @@ public enum EggState
 /// Spawn-in stage before an enemy hatches. Roaming: bobs below the rim while sliding lanes.
 /// Approaching: rises to height 0, then ReadyToHatch. Cadence (every 8th update) is from Incitti.
 /// OriginalSlotId/CargoUnitId carry Tanker-ledger identity through a fresh-Egg restart; they are
-/// -1 for ordinary Level 1 Eggs.
+/// -1 for ordinary Level 1 and Level 2 Eggs.
 /// </summary>
 public sealed class Egg
 {

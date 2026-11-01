@@ -1131,6 +1131,29 @@ per-Tanker count or exact Atari internals. The randomized policy is accepted;
 the 1.75 increment remains **REFERENCE VERIFIED**, not arcade-measured.
 Firing remains development-only; C3 and natural Level 3 are not authorized.
 
+## C3a headless Level 3 mixed-wave model
+
+The production-shaped `LevelConfiguration.Level3Mixed` shares the Level 3 plus
+board definition with the Flipper-only geometry diagnostic. A configuration-
+based `TempestGame` entry exercises the actual Level 3 scheduler, randomized
+Flipper/Tanker selection, Tanker firing, owned cargo identities, Super Zapper,
+death reconstruction and terminal completion paths. It is headless only:
+there is no `--level3-test`, Program routing, production HUD/bullet rendering
+policy, graphical/manual access, or natural Level 2-to-Level 3 progression.
+Level 3 remains terminal; C3b access/manual acceptance and C4 progression are
+not implemented.
+
+The 15 original IDs and each committed Tanker's two `(owner, ordinal)` cargo
+IDs are tracked by the Level-3-only ledger. Materialized cargo, reserve/Egg
+re-entry, pending shot activation and terminal outcomes remain distinct;
+reconstruction preserves selected types and exact unresolved/terminal sets.
+Six is a simultaneous active-Tanker cap, not a per-wave limit. Identity
+retention, location validation and reconstruction ordering are **PROJECT
+DECISIONS**. Board, composition, source-shaped selection/scheduling and firing
+inputs are **REFERENCE VERIFIED**; production Level 3 has not received manual
+arcade acceptance. Existing `--tanker-test` accounting and silent/combined
+firing behavior remain separate.
+
 ## Deferred manual observations outside Stage A
 
 - **Historical Tanker firing observation (superseded by C2 PASS above):**

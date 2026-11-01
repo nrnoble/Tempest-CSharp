@@ -7,7 +7,8 @@ public enum LevelExitPolicy
 
 public enum LevelEnemyComposition
 {
-    FlippersOnly
+    FlippersOnly,
+    FlippersAndTankers
 }
 
 public enum FlipperPivotGeometry
@@ -129,5 +130,12 @@ public sealed record LevelConfiguration(
     {
         Flipper = new(true, 2, 8, 21, 24),
         FlipperPivotMode = FlipperPivotGeometry.EndpointHinge
+    };
+
+    // Composition is REFERENCE VERIFIED; the configuration-based headless model is DEVELOPMENT
+    // ONLY and adds no CLI route, manual access or natural campaign progression.
+    public static LevelConfiguration Level3Mixed { get; } = Level3Plus with
+    {
+        NormalEnemyComposition = LevelEnemyComposition.FlippersAndTankers
     };
 }
