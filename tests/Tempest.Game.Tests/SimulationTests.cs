@@ -1984,6 +1984,299 @@ public sealed class SimulationTests
 
     // --- Tanker firing (--tanker-test combined with --enemy-bullets-test) ---
 
+    [Theory]
+    [InlineData(1, 1, 0)]
+    [InlineData(1, 1, 1)]
+    [InlineData(1, 1, -1)]
+    [InlineData(1, 64, 0)]
+    [InlineData(1, 64, 1)]
+    [InlineData(1, 64, -1)]
+    [InlineData(2, 1, 0)]
+    [InlineData(2, 1, 1)]
+    [InlineData(2, 1, 2)]
+    [InlineData(2, 64, 0)]
+    [InlineData(2, 64, 1)]
+    [InlineData(2, 64, 2)]
+    public void TankerWholeClimbProtectsReferenceSpeedAndRandomizedShotCounts(
+        int ammunition, int initialOffset, int successfulDecisions)
+    {
+        int availableDecisions = initialOffset == 1 ? 12 : 8;
+        int expectedShots = successfulDecisions < 0
+            ? ammunition
+            : Math.Min(ammunition, successfulDecisions);
+        int expectedDecisions = expectedShots == ammunition ? ammunition : availableDecisions;
+        int[] rolls = Enumerable.Range(0, expectedDecisions)
+            .Select(index => successfulDecisions < 0 || index < successfulDecisions ? 76 : 75)
+            .ToArray();
+        StrictTankerRandom random = new(
+            (1, 3, [ammunition]), (1, 65, [initialOffset]), (0, 101, rolls));
+        int initialAmmunition = random.NextInclusive(1, 2);
+        int initialTimer = 16 + random.NextInclusive(1, 64);
+        Tanker tanker = new(5, 0, bulletAmmunition: initialAmmunition,
+            bulletTimer: initialTimer);
+        Assert.Equal(10, tanker.Height);
+        Assert.Equal(1.75f, tanker.ClimbSpeed);
+        Assert.Equal(ammunition, tanker.BulletAmmunition);
+        Assert.Equal(16 + initialOffset, tanker.BulletTimer);
+
+        int eligibleUpdates = 0;
+        List<int> decisionUpdates = [];
+        List<int> shotUpdates = [];
+        for (int update = 1; update <= 215; update++)
+        {
+            int previousTimer = tanker.BulletTimer;
+            int previousAmmo = tanker.BulletAmmunition;
+            int previousDecisions = random.DecisionDrawCount;
+            TankerUpdateResult result = tanker.UpdateForDevelopment(
+                random.NextInclusive, out EnemyBullet? bullet);
+
+            Assert.Equal(10 + update * 1.75f, tanker.Height);
+            Assert.Equal(5, tanker.EdgeIndex);
+            Assert.Equal(update == 215
+                ? TankerUpdateResult.NaturalCargoRelease
+                : TankerUpdateResult.Active, result);
+            if (tanker.Height < 380)
+            {
+                eligibleUpdates++;
+                if (previousAmmo > 0)
+                    Assert.Equal(previousTimer == 0 ? 16 : previousTimer - 1, tanker.BulletTimer);
+            }
+            if (previousAmmo == 0 || tanker.Height >= 380)
+            {
+                Assert.Equal(previousTimer, tanker.BulletTimer);
+                Assert.Equal(previousDecisions, random.DecisionDrawCount);
+                Assert.Null(bullet);
+            }
+            if (random.DecisionDrawCount != previousDecisions)
+            {
+                Assert.Equal(previousDecisions + 1, random.DecisionDrawCount);
+                decisionUpdates.Add(update);
+                Assert.Equal(16, tanker.BulletTimer);
+            }
+            if (bullet is not null)
+            {
+                shotUpdates.Add(update);
+                Assert.Equal(tanker.EdgeIndex, bullet.EdgeIndex);
+                Assert.Equal(tanker.Height, bullet.Height);
+            }
+            Assert.Equal(previousAmmo - (bullet is null ? 0 : 1), tanker.BulletAmmunition);
+            if (update == 1)
+                Assert.Equal(11.75f, tanker.Height);
+            if (update == 211)
+                Assert.Equal(379.25f, tanker.Height);
+            if (update == 212)
+                Assert.Equal(381, tanker.Height);
+        }
+
+        Assert.Equal(211, eligibleUpdates);
+        Assert.Equal(386.25f, tanker.Height);
+        Assert.Equal(TankerState.CargoReleasePending, tanker.State);
+        Assert.Equal(expectedShots, shotUpdates.Count);
+        Assert.Equal(ammunition - expectedShots, tanker.BulletAmmunition);
+        int[] expectedUpdates = Enumerable.Range(0, expectedDecisions)
+            .Select(index => initialTimer + 1 + index * 17).ToArray();
+        Assert.Equal(expectedUpdates, decisionUpdates);
+        Assert.Equal(expectedUpdates.Take(expectedShots), shotUpdates);
+        random.AssertComplete();
+
+        int finalTimer = tanker.BulletTimer;
+        Assert.Equal(TankerUpdateResult.NaturalCargoRelease,
+            tanker.UpdateForDevelopment(random.NextInclusive, out EnemyBullet? pendingBullet));
+        Assert.Null(pendingBullet);
+        tanker.ReleaseFlipperCargo(new Level(), 1, TankerReleaseKind.Natural);
+        Assert.Equal(TankerUpdateResult.Active,
+            tanker.UpdateForDevelopment(random.NextInclusive, out EnemyBullet? releasedBullet));
+        Assert.Null(releasedBullet);
+        Assert.Equal(386.25f, tanker.Height);
+        Assert.Equal(finalTimer, tanker.BulletTimer);
+        random.AssertComplete();
+    }
+
+    [Fact]
+    public void TankerLateDecisionWindowsPermitTwoShotsBeforeNaturalRelease()
+    {
+        StrictTankerRandom random = new((0, 101, [75, 75, 75, 75, 75, 75, 76, 76]));
+        Tanker tanker = new(4, 0, bulletAmmunition: 2, bulletTimer: 80);
+        List<int> decisions = [];
+        List<int> shots = [];
+        for (int update = 1; update <= 215; update++)
+        {
+            int previousDecisions = random.DecisionDrawCount;
+            TankerUpdateResult result = tanker.UpdateForDevelopment(
+                random.NextInclusive, out EnemyBullet? bullet);
+            if (random.DecisionDrawCount != previousDecisions)
+                decisions.Add(update);
+            if (bullet is not null)
+            {
+                shots.Add(update);
+                Assert.Equal(10 + update * 1.75f, bullet.Height);
+                Assert.Equal(4, bullet.EdgeIndex);
+            }
+            Assert.Equal(update == 215
+                ? TankerUpdateResult.NaturalCargoRelease
+                : TankerUpdateResult.Active, result);
+        }
+        Assert.Equal(new[] { 81, 98, 115, 132, 149, 166, 183, 200 }, decisions);
+        Assert.Equal(new[] { 183, 200 }, shots);
+        Assert.Equal(0, tanker.BulletAmmunition);
+        Assert.Equal(386.25f, tanker.Height);
+        random.AssertComplete();
+    }
+
+    [Fact]
+    public void TankerTimedGameShotsKeepClimbingAndSurviveNaturalReleaseIndependently()
+    {
+        StrictTankerRandom random = new(
+            (1, 3, [2]), (1, 65, [7]), (0, 101, []),
+            (1, 4, [1, 1, 1, 1, 1]));
+        TempestGame game = CreateTankerWave(enemyBulletsTest: true, random: random);
+        Tanker tanker = Assert.Single(game.Tankers);
+        Assert.Equal(11.75f, tanker.Height);
+        Assert.Equal(22, tanker.BulletTimer);
+        List<(int Update, EnemyBullet Bullet, float Origin)> creations = [];
+        for (int update = 2; update <= 215; update++)
+        {
+            // Ordinary Flippers remain below the rim; script their decisions as failures
+            // before the Tanker's decision, matching the established game update order.
+            Assert.All(game.Flippers, flipper => Assert.Equal(FlipperState.Climbing, flipper.State));
+            List<int> rolls = game.Flippers
+                .Where(flipper => flipper.BulletAmmunition > 0 && flipper.BulletTimer == 0)
+                .Select(_ => 75).ToList();
+            if (update >= 24 && update <= 211 && (update - 24) % 17 == 0)
+                rolls.Add(update is 194 or 211 ? 76 : 75);
+            random.ExpectDecisions(rolls);
+            HashSet<EnemyBullet> previousBullets = game.EnemyBullets.ToHashSet();
+            game.RunOneStep();
+            random.AssertDecisionsComplete();
+            Assert.Equal(LevelState.Playing, game.State);
+            Assert.Equal(3, game.Player.Lives);
+            Assert.Equal(10 + update * 1.75f, tanker.Height);
+            Assert.Empty(game.Shots);
+            Assert.Equal(0, game.Score.Score);
+            EnemyBullet[] newBullets = game.EnemyBullets
+                .Where(bullet => !previousBullets.Contains(bullet)).ToArray();
+            if (update is 194 or 211)
+            {
+                EnemyBullet bullet = Assert.Single(newBullets);
+                Assert.Equal(tanker.EdgeIndex, bullet.EdgeIndex);
+                Assert.Equal(tanker.Height, bullet.Height);
+                creations.Add((update, bullet, bullet.Height));
+            }
+            else
+                Assert.Empty(newBullets);
+            foreach ((int createdAt, EnemyBullet bullet, float origin) in creations)
+            {
+                int lifetimeUpdates = (int)MathF.Floor((400 - origin) / 3) + 1;
+                Assert.Equal(origin + 3 * Math.Min(update - createdAt, lifetimeUpdates), bullet.Height);
+                if (bullet.Height <= 400)
+                    Assert.Contains(bullet, game.EnemyBullets);
+                else
+                    Assert.DoesNotContain(bullet, game.EnemyBullets);
+            }
+            Assert.Equal(update == 215 ? 12 : 10, game.TankerAccountingTotal);
+            AssertTankerAccounting(game);
+        }
+        Assert.Equal(new[] { 194, 211 }, creations.Select(creation => creation.Update));
+        Assert.Empty(game.Tankers);
+        Assert.Equal(1, game.TankerOriginalSlotsEscaped);
+        Assert.Equal(0, game.TankerOriginalSlotsDestroyed);
+        Assert.Equal(0, game.TankerLatentCargoUnits);
+        Assert.Equal(2, game.TankerCargoUnitsRemaining);
+        EnemyBullet survivingBullet = Assert.Single(game.EnemyBullets);
+        Assert.Same(creations[1].Bullet, survivingBullet);
+        Assert.Equal(391.25f, survivingBullet.Height);
+        Flipper[] cargo = game.Flippers.Where(flipper => flipper.IsTankerCargo)
+            .OrderBy(flipper => flipper.CargoUnitId).ToArray();
+        Assert.Equal(new[] { 0, 1 }, cargo.Select(flipper => flipper.CargoUnitId));
+        Assert.Equal(game.CurrentLevel.PreviousEdge(tanker.EdgeIndex), cargo[0].SourceEdge);
+        Assert.Equal(game.CurrentLevel.NextEdge(tanker.EdgeIndex), cargo[1].SourceEdge);
+        Assert.Equal(game.CurrentLevel.PreviousEdge(cargo[0].SourceEdge), cargo[0].DestinationEdge);
+        Assert.Equal(game.CurrentLevel.NextEdge(cargo[1].SourceEdge), cargo[1].DestinationEdge);
+        Assert.Equal(1, cargo[0].Direction);
+        Assert.Equal(-1, cargo[1].Direction);
+        Assert.All(cargo, flipper =>
+        {
+            Assert.Equal(FlipperState.Flipping, flipper.State);
+            Assert.Equal(386.25f, flipper.Height);
+            Assert.Equal(0, flipper.TurnAngle);
+            Assert.Equal(0, flipper.PendingZapTicks);
+        });
+        random.AssertComplete();
+
+        random.ExpectDecisions(game.Flippers
+            .Where(flipper => flipper.State == FlipperState.Climbing &&
+                flipper.BulletAmmunition > 0 && flipper.BulletTimer == 0)
+            .Select(_ => 75));
+        game.RunOneStep();
+        random.AssertDecisionsComplete();
+        Assert.Contains(survivingBullet, game.EnemyBullets);
+        Assert.Equal(394.25f, survivingBullet.Height);
+        Assert.All(cargo, flipper => Assert.Equal(388.25f, flipper.Height));
+        Assert.Equal(0, game.Score.Score);
+        AssertTankerAccounting(game);
+        random.AssertComplete();
+    }
+
+    [Fact]
+    public void ArmedTankerPendingZapAllowsFireButExpirySkipsReadyDecisionAndKeepsBullet()
+    {
+        StrictTankerRandom random = new(
+            (1, 3, [2]), (1, 65, [1]), (0, 101, [76]), (1, 4, [1, 1]));
+        TempestGame game = CreateTankerWave(enemyBulletsTest: true, random: random);
+        Tanker tanker = Assert.Single(game.Tankers);
+        Step(game, 16);
+        Assert.Equal(0, tanker.BulletTimer);
+        Assert.True(tanker.TryZap(18));
+
+        float beforeFire = tanker.Height;
+        game.RunOneStep(); // Tanker update 18: pending zap does not suppress the shot.
+        EnemyBullet bullet = Assert.Single(game.EnemyBullets);
+        Assert.Equal(beforeFire + 1.75f, tanker.Height);
+        Assert.Equal(tanker.Height, bullet.Height);
+        Assert.Equal(17, tanker.PendingZapTicks);
+        Assert.Equal(1, tanker.BulletAmmunition);
+        Step(game, 16);
+        Assert.Equal(0, tanker.BulletTimer);
+        Assert.Equal(1, tanker.PendingZapTicks);
+        float beforeExpiry = tanker.Height;
+        float bulletBeforeExpiry = bullet.Height;
+
+        game.RunOneStep(); // Update 35 would otherwise be the next firing decision.
+        Assert.Empty(game.Tankers);
+        Assert.Equal(beforeExpiry, tanker.Height);
+        Assert.Equal(0, tanker.BulletTimer);
+        Assert.Equal(1, tanker.BulletAmmunition);
+        Assert.Equal(1, random.DecisionDrawCount);
+        Assert.Contains(bullet, game.EnemyBullets);
+        Assert.Equal(bulletBeforeExpiry + 3, bullet.Height);
+        Assert.Equal(1, game.TankerOriginalSlotsDestroyed);
+        Assert.Equal(0, game.TankerOriginalSlotsEscaped);
+        Assert.Equal(0, game.TankerLatentCargoUnits);
+        Assert.Equal(2, game.TankerCargoUnitsRemaining);
+        Assert.Equal(12, game.TankerAccountingTotal);
+        Assert.Equal(200, game.Score.Score);
+        Flipper[] cargo = game.Flippers.Where(flipper => flipper.IsTankerCargo)
+            .OrderBy(flipper => flipper.CargoUnitId).ToArray();
+        Assert.Equal(new[] { 0, 1 }, cargo.Select(flipper => flipper.CargoUnitId));
+        Assert.All(cargo, flipper =>
+        {
+            Assert.Equal(beforeExpiry, flipper.Height);
+            Assert.Equal(8, flipper.PendingZapTicks);
+            Assert.Equal(FlipperState.Flipping, flipper.State);
+        });
+        AssertTankerAccounting(game);
+        random.AssertComplete();
+
+        Step(game, 8);
+        Assert.Equal(0, game.TankerCargoUnitsRemaining);
+        Assert.Equal(2, game.TankerCargoUnitsResolved);
+        Assert.Equal(500, game.Score.Score);
+        Assert.Contains(bullet, game.EnemyBullets);
+        Assert.Equal(3, game.Player.Lives);
+        AssertTankerAccounting(game);
+        random.AssertComplete();
+    }
+
     [Fact]
     public void TankerTestAloneKeepsTankerUnarmedAndSilent()
     {
@@ -2263,7 +2556,7 @@ public sealed class SimulationTests
         Tanker tanker = Assert.Single(game.Tankers);
         Assert.Equal(0, tanker.OriginalSlotId);
         Assert.InRange(tanker.EdgeIndex, 0, 15);
-        Assert.InRange(tanker.Height, 11.84f, 11.86f);
+        Assert.Equal(11.75f, tanker.Height);
         Assert.Equal(TankerState.Climbing, tanker.State);
         Assert.Equal(2, tanker.LatentCargoCount);
         Assert.Equal(1, game.ActiveTankerOriginalEnemies);
@@ -2309,10 +2602,10 @@ public sealed class SimulationTests
     public void TankerUsesDocumentedDevelopmentSpeedAndNeverDirectlyHitsPlayer()
     {
         Tanker tanker = new(7, 0);
-        Assert.Equal(1.85f, tanker.ClimbSpeed, 5);
+        Assert.Equal(1.75f, tanker.ClimbSpeed);
         Assert.False(tanker.HitsPlayer(new Player()));
         Assert.Equal(TankerUpdateResult.Active, tanker.UpdateForDevelopment());
-        Assert.InRange(tanker.Height, 11.849f, 11.851f);
+        Assert.Equal(11.75f, tanker.Height);
         Assert.Equal(7, tanker.EdgeIndex);
     }
 
@@ -3157,7 +3450,7 @@ public sealed class SimulationTests
         Tanker tanker = Assert.Single(game.Tankers);
         Assert.Equal(0, tanker.OriginalSlotId);
         Assert.InRange(tanker.EdgeIndex, 0, 15);
-        Assert.InRange(tanker.Height, 11.84f, 11.86f);
+        Assert.Equal(11.75f, tanker.Height);
         Assert.Equal(TankerState.Climbing, tanker.State);
         Assert.Equal(2, tanker.LatentCargoCount);
         Assert.Empty(game.Spikers);
@@ -3187,13 +3480,13 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void TankerUsesDevelopmentSpeedApproximationAndCannotDirectlyHitPlayer()
+    public void TankerUsesEarlyReferenceTierSpeedAndCannotDirectlyHitPlayer()
     {
         Tanker tanker = new(7, 0);
-        Assert.Equal(1.85f, tanker.ClimbSpeed, 5);
+        Assert.Equal(1.75f, tanker.ClimbSpeed);
         Assert.False(tanker.HitsPlayer(new Player()));
         Assert.Equal(TankerUpdateResult.Active, tanker.UpdateForDevelopment());
-        Assert.InRange(tanker.Height, 11.849f, 11.851f);
+        Assert.Equal(11.75f, tanker.Height);
         Assert.Equal(7, tanker.EdgeIndex);
     }
 
@@ -4399,6 +4692,49 @@ public sealed class SimulationTests
         }
 
         public override double NextDouble() => .75;
+    }
+
+    private sealed class StrictTankerRandom : Random
+    {
+        private readonly Dictionary<(int Minimum, int MaximumExclusive), Queue<int>> draws;
+
+        public StrictTankerRandom(params (int Minimum, int MaximumExclusive, int[] Values)[] scripts)
+        {
+            draws = scripts.ToDictionary(script => (script.Minimum, script.MaximumExclusive),
+                script => new Queue<int>(script.Values));
+        }
+
+        public int DecisionDrawCount { get; private set; }
+
+        public int NextInclusive(int minimum, int maximum) => Next(minimum, maximum + 1);
+
+        public void ExpectDecisions(IEnumerable<int> values)
+        {
+            AssertDecisionsComplete();
+            foreach (int value in values)
+                draws[(0, 101)].Enqueue(value);
+        }
+
+        public void AssertDecisionsComplete() => Assert.Empty(draws[(0, 101)]);
+
+        public override int Next(int minValue, int maxValue)
+        {
+            if (!draws.TryGetValue((minValue, maxValue), out Queue<int>? values) || values.Count == 0)
+                throw new InvalidOperationException($"Unexpected random draw [{minValue}, {maxValue}).");
+            int value = values.Dequeue();
+            Assert.InRange(value, minValue, maxValue - 1);
+            if (minValue == 0 && maxValue == 101)
+                DecisionDrawCount++;
+            return value;
+        }
+
+        public override int Next() => throw new InvalidOperationException("Unexpected unbounded random draw.");
+        public override int Next(int maxValue) =>
+            throw new InvalidOperationException($"Unexpected one-bound random draw [0, {maxValue}).");
+        public override double NextDouble() =>
+            throw new InvalidOperationException("Unexpected floating-point random draw.");
+
+        public void AssertComplete() => Assert.All(draws.Values, values => Assert.Empty(values));
     }
 
     private sealed class BulletRandom : Random

@@ -29,7 +29,7 @@ public readonly record struct TankerCargoSpawn(
     int SourceLane, int DestinationLane, int Direction, float Height);
 
 /// <summary>
-/// Development-only (<c>--tanker-test</c>) Tanker. Climbs at 1.85 (Incitti-derived, unvalidated) and
+/// Development-only (<c>--tanker-test</c>) Tanker. Climbs at 1.75 (reference-derived, not arcade-measured) and
 /// carries two latent Flipper cargo units. Release happens once: naturally when height passes
 /// <see cref="CargoReleaseThreshold"/> (no score), when shot (200 points), or when a zap expires
 /// (200 points plus stillborn cargo), with scoring and accounting owned by TempestGame.
@@ -40,7 +40,8 @@ public readonly record struct TankerCargoSpawn(
 /// </summary>
 public sealed class Tanker : Enemy
 {
-    public const float DevelopmentClimbSpeed = 1.85f;
+    // Incitti's 1.75 + lv/20 uses integer division: displayed Level 3 (lv=2) climbs at 1.75.
+    public const float DevelopmentClimbSpeed = 1.75f;
     public const int CarriedFlipperCount = 2;
     public const float CargoReleaseThreshold = Level.Depth - 15;
     public const int BulletTimerResetTicks = 16;

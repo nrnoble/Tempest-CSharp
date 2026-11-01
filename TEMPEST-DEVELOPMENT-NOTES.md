@@ -563,7 +563,8 @@ dotnet run --project src/Tempest.Game -- --tanker-test --lives 10
 ```
 
 The Tanker is fixed to its hatch lane, starts at height 10, carries two latent
-Flipper units, and uses a documented development climb speed of 1.85. It releases
+Flipper units, and now uses the C2-corrected reference-tier climb speed of 1.75
+(the original milestone used the unsupported 1.85 approximation). It releases
 only after updated height exceeds 385. Natural release awards no Tanker score;
 shooting the Tanker requires same lane and shot depth strictly below its height,
 consumes that shot, awards 200, and releases live cargo. Neither path changes
@@ -592,7 +593,7 @@ full progression are deferred.
 Automated validation: at the completion of the Tanker cargo milestone, 142 headless
 tests passed, zero failed/skipped (per the Tanker implementation report; later
 milestones changed the suite total). Manual
-arcade comparison remains required for Tanker geometry/color/scale, 1.85 speed,
+arcade comparison remains required for Tanker geometry/color/scale, climb speed,
 release point, child placement and pivot appearance, score/pacing, player danger,
 and reset/exit presentation. This scenario uses an intentionally deterministic
 slot and cargo-side choice; it is a development test, not normal arcade progression.
@@ -644,7 +645,8 @@ dotnet run --project src/Tempest.Game -- --tanker-test --lives 10
 ```
 
 The Tanker is fixed to its lane, starts at height 10, carries two latent Flippers,
-and uses a documented development climb speed of 1.85. It releases only after
+and now uses the C2-corrected reference-tier climb speed of 1.75
+(the original milestone used the unsupported 1.85 approximation). It releases only after
 updated height is strictly greater than 385. Natural release awards no Tanker
 score. A same-lane shot strictly below its height destroys it for 200 points and
 releases the same two live Flippers. Children start at release height on opposite
@@ -672,7 +674,7 @@ Automated validation: at the completion of the Tanker cargo milestone, 142 headl
 tests passed, zero failed/skipped (per the Tanker implementation report; later
 milestones changed the suite total). Manual
 comparison remains necessary for Tanker line-art appearance, color and scale,
-1.85 speed, release timing, cargo placement/pivots, player danger, score and
+climb speed, release timing, cargo placement/pivots, player danger, score and
 death/reset/exit presentation. This is a deterministic development scenario, not
 normal Level 3 arcade progression.
 
@@ -1092,9 +1094,47 @@ diagnostic's artificial Level 3 composition remain **PROJECT DECISION**,
 **REFERENCE VERIFIED**, or **DEVELOPMENT ONLY** as applicable. C1/C1.5 is
 manually accepted; no C2 work is authorized by this acceptance.
 
+## C2 Tanker firing reference correction (2026-10-31)
+
+**REFERENCE VERIFIED:** the isolated Tanker default climb increment is now
+1.75, correcting the earlier 1.85 approximation. Incitti's `1.75 + lv / 20`
+uses integer division; displayed Level 3 has `lv = 2`, so the result is 1.75.
+This is literal reference fidelity, not arcade-measured timing.
+
+The firing algorithm is unchanged: ammo 1..2; initial timer 17..80; climb first;
+post-climb height strictly below 380; decrement once per eligible update;
+below-zero decisions reset to 16; inclusive 0..100 rolls fire only above 75;
+ammo is consumed only on success. Natural release remains strictly above 385,
+and bullet lifetime, cargo, Zapper, death and completion behavior are unchanged.
+Uninterrupted default climb provides 211 eligible updates and releases on
+update 215 at height 386.25. Deterministic two-shot paths prove capability,
+not a guaranteed count under production randomness.
+
+**DEVELOPMENT ONLY:** `--tanker-test` alone remains silent. Combined
+`--tanker-test --enemy-bullets-test` enables the existing armed Tanker path and
+also arms ordinary/cargo Flippers; it is not production Tanker promotion.
+Neal's qualitative observation of individual interval shots and at least two
+possible before release remains separate from the exact reference constants.
+Exact Atari ammo, initial delay, interval, chance, cutoff and per-Tanker count
+remain unknown.
+
+**C2 manual validation PASS (2026-10-31):** Neal tested both existing commands.
+The silent `--tanker-test --lives 10` control remained silent, with normal
+Tanker/cargo behavior and no input regression. In combined
+`--tanker-test --enemy-bullets-test --lives 10`, one uninterrupted Tanker
+naturally fired two individual, separated shots before release, matching
+Neal's Atari expectation. It continued climbing while firing, with no burst
+at release. An already-fired bullet survived carrier release/destruction;
+cargo, Super Zapper and input remained normal, with no unrelated regression.
+This validates observable two-before-release capability, not a guaranteed
+per-Tanker count or exact Atari internals. The randomized policy is accepted;
+the 1.75 increment remains **REFERENCE VERIFIED**, not arcade-measured.
+Firing remains development-only; C3 and natural Level 3 are not authorized.
+
 ## Deferred manual observations outside Stage A
 
-- **Tanker firing fidelity:** `--tanker-test` alone remains silent;
+- **Historical Tanker firing observation (superseded by C2 PASS above):**
+  `--tanker-test` alone remains silent;
   `--tanker-test --enemy-bullets-test` enables Tanker firing. Neal observed one
   Tanker shot in a run but could not assess whether a second would occur
   before release/rim arrival. His arcade experience is that Tankers fire

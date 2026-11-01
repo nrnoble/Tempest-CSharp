@@ -383,6 +383,17 @@ record the uncertainty rather than guessing.
 
 ## 6. Tankers and cargo Flippers
 
+- **ARCADE VERIFIED** — Neal's Atari observation is that Tankers fire
+  individual shots at intervals and at least two can occur before the
+  release/rim area. In the 2026-10-31 C2 manual validation, Neal observed one
+  uninterrupted recreation Tanker naturally fire two individual, separated
+  shots before release, matching that expectation. The carrier kept climbing,
+  with no firing burst at release; existing bullets survived carrier release
+  or destruction. Cargo, Super Zapper and input remained normal, with no
+  unrelated regression. The silent control remained silent. This validates
+  observable capability only, not exactly two shots for every Tanker.
+  Exact Atari ammunition, initial delay, probability, interval, cutoff and
+  per-Tanker shot count remain unknown; source constants are not promoted.
 - **REFERENCE VERIFIED** — The Incitti Tanker can carry two Flippers. It
   climbs on a lane and releases live cargo either naturally near the rim or
   when destroyed by a player shot. A shot destruction awards 200 points;
@@ -419,9 +430,13 @@ record the uncertainty rather than guessing.
   development Tanker scenario. This scenario-level validation does not by
   itself verify exact stillborn timer duration, internal cargo accounting, or
   delayed-resolution update order.
+- **REFERENCE VERIFIED** — Incitti's early-tier Tanker climb expression
+  `1.75 + lv / 20` uses integer division. At displayed Level 3 (`lv = 2`),
+  this yields 1.75, not 1.85. The recreation uses that literal increment;
+  it is not arcade-measured timing.
 - **DEVELOPMENT ONLY** — The C# Tanker test scenario creates one deterministic
   Tanker among the ten original enemy units; the other slots hatch as
-  Flippers. The test Tanker starts at height 10, uses a fixed 1.85 climb
+  Flippers. The test Tanker starts at height 10, uses a fixed 1.75 climb
   increment, and releases cargo after its height passes 385. This is an
   artificial test wave on Level 1 geometry, not normal Level 3 composition.
 - **DEVELOPMENT ONLY** — The Tanker scenario tracks its original enemy slot
