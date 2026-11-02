@@ -35,10 +35,10 @@ public sealed class Level
     public int EnemiesDestroyed { get; private set; }
     public int EnemiesRimCleared { get; private set; }
     public int Level3CargoReserveEggs =>
-        IsLevel3Mixed ? Level3Ledger!.CargoIdsInReentryReserve().Count : 0;
+        UsesProductionLedger ? Level3Ledger!.CargoIdsInReentryReserve().Count : 0;
     // Development-only tanker accounting counts reserve as queued original slots; normal (and
     // Spiker) accounting derives reserve from the configured supply.
-    public int ReserveEggs => IsLevel3Mixed
+    public int ReserveEggs => UsesProductionLedger
         ? Level3Ledger!.OriginalIdsInReserve().Count
         : TankerDevelopmentWave
             ? tankerPendingOriginalSlots.Count
@@ -52,6 +52,9 @@ public sealed class Level
     public bool TankerDevelopmentWave { get; }
     public bool IsLevel3Mixed =>
         Configuration.NormalEnemyComposition == LevelEnemyComposition.FlippersAndTankers;
+    public bool UsesProductionLedger =>
+        Configuration.NormalEnemyComposition is LevelEnemyComposition.FlippersAndTankers or
+            LevelEnemyComposition.FlippersTankersAndSpikers;
     public Level3WaveLedger? Level3Ledger { get; private set; }
     // Level stores the state value, but every transition is owned by TempestGame's step logic;
     // nothing in Level changes State.
@@ -81,7 +84,7 @@ public sealed class Level
         EnemiesRimCleared = 0;
         tankerPendingOriginalSlots.Clear();
         tankerPendingCargoUnits.Clear();
-        if (IsLevel3Mixed)
+        if (UsesProductionLedger)
             Level3Ledger = new Level3WaveLedger(EnemySupply);
         if (TankerDevelopmentWave)
         {
@@ -92,6 +95,9 @@ public sealed class Level
         if (SpikerDevelopmentWave)
             for (int lane = 0; lane < PlayableLaneCount; lane++)
                 CreateSpike(lane, 60);
+        else if (Configuration.StartingSpikeHeight is float spikeHeight)
+            for (int lane = 0; lane < PlayableLaneCount; lane++)
+                CreateSpike(lane, spikeHeight);
         ReturnSurvivorsToReserve();
         for (int eggIndex = 0; eggIndex < Configuration.InitialActiveEggCount && ReserveEggs > 0; eggIndex++)
             ReleaseEgg();
@@ -113,7 +119,7 @@ public sealed class Level
     // wave construction instead uses the configured initial Egg count in Reset.
     public void ResetAfterDeath()
     {
-        if (IsLevel3Mixed)
+        if (UsesProductionLedger)
         {
             Level3Ledger!.RebuildAfterDeath();
             ReturnSurvivorsToReserve();
@@ -139,7 +145,7 @@ public sealed class Level
         eggs.Clear();
         spawnTimer = 0;
         hatchSelectionTimer = 0;
-        EnemiesSpawned = IsLevel3Mixed
+        EnemiesSpawned = UsesProductionLedger
             ? EnemySupply - Level3Ledger!.OriginalIdsInReserve().Count
             : EnemiesDestroyed + EnemiesRimCleared;
         nextSpawnLaneIndex = EnemiesSpawned % Configuration.SpawnLaneSequence.Count;
@@ -148,6 +154,17 @@ public sealed class Level
     public void RecordEnemyDestroyed() => EnemiesDestroyed++;
 
     public void RecordEnemyRimCleared() => EnemiesRimCleared++;
+
+    public void ReturnOriginalToReserve(int originalId)
+    {
+        if (!UsesProductionLedger)
+        {
+            ReturnEnemyToReserve();
+            return;
+        }
+
+        Level3Ledger!.ReturnSpikerToReserve(originalId);
+    }
 
     // Reserve release cadence is configuration data; its current values are project decisions.
     public void UpdateEggRelease()
@@ -158,7 +175,7 @@ public sealed class Level
 
         spawnTimer = 0;
 
-        if (IsLevel3Mixed)
+        if (UsesProductionLedger)
         {
             for (int released = 0; released < 6 &&
                  ReserveEggs + Level3CargoReserveEggs > 0;
@@ -174,7 +191,7 @@ public sealed class Level
 
     private void ReleaseEgg()
     {
-        if (IsLevel3Mixed)
+        if (UsesProductionLedger)
         {
             ReleaseLevel3MixedEgg();
             return;
@@ -281,7 +298,7 @@ public sealed class Level
 
     public void UpdateEggs()
     {
-        if (IsLevel3Mixed)
+        if (UsesProductionLedger)
         {
             UpdateLevel3MixedEggs(0, nextRandomInclusive);
             return;
@@ -371,8 +388,13 @@ public sealed class Level
     }
 
     public bool IsComplete(int activeFlippers) =>
-        EnemiesDestroyed + EnemiesRimCleared == EnemySupply &&
-        ReserveEggs == 0 && eggs.Count == 0 && activeFlippers == 0;
+        UsesProductionLedger
+            ? Level3Ledger!.UnresolvedOriginalIds.Count == 0 &&
+              Level3Ledger.UnresolvedCargoIds.Count == 0 &&
+              ReserveEggs == 0 && Level3CargoReserveEggs == 0 &&
+              eggs.Count == 0 && activeFlippers == 0
+            : EnemiesDestroyed + EnemiesRimCleared == EnemySupply &&
+              ReserveEggs == 0 && eggs.Count == 0 && activeFlippers == 0;
 
     public int NextEdge(int edge) => (edge + 1) % Definition.Points.Count;
     public int PreviousEdge(int edge) =>

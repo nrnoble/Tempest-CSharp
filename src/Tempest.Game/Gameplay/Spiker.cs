@@ -11,19 +11,21 @@ public enum SpikerState
 }
 
 /// <summary>
-/// Spiker: builds a persistent spike up its lane, then retreats. Not counted as one of the level's
-/// enemies in normal accounting. Speed, rotation step and the Depth-4 build limit come from Incitti
-/// and are not yet compared to the arcade.
+/// Spiker: builds a persistent spike up its lane, then retreats. Production identity is owned by
+/// the level wave ledger; the Spike remains a separate persistent hazard.
 /// </summary>
 public sealed class Spiker : Enemy
 {
-    public Spiker(int edgeIndex = 0, float speed = 3)
+    public Spiker(int edgeIndex = 0, float speed = 3, int originalSlotId = -1)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(speed);
+        ArgumentOutOfRangeException.ThrowIfLessThan(originalSlotId, -1);
         EdgeIndex = edgeIndex;
         Speed = speed;
+        OriginalSlotId = originalSlotId;
     }
 
+    public int OriginalSlotId { get; }
     public float Speed { get; }
     public float Growth { get; private set; }
     public float Rotation { get; private set; }

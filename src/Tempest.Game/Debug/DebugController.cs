@@ -29,6 +29,10 @@ public sealed class DebugController
 	public static bool UseLevel3Test(IEnumerable<string> arguments) =>
 		arguments.Contains("--level3-test", StringComparer.Ordinal);
 
+	// DEVELOPMENT ONLY: direct access to the isolated Level 4 production candidate.
+	public static bool UseLevel4Test(IEnumerable<string> arguments) =>
+		arguments.Contains("--level4-test", StringComparer.Ordinal);
+
 	// DEVELOPMENT ONLY: validates the source-derived plus board, not a production mixed wave.
 	public static bool UseLevel3GeometryTest(IEnumerable<string> arguments) =>
 		arguments.Contains("--level3-geometry-test", StringComparer.Ordinal);
@@ -47,6 +51,7 @@ public sealed class DebugController
 
 	public static bool HasConflictingScenarios(IEnumerable<string> arguments) =>
 		(UseLevel2Test(arguments) ? 1 : 0) + (UseLevel3Test(arguments) ? 1 : 0) +
+		(UseLevel4Test(arguments) ? 1 : 0) +
 		(UseLevel3GeometryTest(arguments) ? 1 : 0) +
 		(UseTankerTest(arguments) ? 1 : 0) +
 		(UseSpikerWave(arguments) ? 1 : 0) + (UseFuseballTest(arguments) ? 1 : 0) +

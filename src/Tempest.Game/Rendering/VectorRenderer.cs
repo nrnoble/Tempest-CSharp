@@ -58,7 +58,7 @@ public sealed class VectorRenderer
 	private readonly TempestGame game;
 	public IReadOnlyList<Egg> Eggs => game.Eggs;
 	public bool ShouldDrawEnemyBullets =>
-		game.EnemyBulletsTest || game.CurrentLevel.IsLevel3Mixed;
+		game.EnemyBulletsTest || game.CurrentLevel.UsesProductionLedger;
 	// During normal play Player.Depth == Level.Depth, so this is Level.Position (the near rim).
 	// During exit travel Player.Depth shrinks toward 0, moving the projected player down the tube.
 	public float PlayerProjectedDepth => Level.Position + Level.Depth - game.Player.Depth;
@@ -106,7 +106,7 @@ public sealed class VectorRenderer
 			if (ShouldDrawEnemyBullets)
 				DrawEnemyBullets((start, end) => Raylib.DrawLineV(start, end, Color.White));
 		}
-		else if (game.SpikeExitControlsEnabled)
+		else if (game.SpikeExitShotsVisible)
 		{
 			DrawPlayerShots(game.CurrentLevel.Definition.Points);
 		}
@@ -114,6 +114,9 @@ public sealed class VectorRenderer
 		if (!approaching)
 			DrawFuseballScorePopups((text, position, scale) =>
 				Raylib.DrawTextEx(Raylib.GetFontDefault(), text, position, scale * 7, scale, Color.White));
+
+		DrawAvoidSpikesWarning((text, position, scale) =>
+			Raylib.DrawTextEx(Raylib.GetFontDefault(), text, position, scale * 7, scale, Color.White));
 
 		if (!game.GameOver)
 		{
@@ -249,6 +252,15 @@ public sealed class VectorRenderer
 			Vector2 center = ProjectLane(popup.EdgeIndex, Level.Position + Level.Depth - popup.Height);
 			drawText(popup.Points.ToString(), center - new Vector2(popup.Scale * 1.5f, 0), popup.Scale);
 		}
+	}
+
+	public void DrawAvoidSpikesWarning(Action<string, Vector2, float> drawText)
+	{
+		ArgumentNullException.ThrowIfNull(drawText);
+		if (!game.ShouldShowAvoidSpikesWarning)
+			return;
+
+		drawText("Avoid Spikes", new Vector2(200, 260), 8);
 	}
 
 	public Vector2 ProjectTankerCenter(Tanker tanker) =>
@@ -652,7 +664,7 @@ public sealed class VectorRenderer
 		for (int index = 0; index < waveLines.Count; index++)
 		{
 			Color color = index == 0 ? Color.Red :
-				(game.TankerTest || game.CurrentLevel.IsLevel3Mixed) && index == 1
+				(game.TankerTest || game.CurrentLevel.UsesProductionLedger) && index == 1
 					? TankerColor
 					: Color.Gray;
 			Raylib.DrawText(waveLines[index], 10, 72 + index * 24, 18, color);
@@ -716,7 +728,7 @@ public sealed class VectorRenderer
 			];
 		}
 
-		if (game.CurrentLevel.IsLevel3Mixed)
+		if (game.CurrentLevel.UsesProductionLedger)
 		{
 			Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger
 				?? throw new InvalidOperationException("The mixed Level 3 wave has no identity ledger.");
@@ -724,7 +736,7 @@ public sealed class VectorRenderer
 			[
 				$"ORIGINAL {ledger.UnresolvedOriginalIds.Count}",
 				$"CARGO {ledger.UnresolvedCargoIds.Count}",
-				$"ACTIVE {game.Eggs.Count + game.Flippers.Count + game.Tankers.Count}"
+				$"ACTIVE {game.Eggs.Count + game.Flippers.Count + game.Tankers.Count + game.Spikers.Count}"
 			];
 		}
 

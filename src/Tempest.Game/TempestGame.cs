@@ -12,7 +12,7 @@ namespace Tempest.Game;
 /// </summary>
 /// <remarks>
 /// Normal play progresses from Level 1 through the square Level 2 to the mixed Level 3. Direct
-/// Level 2/3 access, the Level 3 geometry diagnostic, the configuration-based headless Level 3
+/// Level 2/3/4 access, the Level 3 geometry diagnostic, the configuration-based headless Level 3
 /// mixed model, and the Spiker, Tanker, Fuseball and Pulsar scenarios are development-only. Enemy
 /// bullets remain an orthogonal test option. Flipper waves use the existing accounting and shot path.
 /// </remarks>
@@ -58,6 +58,7 @@ public sealed class TempestGame
     private readonly bool enemyBulletsTest;
     private readonly bool tankerTest;
     private readonly bool level3Test;
+    private readonly bool level4Test;
     private readonly bool level3GeometryTest;
     private Level? currentLevel;
     private int pulsePhase;
@@ -90,6 +91,7 @@ public sealed class TempestGame
     public bool PulsarTest { get; }
     public bool Level2Test { get; }
     public bool Level3Test => level3Test;
+    public bool Level4Test => level4Test;
     public bool Level3GeometryTest => level3GeometryTest;
     public bool NaturalProgressionEnabled => naturalProgressionEnabled;
     public LevelApproach? CurrentApproach { get; private set; }
@@ -100,8 +102,18 @@ public sealed class TempestGame
     // Incitti shares four animation frames across all Fuseballs, changing frame every four ticks.
     public int FuseballAnimationFrame => fuseballAnimationTicks / 4;
     public IReadOnlyList<Spike> Spikes => CurrentLevel.Spikes;
-    public bool SpikeExitControlsEnabled => CurrentLevel.SpikerDevelopmentWave &&
+    private bool SpikeExitEnabled =>
+        CurrentLevel.SpikerDevelopmentWave ||
+        CurrentLevel.Configuration.ExitPolicy == LevelExitPolicy.AvoidSpikes;
+    public bool SpikeExitControlsEnabled =>
+        SpikeExitEnabled &&
         State is LevelState.AvoidSpikes or LevelState.ExitDelay or LevelState.ExitZoom;
+    public bool ShouldShowAvoidSpikesWarning =>
+        CurrentLevel.Configuration.ExitPolicy == LevelExitPolicy.AvoidSpikes &&
+        (State is LevelState.AvoidSpikes or LevelState.ExitDelay) &&
+        DeathTicks == 0;
+    public bool SpikeExitShotsVisible => SpikeExitEnabled &&
+        State is LevelState.AvoidSpikes or LevelState.ExitDelay or LevelState.ExitZoom or LevelState.ReverseZoom;
     public bool EnemyBulletsTest => enemyBulletsTest;
     public bool TankerTest => tankerTest;
     public int TankerOriginalSlotsRemaining => unresolvedOriginalSlots.Count;
@@ -141,16 +153,17 @@ public sealed class TempestGame
         int startingLives = Player.DefaultStartingLives, bool enemyBulletsTest = false,
         bool tankerTest = false, bool fuseballTest = false, bool pulsarTest = false,
         bool level2Test = false, bool level3GeometryTest = false,
-        LevelConfiguration? startingConfiguration = null, bool level3Test = false)
+        LevelConfiguration? startingConfiguration = null, bool level3Test = false,
+        bool level4Test = false)
     {
         if ((level2Test ? 1 : 0) + (level3Test ? 1 : 0) +
-            (level3GeometryTest ? 1 : 0) +
+            (level4Test ? 1 : 0) + (level3GeometryTest ? 1 : 0) +
             (spikerDevelopmentWave ? 1 : 0) + (tankerTest ? 1 : 0) +
             (fuseballTest ? 1 : 0) + (pulsarTest ? 1 : 0) > 1 ||
             startingConfiguration is not null &&
-            (level2Test || level3Test || level3GeometryTest || spikerDevelopmentWave ||
+            (level2Test || level3Test || level4Test || level3GeometryTest || spikerDevelopmentWave ||
              tankerTest || fuseballTest || pulsarTest))
-            throw new ArgumentException("Level 2, Level 3 mixed, Level 3 geometry, Tanker, Spiker, Fuseball and Pulsar development scenarios cannot be combined.");
+            throw new ArgumentException("Level 2, Level 3 mixed, Level 4 candidate, Level 3 geometry, Tanker, Spiker, Fuseball and Pulsar development scenarios cannot be combined.");
 
         this.random = random ?? Random.Shared;
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
@@ -158,6 +171,8 @@ public sealed class TempestGame
             ? LevelConfiguration.Level2Square
             : level3Test
                 ? LevelConfiguration.Level3Mixed
+            : level4Test
+                ? LevelConfiguration.Level4Candidate
             : level3GeometryTest
                 ? LevelConfiguration.Level3Plus
             : LevelConfiguration.Level1);
@@ -165,9 +180,10 @@ public sealed class TempestGame
         this.enemyBulletsTest = enemyBulletsTest;
         this.tankerTest = tankerTest;
         this.level3Test = level3Test;
+        this.level4Test = level4Test;
         this.level3GeometryTest = level3GeometryTest;
         naturalProgressionEnabled = startingConfiguration is null &&
-            !level2Test && !level3Test && !spikerDevelopmentWave && !tankerTest &&
+            !level2Test && !level3Test && !level4Test && !spikerDevelopmentWave && !tankerTest &&
             !fuseballTest && !pulsarTest && !level3GeometryTest;
         FuseballTest = fuseballTest;
         PulsarTest = pulsarTest;
@@ -222,6 +238,9 @@ public sealed class TempestGame
         else if (State == LevelState.ReverseZoom)
         {
             UpdateReverseZoom();
+            if (SpikeExitEnabled)
+                // Incitti keeps shots moving through reverse zoom; enemy simulation stays frozen.
+                UpdatePlayerShots(spikesOnly: true);
         }
         else if (SpikeExitControlsEnabled)
         {
@@ -261,9 +280,9 @@ public sealed class TempestGame
                 return;
 
             CurrentLevel.UpdateEggRelease();
-            if (CurrentLevel.IsLevel3Mixed)
+            if (CurrentLevel.UsesProductionLedger)
                 CurrentLevel.UpdateLevel3MixedEggs(
-                    CountLevel3ActiveEnemyUnits(), NextRandomInclusive);
+                    CountProductionActiveEnemyUnits(), NextRandomInclusive);
             else
                 CurrentLevel.UpdateEggs();
             HatchEggs();
@@ -296,7 +315,7 @@ public sealed class TempestGame
                 return;
             LatchHurryUp();
             CheckForLevelComplete();
-            if (CurrentLevel.IsLevel3Mixed && State != LevelState.GameOver)
+            if (CurrentLevel.UsesProductionLedger && State != LevelState.GameOver)
                 ValidateLevel3WaveRepresentation();
         }
     }
@@ -340,7 +359,7 @@ public sealed class TempestGame
         fuseballScorePopups.Clear();
         fuseballAnimationTicks = 0;
         ResetTankerLedger();
-        if (CurrentLevel.IsLevel3Mixed)
+        if (CurrentLevel.UsesProductionLedger)
             ValidateLevel3WaveRepresentation();
     }
 
@@ -388,7 +407,7 @@ public sealed class TempestGame
     private void ResetAfterDeath()
     {
         DeathPresentation.Reset();
-        if (CurrentLevel.IsLevel3Mixed)
+        if (CurrentLevel.UsesProductionLedger)
         {
             ValidateLevel3WaveRepresentation();
             ResetPlayerPosition();
@@ -518,7 +537,7 @@ public sealed class TempestGame
 
     private IEnumerable<Enemy> GetZapperSourceOrder()
     {
-        if (CurrentLevel.IsLevel3Mixed ||
+        if (CurrentLevel.UsesProductionLedger ||
             CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest || tankerTest ||
             FuseballTest || PulsarTest)
             // Spikes are not Enemy instances; bullets remain in this source order and reject by default.
@@ -539,20 +558,47 @@ public sealed class TempestGame
         shotTimer++;
     }
 
-    private void UpdatePlayerShots()
+    private void UpdatePlayerShots(bool spikesOnly = false)
     {
         for (int shotIndex = shots.Count - 1; shotIndex >= 0; shotIndex--)
         {
             Shot shot = shots[shotIndex];
             shot.Update();
-            bool hit = (CurrentLevel.IsLevel3Mixed ||
+            bool hit = shot.Height >= 0 && (spikesOnly
+                ? CheckShotAgainstSpikes(shot)
+                : (CurrentLevel.UsesProductionLedger ||
                 CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest || tankerTest ||
                 FuseballTest || PulsarTest)
-                ? shot.Height >= 0 && CheckShotAgainstDevelopmentTargets(shot)
-                : CheckShotAgainstFlippers(shot);
+                    ? CheckShotAgainstDevelopmentTargets(shot)
+                    : CheckShotAgainstFlippers(shot));
             if (hit || shot.Height < 0)
                 shots.RemoveAt(shotIndex);
         }
+    }
+
+    private bool CheckShotAgainstSpikes(Shot shot)
+    {
+        foreach (Spike spike in CurrentLevel.Spikes)
+        {
+            if (!spike.IsHitBy(shot))
+                continue;
+
+            HitSpike(spike);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void HitSpike(Spike spike)
+    {
+        spike.Shorten();
+        Score.Add(1);
+        if (!spike.IsDepleted)
+            return;
+
+        CurrentLevel.RemoveSpike(spike);
+        developmentCollisionOrder.Remove(spike);
     }
 
     private bool CheckShotAgainstFlippers(Shot shot)
@@ -573,7 +619,7 @@ public sealed class TempestGame
 
     private void HatchEggs()
     {
-        if (CurrentLevel.IsLevel3Mixed)
+        if (CurrentLevel.UsesProductionLedger)
         {
             CurrentLevel.HatchReadyMixedEnemies(
                 CreateLevel3MixedEnemy, AddHatchedEnemy);
@@ -601,7 +647,7 @@ public sealed class TempestGame
         else
             throw new InvalidOperationException($"Unsupported hatched enemy type {enemy.GetType().Name}.");
 
-        if (CurrentLevel.IsLevel3Mixed || CurrentLevel.SpikerDevelopmentWave ||
+        if (CurrentLevel.UsesProductionLedger || CurrentLevel.SpikerDevelopmentWave ||
             enemyBulletsTest || tankerTest || FuseballTest || PulsarTest)
             developmentCollisionOrder.Add(enemy);
     }
@@ -628,9 +674,25 @@ public sealed class TempestGame
         Level3OriginalType selectedType = ledger.GetOriginalType(originalId);
         if (selectedType == Level3OriginalType.Unselected)
         {
-            selectedType = SelectLevel3OriginalType();
+            selectedType = CurrentLevel.Configuration.NormalEnemyComposition ==
+                LevelEnemyComposition.FlippersTankersAndSpikers
+                ? SelectLevel4OriginalType()
+                : SelectLevel3OriginalType();
             if (selectedType == Level3OriginalType.Tanker)
                 Level3WaveSelection.SelectTwoFlipperCargo(NextRandomInclusive);
+        }
+
+        if (selectedType == Level3OriginalType.Spiker)
+        {
+            if (spikers.Count > 3)
+                return null;
+
+            float speed = CurrentLevel.Configuration.ProgressionIndex / 48f +
+                2.5f + (float)(random.NextDouble() * 2);
+            Spiker spiker = new(egg.EdgeIndex, speed, originalId);
+            if (ledger.GetOriginalState(originalId) == Level3OriginalState.Egg)
+                ledger.CommitOriginalAsSpiker(originalId);
+            return spiker;
         }
 
         if (selectedType == Level3OriginalType.Tanker)
@@ -662,11 +724,20 @@ public sealed class TempestGame
         => Level3WaveSelection.SelectOriginalType(
             NextRandomInclusive,
             tankers.Count,
-            CountLevel3ActiveEnemyUnits(),
+            CountProductionActiveEnemyUnits(),
             Eggs.Count);
 
-    private int CountLevel3ActiveEnemyUnits() =>
-        flippers.Count + tankers.Count + shotReleasedCargoPendingActivation.Count;
+    private Level3OriginalType SelectLevel4OriginalType()
+        => Level3WaveSelection.SelectLevel4OriginalType(
+            NextRandomInclusive,
+            tankers.Count,
+            spikers.Count,
+            flippers.Count + tankers.Count + spikers.Count +
+                shotReleasedCargoPendingActivation.Count,
+            Eggs.Count);
+
+    private int CountProductionActiveEnemyUnits() =>
+        flippers.Count + tankers.Count + spikers.Count + shotReleasedCargoPendingActivation.Count;
 
     private Enemy CreateTankerWaveEnemy(Egg egg)
     {
@@ -750,18 +821,15 @@ public sealed class TempestGame
                     Score.Add(200);
                     return true;
                 case Spike spike when spike.IsHitBy(shot):
-                    spike.Shorten();
-                    Score.Add(1);
-                    if (spike.IsDepleted)
-                    {
-                        CurrentLevel.RemoveSpike(spike);
-                        developmentCollisionOrder.Remove(spike);
-                    }
+                    HitSpike(spike);
                     return true;
                 case Spiker spiker when spiker.IsHitBy(shot):
                     spikers.Remove(spiker);
                     developmentCollisionOrder.Remove(spiker);
-                    CurrentLevel.RecordEnemyDestroyed();
+                    if (CurrentLevel.UsesProductionLedger)
+                        CurrentLevel.Level3Ledger!.MarkOriginalDestroyed(spiker.OriginalSlotId);
+                    else
+                        CurrentLevel.RecordEnemyDestroyed();
                     Score.Add(50);
                     return true;
                 case EnemyBullet enemyBullet when enemyBullet.IsHitBy(shot):
@@ -772,7 +840,7 @@ public sealed class TempestGame
                 case Tanker tanker when tanker.IsHitBy(shot):
                     tankers.Remove(tanker);
                     developmentCollisionOrder.Remove(tanker);
-                    if (!CurrentLevel.IsLevel3Mixed)
+                    if (!CurrentLevel.UsesProductionLedger)
                     {
                         ResolveOriginalSlotDestroyed(tanker.OriginalSlotId);
                         Score.Add(200);
@@ -782,9 +850,9 @@ public sealed class TempestGame
                 case Flipper flipper when flipper.IsHitBy(shot):
                     flippers.Remove(flipper);
                     developmentCollisionOrder.Remove(flipper);
-                    if (CurrentLevel.IsLevel3Mixed && flipper.IsTankerCargo)
+                    if (CurrentLevel.UsesProductionLedger && flipper.IsTankerCargo)
                         CurrentLevel.Level3Ledger!.MarkCargoDestroyed(flipper.CargoUnitId);
-                    else if (CurrentLevel.IsLevel3Mixed)
+                    else if (CurrentLevel.UsesProductionLedger)
                         CurrentLevel.Level3Ledger!.MarkOriginalDestroyed(flipper.OriginalSlotId);
                     else if (tankerTest)
                     {
@@ -815,14 +883,21 @@ public sealed class TempestGame
             {
                 spikers.RemoveAt(index--);
                 developmentCollisionOrder.Remove(spiker);
-                CurrentLevel.RecordEnemyDestroyed();
+                if (CurrentLevel.UsesProductionLedger)
+                    CurrentLevel.Level3Ledger!.MarkOriginalDestroyed(spiker.OriginalSlotId);
+                else
+                    CurrentLevel.RecordEnemyDestroyed();
                 Score.Add(50);
                 continue;
             }
 
             EnemyBullet? bullet = spiker.Update(CurrentLevel,
                 () => random.NextDouble() * 120 > 88,
-                enemyBulletsTest ? NextRandomInclusive : null);
+                enemyBulletsTest ||
+                CurrentLevel.Configuration.NormalEnemyComposition ==
+                    LevelEnemyComposition.FlippersTankersAndSpikers
+                    ? NextRandomInclusive
+                    : null);
             if (bullet is not null)
             {
                 // Enemy bullets were already advanced this tick, so this one first moves next
@@ -836,7 +911,7 @@ public sealed class TempestGame
 
             spikers.RemoveAt(index--);
             developmentCollisionOrder.Remove(spiker);
-            CurrentLevel.ReturnEnemyToReserve();
+            CurrentLevel.ReturnOriginalToReserve(spiker.OriginalSlotId);
         }
     }
 
@@ -949,7 +1024,7 @@ public sealed class TempestGame
             {
                 tankers.RemoveAt(index--);
                 developmentCollisionOrder.Remove(tanker);
-                if (!CurrentLevel.IsLevel3Mixed)
+                if (!CurrentLevel.UsesProductionLedger)
                 {
                     ResolveOriginalSlotDestroyed(tanker.OriginalSlotId);
                     Score.Add(200);
@@ -959,7 +1034,7 @@ public sealed class TempestGame
             }
 
             TankerUpdateResult result = tanker.UpdateForDevelopment(
-                enemyBulletsTest || CurrentLevel.IsLevel3Mixed
+                enemyBulletsTest || CurrentLevel.UsesProductionLedger
                     ? NextRandomInclusive
                     : null, out EnemyBullet? bullet);
             if (bullet is not null)
@@ -977,7 +1052,7 @@ public sealed class TempestGame
 
             tankers.RemoveAt(index--);
             developmentCollisionOrder.Remove(tanker);
-            if (!CurrentLevel.IsLevel3Mixed)
+            if (!CurrentLevel.UsesProductionLedger)
                 ResolveOriginalSlotEscaped(tanker.OriginalSlotId);
             ReleaseTankerCargo(tanker, TankerReleaseKind.Natural);
         }
@@ -990,7 +1065,7 @@ public sealed class TempestGame
         TankerReleaseResult result = tanker.ReleaseFlipperCargo(
             CurrentLevel, firstSideDirection: 1, releaseKind);
 
-        if (CurrentLevel.IsLevel3Mixed)
+        if (CurrentLevel.UsesProductionLedger)
         {
             if (result.Cargo.Count != Tanker.CarriedFlipperCount)
                 throw new InvalidOperationException(
@@ -1101,7 +1176,7 @@ public sealed class TempestGame
             {
                 flippers.RemoveAt(index--);
                 developmentCollisionOrder.Remove(flipper);
-                if (CurrentLevel.IsLevel3Mixed)
+                if (CurrentLevel.UsesProductionLedger)
                 {
                     if (flipper.IsTankerCargo)
                         CurrentLevel.Level3Ledger!.MarkCargoDestroyed(flipper.CargoUnitId);
@@ -1131,7 +1206,7 @@ public sealed class TempestGame
                 continue;
 
             enemyBullets.Add(bullet);
-            if (CurrentLevel.IsLevel3Mixed ||
+            if (CurrentLevel.UsesProductionLedger ||
                 CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest)
                 developmentCollisionOrder.Add(bullet);
         }
@@ -1141,7 +1216,7 @@ public sealed class TempestGame
     {
         foreach (Flipper flipper in shotReleasedCargoPendingActivation)
         {
-            if (CurrentLevel.IsLevel3Mixed)
+            if (CurrentLevel.UsesProductionLedger)
                 CurrentLevel.Level3Ledger!.ActivateShotCargo(flipper.CargoUnitId);
             flippers.Add(flipper);
             developmentCollisionOrder.Add(flipper);
@@ -1202,7 +1277,7 @@ public sealed class TempestGame
 
     private bool CheckForLevelComplete()
     {
-        if (CurrentLevel.IsLevel3Mixed)
+        if (CurrentLevel.UsesProductionLedger)
         {
             if (State != LevelState.Playing)
                 return false;
@@ -1246,7 +1321,7 @@ public sealed class TempestGame
 
     private bool TryCompleteAllRim()
     {
-        if (CurrentLevel.IsLevel3Mixed)
+        if (CurrentLevel.UsesProductionLedger)
             return TryCompleteLevel3AllRim();
 
         if (!IsAllRimCompletionEligible(out List<Enemy> activeEnemies))
@@ -1302,7 +1377,7 @@ public sealed class TempestGame
         Level3WaveLedger ledger = CurrentLevel.Level3Ledger
             ?? throw new InvalidOperationException("Level 3 mixed wave has no identity ledger.");
         if (tankers.Count > 6)
-            throw new InvalidOperationException("A Level 3 mixed wave cannot have more than six active Tankers.");
+            throw new InvalidOperationException("A production mixed wave cannot have more than six active Tankers.");
 
         List<Level3WaveRepresentation> represented = [];
 
@@ -1367,6 +1442,15 @@ public sealed class TempestGame
                 Level3RepresentationLocation.ActiveEnemy));
         }
 
+        foreach (Spiker spiker in spikers)
+        {
+            ledger.ValidateOriginalRuntimeType(
+                spiker.OriginalSlotId, Level3OriginalType.Spiker);
+            represented.Add(new Level3WaveRepresentation(
+                new Level3Identity(Level3IdentityKind.Original, spiker.OriginalSlotId),
+                Level3RepresentationLocation.ActiveEnemy));
+        }
+
         foreach (Flipper pending in shotReleasedCargoPendingActivation)
         {
             if (!pending.IsTankerCargo || pending.OriginalSlotId >= 0)
@@ -1378,13 +1462,13 @@ public sealed class TempestGame
 
         ledger.ValidateRuntimeRepresentations(represented);
 
-        HashSet<Enemy> expectedTargets = [.. flippers, .. tankers, .. enemyBullets];
+        HashSet<Enemy> expectedTargets = [.. flippers, .. tankers, .. spikers, .. enemyBullets];
         List<Enemy> orderedTargets = developmentCollisionOrder.OfType<Enemy>().ToList();
         if (orderedTargets.Count != expectedTargets.Count ||
             orderedTargets.Distinct().Count() != orderedTargets.Count ||
             !expectedTargets.SetEquals(orderedTargets))
             throw new InvalidOperationException(
-                "Level 3 runtime enemies and insertion-ordered targets do not agree.");
+                "Production runtime enemies and insertion-ordered targets do not agree.");
     }
 
     private bool TryCompleteLevel3AllRim()
@@ -1400,7 +1484,7 @@ public sealed class TempestGame
             ledger.HasPendingShotActivation)
             return false;
 
-        List<Enemy> active = [.. flippers, .. tankers];
+        List<Enemy> active = [.. flippers, .. tankers, .. spikers];
         if (active.Count == 0 || active.Any(enemy => !(enemy.Height >= Level.Depth)))
             return false;
 
@@ -1411,6 +1495,7 @@ public sealed class TempestGame
             bool added = enemy switch
             {
                 Tanker tanker => representedOriginals.Add(tanker.OriginalSlotId),
+                Spiker spiker => representedOriginals.Add(spiker.OriginalSlotId),
                 Flipper flipper when flipper.IsTankerCargo =>
                     representedCargo.Add(flipper.CargoUnitId),
                 Flipper flipper => representedOriginals.Add(flipper.OriginalSlotId),
@@ -1434,6 +1519,10 @@ public sealed class TempestGame
                 case Tanker tanker:
                     tankers.Remove(tanker);
                     ledger.MarkOriginalRimCleared(tanker.OriginalSlotId);
+                    break;
+                case Spiker spiker:
+                    spikers.Remove(spiker);
+                    ledger.MarkOriginalRimCleared(spiker.OriginalSlotId);
                     break;
                 case Flipper flipper when flipper.IsTankerCargo:
                     flippers.Remove(flipper);
@@ -1512,7 +1601,8 @@ public sealed class TempestGame
 
     private void BeginExit()
     {
-        CurrentLevel.State = CurrentLevel.SpikerDevelopmentWave
+        CurrentLevel.State = CurrentLevel.SpikerDevelopmentWave ||
+            CurrentLevel.Configuration.ExitPolicy == LevelExitPolicy.AvoidSpikes
             ? LevelState.AvoidSpikes
             : CurrentLevel.Configuration.ExitPolicy switch
             {
@@ -1564,7 +1654,7 @@ public sealed class TempestGame
             UpdateExitZoom(completeWhenFinished: false);
 
         // Spike travel keeps source ordering locally: depth, shots, hazard, then input.
-        UpdatePlayerShots();
+        UpdatePlayerShots(spikesOnly: true);
         CheckSpikesAgainstPlayer();
         if (State == LevelState.ReverseZoom)
             return;
@@ -1599,9 +1689,9 @@ public sealed class TempestGame
 
     private void CheckSpikesAgainstPlayer()
     {
-        // Development-only: touching a spike during or after the wave starts a reverse zoom instead
-        // of the normal death sequence. Spikes are not enemies and never count toward accounting.
-        if (!CurrentLevel.SpikerDevelopmentWave || DeathTicks > 0 ||
+        // The configured spike-avoid exit and the Spiker diagnostic use the same persistent hazard.
+        if (!SpikeExitEnabled ||
+            DeathTicks > 0 ||
             State is not (LevelState.Playing or LevelState.AvoidSpikes or LevelState.ExitDelay or LevelState.ExitZoom))
             return;
         if (!Spikes.Any(spike => spike.HitsPlayer(Player)))
@@ -1610,7 +1700,6 @@ public sealed class TempestGame
         DeathTicks = PlayerDeathTicks;
         CurrentLevel.State = LevelState.ReverseZoom;
         exitDelayTicks = 0;
-        shots.Clear();
         enemyBullets.Clear();
         flippers.Clear();
         spikers.Clear();

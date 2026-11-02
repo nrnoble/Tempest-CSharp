@@ -4,7 +4,8 @@ public enum Level3OriginalType
 {
     Unselected,
     Flipper,
-    Tanker
+    Tanker,
+    Spiker
 }
 
 public enum Level3OriginalState
@@ -13,6 +14,7 @@ public enum Level3OriginalState
     Egg,
     ActiveFlipper,
     ActiveTanker,
+    ActiveSpiker,
     Destroyed,
     Escaped,
     RimCleared
@@ -120,7 +122,7 @@ public sealed class Level3WaveLedger
 
     public void ValidateOriginalRuntimeType(int id, Level3OriginalType runtimeType)
     {
-        if (runtimeType is not (Level3OriginalType.Flipper or Level3OriginalType.Tanker))
+        if (runtimeType is not (Level3OriginalType.Flipper or Level3OriginalType.Tanker or Level3OriginalType.Spiker))
             throw new ArgumentOutOfRangeException(nameof(runtimeType));
         if (GetOriginalType(id) != runtimeType)
             throw new InvalidOperationException(
@@ -156,8 +158,8 @@ public sealed class Level3WaveLedger
         OriginalEntry entry = GetOriginal(id);
         if (entry.State != Level3OriginalState.Egg)
             throw InvalidTransition("original", id, entry.State, Level3OriginalState.ActiveFlipper);
-        if (entry.Type == Level3OriginalType.Tanker)
-            throw new InvalidOperationException($"Original {id} is already committed as a Tanker.");
+        if (entry.Type is Level3OriginalType.Tanker or Level3OriginalType.Spiker)
+            throw new InvalidOperationException($"Original {id} is already committed as {entry.Type}.");
         if (GetCargoIdsForOriginal(id).Count != 0)
             throw new InvalidOperationException($"Flipper original {id} cannot own cargo.");
 
@@ -170,8 +172,8 @@ public sealed class Level3WaveLedger
         OriginalEntry entry = GetOriginal(id);
         if (entry.State != Level3OriginalState.Egg)
             throw InvalidTransition("original", id, entry.State, Level3OriginalState.ActiveTanker);
-        if (entry.Type == Level3OriginalType.Flipper)
-            throw new InvalidOperationException($"Original {id} is already committed as a Flipper.");
+        if (entry.Type is Level3OriginalType.Flipper or Level3OriginalType.Spiker)
+            throw new InvalidOperationException($"Original {id} is already committed as {entry.Type}.");
 
         if (entry.Type == Level3OriginalType.Unselected)
         {
@@ -188,6 +190,30 @@ public sealed class Level3WaveLedger
         }
 
         entry.State = Level3OriginalState.ActiveTanker;
+    }
+
+    public void CommitOriginalAsSpiker(int id)
+    {
+        OriginalEntry entry = GetOriginal(id);
+        if (entry.State != Level3OriginalState.Egg)
+            throw InvalidTransition("original", id, entry.State, Level3OriginalState.ActiveSpiker);
+        if (entry.Type is Level3OriginalType.Flipper or Level3OriginalType.Tanker)
+            throw new InvalidOperationException($"Original {id} is already committed as {entry.Type}.");
+        if (GetCargoIdsForOriginal(id).Count != 0)
+            throw new InvalidOperationException($"Spiker original {id} cannot own cargo.");
+
+        entry.Type = Level3OriginalType.Spiker;
+        entry.State = Level3OriginalState.ActiveSpiker;
+    }
+
+    public void ReturnSpikerToReserve(int id)
+    {
+        OriginalEntry entry = GetOriginal(id);
+        if (entry.Type != Level3OriginalType.Spiker ||
+            entry.State != Level3OriginalState.ActiveSpiker)
+            throw new InvalidOperationException($"Only an active Spiker original can return to reserve.");
+        entry.Type = Level3OriginalType.Unselected;
+        entry.State = Level3OriginalState.Reserve;
     }
 
     public void MarkOriginalDestroyed(int id) =>
@@ -342,7 +368,8 @@ public sealed class Level3WaveLedger
             {
                 Level3OriginalState.Reserve => Level3RepresentationLocation.Reserve,
                 Level3OriginalState.Egg => Level3RepresentationLocation.Egg,
-                Level3OriginalState.ActiveFlipper or Level3OriginalState.ActiveTanker =>
+                Level3OriginalState.ActiveFlipper or Level3OriginalState.ActiveTanker or
+                    Level3OriginalState.ActiveSpiker =>
                     Level3RepresentationLocation.ActiveEnemy,
                 _ => throw new InvalidOperationException($"Unsupported original state {entry.State}.")
             };
@@ -402,6 +429,9 @@ public sealed class Level3WaveLedger
             if (entry.State is Level3OriginalState.ActiveTanker &&
                 entry.Type != Level3OriginalType.Tanker)
                 throw new InvalidOperationException($"Active Tanker original {id} has inconsistent selected type.");
+            if (entry.State is Level3OriginalState.ActiveSpiker &&
+                entry.Type != Level3OriginalType.Spiker)
+                throw new InvalidOperationException($"Active Spiker original {id} has inconsistent selected type.");
         }
 
         foreach ((int id, CargoEntry entry) in cargo)
@@ -459,10 +489,12 @@ public sealed class Level3WaveLedger
              entry.State != Level3OriginalState.ActiveTanker))
             throw new InvalidOperationException($"Only an active Tanker original can escape naturally.");
         if (destination == Level3OriginalState.Destroyed &&
-            entry.State is not (Level3OriginalState.ActiveFlipper or Level3OriginalState.ActiveTanker))
+            entry.State is not (Level3OriginalState.ActiveFlipper or Level3OriginalState.ActiveTanker or
+                Level3OriginalState.ActiveSpiker))
             throw new InvalidOperationException($"Only an active original can be destroyed.");
         if (destination == Level3OriginalState.RimCleared &&
-            entry.State is not (Level3OriginalState.ActiveFlipper or Level3OriginalState.ActiveTanker))
+            entry.State is not (Level3OriginalState.ActiveFlipper or Level3OriginalState.ActiveTanker or
+                Level3OriginalState.ActiveSpiker))
             throw new InvalidOperationException($"Only an active original can be rim-cleared.");
         if (entry.Type == Level3OriginalType.Tanker &&
             GetCargoIdsForOriginal(id).Any(cargoId => GetCargoState(cargoId) == Level3CargoState.Latent))

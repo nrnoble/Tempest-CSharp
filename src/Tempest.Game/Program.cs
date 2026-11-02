@@ -2,11 +2,11 @@
 // Raylib window, input and rendering together; all gameplay simulation belongs in TempestGame so
 // it stays headless-testable. Keep it that way — logic added here is invisible to the test suite.
 //
-// Development command-line modes (see DebugController): --level2-test and --level3-test select
+// Development command-line modes (see DebugController): --level2-test, --level3-test and --level4-test select
 // direct production configurations; --level3-geometry-test selects plus-board geometry only;
 // --spiker-test, --tanker-test, --fuseball-test and --pulsar-test select isolated enemy waves.
 // These scenarios are mutually exclusive; --enemy-bullets-test and --lives compose with any.
-// Normal play progresses Level 1 through Level 2 to terminal Level 3.
+// Normal play progresses Level 1 through Level 2 to terminal Level 3; Level 4 remains diagnostic-only.
 using Raylib_cs;
 using Tempest.Game;
 using Tempest.Game.Rendering;
@@ -15,7 +15,7 @@ using Tempest.Game.Debug;
 
 if (DebugController.HasConflictingScenarios(args))
 {
-    Console.Error.WriteLine("--level2-test, --level3-test, --level3-geometry-test, --tanker-test, --spiker-test, --fuseball-test and --pulsar-test are mutually exclusive.");
+    Console.Error.WriteLine("--level2-test, --level3-test, --level4-test, --level3-geometry-test, --tanker-test, --spiker-test, --fuseball-test and --pulsar-test are mutually exclusive.");
     return 2;
 }
 
@@ -28,10 +28,12 @@ Projection.ZOffset = 5;
 
 bool level2Test = DebugController.UseLevel2Test(args);
 bool level3Test = DebugController.UseLevel3Test(args);
+bool level4Test = DebugController.UseLevel4Test(args);
 bool level3GeometryTest = DebugController.UseLevel3GeometryTest(args);
 Raylib.InitWindow(VectorRenderer.ScreenWidth, VectorRenderer.ScreenHeight,
     level2Test ? "Tempest C# - Development Level 2 Square Test" :
     level3Test ? "Tempest C# - Development Level 3 Mixed Wave Test" :
+    level4Test ? "Tempest C# - Development Level 4 Production Candidate" :
     level3GeometryTest ? "Tempest C# - Development Level 3 Geometry Diagnostic" :
     "Tempest C# - Level 1");
 Raylib.DisableCursor();
@@ -45,7 +47,8 @@ TempestGame game = new(DebugController.UseSpikerWave(args),
     pulsarTest: DebugController.UsePulsarTest(args),
 	level2Test: level2Test,
     level3Test: level3Test,
-	level3GeometryTest: level3GeometryTest);
+    level3GeometryTest: level3GeometryTest,
+    level4Test: level4Test);
 InputSystem input = new();
 VectorRenderer renderer = new(game);
 int activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
@@ -62,7 +65,7 @@ while (!input.QuitRequested())
     else
         game.RunOneStep(input.ReadPlayer());
 
-    if (!level2Test && !level3Test && !level3GeometryTest &&
+    if (!level2Test && !level3Test && !level4Test && !level3GeometryTest &&
         game.CurrentLevel.Configuration.DisplayedLevel != activeDisplayedLevel)
     {
         activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;

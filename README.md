@@ -257,6 +257,66 @@ other observed problems were reported; the overall rating was **5/5 —
 internals. Existing **REFERENCE VERIFIED** and **PROJECT DECISIONS** evidence
 classifications are unchanged.
 
+## Isolated Level 4 production candidate
+
+```powershell
+dotnet run --project src/Tempest.Game -- --level4-test --lives 10
+```
+
+`--level4-test` is **DEVELOPMENT ONLY** direct access to an isolated Level 4
+production candidate; it does not add natural Level 3 -> Level 4 progression.
+The configuration uses the source-derived closed 16-lane binoculars board,
+17 original enemy obligations, four initial Eggs, and 16 persistent height-60
+Spikes. Its randomized eligible originals are Flippers, Tankers, and Spikers;
+Tankers carry two Flippers. Fuseballs and Pulsars are excluded. The candidate
+uses the source Level 4 spike-avoid exit and remains terminal; replay/Game Over
+restart return to a fresh Level 4 candidate. A prominent **Avoid Spikes**
+warning remains through the configured avoidance interval and controllable
+pretravel delay, then hides when exit travel begins. Exit policy is configured
+independently of Spike presence:
+Levels 1-3 use the standard exit; Incitti's Levels 4-7 use the spike-avoid
+policy, and the isolated Level 4 candidate opts into it. Later Spike-bearing
+levels may use a standard exit without this warning. Levels 5-8 are not
+implemented here.
+
+Neal reports manual acceptance of the corrected Spike-exit behavior,
+late-wave Spiker behavior, and overall Level 4 feel. This accepts the visible
+C# behavior only; it does not establish arcade fidelity or Atari's hidden
+identity accounting. The candidate remains development-only and does not add
+natural Level 3 -> Level 4 progression. Source findings are
+**REFERENCE VERIFIED**; C# implementation choices remain project decisions.
+
+Incitti calls the Spiker a Spinner. On retreat it leaves the persistent Spike,
+removes the unresolved enemy from `enemiesleft`, and returns one unit to
+`eggsleft`; it does not score a kill. Each later Egg hatch runs the general
+picker again. That picker excludes Spikers when
+`enemiesleft + egg_list.Count() < 4` or more than three Spikers are active.
+Equality at four still permits Spikers. The listed Egg count includes
+approaching/hatching Eggs; unreleased `eggsleft` reserve does not participate.
+Active Tanker cargo count as enemies after materialization, while bullets and
+Spikes do not; a zapped enemy remains counted until its delayed removal.
+The C# ledger therefore preserves the original ID and unresolved status on
+retreat, clears the runtime type selection, then applies the same general
+picker when that ID hatches again. This is a project representation of the
+reference lifecycle, not a claim about Atari's hidden identity mechanism.
+
+Player firing and traveling shots remain enabled during avoidance and exit
+travel; existing shots continue through reverse/retry, while new firing is
+suppressed during the life-loss interval. A shot in a Spike's lane and below
+its tip shortens it by 10 and scores 1; zero-or-less removes the Spike. Exit
+shots use a Spike-only collision path, so they cannot resolve enemy identities
+or run enemy simulation. Neal's visible Atari observation is that endless
+final-Spiker recycling is wrong; the hidden mechanism that prevents it is not
+arcade-verified. Both corrections still need manual revalidation.
+
+Production Tanker bullets remain enabled, and source-backed Spiker retreat
+bullets are supported in this candidate. Ordinary and cargo Flippers remain
+silent in production, including Level 4; this preserves the accepted Level 1-3
+policy rather than introducing a Level-4-only Flipper bullet unlock. Incitti
+allows ordinary Flipper bullets from earlier levels, so this is a documented
+**PROJECT DECISION** and known source discrepancy, not an arcade-fidelity
+claim. `--enemy-bullets-test` remains an orthogonal development option.
+
 ## Spiker development wave
 
 Normal startup still runs the validated Flipper-only Level 1. To explicitly run

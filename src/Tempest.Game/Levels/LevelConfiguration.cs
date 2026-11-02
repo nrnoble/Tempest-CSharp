@@ -2,13 +2,15 @@ namespace Tempest.Game.Levels;
 
 public enum LevelExitPolicy
 {
-    Standard
+    Standard,
+    AvoidSpikes
 }
 
 public enum LevelEnemyComposition
 {
     FlippersOnly,
-    FlippersAndTankers
+    FlippersAndTankers,
+    FlippersTankersAndSpikers
 }
 
 public enum FlipperPivotGeometry
@@ -54,6 +56,7 @@ public sealed record LevelConfiguration(
     public FlipperConfiguration Flipper { get; init; } = new(false, 2, 8, 21, 24);
     public bool FlipperCanFlip => Flipper.CanFlip;
     public FlipperPivotGeometry FlipperPivotMode { get; init; } = FlipperPivotGeometry.LegacyLaneTurn;
+    public float? StartingSpikeHeight { get; init; }
 
     public static LevelConfiguration Level1 { get; } = new(
         ProgressionIndex: 0,
@@ -137,5 +140,33 @@ public sealed record LevelConfiguration(
     public static LevelConfiguration Level3Mixed { get; } = Level3Plus with
     {
         NormalEnemyComposition = LevelEnemyComposition.FlippersAndTankers
+    };
+
+    // REFERENCE VERIFIED: source Level 4 board, supply, enemy eligibility, and starting Spikes.
+    // DEVELOPMENT ONLY: this isolated candidate is not natural campaign progression.
+    public static LevelConfiguration Level4Candidate { get; } = new(
+        ProgressionIndex: 3,
+        DisplayedLevel: 4,
+        BoardIndex: 3,
+        PaletteIndex: 0,
+        Definition: LevelLoader.LoadLevel4Binoculars(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: 17,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(Enumerable.Range(0, 16).ToArray()),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.AvoidSpikes,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersTankersAndSpikers)
+    {
+        Flipper = new(true, 2, 8, 21, 24),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        StartingSpikeHeight = 60
     };
 }

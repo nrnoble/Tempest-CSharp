@@ -55,6 +55,29 @@ record the uncertainty rather than guessing.
   -> Level 3 sequence, Level 3 entry/gameplay, and terminal/restart behavior.
   This accepts the current C# implementation; it does not establish
   arcade-observed Level 2-to-Level 3 behavior or hidden implementation details.
+- **PROJECT DECISION (D1; visible behavior manually accepted)** — An isolated
+  `--level4-test` diagnostic loads a source-derived Level 4 production
+  candidate. Natural play remains terminal at Level 3; D1 does not add a
+  Level 3-to-Level 4 transition. Neal reports accepting the corrected
+  Spike-exit behavior, late-wave Spiker behavior, and overall Level 4 feel.
+  This accepts visible C# behavior only, not hidden Atari identity accounting
+  or general arcade fidelity.
+- **REFERENCE VERIFIED (D1 source findings)** — Displayed Level 4 is internal
+  source index 3, board 3 ("binoculars"), palette group 0, with a closed
+  16-lane board, center Y 380, offset -65, 17 original enemy obligations,
+  four initial Eggs, and 16 starting height-60 Spikes. Flippers, Tankers, and
+  Spikers are eligible; Tankers carry two Flippers. Fuseballs and Pulsars are
+  not eligible. The Level 4-7 exit uses spike avoidance. These describe the
+  Incitti reference, not arcade-verified C# behavior.
+- **PROJECT DECISION — exit policy and warning:** Spike presence is configured
+  independently from exit policy. The Level 4 candidate uses the explicit
+  `AvoidSpikes` policy; Levels 1-3 use `Standard`. The prominent “Avoid
+  Spikes” warning stays visible through the controllable AvoidSpikes and
+  pretravel ExitDelay states; it hides when ExitZoom begins, and during death,
+  retry, and terminal states.
+  A future Spike-bearing Level 8+ configuration may use the standard exit
+  without the warning. No such later-level configuration or progression is
+  implemented.
 - **PROJECT DECISION** — Natural Level 1-to-2 and Level 2-to-3 progression
   enters a separate interactive approach state. The fresh incoming wave is
   frozen until arrival; movement uses the existing spinner/keyboard path and
@@ -422,11 +445,19 @@ record the uncertainty rather than guessing.
   Level 1/2 launch; `--enemy-bullets-test` enables development firing policies
   in scenarios that support them. Bullet hits do not count as enemy kills.
   The recreation clears bullets on life reconstruction and when exit begins.
+- **PROJECT DECISION (D1)** — Production Tanker firing remains enabled for
+  Levels 3-4, and the Level 4 candidate supports source-backed Spiker
+  growth-retreat bullets. Ordinary/cargo Flippers remain silent across
+  production Levels 1-4 to preserve the accepted Level 1-3 behavior; the
+  optional `--enemy-bullets-test` can still enable Flipper firing. Incitti
+  makes ordinary Flippers bullet-eligible from Level 1, so this is a known
+  project discrepancy rather than a source-derived Level 4 unlock.
 - **DEVELOPMENT ONLY** — Spiker retreat bullets require the Spiker and enemy
-  bullet test options together. Isolated `--tanker-test` bullets require the
-  enemy-bullet option; production-shaped Tanker bullets in direct
-  `--level3-test` access are visible without it. Neither development route
-  establishes unknown arcade firing probabilities or timers.
+  bullet test options together in the isolated Spiker wave. Isolated
+  `--tanker-test` bullets require the enemy-bullet option; production-shaped
+  Tanker bullets in direct `--level3-test` and the Level 4 candidate are
+  visible without it. Neither development route establishes unknown arcade
+  firing probabilities or timers.
 
 ## 5. Spikers and spikes
 
@@ -435,15 +466,49 @@ record the uncertainty rather than guessing.
   pending enemy unit without awarding a kill or points. Shooting a Spiker
   awards 50 points. Shooting a spike shortens it by 10 and awards 1 point;
   spikes persist after their builder leaves.
-- **REFERENCE VERIFIED** — A spike is lethal to a Blaster in the same lane
-  when the spike extends farther toward the rim than the Blaster's current
-  depth. Spiker speed selection in the source uses a fractional/random
-  expression whose precise arcade-equivalent distribution is not established.
+- **REFERENCE VERIFIED** — Incitti's `Egg.PickEnemy` suppresses Spikers when
+  `enemiesleft + egg_list.Count() < 4` or `numspinners > 3`; equality at four
+  still permits them. The active count includes active enemy units (including
+  materialized Tanker cargo and enemies awaiting delayed Super Zapper
+  resolution), but not bullets or Spikes. `egg_list.Count()` includes roaming,
+  approaching, and hatching Eggs, including the Egg currently hatching.
+  Unreleased `eggsleft` reserve is separate and excluded. Retreat removes the
+  Spiker from `enemiesleft` and returns one unit to `eggsleft`; the later Egg
+  hatch invokes the general picker again.
+- **ARCADE VERIFIED (visible behavior only)** — Neal observed that endless
+  final-Spiker recycling does not match his Atari recollection. This does not
+  verify the hidden Egg/identity mechanism by which Atari prevents it.
+- **REFERENCE VERIFIED** — Player-shot updates continue through spike
+  avoidance, exit zoom, and reverse zoom, except the vortex freeze. New firing
+  and movement are source-eligible only while the Blaster is not dying; during
+  reverse life loss, existing shots still travel. During zoom/reverse zoom, the
+  reference updates only Spike hazards as baddies. A player shot in the Spike's
+  lane hits when its depth is below the Spike tip, subtracts 10 height, scores
+  1, and removes the Spike at zero or below. Spike/player collision remains
+  lethal in the same lane when the Spike extends beyond the Blaster.
+- **REFERENCE VERIFIED** — Spiker speed selection in the source uses a
+  fractional/random expression whose precise arcade-equivalent distribution
+  is not established.
 - **DEVELOPMENT ONLY** — The C# Spiker test wave starts height-60 spikes on
   every lane, uses a fixed Spiker speed of 3, and permits Spikers alongside
   Flippers on the existing Level 1 tube. Spikes do not count as enemies and
   do not block this scenario's wave-clear test. These choices do not describe
   authentic Level 1 or later-level composition.
+- **REFERENCE VERIFIED / DEVELOPMENT ONLY** — The isolated Level 4 candidate
+  uses the source binoculars configuration, 17-unit original supply,
+  Flipper/Tanker/Spiker eligibility, and one starting height-60 Spike on each
+  lane. Its production ledger counts each Spiker as an original enemy identity;
+  persistent Spikes remain separate hazards and do not count as enemies.
+  Natural Level 3-to-Level 4 progression remains deferred.
+- **PROJECT DECISION (D1 correction)** — C# retreat preserves the same
+  unresolved original ID and clears its selected runtime type so the returned
+  Egg re-enters the source-backed general picker. Spike-exit shots resolve
+  against persistent Spikes only; hits do not alter enemy or identity
+  accounting. Automated tests cover the strict selection boundary, retreat
+  and re-hatch, exact Spike damage/scoring, depletion, exit collision
+  prevention, and the warning's configured visibility boundary. Neal reports
+  manual acceptance of the corrected visible behavior; this does not verify
+  the hidden Atari identity mechanism.
 - **PROJECT DECISION** — In the development scenario, spikes remain visible
   and hazardous after their Spiker retreats or the Blaster loses a life.
   Arcade timing and feel for growth, retreat, spike damage, and exit avoidance
@@ -650,6 +715,7 @@ These controls are test conveniences, not arcade level-selection or composition:
 | `--level2-test` | Direct access to the shared closed 16-lane square, supply-12 Flipper-only canflip configuration; terminal development replay, no progression selection. |
 | `--level3-geometry-test` | Direct access to the Flipper-only Level 3 plus-board geometry diagnostic; separate from the mixed production-shaped wave. |
 | `--level3-test` | Direct graphical access to the existing production-shaped mixed Level 3 configuration; terminal replay without enabling natural progression. Production Tanker bullets are visible without `--enemy-bullets-test`; ordinary/cargo Flippers are silent by default. |
+| `--level4-test` | Direct access to the isolated Level 4 production candidate: binoculars board, 17 original obligations, randomized Flipper/Tanker/Spiker eligibility, persistent starting Spikes, and spike-avoid exit with its configured Avoid Spikes warning; terminal replay without natural progression. Visible behavior manually accepted; no claim of general arcade fidelity. |
 | `--spiker-test` | Replaces the normal wave with a Spiker/Flipper test wave and height-60 spikes on every lane. |
 | `--tanker-test` | Replaces the normal wave with one controlled Tanker plus ordinary Flipper slots and cargo. |
 | `--fuseball-test` | Direct-hatches the ten-unit supply as Fuseballs, with source-derived late-wave hurry-up. |

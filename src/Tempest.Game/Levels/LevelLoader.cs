@@ -30,4 +30,13 @@ public static class LevelLoader
 			new( -98,  -98), new( -98, -197), new(   0, -197), new(  98, -197),
 			new(  98,  -98), new( 197,  -98), new( 197,    0), new( 197,   98)
 		}), "Level 3 - plus");
+
+	public static LevelDefinition LoadLevel4Binoculars() => new(true, 380, -65,
+		Array.AsReadOnly(new Vector2[]
+		{
+			new(-33, 101), new(-101, 145), new(-185, 116), new(-219, 58),
+			new(-219, -29), new(-185, -87), new(-101, -116), new(-33, -72),
+			new(33, -72), new(101, -116), new(185, -87), new(219, -29),
+			new(219, 58), new(185, 116), new(101, 145), new(33, 101)
+		}), "Level 4 - binoculars");
 }

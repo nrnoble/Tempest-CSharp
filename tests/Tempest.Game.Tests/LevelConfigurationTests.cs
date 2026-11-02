@@ -200,6 +200,30 @@ public sealed class LevelConfigurationTests
             LevelConfiguration.Level2Square with { DisplayedLevel = 2 }));
     }
 
+    [Fact]
+    public void SpikeAvoidanceExitPolicyIsIndependentOfSpikePresenceAndLevelThreeRemainsTerminal()
+    {
+        LevelConfiguration[] existingLevels =
+        [
+            LevelConfiguration.Level1,
+            LevelConfiguration.Level2Square,
+            LevelConfiguration.Level3Plus,
+            LevelConfiguration.Level3Mixed
+        ];
+        Assert.All(existingLevels,
+            configuration => Assert.Equal(LevelExitPolicy.Standard, configuration.ExitPolicy));
+        Assert.Equal(LevelExitPolicy.AvoidSpikes, LevelConfiguration.Level4Candidate.ExitPolicy);
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
+
+        LevelConfiguration futureSpikeLevel = LevelConfiguration.Level4Candidate with
+        {
+            DisplayedLevel = 8,
+            ExitPolicy = LevelExitPolicy.Standard
+        };
+        Assert.NotNull(futureSpikeLevel.StartingSpikeHeight);
+        Assert.Equal(LevelExitPolicy.Standard, futureSpikeLevel.ExitPolicy);
+    }
+
     private static void CompleteLevel1Wave(TempestGame game)
     {
         for (int enemyIndex = 0; enemyIndex < game.CurrentLevel.EnemySupply; enemyIndex++)

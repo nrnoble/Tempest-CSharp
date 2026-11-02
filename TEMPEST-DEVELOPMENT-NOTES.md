@@ -1487,3 +1487,129 @@ these states in tests.
   unknown and unestablished. This is not a Stage A blocker; revisit before
   higher-level gameplay where tighter timing may affect playability. No
   movement or input tuning was part of Stage A.
+
+## D1 isolated Level 4 production candidate (2026-11-02)
+
+Starting checkpoint: `2318ea2 Finalize player-death enemy retraction`.
+Natural campaign behavior remains Level 1 -> Level 2 -> terminal Level 3.
+No Level 3 -> Level 4 edge or Level 5 was added.
+
+**REFERENCE VERIFIED:** Incitti's displayed Level 4 uses internal index 3,
+board 3 ("binoculars"), palette group 0, closed 16-lane geometry, center Y
+380/offset -65, 17 original obligations, four initial Eggs, and 16 height-60
+starting Spikes. Flippers, Tankers, and Spikers are eligible; each Tanker has
+two Flipper cargo units. Fuseballs and Pulsars are excluded. The source uses
+the Level 4-7 spike-avoid exit and does not apply rimit behavior to Spikers.
+These source findings do not make the C# candidate arcade-validated.
+
+**REFERENCE VERIFIED — late Spiker selection:** Incitti's `Egg.PickEnemy`
+forces a non-Spiker selection when `enemiesleft + egg_list.Count() < 4` or
+`spinner.numspinners > 3`; exactly four still permits Spikers. Active baddies
+include materialized Tanker cargo and enemies with pending Super Zapper
+resolution. Bullets and Spike hazards do not change `enemiesleft`.
+`egg_list.Count()` includes roaming, approaching, and the Egg currently
+hatching; unreleased `eggsleft` is not counted. Retreat removes one active
+Spinner and increments `eggsleft`, so the returned unit is selected again
+through the ordinary hatch path.
+
+**ARCADE VERIFIED — visible behavior only:** Neal observed that endless
+final-Spiker recycling does not match his Atari recollection. This does not
+verify the hidden Egg/identity mechanism Atari uses to prevent it.
+
+The first D1 manual acceptance attempt failed on Spike shooting during exit
+and endless final-Spiker recycling. The correction preserves the same
+unresolved original ID while clearing its runtime type after retreat, so its
+later Egg uses the source-backed picker. Exit shots now use a Spike-only
+collision path; each hit subtracts 10 and scores 1, with no ledger resolution,
+and zero-length Spikes are removed. Existing shots also continue through
+reverse/retry, while new shots remain suppressed during life loss. Tests cover
+exit firing, travel/hit/depletion, reverse-shot persistence, collision
+prevention, retreat/re-hatch identity conservation, and the strict late-wave
+boundary. Neal subsequently reported manual acceptance of the corrected
+visible behavior, late-wave behavior, and overall Level 4 feel. This does not
+verify Atari's hidden identity mechanism or broad arcade fidelity.
+
+The **DEVELOPMENT ONLY** `--level4-test` diagnostic loads the source-derived
+candidate directly, stays terminal after successful completion, replays a
+fresh Level 4 on R, and restarts at Level 4 after Game Over. The existing
+production-wave ledger was narrowly extended to represent original Spikers,
+their unresolved return-to-reserve transition, and their destruction/rim-clear
+outcomes; Level 3 behavior remains covered by its existing regression suites.
+Tankers and their owned/ordinal cargo identities continue through the shared
+production lifecycle. Starting Spikes are configured independently of the
+17-unit identity supply and persist through death and spike-exit retry.
+
+**PROJECT DECISION — identity representation:** A retreat returns the same
+unresolved original identity to reserve, resets only its selected runtime
+type, and does not score or change original/total identity counts. Its next
+Egg hatch reruns general Level 4 selection; Tanker cargo remains governed by
+the normal Tanker path. Spike-only exit shooting cannot change these counts.
+
+**PROJECT DECISION — bullets:** production Tanker bullets remain enabled and
+the Level 4 candidate enables the source-backed Spiker growth-retreat bullet
+path. Ordinary/cargo Flippers remain silent across production Levels 1-4 to
+preserve the accepted Level 1-3 behavior; `--enemy-bullets-test` remains an
+opt-in diagnostic. Incitti enables ordinary Flipper bullets from Level 1, so
+this is an explicit known source discrepancy, not a Level-4-only unlock.
+Production rimit/Fuseball/Pulsar behavior remains deferred; no Spiker-specific
+rimit behavior was added.
+
+The accepted render-only player-death retraction timing and Blaster animation
+were not changed. Level 4 uses palette-0 lane highlighting and the shared
+geometry/projection/endpoint-hinge renderer. Its configured spike-avoid exit
+reuses the established reverse/retry path and remains terminal; persistent
+Spikes do not block enemy-supply resolution. The prominent **Avoid Spikes**
+warning remains visible through the configured AvoidSpikes and controllable
+pretravel ExitDelay states, then hides when ExitZoom begins. It is also hidden
+for death, retry, and terminal completion.
+Neal reports manual acceptance of corrected Spike-exit behavior, late-wave
+Spiker behavior, and overall Level 4 feel. This concerns visible behavior,
+not the hidden Atari identity mechanism or broad arcade fidelity.
+
+Exit policy and Spike spawning are separate configuration choices. Current
+Levels 1-3 use the standard exit; Incitti's Levels 4-7 use the spike-avoid
+interval, and the isolated Level 4 candidate opts into it. Spike-bearing
+Levels 8+ may use the standard exit without its warning. This is a future
+configuration boundary only; no Levels 5-8 or natural Level 3 to Level 4
+progression were added.
+
+### Long-term progression notes
+
+The following are Neal's reported arcade observations and design constraints,
+not claims established by the current implementation:
+
+- The first 16 levels use 16 distinct board geometries; Level 17 returns to a
+  prior geometry and introduces Pulsars. The geometry/palette cycle repeats
+  in 16-level groups.
+- Pulsars remain development-only until displayed Level 17 is implemented in
+  normal progression. Do not treat the direct Pulsar diagnostic as production
+  eligibility.
+- Levels 65-80 are reported to use an invisible black presentation; Level 99
+  is reported as the final fixed level, followed by random level selection.
+- Neal reported score rollover after 1,000,000 as an arcade observation. Its
+  hardware cause has not been established.
+
+These are documentation constraints for future work, not permission to add
+later-level content, palette cycling, open-tube support, score rollover, or
+natural progression in D1.
+
+Focused D1 tests cover configuration/ordered points, all 32 directed
+transitions, finite tube/entity projections, lane highlighting, Spiker
+identity/return/reconstruction/re-hatch, Tanker cargo/firing, Super Zapper
+Spiker resolution, Spike persistence, exit firing/damage/depletion, and
+spike-exit collision/retry. Additional tests cover policy configuration,
+warning visibility, and unchanged movement/firing. See the accompanying AI
+report for current validation results. Automated tests establish C# behavior
+only.
+
+Only a final focused visual check remains. Run:
+
+```powershell
+dotnet run --project src/Tempest.Game -- --level4-test --lives 10
+```
+
+Confirm the warning and controllable interval, movement and firing/Spike
+shooting during avoidance, warning disappearance at exit travel, retry
+behavior, and no visual regression. The broader D1 manual acceptance is
+already reported complete; do not repeat it. Natural Level 3 -> Level 4
+progression is D2 and must not be included.
