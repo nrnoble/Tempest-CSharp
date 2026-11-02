@@ -52,7 +52,8 @@ public sealed class Level4CandidateTests
         Assert.Equal(FlipperPivotGeometry.EndpointHinge, configuration.FlipperPivotMode);
         Assert.True(configuration.FlipperCanFlip);
         Assert.Null(LevelProgression.GetNextProductionLevel(configuration));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
+        Assert.Same(LevelConfiguration.Level4Candidate,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
     }
 
     [Fact]
@@ -105,19 +106,22 @@ public sealed class Level4CandidateTests
     }
 
     [Fact]
-    public void AvoidSpikesWarningDoesNotChangePlayerControlsOrFiring()
+    public void AvoidSpikesWarningAllowsMovementButSuppressesNewFiring()
     {
         TempestGame game = new(level4Test: true, random: new MinimumRandom());
         game.CurrentLevel.State = LevelState.AvoidSpikes;
         Assert.True(game.ShouldShowAvoidSpikesWarning);
         float initialLanePosition = game.Player.EdgePosition;
         int firingLane = game.Player.EdgeIndex;
+        Spike spike = game.Spikes.Single(candidate => candidate.EdgeIndex == firingLane);
+        float initialSpikeHeight = spike.Height;
 
         game.RunOneStep(new PlayerInput(Fire: true, MouseDeltaX: 0, Left: false, Right: true));
 
         Assert.Equal(LevelState.AvoidSpikes, game.State);
         Assert.True(game.Player.EdgePosition > initialLanePosition);
-        Assert.Equal(firingLane, Assert.Single(game.Shots).EdgeIndex);
+        Assert.Empty(game.Shots);
+        Assert.Equal(initialSpikeHeight, spike.Height);
     }
 
     [Fact]
@@ -629,7 +633,8 @@ public sealed class Level4CandidateTests
         Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger!;
         HashSet<int> unresolvedOriginals = ledger.UnresolvedOriginalIds.ToHashSet();
         int totalIdentityCount = ledger.TotalIdentityCount;
-        game.CurrentLevel.State = LevelState.AvoidSpikes;
+        game.CurrentLevel.State = LevelState.ExitZoom;
+        Assert.False(game.ShouldShowAvoidSpikesWarning);
 
         for (int tick = 0; tick < 100 && game.Spikes.Contains(spike); tick++)
             game.RunOneStep(new PlayerInput(Fire: true, MouseDeltaX: 0, Left: false, Right: false));
@@ -642,22 +647,60 @@ public sealed class Level4CandidateTests
     }
 
     [Fact]
-    public void SpikeExitDelayAcceptsFireAndMovementWithoutAdvancingEggs()
+    public void AvoidSpikesAndExitDelaySuppressFireAndMovementStillWorks()
     {
         TempestGame game = new(level4Test: true, random: new MinimumRandom());
         Egg egg = game.Eggs[0];
         float eggHeight = egg.Height;
         int firingLane = game.Player.EdgeIndex;
-        game.CurrentLevel.State = LevelState.ExitDelay;
-
+        game.CurrentLevel.State = LevelState.AvoidSpikes;
         game.RunOneStep(new PlayerInput(Fire: true, MouseDeltaX: 0, Left: false, Right: true));
 
-        Shot shot = Assert.Single(game.Shots);
-        Assert.Equal(firingLane, shot.EdgeIndex);
-        Assert.Equal(400, shot.Height);
+        Assert.Empty(game.Shots);
         Assert.True(game.Player.EdgePosition > .5f);
         Assert.Equal(eggHeight, egg.Height);
+        Assert.Equal(LevelState.AvoidSpikes, game.State);
+        Assert.True(game.ShouldShowAvoidSpikesWarning);
+
+        game.CurrentLevel.State = LevelState.ExitDelay;
+        game.RunOneStep(new PlayerInput(Fire: true, MouseDeltaX: 0, Left: false, Right: false));
+
+        Assert.Empty(game.Shots);
+        Assert.Equal(firingLane, game.Player.EdgeIndex);
+        Assert.Equal(eggHeight, egg.Height);
         Assert.Equal(LevelState.ExitDelay, game.State);
+        Assert.True(game.ShouldShowAvoidSpikesWarning);
+    }
+
+    [Fact]
+    public void AvoidSpikesTransitionPreservesAndAdvancesShotsAlreadyInFlight()
+    {
+        LevelConfiguration noInitialEggs =
+            LevelConfiguration.Level4Candidate with { InitialActiveEggCount = 0 };
+        TempestGame game = new(noInitialEggs, random: new MinimumRandom());
+        Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger!;
+        for (int id = 0; id < ledger.OriginalCount; id++)
+        {
+            ledger.MarkOriginalEgg(id);
+            ledger.CommitOriginalAsFlipper(id);
+            ledger.MarkOriginalRimCleared(id);
+        }
+
+        Spike spike = game.Spikes.Single(candidate => candidate.EdgeIndex == game.Player.EdgeIndex);
+        spike.Height = 390;
+        game.RunOneStep(new PlayerInput(Fire: true, MouseDeltaX: 0, Left: false, Right: false));
+
+        Shot shot = Assert.Single(game.Shots);
+        Assert.Equal(LevelState.AvoidSpikes, game.State);
+        Assert.Equal(394, shot.Height);
+        Assert.Equal(0, game.Score.Score);
+
+        for (int tick = 0; tick < 5 && game.Shots.Contains(shot); tick++)
+            game.RunOneStep();
+
+        Assert.Empty(game.Shots);
+        Assert.Equal(1, game.Score.Score);
+        Assert.Equal(380, spike.Height);
     }
 
     [Fact]
@@ -683,10 +726,9 @@ public sealed class Level4CandidateTests
 
         Spike damagedSpike = game.Spikes.Single(spike => spike.EdgeIndex == game.Player.EdgeIndex);
         game.RunOneStep(new PlayerInput(Fire: true, MouseDeltaX: 0, Left: false, Right: false));
-        for (int tick = 0; tick < 60 && game.Score.Score == 0; tick++)
-            game.RunOneStep();
-        Assert.Equal(1, game.Score.Score);
-        Assert.Equal(50, damagedSpike.Height);
+        Assert.Empty(game.Shots);
+        Assert.Equal(0, game.Score.Score);
+        Assert.Equal(60, damagedSpike.Height);
 
         for (int tick = 0; tick < 151 && game.State == LevelState.AvoidSpikes; tick++)
             game.RunOneStep();
@@ -715,8 +757,8 @@ public sealed class Level4CandidateTests
             game.RunOneStep();
         Assert.Equal(LevelState.AvoidSpikes, game.State);
         Assert.Equal(4, game.Player.Lives);
-        Assert.Equal(2, game.Score.Score);
-        Assert.Equal(40, damagedSpike.Height);
+        Assert.Equal(1, game.Score.Score);
+        Assert.Equal(50, damagedSpike.Height);
         Assert.Equal(397, exitCollisionSpike.Height);
         Assert.Empty(ledger.UnresolvedOriginalIds);
         Assert.Empty(game.Eggs);
@@ -733,7 +775,7 @@ public sealed class Level4CandidateTests
 
         Assert.True(game.LevelComplete);
         Assert.Equal(4, game.Player.Lives);
-        Assert.Equal(2, game.Score.Score);
+        Assert.Equal(1, game.Score.Score);
         Assert.Empty(ledger.UnresolvedOriginalIds);
         Assert.Empty(game.Eggs);
         Assert.Equal(17, ledger.TotalIdentityCount);

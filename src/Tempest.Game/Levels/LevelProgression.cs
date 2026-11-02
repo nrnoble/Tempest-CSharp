@@ -7,5 +7,7 @@ public static class LevelProgression
             ? LevelConfiguration.Level2Square
             : ReferenceEquals(current, LevelConfiguration.Level2Square)
                 ? LevelConfiguration.Level3Mixed
-                : null;
+                : ReferenceEquals(current, LevelConfiguration.Level3Mixed)
+                    ? LevelConfiguration.Level4Candidate
+                    : null;
 }

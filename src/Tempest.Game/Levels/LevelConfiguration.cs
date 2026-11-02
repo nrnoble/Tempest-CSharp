@@ -135,15 +135,14 @@ public sealed record LevelConfiguration(
         FlipperPivotMode = FlipperPivotGeometry.EndpointHinge
     };
 
-    // Composition is REFERENCE VERIFIED; direct --level3-test access is DEVELOPMENT ONLY and
-    // remains terminal without adding natural campaign progression.
+    // Composition is REFERENCE VERIFIED; direct --level3-test access remains DEVELOPMENT ONLY.
     public static LevelConfiguration Level3Mixed { get; } = Level3Plus with
     {
         NormalEnemyComposition = LevelEnemyComposition.FlippersAndTankers
     };
 
     // REFERENCE VERIFIED: source Level 4 board, supply, enemy eligibility, and starting Spikes.
-    // DEVELOPMENT ONLY: this isolated candidate is not natural campaign progression.
+    // Natural campaign progression and --level4-test share this accepted configuration.
     public static LevelConfiguration Level4Candidate { get; } = new(
         ProgressionIndex: 3,
         DisplayedLevel: 4,

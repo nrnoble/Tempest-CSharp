@@ -4374,6 +4374,17 @@ public sealed class SimulationTests
         Assert.Equal(0, game.CurrentLevel.ReserveEggs);
     }
 
+    [Fact]
+    public void SpikerDiagnosticRetainsFiringDuringItsAvoidanceInterval()
+    {
+        TempestGame game = BeginSpikerExit();
+
+        game.RunOneStep(new PlayerInput(Fire: true, MouseDeltaX: 0, Left: false, Right: false));
+
+        Assert.Single(game.Shots);
+        Assert.Equal(LevelState.AvoidSpikes, game.State);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -5519,7 +5530,7 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void NaturalLevel3CompletionIsTerminalAndRStartsANewCampaign()
+    public void NaturalLevel3CompletionEntersTheLevel4ApproachWithCampaignState()
     {
         TempestGame game = new(startingLives: 5);
         for (int enemyIndex = 0; enemyIndex < 10; enemyIndex++)
@@ -5546,22 +5557,41 @@ public sealed class SimulationTests
         Assert.Equal(2, game.Player.Lives);
 
         Level level3 = game.CurrentLevel;
-        game.CurrentLevel.State = LevelState.ExitZoom;
-        game.Player.AdvanceExit(Level.Depth - 12);
+        Level3WaveLedger ledger = level3.Level3Ledger!;
+        foreach (int id in ledger.UnresolvedOriginalIds.Order())
+        {
+            if (ledger.GetOriginalState(id) == Level3OriginalState.Reserve)
+                ledger.MarkOriginalEgg(id);
+            ledger.CommitOriginalAsFlipper(id);
+            ledger.MarkOriginalDestroyed(id);
+        }
+        level3.ResetAfterDeath();
         game.RunOneStep();
-        Assert.True(game.LevelComplete);
-        Assert.Same(level3, game.CurrentLevel);
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        Assert.Empty(ledger.UnresolvedOriginalIds);
 
-        game.RunOneStep(new PlayerInput(true, 80, false, false));
-        Assert.Empty(game.Shots);
-        Assert.Equal(7, game.Player.EdgeIndex);
-        game.RunOneStep(restartPressed: true);
+        for (int tick = 0; tick < 300 && ReferenceEquals(level3, game.CurrentLevel); tick++)
+            game.RunOneStep();
+
+        Assert.NotSame(level3, game.CurrentLevel);
         Assert.False(game.LevelComplete);
-        Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
-        Assert.Equal(0, game.Score.Score);
-        Assert.Equal(5, game.Player.Lives);
-        Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
+        Assert.Same(LevelConfiguration.Level4Candidate, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Approach, game.State);
+        Assert.Equal(1500, game.Score.Score);
+        Assert.Equal(2, game.Player.Lives);
+        Assert.Equal(4, game.Eggs.Count);
+        Assert.Equal(13, game.CurrentLevel.ReserveEggs);
+        Assert.Equal(16, game.Spikes.Count);
+        Assert.Empty(game.Flippers);
+        Assert.Empty(game.Tankers);
+        Assert.Empty(game.Spikers);
+
+        for (int tick = 0; tick < LevelApproach.DurationTicks; tick++)
+            game.RunOneStep();
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Same(LevelConfiguration.Level4Candidate, game.CurrentLevel.Configuration);
+        Assert.Equal(1500, game.Score.Score);
+        Assert.Equal(2, game.Player.Lives);
     }
 
     [Theory]

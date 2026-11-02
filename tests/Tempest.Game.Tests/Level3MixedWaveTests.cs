@@ -1744,7 +1744,8 @@ public sealed class Level3MixedWaveTests
         Assert.Equal(LevelState.Complete, game.State);
         Assert.Same(previous, game.CurrentLevel);
         Assert.Same(LevelConfiguration.Level3Mixed, game.CurrentLevel.Configuration);
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
+        Assert.Same(LevelConfiguration.Level4Candidate,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
 
         game.RunOneStep(restartPressed: true);
 

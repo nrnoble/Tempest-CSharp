@@ -11,10 +11,11 @@ namespace Tempest.Game;
 /// renderer only reads the public state exposed here.
 /// </summary>
 /// <remarks>
-/// Normal play progresses from Level 1 through the square Level 2 to the mixed Level 3. Direct
-/// Level 2/3/4 access, the Level 3 geometry diagnostic, the configuration-based headless Level 3
-/// mixed model, and the Spiker, Tanker, Fuseball and Pulsar scenarios are development-only. Enemy
-/// bullets remain an orthogonal test option. Flipper waves use the existing accounting and shot path.
+/// Normal play progresses from Level 1 through the square Level 2 and mixed Level 3 to the Level 4
+/// production configuration. Direct Level 2/3/4 access, the Level 3 geometry diagnostic, the
+/// configuration-based headless Level 3 mixed model, and the Spiker, Tanker, Fuseball and Pulsar
+/// scenarios are development-only. Enemy bullets remain an orthogonal test option. Flipper waves
+/// use the existing accounting and shot path.
 /// </remarks>
 public sealed class TempestGame
 {
@@ -504,9 +505,9 @@ public sealed class TempestGame
         shots.Clear();
     }
 
-    private void UpdatePlayer(PlayerInput input)
+    private void UpdatePlayer(PlayerInput input, bool firingEnabled = true)
     {
-        UpdatePlayerFiring(input.Fire);
+        UpdatePlayerFiring(input.Fire && firingEnabled);
 
         UpdatePlayerMovement(input);
     }
@@ -1610,7 +1611,8 @@ public sealed class TempestGame
                 _ => throw new InvalidOperationException("The configured Level exit policy is unsupported.")
             };
         exitDelayTicks = 0;
-        shots.Clear();
+        if (CurrentLevel.Configuration.ExitPolicy != LevelExitPolicy.AvoidSpikes)
+            shots.Clear();
         enemyBullets.Clear();
         developmentCollisionOrder.RemoveAll(target => target is EnemyBullet);
     }
@@ -1650,6 +1652,8 @@ public sealed class TempestGame
 
     private void UpdateSpikeExit(PlayerInput input)
     {
+        bool firingEnabled = State == LevelState.ExitZoom ||
+            CurrentLevel.Configuration.ExitPolicy != LevelExitPolicy.AvoidSpikes;
         if (State == LevelState.ExitZoom)
             UpdateExitZoom(completeWhenFinished: false);
 
@@ -1669,7 +1673,7 @@ public sealed class TempestGame
             return;
         }
 
-        UpdatePlayer(input);
+        UpdatePlayer(input, firingEnabled);
         if (State == LevelState.AvoidSpikes)
         {
             RestoreProjection();

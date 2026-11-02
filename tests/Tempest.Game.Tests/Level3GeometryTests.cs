@@ -53,7 +53,8 @@ public sealed class Level3GeometryTests
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level1));
         Assert.Same(LevelConfiguration.Level3Mixed,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level2Square));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
+        Assert.Same(LevelConfiguration.Level4Candidate,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
         Assert.Null(LevelProgression.GetNextProductionLevel(configuration));
     }
 

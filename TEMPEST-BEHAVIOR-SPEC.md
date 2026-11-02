@@ -52,16 +52,23 @@ record the uncertainty rather than guessing.
   successful Level 2 exit travel, normal play installs the existing
   `Level3Mixed` configuration as a fresh Level 3 wave, carrying score and
   current lives. Neal manually accepted the visible natural Level 1 -> Level 2
-  -> Level 3 sequence, Level 3 entry/gameplay, and terminal/restart behavior.
-  This accepts the current C# implementation; it does not establish
+  -> Level 3 sequence and Level 3 entry/gameplay. This accepts the current C#
+  implementation; it does not establish
   arcade-observed Level 2-to-Level 3 behavior or hidden implementation details.
-- **PROJECT DECISION (D1; visible behavior manually accepted)** — An isolated
+- **PROJECT DECISION (D1; visible behavior manually accepted)** — The isolated
   `--level4-test` diagnostic loads a source-derived Level 4 production
-  candidate. Natural play remains terminal at Level 3; D1 does not add a
-  Level 3-to-Level 4 transition. Neal reports accepting the corrected
+  configuration. Neal reports accepting the corrected
   Spike-exit behavior, late-wave Spiker behavior, and overall Level 4 feel.
   This accepts visible C# behavior only, not hidden Atari identity accounting
   or general arcade fidelity.
+- **PROJECT DECISION (D2; visible behavior manually accepted)** — Natural Level 3
+  completion now proceeds through the existing approach into the same Level 4
+  production configuration used by `--level4-test`. Successful Level 4
+  completion is temporarily terminal because Level 5 is not implemented; R
+  starts a fresh natural campaign at Level 1. This is a C# progression policy,
+  not an arcade observation. Neal manually accepted the visible natural
+  Level 1 -> 2 -> 3 -> 4 campaign; this does not establish hidden implementation
+  details or general arcade fidelity.
 - **REFERENCE VERIFIED (D1 source findings)** — Displayed Level 4 is internal
   source index 3, board 3 ("binoculars"), palette group 0, with a closed
   16-lane board, center Y 380, offset -65, 17 original enemy obligations,
@@ -78,6 +85,22 @@ record the uncertainty rather than guessing.
   A future Spike-bearing Level 8+ configuration may use the standard exit
   without the warning. No such later-level configuration or progression is
   implemented.
+- **ARCADE VERIFIED (visible behavior only; Neal's direct observation)** —
+  During the Avoid Spikes warning/pretravel interval, rim movement remains
+  available but firing is disabled. Firing becomes available once down-tube
+  exit travel begins. During travel, shots damage Spikes, successful hits score
+  1, and Spike collision/reverse/retry remains functional. A shot already in
+  flight when the enemy wave completes is not arbitrarily erased as Avoid
+  Spikes begins. This visible observation supersedes Incitti's conflicting
+  firing behavior; it does not establish hidden implementation details.
+- **PROJECT DECISION (Level 4 implementation)** — The configured AvoidSpikes
+  path suppresses new shots throughout AvoidSpikes and ExitDelay, enabling
+  them only on an update that begins in ExitZoom. Shots already traveling at
+  the transition into AvoidSpikes are retained and continue updating and
+  colliding with Spikes. Neal manually accepted the visible firing boundary,
+  damage/scoring, retry, and in-flight shot behavior. Levels 1-3 standard-exit
+  behavior is unchanged. The C# identity/accounting implementation remains a
+  project decision, not an arcade-verified hidden mechanism.
 - **PROJECT DECISION** — Natural Level 1-to-2 and Level 2-to-3 progression
   enters a separate interactive approach state. The fresh incoming wave is
   frozen until arrival; movement uses the existing spinner/keyboard path and
@@ -479,13 +502,15 @@ record the uncertainty rather than guessing.
   final-Spiker recycling does not match his Atari recollection. This does not
   verify the hidden Egg/identity mechanism by which Atari prevents it.
 - **REFERENCE VERIFIED** — Player-shot updates continue through spike
-  avoidance, exit zoom, and reverse zoom, except the vortex freeze. New firing
-  and movement are source-eligible only while the Blaster is not dying; during
-  reverse life loss, existing shots still travel. During zoom/reverse zoom, the
-  reference updates only Spike hazards as baddies. A player shot in the Spike's
-  lane hits when its depth is below the Spike tip, subtracts 10 height, scores
-  1, and removes the Spike at zero or below. Spike/player collision remains
-  lethal in the same lane when the Spike extends beyond the Blaster.
+  avoidance, exit zoom, and reverse zoom, except the vortex freeze; the
+  reference does not clear in-flight shots when avoidance begins. `Player.Update`
+  remains eligible to fire in AvoidSpikes and StartZoom as well as ExitZoom.
+  Neal's direct observation above overrides this for new firing during the
+  configured Level 4 AvoidSpikes/ExitDelay interval. During zoom/reverse zoom,
+  the reference updates only Spike hazards as baddies. A player shot in the
+  Spike's lane hits when its depth is below the Spike tip, subtracts 10 height,
+  scores 1, and removes the Spike at zero or below. Spike/player collision
+  remains lethal in the same lane when the Spike extends beyond the Blaster.
 - **REFERENCE VERIFIED** — Spiker speed selection in the source uses a
   fractional/random expression whose precise arcade-equivalent distribution
   is not established.
@@ -494,12 +519,13 @@ record the uncertainty rather than guessing.
   Flippers on the existing Level 1 tube. Spikes do not count as enemies and
   do not block this scenario's wave-clear test. These choices do not describe
   authentic Level 1 or later-level composition.
-- **REFERENCE VERIFIED / DEVELOPMENT ONLY** — The isolated Level 4 candidate
-  uses the source binoculars configuration, 17-unit original supply,
+- **REFERENCE VERIFIED (D1 source findings)** — The Level 4 production
+  configuration uses the source binoculars board, 17-unit original supply,
   Flipper/Tanker/Spiker eligibility, and one starting height-60 Spike on each
-  lane. Its production ledger counts each Spiker as an original enemy identity;
-  persistent Spikes remain separate hazards and do not count as enemies.
-  Natural Level 3-to-Level 4 progression remains deferred.
+  lane. Incitti identifies Spikers as enemies; persistent Spikes are separate
+  hazards and do not count as enemy supply.
+- **PROJECT DECISION (D2)** — Natural progression and the direct diagnostic
+  share the accepted Level 4 configuration and gameplay.
 - **PROJECT DECISION (D1 correction)** — C# retreat preserves the same
   unresolved original ID and clears its selected runtime type so the returned
   Egg re-enters the source-backed general picker. Spike-exit shots resolve
@@ -780,14 +806,16 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   presentation/timing, Egg pacing, normal enemy-bullet frequency, Spiker and
   Tanker arcade eligibility/composition, and exit visuals need direct arcade
   comparison where they matter.
-- **PROJECT DECISION** — Progression beyond terminal Level 3 and authentic
+- **PROJECT DECISION** — The temporary terminal after Level 4 and authentic
   later-wave composition, open-tube rendering, bonus rules, broader
   enemy/cargo combinations, and source-specific death effects remain out of
   scope or deferred. Natural Level 1-to-Level 2-to-Level 3 progression has
-  passed manual acceptance of visible C# behavior. This acceptance does not
-  establish hidden implementation details or new arcade behavior; remaining
-  uncertainties are recorded above. Audio and sound fidelity remain a
-  long-term roadmap item; no audio playback is implemented.
+  passed manual acceptance of visible C# behavior. Neal also manually accepted
+  the natural Level 3 -> Level 4 handoff and terminal Level 4 campaign,
+  including the corrected firing boundary. This does not establish hidden
+  implementation details or general arcade fidelity; remaining uncertainties
+  are recorded above. Audio and sound fidelity remain a long-term roadmap item;
+  no audio playback is implemented.
 - **ARCADE VERIFIED** — Neal observed a brief Atari between-level approach
   after the Blaster exits a tube: a first-person view moves through space
   toward the next tube, which begins small/distant and grows as the player
@@ -795,9 +823,9 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   moves it around that rim during the approach, before combat engagement.
   This qualitative observation does not establish duration, zoom rate,
   projection formulas, enemy-start timing or exact firing enablement.
-- **PROJECT DECISION (implementation; graphical acceptance pending)** —
+- **PROJECT DECISION (implementation; visible D2 behavior manually accepted)** —
   Natural production progression enters an explicit approach state after the
-  successful exit commit for both Level 1 -> 2 and Level 2 -> 3. The incoming
+  successful exit commit for Level 1 -> 2, Level 2 -> 3, and Level 3 -> 4. The incoming
   configuration and fresh wave are installed at approach start, but gameplay
   simulation is frozen until arrival.   spinner, keyboard and left-stick (with a project 0.15 normalized dead zone)
   movement remain enabled; fire and Super Zapper are suppressed. Rendering
@@ -806,9 +834,9 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   120-simulation-tick duration, 240-unit initial depth offset and smoothstep
   curve are provisional project presentation tuning, not arcade-verified
   values. Automated tests validate state, freeze, movement and projection
-  endpoints; Neal's graphical acceptance of both natural approaches is still
-  required. Do not infer exact Atari timing, curve, projection constants or
-  internal input policy from this implementation.
+  endpoints. Neal manually accepted the visible natural Level 1 -> 2 -> 3 -> 4
+  campaign approach. Do not infer exact Atari timing, curve, projection
+  constants or internal input policy from this implementation.
 
 ## 12. Behavior-validation history
 
@@ -902,20 +930,22 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
 - **C4 natural Level 2-to-Level 3 implementation** — Automated tests verify
   that successful natural Level 2 exit installs the existing `Level3Mixed`
   configuration with fresh wave state, carried score/lives, and the
-  configuration's two-charge Super Zapper state; Level 3 has no successor.
-  Direct development scenarios remain isolated. Neal manually accepted the
-  visible natural progression, Level 3 board/display/HUD, fresh mixed wave,
-  two usable Super Zapper charges, gameplay spot-check, terminal behavior and
-  restart in normal campaign play. This validates visible behavior of the
-  current C# implementation; neither tests nor manual acceptance establish
-  hidden scheduling/internal behavior or new arcade evidence.
+  configuration's two-charge Super Zapper state; at the C4 checkpoint Level 3
+  had no successor. Direct development scenarios remained isolated. Neal
+  manually accepted the visible natural progression, Level 3 board/display/HUD,
+  fresh mixed wave, two usable Super Zapper charges, gameplay spot-check,
+  terminal behavior and restart at that checkpoint. D2 now supersedes that
+  terminal policy. This validates visible C# behavior only; neither tests nor
+  manual acceptance establish hidden scheduling/internal behavior or new
+  arcade evidence.
 - **Between-level approach presentation** — Neal reports that Atari shows a
   brief first-person approach through space to the next tube. The distant
   tube grows in view; the Blaster appears on its distant rim and remains
   spinner-movable during approach, then combat begins. This gameplay-relevant
-  approach is implemented for both natural production transitions and Neal
-  manually accepted its current C# presentation. He observed no ExitZoom
-  handoff discontinuity, projection flash, wrong board, Blaster jump or new
+  approach is implemented for natural production transitions. Neal manually
+  accepted the visible natural Level 1 -> 2 -> 3 -> 4 campaign approach.
+  He observed no ExitZoom handoff discontinuity, projection flash, wrong board,
+  Blaster jump or new
   problem, and found it impressive and close to remembered Atari behavior.
   These observations accept the current implementation; they do not establish
   exact arcade timing or projection parameters. The elevated Atari approach

@@ -158,11 +158,14 @@ safety; Incitti's destination-only shot ownership is not silently imported.
 Normal Level 1 progresses automatically to this Level 2 after successful
 travel. Natural Level 2 now progresses to Level 3 after its successful exit;
 `--level2-test` itself remains terminal and replayable with R and does not
-enable campaign progression. Natural Level 3 is terminal; R starts a new
-normal campaign at Level 1.
+enable campaign progression. Natural Level 3 now progresses through the
+accepted Level 4 configuration after its successful exit. Level 4 is
+temporarily terminal because Level 5 is not implemented; R starts a fresh
+natural campaign at Level 1.
 
-Score and current lives carry from Level 1. The Super Zapper is restored to
-two charges on fresh Level 2 setup. There is no level-completion bonus, bonus
+Score and current lives carry unchanged into each natural level, including
+Level 4. The Super Zapper is restored to two charges on fresh-level setup.
+There is no level-completion bonus, bonus
 life, source `startbonus`, Begin/Ready entry animation, entry-position shift
 or audio. These are incomplete presentation/economy features, not claims of
 arcade-equivalent behavior. Level 1 remains the default with no flags.
@@ -196,9 +199,11 @@ distant Blaster before combat engagement. The C# approach translates only the
 incoming tube/player projection, freezes the incoming wave, and permits
 spinner, left-stick and keyboard rim movement while suppressing fire and
 Super Zapper. Its 120-tick duration and 240-unit starting depth offset are
-provisional project presentation tuning, not arcade measurements. Graphical
-acceptance of pacing, scale, controls and arrival remains pending. Audio and
-sound fidelity remain long-term roadmap items; no audio playback is implemented.
+provisional project presentation tuning, not arcade measurements. Neal
+manually accepted the visible natural Level 1 -> Level 2 -> Level 3 -> Level 4
+campaign approach; this does not verify exact timing, scale, or projection
+parameters. Audio and sound fidelity remain long-term roadmap items; no audio
+playback is implemented.
 
 ## Level 3 plus-board geometry diagnostic
 
@@ -218,8 +223,8 @@ graphically included in this diagnostic.
 The diagnostic is terminal and R replays it; Game Over restart stays on the
 same board. It conflicts with other scenario-selection flags and composes
 with `--lives` and the existing optional `--enemy-bullets-test`. Normal play
-progresses through Level 1 and Level 2 to terminal Level 3. Production Tanker
-mixed-wave access is provided separately below; the diagnostic remains
+progresses through Level 1, Level 2, Level 3, and terminal Level 4. Production
+Tanker mixed-wave access is provided separately below; the diagnostic remains
 Flipper-only. Level 1/2 wave policy and
 progression remain unchanged, but C1.5 changed directed enemy pivot
 geometry/timing. Neal manually validated and passed the inward-pivot,
@@ -263,28 +268,31 @@ classifications are unchanged.
 dotnet run --project src/Tempest.Game -- --level4-test --lives 10
 ```
 
-`--level4-test` is **DEVELOPMENT ONLY** direct access to an isolated Level 4
-production candidate; it does not add natural Level 3 -> Level 4 progression.
-The configuration uses the source-derived closed 16-lane binoculars board,
-17 original enemy obligations, four initial Eggs, and 16 persistent height-60
-Spikes. Its randomized eligible originals are Flippers, Tankers, and Spikers;
-Tankers carry two Flippers. Fuseballs and Pulsars are excluded. The candidate
-uses the source Level 4 spike-avoid exit and remains terminal; replay/Game Over
-restart return to a fresh Level 4 candidate. A prominent **Avoid Spikes**
-warning remains through the configured avoidance interval and controllable
-pretravel delay, then hides when exit travel begins. Exit policy is configured
-independently of Spike presence:
-Levels 1-3 use the standard exit; Incitti's Levels 4-7 use the spike-avoid
-policy, and the isolated Level 4 candidate opts into it. Later Spike-bearing
+`--level4-test` is **DEVELOPMENT ONLY** direct access to Level 4; it does not
+enable or replace natural campaign progression. Natural Level 3 -> Level 4
+and the diagnostic use the same accepted production configuration and
+gameplay. The configuration uses the source-derived closed 16-lane binoculars
+board, 17 original enemy obligations, four initial Eggs, and 16 persistent
+height-60 Spikes. Its randomized eligible originals are Flippers, Tankers, and
+Spikers; Tankers carry two Flippers. Fuseballs and Pulsars are excluded. Level 4 uses
+the spike-avoid exit and remains terminal; natural-campaign R starts a fresh
+Level 1 campaign, while diagnostic replay/Game Over restart return to Level 4.
+A prominent **Avoid Spikes** warning remains through the configured avoidance
+interval and controllable pretravel delay, then hides when exit travel begins.
+Exit policy is configured
+independently of Spike presence: Levels 1-3 use the standard exit; Incitti's
+Levels 4-7 use the spike-avoid policy, and the Level 4 configuration opts into
+it. Later Spike-bearing
 levels may use a standard exit without this warning. Levels 5-8 are not
 implemented here.
 
-Neal reports manual acceptance of the corrected Spike-exit behavior,
-late-wave Spiker behavior, and overall Level 4 feel. This accepts the visible
-C# behavior only; it does not establish arcade fidelity or Atari's hidden
-identity accounting. The candidate remains development-only and does not add
-natural Level 3 -> Level 4 progression. Source findings are
-**REFERENCE VERIFIED**; C# implementation choices remain project decisions.
+Neal manually accepted the natural Level 1 -> Level 2 -> Level 3 -> Level 4
+campaign, including the corrected Spike-exit behavior, late-wave Spiker
+behavior, and overall Level 4 feel. This accepts visible behavior only; it
+does not establish general arcade fidelity or Atari's hidden identity
+accounting. The direct diagnostic remains development-only.
+Source findings are **REFERENCE VERIFIED**; C# implementation choices remain
+project decisions.
 
 Incitti calls the Spiker a Spinner. On retreat it leaves the persistent Spike,
 removes the unresolved enemy from `enemiesleft`, and returns one unit to
@@ -300,14 +308,21 @@ retreat, clears the runtime type selection, then applies the same general
 picker when that ID hatches again. This is a project representation of the
 reference lifecycle, not a claim about Atari's hidden identity mechanism.
 
-Player firing and traveling shots remain enabled during avoidance and exit
-travel; existing shots continue through reverse/retry, while new firing is
-suppressed during the life-loss interval. A shot in a Spike's lane and below
-its tip shortens it by 10 and scores 1; zero-or-less removes the Spike. Exit
-shots use a Spike-only collision path, so they cannot resolve enemy identities
-or run enemy simulation. Neal's visible Atari observation is that endless
-final-Spiker recycling is wrong; the hidden mechanism that prevents it is not
-arcade-verified. Both corrections still need manual revalidation.
+During the configured Avoid Spikes interval and pretravel delay, rim movement
+remains available but new firing is disabled. Firing becomes available on the
+first update after down-tube exit travel begins. Shots already in flight when
+Avoid Spikes starts are retained and continue moving, including through
+reverse/retry; firing is also suppressed during the life-loss interval. This
+visible firing boundary follows Neal's direct arcade observation, which
+differs from Incitti's general firing eligibility in these states. A shot in
+a Spike's lane and below its tip shortens it by 10 and scores 1; zero-or-less
+removes the Spike. Exit shots use a Spike-only collision path, so they cannot
+resolve enemy identities or run enemy simulation. Neal's visible Atari
+observation is that endless final-Spiker recycling is wrong; the hidden
+mechanism that prevents it is not arcade-verified. Neal manually verified the
+visible firing boundary, Spike damage/scoring, reverse/retry, and preservation
+of shots already in flight when avoidance begins. This does not verify the
+hidden C# identity/accounting mechanisms.
 
 Production Tanker bullets remain enabled, and source-backed Spiker retreat
 bullets are supported in this candidate. Ordinary and cargo Flippers remain
@@ -334,12 +349,13 @@ Spikers award 50 points; spike hits award 1 point and shorten the spike by 10.
 The final hatch selections exclude Spikers when active enemies plus Eggs fall
 below four, following the source's end-of-wave restriction.
 
-After the wave resolves, this scenario permits movement and firing during a
-151-update avoidance interval, the 21-update exit delay, and zoom. Avoid or
-shoot remaining spikes. Hitting one during travel costs one life and reverses
-the zoom before an exit retry; spikes persist. R replays after completion and
-restarts after Game Over. Omit the flag to return to normal Level 1. No other
-enemy types, next level, bonus, or audio are implemented.
+In this separate Spiker diagnostic, after the wave resolves movement and
+firing remain enabled during a 151-update avoidance interval, the 21-update
+exit delay, and zoom. Avoid or shoot remaining spikes. Hitting one during
+travel costs one life and reverses the zoom before an exit retry; spikes
+persist. R replays after completion and restarts after Game Over. Omit the flag
+to return to normal Level 1. No other enemy types, next level, bonus, or audio
+are implemented.
 
 ## Flipper bullet development
 
@@ -482,15 +498,15 @@ until arcade footage establishes its geometry and timing.
 
 ## Super Zapper
 
-The source-derived Super Zapper works in normal Level 1, natural Levels 2 and
-3, and every existing development wave. Space or the right mouse button
+The source-derived Super Zapper works in normal Level 1, natural Levels 2
+through 4, and every existing development wave. Space or the right mouse button
 activates it on a press edge. Each fresh Level setup provides two charges; ordinary life
 loss preserves the remaining charge. Natural Level 1-to-2 progression restores
 two charges and clears flash state through fresh-wave initialization; Level
-2-to-3 uses the same boundary. Normal Game Over and terminal Level 3 R start a
-new campaign. The fresh Level 3 charge state is an implementation decision,
-not a new manual arcade observation. Development replay keeps its established
-fresh-charge behavior. The first use assigns
+2-to-3 and 3-to-4 use the same boundary. Normal Game Over and terminal Level 4
+R start a new campaign. Fresh Level 3 and Level 4 charge states are project
+decisions, not a new manual arcade observation. Development replay keeps its
+established fresh-charge behavior. The first use assigns
 delays 4, 6, 8, ... to accepted enemies in source insertion order. The second
 use selects one eligible enemy using Incitti's literal lane-distance, height
 and type comparisons, then assigns delay 4.

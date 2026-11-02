@@ -921,19 +921,27 @@ acceptance of the current C# implementation, not verification of the
 provisional timing, depth offset, smoothstep curve, controller dead zone or
 exact projection trajectory.
 
-Natural Level 3 is terminal; R starts a new Level 1 campaign with score reset
-and configured starting lives. Game Over in a normal campaign also restarts
-at Level 1. Direct `--level2-test` and `--level3-test` completion replay their
-launch configurations with existing score/lives semantics and do not enable
-progression. Spiker, Tanker, Fuseball and Pulsar development scenarios remain
-terminal and replay their own launch scenario. Ordinary death reconstructs
-the existing `Level`, preserving its configuration and resolved outcomes.
+Natural Level 3 now progresses to Level 4 after the accepted ledger reports
+all original and cargo obligations resolved and successful exit travel
+completes. Natural play and `--level4-test` use the same Level 4 production
+configuration and gameplay; the diagnostic remains isolated. Level 4 is
+temporarily terminal because Level 5 is not implemented. R from natural Level
+4 completion or Game Over starts a fresh Level 1 campaign with reset score and
+configured starting lives; diagnostic replay/Game Over restart return to
+Level 4. Score and remaining lives carry into natural Level 4. Fresh setup
+resets Super Zapper state and installs the configured starting Spikes, which
+remain separate from the 17 enemy identities. Direct `--level2-test`,
+`--level3-test`, and `--level4-test` do not enable campaign progression.
+Spiker, Tanker, Fuseball and Pulsar development scenarios remain terminal and
+replay their own launch scenario. Ordinary death reconstructs the existing
+`Level`, preserving its configuration and resolved outcomes.
+
 Neal manually accepted the visible natural Level 1 -> Level 2 -> Level 3
-progression and terminal/restart behavior in normal campaign play. This is
-acceptance of the current C# behavior, not new arcade evidence. The approach
-presentation is now implemented, but its graphical acceptance is still
-required; this does not revise the previously accepted progression baseline
-or add arcade evidence.
+progression and the earlier Level 3 terminal/restart policy at C4. D2 changes
+that policy to Level 3 -> Level 4; Neal subsequently manually accepted the
+full natural Level 1 -> Level 2 -> Level 3 -> Level 4 campaign. This accepts
+visible behavior, not hidden implementation details or new arcade evidence.
+The accepted approach presentation and project timing are unchanged.
 
 Definitions distinguish 16 ordered vertices from playable lanes: the current
 closed Level 1 has 16 of each, while a geometry-only open-definition fixture
@@ -1029,12 +1037,12 @@ small and distant and grows as the player approaches; the Blaster is visible
 on the distant rim and spinner movement moves it around that rim during the
 approach. Combat/enemy engagement begins after arrival. This is
 gameplay-relevant because rim movement remains interactive. The C#
-implementation uses a separate approach state for both natural production
-edges, freezes the fresh incoming wave, preserves rim movement, and suppresses
-fire and Super Zapper. Its 120-tick duration, 240-unit initial depth offset and
+implementation uses a separate approach state for natural production edges,
+freezes the fresh incoming wave, preserves rim movement, and suppresses fire
+and Super Zapper. Its 120-tick duration, 240-unit initial depth offset and
 smoothstep curve are provisional project tuning, not arcade measurements.
 Automated tests cover state, freeze, movement and projection endpoints.
-Neal manually accepted the current presentation in normal campaign play:
+Neal manually accepted the first two natural campaign approaches:
 there was no ExitZoom handoff discontinuity, projection flash, wrong board,
 Blaster jump or newly observed problem. He found it impressive and close to
 remembered Atari behavior. This is qualitative acceptance, not a measurement
@@ -1491,8 +1499,8 @@ these states in tests.
 ## D1 isolated Level 4 production candidate (2026-11-02)
 
 Starting checkpoint: `2318ea2 Finalize player-death enemy retraction`.
-Natural campaign behavior remains Level 1 -> Level 2 -> terminal Level 3.
-No Level 3 -> Level 4 edge or Level 5 was added.
+At the D1 checkpoint, natural campaign behavior remained Level 1 -> Level 2
+-> terminal Level 3; D2 adds the Level 3 -> Level 4 edge, but not Level 5.
 
 **REFERENCE VERIFIED:** Incitti's displayed Level 4 uses internal index 3,
 board 3 ("binoculars"), palette group 0, closed 16-lane geometry, center Y
@@ -1566,12 +1574,25 @@ Neal reports manual acceptance of corrected Spike-exit behavior, late-wave
 Spiker behavior, and overall Level 4 feel. This concerns visible behavior,
 not the hidden Atari identity mechanism or broad arcade fidelity.
 
+Neal's subsequent direct arcade observation corrects the earlier firing
+description: rim movement remains available, but new firing is disabled during
+the Avoid Spikes warning/pretravel delay and becomes available when down-tube
+travel begins. Incitti's `Player.Update` permits firing in these states, but
+its shot-update loop also preserves in-flight shots through AvoidSpikes and
+StartZoom. The Level 4 implementation now follows the visible observation for
+new firing, preserves shots already in flight at avoidance entry, and leaves
+Levels 1-3 standard exits and the separate Spiker diagnostic unchanged.
+Neal manually confirmed movement during the wait, no new shots during the
+wait, firing as travel begins, Spike damage and 1-point scoring, collision/
+reverse/retry, and preservation of shots already in flight when the enemy wave
+completes. No other obvious Level 4 regression was observed. This is visible
+behavior only; it does not verify hidden Atari identity/accounting mechanisms.
+
 Exit policy and Spike spawning are separate configuration choices. Current
 Levels 1-3 use the standard exit; Incitti's Levels 4-7 use the spike-avoid
-interval, and the isolated Level 4 candidate opts into it. Spike-bearing
-Levels 8+ may use the standard exit without its warning. This is a future
-configuration boundary only; no Levels 5-8 or natural Level 3 to Level 4
-progression were added.
+interval, and Level 4 opts into it. Spike-bearing Levels 8+ may use the
+standard exit without its warning. This is a future configuration boundary
+only; no Levels 5-8 were added.
 
 ### Long-term progression notes
 
@@ -1590,26 +1611,64 @@ not claims established by the current implementation:
   hardware cause has not been established.
 
 These are documentation constraints for future work, not permission to add
-later-level content, palette cycling, open-tube support, score rollover, or
-natural progression in D1.
+later-level content, palette cycling, open-tube support, or score rollover.
+
+### LONG-TERM DESIGN — attract mode and deterministic replay
+
+The eventual recreation should include an arcade-style attract mode in which
+the game plays itself. Prefer deterministic replay of recorded real player
+input over an AI-controlled player. The existing fixed-step simulation and
+input-injection architecture appears promising, but implementation must wait
+for a dedicated determinism audit covering all randomness and simulation
+state. If reliable, the same replay facility may also support reproducible
+regression tests and debugging. This is long-term design only; no recording,
+playback, input abstraction, replay, or random-seed redesign is included here.
 
 Focused D1 tests cover configuration/ordered points, all 32 directed
 transitions, finite tube/entity projections, lane highlighting, Spiker
 identity/return/reconstruction/re-hatch, Tanker cargo/firing, Super Zapper
-Spiker resolution, Spike persistence, exit firing/damage/depletion, and
+Spiker resolution, Spike persistence, exit-travel firing/damage/depletion, and
 spike-exit collision/retry. Additional tests cover policy configuration,
-warning visibility, and unchanged movement/firing. See the accompanying AI
-report for current validation results. Automated tests establish C# behavior
-only.
+warning visibility, movement with firing disabled during the warning/delay,
+and in-flight shot continuation. See the accompanying AI report for current
+validation results. Automated tests establish C# behavior only.
 
-Only a final focused visual check remains. Run:
+### Final focused visual acceptance
 
-```powershell
-dotnet run --project src/Tempest.Game -- --level4-test --lives 10
-```
+The focused visual revalidation has passed: the warning and controllable
+interval, movement without new firing during avoidance/delay, firing and Spike
+damage/scoring once down-tube travel begins, in-flight shot continuation, and
+retry behavior were confirmed with no other obvious visual regression. The
+natural Level 1 -> Level 2 -> Level 3 -> Level 4 campaign was also manually
+accepted. No further manual gameplay run is requested.
 
-Confirm the warning and controllable interval, movement and firing/Spike
-shooting during avoidance, warning disappearance at exit travel, retry
-behavior, and no visual regression. The broader D1 manual acceptance is
-already reported complete; do not repeat it. Natural Level 3 -> Level 4
-progression is D2 and must not be included.
+## D2 natural Level 3 -> Level 4 progression (2026-11-02)
+
+The production resolver maps Level 1 -> 2 -> 3 -> 4 and has no Level 4 ->
+Level 5 successor. Natural Level 3 begins the existing interactive approach
+only after its existing identity/cargo ledger and active representation are
+fully resolved and the successful exit travel completes. Natural Level 4
+reuses the exact Level 4 configuration and gameplay path accepted in D1,
+including its 17 original obligations, four initial Eggs, and independent
+persistent starting Spikes.
+
+Fresh Level 4 installation carries score and current lives, starts with two
+Super Zapper charges and no stale flash/pending targets, and uses the existing
+approach's movement, firing suppression, projection, and timing. Level 4
+retains the accepted death reconstruction. Neal's manual correction requires
+movement but no new firing during AvoidSpikes/ExitDelay, firing from the first
+ExitZoom update, and continued travel of shots already in flight when
+AvoidSpikes begins; the natural and diagnostic Level 4 paths share this
+behavior. Its successful exit is temporarily terminal: R starts a fresh
+natural Level 1 campaign. The `--level4-test` diagnostic remains isolated and
+replays Level 4 on completion or Game Over. No Level 5, score rollover, later
+geometry, palette cycle, audio, font, window, or other deferred presentation
+work is included.
+
+Automated validation covers resolver boundaries, ledger-gated Level 3
+completion, the Level 3 -> 4 approach and handoff, fresh Level 4 state,
+score/lives carry, death/reconstruction, Avoid Spikes firing/movement and
+in-flight shot behavior, terminal completion, campaign restart, and diagnostic
+isolation. Neal manually accepted the natural Level 1 -> 2 -> 3 -> 4 campaign
+and the corrected firing boundary. This accepts the visible behavior only,
+not the hidden Atari identity mechanism.

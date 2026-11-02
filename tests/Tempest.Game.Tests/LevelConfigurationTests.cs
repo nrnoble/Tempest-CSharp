@@ -186,13 +186,15 @@ public sealed class LevelConfigurationTests
     }
 
     [Fact]
-    public void ProductionProgressionContainsOnlyTheLevelOneToThreeCampaignEdges()
+    public void ProductionProgressionContainsOnlyTheImplementedLevelOneToFourCampaignEdges()
     {
         Assert.Same(LevelConfiguration.Level2Square,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level1));
         Assert.Same(LevelConfiguration.Level3Mixed,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level2Square));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
+        Assert.Same(LevelConfiguration.Level4Candidate,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level4Candidate));
         Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Plus));
         Assert.Null(LevelProgression.GetNextProductionLevel(
             LevelConfiguration.Level1 with { DisplayedLevel = 1 }));
@@ -201,7 +203,7 @@ public sealed class LevelConfigurationTests
     }
 
     [Fact]
-    public void SpikeAvoidanceExitPolicyIsIndependentOfSpikePresenceAndLevelThreeRemainsTerminal()
+    public void SpikeAvoidanceExitPolicyIsIndependentOfSpikePresenceAndLevelFourIsTerminal()
     {
         LevelConfiguration[] existingLevels =
         [
@@ -213,7 +215,9 @@ public sealed class LevelConfigurationTests
         Assert.All(existingLevels,
             configuration => Assert.Equal(LevelExitPolicy.Standard, configuration.ExitPolicy));
         Assert.Equal(LevelExitPolicy.AvoidSpikes, LevelConfiguration.Level4Candidate.ExitPolicy);
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
+        Assert.Same(LevelConfiguration.Level4Candidate,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level4Candidate));
 
         LevelConfiguration futureSpikeLevel = LevelConfiguration.Level4Candidate with
         {
