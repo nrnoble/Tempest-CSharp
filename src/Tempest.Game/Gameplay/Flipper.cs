@@ -14,7 +14,7 @@ public enum FlipperState
 /// <summary>
 /// Flipper state machine (Climbing -> Pausing -> Flipping -> Pausing ...). Timing constants are
 /// configuration-backed Incitti values, not measured arcade timing. Ordinary Level 2-test canflip
-/// latches direction after the first climb and resamples only at rim pause expiry.
+/// retains its below-rim direction; rim pursuit latches the first selected direction.
 /// The entity never touches game state: lethal contact is reported through
 /// <see cref="CompletedIntoPlayer"/> and consumed by TempestGame after player-shot collision.
 /// </summary>
@@ -41,6 +41,7 @@ public sealed class Flipper : Enemy
     public FlipperState State { get; private set; }
     public int PauseTicks { get; private set; }
     public int Direction { get; private set; }
+    public int? RimPursuitDirection { get; private set; }
     public float TurnAngle { get; private set; }
     public float TotalTurnAngle { get; private set; }
     public DirectedLaneTransition? ActiveTransition { get; private set; }
@@ -194,14 +195,21 @@ public sealed class Flipper : Enemy
         TurnAngle = 0;
     }
 
-    // +1 pivots toward PreviousEdge. Below-rim canflip/cargo retain direction; rim starts resample.
+    // +1 pivots toward PreviousEdge. Below-rim canflip/cargo retain their route direction;
+    // the first rim pivot chooses a separate pursuit direction that remains fixed for this life.
     private void BeginPivot(Level level, int playerEdge, Func<int, int, int>? randomInclusive)
     {
         bool canFlip = level.Configuration.FlipperCanFlip && !IsTankerCargo;
-        if ((!IsTankerCargo && !canFlip) || Height >= Level.Depth)
-            Direction = canFlip
+        if (Height >= Level.Depth)
+        {
+            RimPursuitDirection ??= canFlip
                 ? level.FindReferenceShortestDirection(EdgeIndex, playerEdge, randomInclusive)
                 : level.FindShortestDirection(EdgeIndex, playerEdge);
+            Direction = RimPursuitDirection.Value;
+        }
+        else if (!IsTankerCargo && !canFlip)
+            Direction = level.FindShortestDirection(EdgeIndex, playerEdge);
+
         SourceEdge = EdgeIndex;
         DestinationEdge = Direction > 0
             ? level.PreviousEdge(EdgeIndex)

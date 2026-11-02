@@ -25,6 +25,8 @@ public sealed class TempestGame
     private const float PlayerSpeed = 0.05f;
     private const float SpinnerSensitivity = 0.0125f;
     private const int MaximumShots = 10;
+    private const int PlayerShotCooldownTicks = 3;
+    private const int SpikeExitShotCooldownTicks = 4;
     private readonly List<Shot> shots = [];
     private readonly List<EnemyBullet> enemyBullets = [];
     private readonly List<Flipper> flippers = [];
@@ -66,7 +68,7 @@ public sealed class TempestGame
     private float pulseZh;
     private int fuseballAnimationTicks;
     private int nextCargoUnitId;
-    private int shotTimer = 3;
+    private int shotTimer = 4;
     private int exitDelayTicks;
 
     public Player Player { get; }
@@ -422,6 +424,7 @@ public sealed class TempestGame
             pulsars.Clear();
             fuseballScorePopups.Clear();
             developmentCollisionOrder.Clear();
+            developmentCollisionOrder.AddRange(CurrentLevel.Spikes);
             CurrentLevel.ResetAfterDeath();
             CurrentLevel.State = LevelState.Playing;
             ValidateLevel3WaveRepresentation();
@@ -458,7 +461,7 @@ public sealed class TempestGame
     {
         Player.ResetPosition(CurrentLevel.Configuration.InitialPlayerLane,
             CurrentLevel.Configuration.InitialPlayerLanePosition);
-        shotTimer = 3;
+        shotTimer = 4;
     }
 
     private void UpdatePlayerDeath()
@@ -505,9 +508,12 @@ public sealed class TempestGame
         shots.Clear();
     }
 
-    private void UpdatePlayer(PlayerInput input, bool firingEnabled = true)
+    private void UpdatePlayer(
+        PlayerInput input,
+        bool firingEnabled = true,
+        int shotCooldownTicks = PlayerShotCooldownTicks)
     {
-        UpdatePlayerFiring(input.Fire && firingEnabled);
+        UpdatePlayerFiring(input.Fire && firingEnabled, shotCooldownTicks);
 
         UpdatePlayerMovement(input);
     }
@@ -548,9 +554,9 @@ public sealed class TempestGame
         return flippers;
     }
 
-    private void UpdatePlayerFiring(bool fireButtonDown)
+    private void UpdatePlayerFiring(bool fireButtonDown, int cooldownTicks)
     {
-        if (fireButtonDown && shotTimer > 2 && shots.Count < MaximumShots)
+        if (fireButtonDown && shotTimer >= cooldownTicks && shots.Count < MaximumShots)
         {
             shots.Add(new Shot { EdgeIndex = Player.EdgeIndex, Height = Player.Depth });
             shotTimer = 0;
@@ -1654,12 +1660,20 @@ public sealed class TempestGame
     {
         bool firingEnabled = State == LevelState.ExitZoom ||
             CurrentLevel.Configuration.ExitPolicy != LevelExitPolicy.AvoidSpikes;
-        if (State == LevelState.ExitZoom)
+        bool exitTravel = State == LevelState.ExitZoom;
+        if (exitTravel)
+        {
+            float previousPlayerDepth = Player.Depth;
             UpdateExitZoom(completeWhenFinished: false);
+            CheckSpikesAgainstPlayer(previousPlayerDepth);
+            if (State == LevelState.ReverseZoom)
+                return;
+        }
 
-        // Spike travel keeps source ordering locally: depth, shots, hazard, then input.
+        // Avoidance/delay can still carry shots; during travel contact is resolved before shots.
         UpdatePlayerShots(spikesOnly: true);
-        CheckSpikesAgainstPlayer();
+        if (!exitTravel)
+            CheckSpikesAgainstPlayer();
         if (State == LevelState.ReverseZoom)
             return;
 
@@ -1673,7 +1687,8 @@ public sealed class TempestGame
             return;
         }
 
-        UpdatePlayer(input, firingEnabled);
+        UpdatePlayer(input, firingEnabled,
+            exitTravel ? SpikeExitShotCooldownTicks : PlayerShotCooldownTicks);
         if (State == LevelState.AvoidSpikes)
         {
             RestoreProjection();
@@ -1691,14 +1706,21 @@ public sealed class TempestGame
         }
     }
 
-    private void CheckSpikesAgainstPlayer()
+    private void CheckSpikesAgainstPlayer(float? previousPlayerDepth = null)
     {
         // The configured spike-avoid exit and the Spiker diagnostic use the same persistent hazard.
         if (!SpikeExitEnabled ||
             DeathTicks > 0 ||
             State is not (LevelState.Playing or LevelState.AvoidSpikes or LevelState.ExitDelay or LevelState.ExitZoom))
             return;
-        if (!Spikes.Any(spike => spike.HitsPlayer(Player)))
+        bool collided = Spikes.Any(spike =>
+            spike.EdgeIndex == Player.EdgeIndex &&
+            (spike.HitsPlayer(Player) ||
+             previousPlayerDepth is float previousDepth &&
+             previousDepth >= spike.Height &&
+             Player.Depth <= spike.Height &&
+             previousDepth > Player.Depth));
+        if (!collided)
             return;
 
         DeathTicks = PlayerDeathTicks;

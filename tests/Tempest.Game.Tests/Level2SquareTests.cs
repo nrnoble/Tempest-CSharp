@@ -157,6 +157,7 @@ public sealed class Level2SquareTests
         game.SuperZapper.TryActivate([], game.Player.EdgeIndex, 16, continuous: true);
 
         PrepareLethalRimPivot(game, flipper);
+        Assert.NotNull(flipper.RimPursuitDirection);
         game.RunOneStep();
 
         Assert.Equal(LevelState.PlayerDying, game.State);
@@ -174,6 +175,16 @@ public sealed class Level2SquareTests
         Assert.Equal(0, game.CurrentLevel.ReserveEggs);
         Assert.Equal(1, game.SuperZapperChargesRemaining);
         Assert.DoesNotContain(flipper, game.Flippers);
+
+        Egg reconstructedEgg = Assert.Single(game.Eggs);
+        reconstructedEgg.BeginApproach();
+        for (int tick = 0; tick < 100 && reconstructedEgg.State != EggState.ReadyToHatch; tick++)
+            reconstructedEgg.Update(game.CurrentLevel);
+        Assert.Equal(EggState.ReadyToHatch, reconstructedEgg.State);
+        game.RunOneStep();
+        Flipper reconstructedFlipper = Assert.Single(game.Flippers);
+        Assert.NotSame(flipper, reconstructedFlipper);
+        Assert.Null(reconstructedFlipper.RimPursuitDirection);
     }
 
     [Fact]

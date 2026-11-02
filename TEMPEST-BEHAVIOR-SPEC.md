@@ -55,12 +55,15 @@ record the uncertainty rather than guessing.
   -> Level 3 sequence and Level 3 entry/gameplay. This accepts the current C#
   implementation; it does not establish
   arcade-observed Level 2-to-Level 3 behavior or hidden implementation details.
-- **PROJECT DECISION (D1; visible behavior manually accepted)** — The isolated
-  `--level4-test` diagnostic loads a source-derived Level 4 production
-  configuration. Neal reports accepting the corrected
-  Spike-exit behavior, late-wave Spiker behavior, and overall Level 4 feel.
-  This accepts visible C# behavior only, not hidden Atari identity accounting
-  or general arcade fidelity.
+- **PROJECT DECISION (D1; listed visible behavior manually accepted)** — The
+  isolated `--level4-test` diagnostic loads a source-derived Level 4 production
+  configuration. Neal accepted the late-wave Spiker behavior and overall
+  Level 4 feel. Neal manually confirmed that shortened persistent Spikes remain
+  shootable after ordinary death/reconstruction. He also accepted the
+  corrected long-Spike exit behavior: continuous fire still damages the Spike,
+  but the Blaster reaches the remaining Spike and is destroyed. These are
+  visible-behavior observations, not claims about hidden Atari identity
+  accounting or general arcade fidelity.
 - **PROJECT DECISION (D2; visible behavior manually accepted)** — Natural Level 3
   completion now proceeds through the existing approach into the same Level 4
   production configuration used by `--level4-test`. Successful Level 4
@@ -82,25 +85,47 @@ record the uncertainty rather than guessing.
   Spikes” warning stays visible through the controllable AvoidSpikes and
   pretravel ExitDelay states; it hides when ExitZoom begins, and during death,
   retry, and terminal states.
-  A future Spike-bearing Level 8+ configuration may use the standard exit
-  without the warning. No such later-level configuration or progression is
-  implemented.
+  The verified current natural progression has no Spikes on Levels 1-3; Level
+  4 is its first normal Spike level, and many later levels also contain them.
+  Neal recalls recycled Levels 17 and 18 without Spikes. A future Spike-bearing
+  Level 8+ or open-rim configuration may use the standard exit without the
+  warning. Spike presence must be configured per level, not inferred from a
+  permanent `displayedLevel >= 4` threshold. No such later-level configuration,
+  progression, or open-rim gameplay is implemented. Neal
+  recalls Level 8 as the first open normal-progression board and V-shaped;
+  this is recollection, not an implemented geometry or an all-later-level
+  pursuit rule.
 - **ARCADE VERIFIED (visible behavior only; Neal's direct observation)** —
   During the Avoid Spikes warning/pretravel interval, rim movement remains
   available but firing is disabled. Firing becomes available once down-tube
   exit travel begins. During travel, shots damage Spikes, successful hits score
-  1, and Spike collision/reverse/retry remains functional. A shot already in
-  flight when the enemy wave completes is not arbitrarily erased as Avoid
-  Spikes begins. This visible observation supersedes Incitti's conflicting
-  firing behavior; it does not establish hidden implementation details.
+  1, and Spike collision/reverse/retry remains functional. A short Spike may
+  be destroyed before contact, but a sufficiently long Spike is lethal if the
+  Blaster reaches its remaining tip. Neal's final Level 4 manual revalidation
+  passed both post-death shooting and the sustained-fire long-Spike exit
+  behavior. A shot already in flight when the enemy wave completes
+  is not arbitrarily erased as Avoid Spikes begins. These visible observations
+  supersede Incitti's conflicting firing behavior; they do not establish
+  hidden implementation details.
 - **PROJECT DECISION (Level 4 implementation)** — The configured AvoidSpikes
   path suppresses new shots throughout AvoidSpikes and ExitDelay, enabling
   them only on an update that begins in ExitZoom. Shots already traveling at
   the transition into AvoidSpikes are retained and continue updating and
-  colliding with Spikes. Neal manually accepted the visible firing boundary,
-  damage/scoring, retry, and in-flight shot behavior. Levels 1-3 standard-exit
-  behavior is unchanged. The C# identity/accounting implementation remains a
-  project decision, not an arcade-verified hidden mechanism.
+  colliding with Spikes. Exit travel uses a four-update shot cooldown (the
+  ordinary C# cooldown is three) so sustained firing cannot outpace the
+  descending Blaster indefinitely. The exit update checks swept player
+  contact against the Spike height at update start before advancing shots;
+  contact wins over same-update shot damage. This ordering and cooldown are
+  C# project decisions, not claims about Atari's hidden mechanism. Neal
+  hypothesized that close-range shot-slot recycling caused the failure. The
+  C# trace found the 10-shot capacity is not the close-range bottleneck: the
+  three-update cooldown permits 10-point damage every three updates, slightly
+  faster than 3/3.2-unit travel, and the old collision test used the
+  post-shot tip without swept crossing. This cadence/collision explanation is
+  a C# implementation finding; the four-update cooldown and swept contact are
+  **PROJECT DECISIONS**, not measured Atari constants or verified internal
+  ordering. Levels 1-3 standard-exit behavior is unchanged. Neal manually
+  accepted post-death Spike shooting and the observable long-Spike collision.
 - **PROJECT DECISION** — Natural Level 1-to-2 and Level 2-to-3 progression
   enters a separate interactive approach state. The fresh incoming wave is
   frozen until arrival; movement uses the existing spinner/keyboard path and
@@ -161,8 +186,10 @@ record the uncertainty rather than guessing.
 - **PROJECT DECISION** — During ordinary life reconstruction, active unresolved
   enemies are discarded and re-enter as fresh Eggs. Previously destroyed
   enemies remain destroyed, score is retained, and old enemy positions/state
-  are not restored. Spikes are persistent level hazards in the Spiker
-  development scenario.
+  are not restored. Level 4 and the Spiker development scenario retain each
+  Spike's object and height; production reconstruction also restores surviving
+  Spikes to the player-shot collision order. Neal manually confirmed that
+  shortened Spikes remain shootable after ordinary Level 4 death.
 - **PROJECT DECISION** — The C# simulation freezes enemies and the shared
   Pulsar clock during the full death interval. Incitti advances Pulsars/global
   pulse state during much of its death presentation; the recreation keeps its
@@ -346,6 +373,20 @@ record the uncertainty rather than guessing.
 - **REFERENCE VERIFIED** — Incitti accepts shots on the Flipper's `OnEdge`
   within the strict band `0 < FlipperHeight - ShotHeight < 16`, awarding
   150 points. Its lane is assigned to the destination when a pivot starts.
+- **ARCADE VERIFIED (closed rims only)** — For Flippers on the currently
+  implemented closed-rim Levels 1-4, once pursuit direction is established it
+  does not reverse merely because the Blaster crosses behind and makes the
+  opposite route shorter. The observation verifies persistence, not the hidden
+  direction-selection implementation or exact selection tick, and does not
+  establish a universal rule for later levels.
+- **PROJECT DECISION** — C# Flippers, including Tanker cargo, store rim pursuit
+  direction separately from any below-rim route direction. The first rim
+  destination on current closed-rim geometries uses the existing player-relative
+  selection; later rim destinations retain that direction until the enemy is
+  destroyed or replaced. Fresh Eggs/hatches, cargo reconstruction, new levels
+  and restarts create new enemy instances and therefore start without stale
+  pursuit state. Future open-tube endpoints may legitimately require reversal;
+  open-rim behavior is deferred.
 - **PROJECT DECISION** — The recreation keeps Flippers shootable in their
   lane while climbing or paused and from either participating lane throughout
   a transition. Two-lane shot acceptance is not literal Incitti ownership.
@@ -406,7 +447,10 @@ record the uncertainty rather than guessing.
   on the first climb, enters an initially zero pause, attempts firing, then
   chooses direction relative to the current player lane. The next pause
   update adds 1 height and begins an adjacent turn. Below-rim direction stays
-  latched across turns and pauses; rim pause expiry samples the player again.
+  latched across turns and pauses. At the rim, Incitti's Flipper calls
+  `FindShortDir` again at each pause expiry before stepping to the next lane;
+  this literal source behavior differs from Neal's arcade-verified persistence
+  observation.
 - **REFERENCE VERIFIED** — Source-derived Level 2 tuning is an 8-degree
   turn increment, 21-update below-rim pause and 24-update rim pause. Turning
   adds 2 height and below-rim pauses add 1. Exact random/tie behavior,
@@ -450,6 +494,27 @@ record the uncertainty rather than guessing.
   below the rim, then begin pursuing the Blaster after reaching rim behavior.
 - **ARCADE VERIFIED** — Tanker-released cargo Flippers do not dynamically
   follow Blaster movement while traveling below the rim.
+
+### Rim pursuit direction correction
+
+- **ARCADE VERIFIED (closed rims only)** — Neal manually accepted persistent
+  pursuit direction for the currently implemented closed-rim Levels 1-4: a
+  Flipper does not reverse merely because the Blaster moves behind it and the
+  opposite route becomes shorter. This does not establish a universal rule
+  across later difficulty levels.
+- **FUTURE OPEN-RIM NOTE** — Physical endpoints on future open/unconnected
+  tubes can legitimately require reversal. Neal recalls Level 8 as the first
+  open normal-progression board and V-shaped. That is an arcade recollection;
+  Level 8 and open-tube support remain deferred. Do not extend the closed-rim
+  pursuit latch to every later level.
+- **REFERENCE VERIFIED** — Incitti's Fuseball has separate lateral movement
+  and vertical excursions; its direction can change on a probabilistic
+  lateral update. Tankers climb and release cargo but do not chase on the rim.
+  Spikers build and retreat on their lane. These three types have no
+  rim-pursuit direction latch in C#.
+- **PROJECT DECISION** — C# Tanker cargo retains its outward below-rim lane
+  route, then uses the Flipper rim-pursuit latch after arrival. Cargo's initial
+  release direction and later player-pursuit direction are distinct state.
 
 ## 4. Enemy bullets
 
@@ -532,9 +597,12 @@ record the uncertainty rather than guessing.
   against persistent Spikes only; hits do not alter enemy or identity
   accounting. Automated tests cover the strict selection boundary, retreat
   and re-hatch, exact Spike damage/scoring, depletion, exit collision
-  prevention, and the warning's configured visibility boundary. Neal reports
-  manual acceptance of the corrected visible behavior; this does not verify
-  the hidden Atari identity mechanism.
+  prevention, and the warning's configured visibility boundary. Neal manually
+  accepted the late-wave Spiker behavior. Post-death Spike shooting after
+  reconstruction and long-Spike collision during sustained exit fire are
+  manually accepted visible behavior; the four-update cooldown and swept
+  collision remain C# project decisions. This does not verify the hidden Atari
+  identity mechanism.
 - **PROJECT DECISION** — In the development scenario, spikes remain visible
   and hazardous after their Spiker retreats or the Blaster loses a life.
   Arcade timing and feel for growth, retreat, spike damage, and exit avoidance
@@ -696,6 +764,16 @@ Pulsar behavior in that scenario, not an authentic all-Pulsar Atari wave.
   their one-unit movement term. Existing pauses, lane transfer, flip behavior
   and shared pulse oscillator remain unchanged. These exact source rules are
   distinct from Neal's observable late-wave validation.
+- **REFERENCE VERIFIED** — Incitti's Pulsar stores one `dir` field and
+  recalculates it with `FindShortDir` on each climbing and descending update.
+  Lane-pause transfer uses that value; open tubes reverse it at an endpoint.
+  The source has no separate persistent rim-chase field.
+- **PROJECT DECISION** — The arcade-verified rim-pursuit persistence rule also
+  applies to development-only Pulsars while they continue rim pursuit. C#
+  latches direction when a rim lane destination is first selected and clears
+  it when the Pulsar chooses to descend. The source's repeated shortest-route
+  calculation differs; pulse timing, pulse hazards, and directed geometry are
+  unchanged. Pulsars remain development-only before natural Level 17.
 - **DEVELOPMENT ONLY** — `--pulsar-test` hatches all ten units directly as
   Pulsars on the closed Level 1 tube, using the source's `lv = 16` movement
   settings. It is not Level 17 composition or progression.

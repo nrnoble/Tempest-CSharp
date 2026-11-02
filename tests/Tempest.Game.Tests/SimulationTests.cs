@@ -4400,17 +4400,15 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void SpikeTravelCollisionUsesStrictDepthAndLaneAndCostsOneLifeBeforeRetry()
+    public void SpikeTravelCollisionSweepsDepthAndLaneAndCostsOneLifeBeforeRetry()
     {
         TempestGame game = BeginSpikerExit();
         Step(game, 151 + 21);
         Spike spike = game.Spikes.Single(candidate => candidate.EdgeIndex == game.Player.EdgeIndex);
         spike.Height = 397;
         game.RunOneStep();
-        Assert.Equal(LevelState.ExitZoom, game.State);
-        Assert.Equal(397, game.Player.Depth);
-        game.RunOneStep();
         Assert.Equal(LevelState.ReverseZoom, game.State);
+        Assert.Equal(397, game.Player.Depth);
         Assert.Equal(60, game.DeathTicks);
         Step(game, 59);
         Assert.Equal(3, game.Player.Lives);

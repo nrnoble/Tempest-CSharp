@@ -325,8 +325,8 @@ public sealed class Level2CanFlipTests
         Assert.Equal(24, flipper.PauseTicks);
         for (int tick = 0; tick < 24; tick++)
             flipper.Update(level, 0, UnexpectedRandom);
-        Assert.Equal(-direction, flipper.Direction);
-        Assert.Equal(0, flipper.DestinationEdge);
+        Assert.Equal(direction, flipper.Direction);
+        Assert.Equal((destination - direction + 16) % 16, flipper.DestinationEdge);
     }
 
     [Theory]
@@ -397,7 +397,7 @@ public sealed class Level2CanFlipTests
     }
 
     [Fact]
-    public void RimPauseExpiryDrawsDirectionBeforeTheExpiredFiringRoll()
+    public void RimPauseExpiryUsesLatchedDirectionBeforeTheExpiredFiringRoll()
     {
         Level level = Square();
         Flipper flipper = new(4, 0, bulletAmmunition: 1);
@@ -407,14 +407,15 @@ public sealed class Level2CanFlipTests
             flipper.Update(level, (flipper.EdgeIndex + 8) % 16, UnexpectedRandom);
         Assert.Equal(0, flipper.BulletTimer);
         Assert.Equal(1, flipper.PauseTicks);
+        int direction = Assert.IsType<int>(flipper.RimPursuitDirection);
         List<(int, int)> calls = [];
         EnemyBullet? bullet = flipper.Update(level, flipper.EdgeIndex, (minimum, maximum) =>
         {
             calls.Add((minimum, maximum));
-            return maximum == 1 ? 1 : 76;
+            return 76;
         });
-        Assert.Equal(new[] { (0, 1), (0, 100) }, calls);
-        Assert.Equal(-1, flipper.Direction);
+        Assert.Equal(new[] { (0, 100) }, calls);
+        Assert.Equal(direction, flipper.Direction);
         Assert.NotNull(bullet);
         Assert.Equal(flipper.DestinationEdge, bullet.EdgeIndex);
         Assert.Equal(400, bullet.Height);

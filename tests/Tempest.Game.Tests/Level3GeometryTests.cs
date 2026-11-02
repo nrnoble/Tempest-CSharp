@@ -252,6 +252,34 @@ public sealed class Level3GeometryTests
     }
 
     [Fact]
+    public void PlusBoardRimPursuitKeepsItsLongDirectedRouteAfterThePlayerMovesBehind()
+    {
+        Level level = new(LevelConfiguration.Level3Plus);
+        Flipper flipper = new(edge: 15, height: Level.Depth);
+        flipper.Update(level, playerEdge: 0);
+        for (int tick = 0; tick < 24; tick++)
+            flipper.Update(level, playerEdge: 0);
+
+        Assert.Equal(-1, flipper.Direction);
+        Assert.Equal(0, flipper.DestinationEdge);
+        Assert.Equal(270, flipper.TotalTurnAngle);
+
+        for (int tick = 0; tick < 34; tick++)
+            flipper.Update(level, playerEdge: 15);
+
+        Assert.Equal(0, flipper.EdgeIndex);
+        Assert.Equal(FlipperState.Pausing, flipper.State);
+        Assert.Equal(-1, flipper.Direction);
+        for (int tick = 0; tick < 24; tick++)
+            flipper.Update(level, playerEdge: 15);
+
+        Assert.Equal(-1, flipper.Direction);
+        Assert.Equal(1, flipper.DestinationEdge);
+        Assert.Equal(level.CalculateDirectedLaneTransition(0, 1, -1).SweepMagnitudeDegrees,
+            flipper.TotalTurnAngle);
+    }
+
+    [Fact]
     public void TankerCargoUsesInstalledGeometryAndRetainsItsOutwardRouteAndDirection()
     {
         Level plusLevel = new(LevelConfiguration.Level3Plus);

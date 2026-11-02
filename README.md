@@ -76,7 +76,9 @@ approach, with at most two approaching or ready to hatch.
 Life reconstruction retains the same `Level` and configuration. Unresolved
 enemies return through fresh Eggs while destroyed/rim-cleared outcomes, score,
 charges, Hurry-Up state and persistent Spikes keep their established
-lifetimes. Hatching converts an Egg without changing the remaining-enemy count.
+lifetimes. Surviving Spikes also remain registered as shot targets after
+production-ledger reconstruction. Hatching converts an Egg without changing
+the remaining-enemy count.
 The HUD's ACTIVE counter includes active Eggs and active enemies.
 
 Tests run headlessly without initializing a Raylib window. Visual appearance,
@@ -150,9 +152,17 @@ dotnet run --project src/Tempest.Game -- --level2-test --lives 10
 16-lane square, 12-unit Flipper-only configuration used by natural progression.
 B2 enables the validated below-rim canflip behavior using B1's square endpoint
 hinges. Flippers choose direction after their first climb update, retain it
-across below-rim pivots and pauses, and resample the Blaster lane only when a
-rim pause expires. Climb/pivot increments of 2/8 and lane/rim pauses of 21/24
-are **REFERENCE VERIFIED**, not arcade-measured tuning. The recreation
+across below-rim pivots and pauses. At the first rim pursuit turn they choose a
+direction from the then-current Blaster lane and keep it even if the Blaster
+crosses behind and the opposite route becomes shorter; Neal's arcade observation
+now confirms this closed-rim behavior on the currently implemented Levels 1-4.
+This does not establish an identical rule at every later difficulty level.
+On future open/unconnected tubes, physical endpoints can legitimately require
+reversal. Neal recalls Level 8 as the first open normal-progression board and
+V-shaped; open-tube support and Level 8 remain deferred. The observation
+verifies persistence, not the hidden selection tick. Climb/pivot increments of
+2/8 and lane/rim pauses of 21/24 are **REFERENCE VERIFIED**, not arcade-measured
+tuning. The recreation
 preserves two-lane shot acceptance during pivots and completed-pivot player
 safety; Incitti's destination-only shot ownership is not silently imported.
 Normal Level 1 progresses automatically to this Level 2 after successful
@@ -279,18 +289,29 @@ the spike-avoid exit and remains terminal; natural-campaign R starts a fresh
 Level 1 campaign, while diagnostic replay/Game Over restart return to Level 4.
 A prominent **Avoid Spikes** warning remains through the configured avoidance
 interval and controllable pretravel delay, then hides when exit travel begins.
-Exit policy is configured
-independently of Spike presence: Levels 1-3 use the standard exit; Incitti's
-Levels 4-7 use the spike-avoid policy, and the Level 4 configuration opts into
-it. Later Spike-bearing
-levels may use a standard exit without this warning. Levels 5-8 are not
-implemented here.
+Exit policy is configured independently of Spike presence. Levels 1-3 have no
+Spikes in the verified current natural progression; Level 4 is its first
+normal Spike level, and many later levels also contain Spikes. Incitti's Levels
+4-7 use the spike-avoid policy, and the Level 4 configuration opts into it.
+Later Spike-bearing levels may use a standard exit without this warning. Neal
+recalls recycled Levels 17 and 18 without Spikes, so Spike presence must remain
+explicit per level rather than inferred from a permanent
+`displayedLevel >= 4` rule. Neal recalls Level 8 as an open, V-shaped board;
+neither it nor later levels or open-rim gameplay is implemented. Levels 5-8
+are not implemented here.
 
 Neal manually accepted the natural Level 1 -> Level 2 -> Level 3 -> Level 4
-campaign, including the corrected Spike-exit behavior, late-wave Spiker
-behavior, and overall Level 4 feel. This accepts visible behavior only; it
-does not establish general arcade fidelity or Atari's hidden identity
-accounting. The direct diagnostic remains development-only.
+campaign, late-wave Spiker behavior, and overall Level 4 feel. Later focused
+exit validation split: post-death Spike shooting passed, but sustained firing
+could erase a long Spike before contact and exit safely. That long-Spike result
+failed manual acceptance. Neal has since passed manual revalidation: during
+continuous fire the Blaster continues down-tube travel, reaches the remaining
+long Spike, and is destroyed; a short Spike can still be cleared before
+contact. This observable result is **ARCADE VERIFIED**. The C# four-update
+exit cooldown and swept contact ordering remain **PROJECT DECISIONS**, not
+claims about Atari internals. These observations do not establish general
+arcade fidelity or Atari's hidden identity accounting. The direct diagnostic
+remains development-only.
 Source findings are **REFERENCE VERIFIED**; C# implementation choices remain
 project decisions.
 
@@ -319,10 +340,21 @@ a Spike's lane and below its tip shortens it by 10 and scores 1; zero-or-less
 removes the Spike. Exit shots use a Spike-only collision path, so they cannot
 resolve enemy identities or run enemy simulation. Neal's visible Atari
 observation is that endless final-Spiker recycling is wrong; the hidden
-mechanism that prevents it is not arcade-verified. Neal manually verified the
-visible firing boundary, Spike damage/scoring, reverse/retry, and preservation
-of shots already in flight when avoidance begins. This does not verify the
-hidden C# identity/accounting mechanisms.
+mechanism that prevents it is not arcade-verified. Neal's post-death manual
+check confirmed that Spike shooting resumes after reconstruction and shortened
+height persists. The first long-Spike manual check found that sustained firing
+could erase an initially long Spike and exit safely, which failed arcade
+acceptance. Close-range shot-slot recycling was the initial hypothesis; C#
+tracing found the 10-shot cap was not the bottleneck because shots recycled
+before it mattered. The effective three-update cooldown allowed 10-point Spike
+damage every three updates, slightly faster than 3/3.2-unit exit travel. Exit
+firing now has a four-update cooldown, and player contact is swept against the
+pre-shot Spike tip before shot processing. Thus same-update damage cannot
+retroactively rescue the Blaster; a short Spike can still be cleared before
+contact. These are implementation decisions, not claims about Atari's hidden
+ordering. Neal's final manual revalidation confirmed the remaining long Spike
+is lethal during continuous fire and post-death shooting preserves shortened
+height.
 
 Production Tanker bullets remain enabled, and source-backed Spiker retreat
 bullets are supported in this candidate. Ordinary and cargo Flippers remain
@@ -386,8 +418,9 @@ remain Flippers. The Tanker climbs on one lane and releases two live Flippers on
 opposite adjacent lanes near the rim. Each child follows the project-selected
 outward lane route away from the Tanker's former lane, while its spatial pivot
 swings inward into the web. It keeps its direction through below-rim
-pivot/pause cycles without tracking the Blaster; rim pivots pursue the current
-Blaster lane. Neal verified the cargo survival and no-mid-tube-pursuit behavior;
+pivot/pause cycles without tracking the Blaster; rim pursuit then latches its
+direction separately from that cargo route. Neal verified the cargo survival
+and no-mid-tube-pursuit behavior;
 Neal has since manually confirmed the inward arc, stable below-rim direction,
 correct rim behavior and preserved outward lane route. The exact intermediate
 arcade lane sequence and timing remain unknown.
@@ -580,6 +613,7 @@ Spike hazards, and reverse/retry does not resurrect rim-cleared enemies.
 For manual validation, run:
 
 ```powershell
+dotnet run --project src/Tempest.Game -- --level4-test --lives 10
 dotnet run --project src\Tempest.Game -- --lives 10
 dotnet run --project src\Tempest.Game -- --fuseball-test --lives 10
 dotnet run --project src\Tempest.Game -- --pulsar-test --lives 10
@@ -593,6 +627,11 @@ rim completion, Tanker cargo below the rim blocks, pending Super Zapper targets
 do not score after rim clear, and Spike hazards remain during the Spiker exit.
 Same-tick player-collision precedence and exact arcade timing still need
 hands-on comparison.
+
+Neal manually accepted the combined Spike lifecycle correction: post-death
+shooting preserves shortened height, continuous fire cannot safely erase a
+long Spike before contact, and a short Spike can be destroyed before contact.
+Automated coverage also protects retry persistence and final-life Game Over.
 
 ## Reference mapping
 - `tempest.bmx` -> gameplay and state behavior

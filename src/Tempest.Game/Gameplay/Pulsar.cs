@@ -50,6 +50,7 @@ public sealed class Pulsar : Enemy
     public int TimeToFlip { get; private set; }
     public int PauseTicks { get; private set; }
     public int Direction { get; private set; }
+    public int? RimPursuitDirection { get; private set; }
     public float TurnAngle { get; private set; }
     public float TotalTurnAngle { get; private set; }
     public DirectedLaneTransition? ActiveTransition { get; private set; }
@@ -85,7 +86,18 @@ public sealed class Pulsar : Enemy
                     else
                         BeginRimPause(PulsarState.Descending);
                 }
-                Direction = level.FindReferenceShortestDirection(EdgeIndex, playerEdge, randomInclusive);
+                if (Height >= Level.Depth && RimPursuitDirection.HasValue)
+                    Direction = RimPursuitDirection.Value;
+                else
+                    Direction = level.FindReferenceShortestDirection(EdgeIndex, playerEdge, randomInclusive);
+
+                // Arcade pursuit stays committed even though Incitti resamples while climbing.
+                if (Height >= Level.Depth && State == PulsarState.LanePause &&
+                    oldState == PulsarState.Flipping)
+                    RimPursuitDirection ??= Direction;
+                else if (Height >= Level.Depth && State == PulsarState.RimPause &&
+                    oldState == PulsarState.Descending)
+                    RimPursuitDirection = null;
                 break;
 
             case PulsarState.Descending:
@@ -109,6 +121,7 @@ public sealed class Pulsar : Enemy
                         BeginRimPause(PulsarState.Climbing);
                 }
                 Direction = level.FindReferenceShortestDirection(EdgeIndex, playerEdge, randomInclusive);
+                RimPursuitDirection = null;
                 break;
 
             case PulsarState.Flipping:
@@ -218,7 +231,11 @@ public sealed class Pulsar : Enemy
 
         // On an open tube, reverse before stepping beyond an endpoint; closed tubes wrap instead.
         if (!level.Continuous && (EdgeIndex - Direction < 0 || EdgeIndex - Direction > lastEdge))
+        {
             Direction = -Direction;
+            if (RimPursuitDirection.HasValue)
+                RimPursuitDirection = Direction;
+        }
 
         if (Direction == 1)
             EdgeIndex = EdgeIndex == 0 ? lastEdge : EdgeIndex - 1;
