@@ -362,7 +362,12 @@ public sealed class Level3GeometryTests
         renderer.DrawTube((start, end, color) => flash.Add((start, end, color)));
         Assert.Equal(normal.Select(line => (line.Start, line.End)),
             flash.Select(line => (line.Start, line.End)));
-        Assert.All(flash, line => Assert.Equal(new Color(255, 0, 255, 255), line.Color));
+        int playerLane = game.Player.EdgeIndex;
+        int nextPlayerLane = game.CurrentLevel.NextEdge(playerLane);
+        for (int index = 0; index < flash.Count; index++)
+            Assert.Equal(index < 16 && (index == playerLane || index == nextPlayerLane)
+                ? new Color(255, 255, 0, 255)
+                : new Color(255, 0, 255, 255), flash[index].Color);
         Assert.Equal(1, game.SuperZapperChargesRemaining);
     }
 

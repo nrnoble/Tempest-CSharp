@@ -1361,7 +1361,11 @@ public sealed class SimulationTests
             Vector2 far = ProjectTubePoint(game, lane, Level.Position + Level.Depth);
             Vector2 nearNext = ProjectTubePoint(game, next, Level.Position);
             Vector2 farNext = ProjectTubePoint(game, next, Level.Position + Level.Depth);
-            Assert.Contains((near, far, Color.Blue), lines);
+            Color railColor = lane == game.Player.EdgeIndex ||
+                lane == game.CurrentLevel.NextEdge(game.Player.EdgeIndex)
+                ? new Color(255, 255, 0, 255)
+                : Color.Blue;
+            Assert.Contains((near, far, railColor), lines);
             Assert.Contains((far, farNext, Color.Blue), lines);
             Assert.Equal(!suppressedLanes.Contains(lane), lines.Contains((near, nearNext, Color.Blue)));
         }

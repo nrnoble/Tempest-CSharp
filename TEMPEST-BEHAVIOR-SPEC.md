@@ -70,6 +70,36 @@ record the uncertainty rather than guessing.
   toward the far end of the currently occupied lane. The current recreation
   limits simultaneous player shots and gives them a fixed travel rate. Those
   limits/rates describe this build, not a claim about measured arcade timing.
+- **ARCADE VERIFIED** — Neal observes that the Blaster's occupied lane is
+  identified by recoloring its two side boundaries along the full tube depth;
+  the highlight follows rim movement, and early implemented levels use yellow.
+  This is a gameplay-readable cue that restores the remembered deep-tube
+  lane-awareness benefit. Neal manually reproduced and accepted the visible
+  behavior across the implemented boards and assessed the feature as identical
+  to Atari.
+- **REFERENCE VERIFIED** — Incitti selects one indexed player edge and colors
+  its two longitudinal rails with `COL_CLAW`; palette 0 maps that color to
+  yellow. Pulsar pulse coloring takes precedence over the player color, and
+  the player color takes precedence over ordinary/Super Zapper tube coloring.
+  These details describe Incitti, not necessarily every Atari palette/effect.
+- **PROJECT DECISION** — C# uses `Player.EdgeIndex` as the single highlighted
+  lane and colors the longitudinal rails at that vertex and
+  `Level.NextEdge(EdgeIndex)`. Fractional `EdgePosition` does not select or
+  interpolate lanes; the selected pair changes when the indexed lane changes.
+  Palette 0 (current Levels 1-3) resolves to yellow; later palette colors and
+  16-level cycling are deferred. Pulsar overlays draw over the player color;
+  the player color wins over normal/Super Zapper tube coloring. Neal manually
+  accepted the full-depth rails, spinner tracking, lane-change behavior,
+  square/corner and plus-board behavior, both level approaches, and the
+  Super Zapper/Pulsar interaction, with no wrong adjacent lane, flicker,
+  rendering artifact or crash. This accepts the current C# rendering, not
+  unimplemented palette behavior.
+- **PROJECT DECISION** — Show the lane cue during Playing, Approach,
+  PlayerDying and active development AvoidSpikes; hide it during ExitDelay,
+  ExitZoom, GameOver and Complete. Approach uses the current player lane and
+  existing projected tube geometry. Atari state-by-state visibility beyond
+  the observed lane-following behavior has not been established; the visibility
+  policy remains a project decision.
 - **REFERENCE VERIFIED** — Scoring is awarded when a target is destroyed or
   damaged, with values varying by enemy and target type. The enemy sections
   below record the currently implemented/reference-backed values where known.

@@ -456,12 +456,15 @@ public sealed class Level2SquareTests
         renderer.DrawTube((start, end, color) => normal.Add((start, end, color)));
 
         Assert.Equal(48, normal.Count);
-        Assert.All(normal, line =>
+        for (int index = 0; index < normal.Count; index++)
         {
+            var line = normal[index];
             AssertFinite(line.Start);
             AssertFinite(line.End);
-            Assert.Equal(Color.Blue, line.Color);
-        });
+            Assert.Equal(index < 16 && (index == 7 || index == 8)
+                ? new Color(255, 255, 0, 255)
+                : Color.Blue, line.Color);
+        }
         Assert.Equal(16, normal.Take(16).Count());
         Assert.Equal(16, normal.Skip(16).Take(16).Count());
         Assert.Equal(16, normal.Skip(32).Take(16).Count());
@@ -479,7 +482,10 @@ public sealed class Level2SquareTests
         renderer.DrawTube((start, end, color) => flash.Add((start, end, color)));
         Assert.Equal(normal.Select(line => (line.Start, line.End)),
             flash.Select(line => (line.Start, line.End)));
-        Assert.All(flash, line => Assert.Equal(new Color(255, 0, 255, 255), line.Color));
+        for (int index = 0; index < flash.Count; index++)
+            Assert.Equal(index < 16 && (index == 7 || index == 8)
+                ? new Color(255, 255, 0, 255)
+                : new Color(255, 0, 255, 255), flash[index].Color);
     }
 
     private static TempestGame CreateSingleUnresolvedFlipperGame(

@@ -23,6 +23,7 @@ public sealed class VectorRenderer
 	private static readonly Color SpikerColor = new(0, 255, 0, 255);
 	private static readonly Color TankerColor = new(255, 0, 255, 255);
 	private static readonly Color PulsarColor = new(0, 255, 255, 255);
+	private static readonly Color PaletteZeroBlasterLaneColor = new(255, 255, 0, 255);
 	private static readonly Color[] FuseballArmColors =
 	[
 		new(255, 255, 0, 255), new(0, 255, 0, 255), new(255, 0, 255, 255),
@@ -393,12 +394,27 @@ public sealed class VectorRenderer
 	private bool IsPulsingLane(int edge) => game.Pulsars.Any(pulsar =>
 		pulsar.EdgeIndex == edge && Pulsar.IsLanePulsing(pulsar.Height, game.Pulsing));
 
+	private bool ShouldHighlightPlayerLane => game.State is
+		LevelState.Playing or LevelState.Approach or LevelState.PlayerDying or LevelState.AvoidSpikes;
+
+	private Color ResolvePlayerLaneColor() =>
+		game.CurrentLevel.Configuration.PaletteIndex switch
+		{
+			0 => PaletteZeroBlasterLaneColor,
+			_ => throw new InvalidOperationException(
+				$"No Blaster-lane color is configured for palette {game.CurrentLevel.Configuration.PaletteIndex}.")
+		};
+
 	public void DrawTube(Action<Vector2, Vector2, Color> drawLine)
 	{
 		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
 		Vector2[] nearRim = new Vector2[points.Count];
 		Vector2[] farRim = new Vector2[points.Count];
 		Color tubeColor = game.SuperZapper.UsesAlternateFlashColor ? TankerColor : Color.Blue;
+		int playerLane = game.Player.EdgeIndex;
+		int nextPlayerLaneBoundary = game.CurrentLevel.NextEdge(playerLane);
+		bool highlightPlayerLane = ShouldHighlightPlayerLane;
+		Color playerLaneColor = highlightPlayerLane ? ResolvePlayerLaneColor() : tubeColor;
 
 		for (int i = 0; i < points.Count; i++)
 		{
@@ -411,7 +427,11 @@ public sealed class VectorRenderer
 		}
 
 		for (int i = 0; i < points.Count; i++)
-			drawLine(nearRim[i], farRim[i], tubeColor);
+		{
+			bool playerLaneBoundary = highlightPlayerLane &&
+				(i == playerLane || i == nextPlayerLaneBoundary);
+			drawLine(nearRim[i], farRim[i], playerLaneBoundary ? playerLaneColor : tubeColor);
+		}
 
 		for (int i = 0; i < points.Count; i++)
 		{

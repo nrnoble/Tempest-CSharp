@@ -27,6 +27,14 @@ bullets, an early completion check, Egg release/update/hatching, enemy updates
 and collisions, all-rim completion, Hurry-Up, and the final completion check.
 The frame loop retains one simulation tick per frame at the existing 60 FPS target.
 
+The Blaster's occupied lane is highlighted by its two full-depth tube
+boundaries. Current Levels 1-3 use yellow; the highlight follows the player's
+indexed lane through normal play and the incoming-level approach. Pulsar
+overlays take visual precedence, while the lane highlight remains visible over
+the ordinary/Super Zapper tube colors. Neal manually accepted this C# rendering
+across the implemented boards and interactions as visually identical to Atari.
+Later palette colors and cycling remain deferred and have not been validated.
+
 ## Level configuration and wave lifecycle
 
 `LevelConfiguration.Level1` explicitly records internal/displayed identity

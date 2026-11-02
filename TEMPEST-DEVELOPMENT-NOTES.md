@@ -66,10 +66,26 @@ Preserve unless intentionally revisited:
 - `Projection.K = 70`.
 - `Projection.ZOffset = 5`.
 - Level 1 uses the established 16-segment circular tube geometry.
-- Level 1 tube rendering is blue.
+- Ordinary Level 1 tube rendering is blue; the occupied Blaster lane's two
+  full-depth longitudinal boundaries are yellow.
 - Player Blaster is yellow.
 - Player shots are white.
 - Level 1 Flippers and incoming Egg/precursor points are red.
+
+Neal's arcade observation establishes that the two boundaries of the occupied
+lane are recolored along the tube depth and follow the Blaster; early levels
+use yellow. Incitti's source marks the indexed edge's two depth-running rails,
+uses palette-specific `COL_CLAW` color, lets Pulsar pulse coloring supersede
+the player color, and otherwise draws the player color over the Super Zapper
+flash. C# uses `Player.EdgeIndex` and the adjacent topology vertex; its palette
+0 lane color is yellow. The palette resolver is deliberately narrow; later
+palette colors/cycling remain deferred. The lane cue is shown in Playing,
+Approach, PlayerDying and active AvoidSpikes, and hidden during ExitDelay,
+ExitZoom and terminal presentations. This visibility policy is a project
+decision where Atari presentation behavior is not established. Neal manually
+accepted the C# rendering across Levels 1-3, both approaches, spinner/lane
+movement, Super Zapper and Pulsar interactions, with no flicker or rendering
+artifacts. Later palette colors/cycling have not been validated.
 
 Do not tune projection or Level 1 geometry casually. These were established early and have remained stable through subsequent gameplay work.
 
@@ -1013,24 +1029,39 @@ accepted approach architecture.
 
 ## Deferred rendering and presentation fidelity
 
-- **Next milestone: Blaster-lane highlighting.** Neal observed the two web
+- **Blaster-lane highlighting implementation.** Neal observed the two web
   lines bounding the Blaster's current lane change color along the tube depth;
   early levels use yellow, and the highlight follows the Blaster around the
   rim so the occupied lane remains visible while looking deeper into the tube.
-  Inspect Incitti as an engineering reference. The broader Atari palette
-  changes every 16 levels; do not assume or implement a permanent yellow or
-  future color cycle without evidence.
-- **Death presentation.** Neal observed that enemies retract backward down
-  the tube rather than disappearing instantly, with a death animation at the
-  Blaster location. The current C# visual presentation differs. Use Neal's
-  Atari observation as behavioral authority and Incitti only as an engineering
-  reference for enemy retraction; do not change accepted death/reconstruction
-  gameplay semantics.
+  The C# renderer colors the selected topology boundaries for Levels 1-3.
+  Neal manually accepted the visible behavior and assessed this feature as
+  identical to Atari. The broader Atari palette changes every 16 levels;
+  future palette colors/cycling remain deferred and unvalidated.
+- **Death-presentation fidelity.** Neal observed that the current C# visual
+  presentation differs. Use Neal's Atari observation as behavioral authority
+  and Incitti only as an engineering reference; do not change accepted
+  death/reconstruction gameplay semantics.
+- **Enemy death retraction.** Enemies should retract backward down the tube
+  during the arcade death presentation rather than disappearing instantly.
+- **Blaster-location death animation.** Implement the arcade animation at the
+  Blaster's location as a separate presentation item.
 - **Player-shot size.** Neal observes that C# shots should be slightly larger
   to better match Atari; defer to a rendering-fidelity pass.
-- **Audio/sound.** Sound effects and fidelity remain a long-term roadmap item.
-  Timing is undecided; avoid coupling gameplay events directly to a specific
-  audio implementation.
+- **Between-level approach perspective.** Refine the elevated Atari
+  perspective separately from the accepted current approach architecture.
+- **Broader entity/rendering fidelity.** Continue as a separate presentation
+  workstream.
+- **Spinner characterization/refinement.** A future task should compare actual
+  spinner/input/movement processing before changing sensitivity.
+- **Later levels.** Level 4 and subsequent levels remain future work.
+- **Palette/color-scheme cycling.** The broader Atari palette changes every
+  16 levels; future colors/cycling remain deferred and were not validated by
+  lane-highlight acceptance.
+- **Audio/sound.** Fidelity remains a long-term roadmap item. Timing is
+  undecided; avoid coupling gameplay events directly to a specific audio
+  implementation.
+- **End-of-game presentation.** Animation and presentation remain deferred.
+- **High-score tracking/persistence.** Remains a separate future item.
 
 Before C4, Neal verified the then-current Level 2 terminal policy: no Level 3
 appeared, the explicit "LEVEL 2 COMPLETE / NEXT LEVEL NOT IMPLEMENTED /

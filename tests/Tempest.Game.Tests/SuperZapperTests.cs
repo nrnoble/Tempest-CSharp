@@ -678,13 +678,20 @@ public sealed class SuperZapperTests
         VectorRenderer renderer = new(game);
         List<(System.Numerics.Vector2 Start, System.Numerics.Vector2 End, Color Color)> normal = [];
         renderer.DrawTube((start, end, color) => normal.Add((start, end, color)));
-        Assert.All(normal, line => Assert.Equal(Color.Blue, line.Color));
+        for (int index = 0; index < normal.Count; index++)
+            Assert.Equal(index < 16 && (index == 7 || index == 8)
+                ? new Color(255, 255, 0, 255)
+                : Color.Blue,
+                normal[index].Color);
 
         game.RunOneStep(new PlayerInput(false, 0, false, false, ZapPressed: true));
         List<(System.Numerics.Vector2 Start, System.Numerics.Vector2 End, Color Color)> flash = [];
         renderer.DrawTube((start, end, color) => flash.Add((start, end, color)));
         Assert.Equal(normal.Count, flash.Count);
-        Assert.All(flash, line => Assert.Equal(new Color(255, 0, 255, 255), line.Color));
+        for (int index = 0; index < flash.Count; index++)
+            Assert.Equal(index < 16 && (index == 7 || index == 8)
+                ? new Color(255, 255, 0, 255)
+                : new Color(255, 0, 255, 255), flash[index].Color);
         Assert.Equal(normal.Select(line => (line.Start, line.End)),
             flash.Select(line => (line.Start, line.End)));
 
