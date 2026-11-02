@@ -38,6 +38,8 @@ public sealed class LevelProgressionTests
         game.RunOneStep();
 
         AssertFreshLevel2(game, outgoing, expectedScore: 1500, expectedLives: 2);
+        Assert.Equal(LevelState.Approach, game.State);
+        FinishApproach(game);
         Level installed = game.CurrentLevel;
         Step(game, 50);
         Assert.Same(installed, game.CurrentLevel);
@@ -82,10 +84,14 @@ public sealed class LevelProgressionTests
         game.Player.AdvanceExit(Level.Depth - 12);
         game.RunOneStep();
 
-        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(LevelState.Approach, game.State);
         Assert.Equal(2, game.SuperZapperChargesRemaining);
         Assert.Equal(0, game.SuperZapper.FlashTicksRemaining);
         Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
+        game.RunOneStep(new PlayerInput(false, 0, false, false, ZapPressed: true));
+        Assert.Equal(2, game.SuperZapperChargesRemaining);
+        FinishApproach(game);
+        Assert.Equal(LevelState.Playing, game.State);
         Assert.True(game.SuperZapper.TryActivate([], game.Player.EdgeIndex, 16, continuous: true));
         Assert.Equal(1, game.SuperZapperChargesRemaining);
         Assert.True(game.SuperZapper.TryActivate([], game.Player.EdgeIndex, 16, continuous: true));
@@ -156,6 +162,8 @@ public sealed class LevelProgressionTests
         ];
 
         Assert.All(developmentGames, game => Assert.False(game.NaturalProgressionEnabled));
+        Assert.All(developmentGames, game => Assert.Null(game.CurrentApproach));
+        Assert.All(developmentGames, game => Assert.Equal(LevelState.Playing, game.State));
         Assert.Same(LevelConfiguration.Level2Square, developmentGames[0].CurrentLevel.Configuration);
         Assert.Same(LevelConfiguration.Level3Mixed, developmentGames[1].CurrentLevel.Configuration);
         Assert.Same(LevelConfiguration.Level3Plus, developmentGames[2].CurrentLevel.Configuration);
@@ -366,13 +374,14 @@ public sealed class LevelProgressionTests
         Assert.Equal(LevelState.ExitDelay, game.State);
         FinishLevel1Exit(game);
         AssertFreshLevel2(game, outgoing, expectedScore: expectedScore, expectedLives: expectedLives);
+        FinishApproach(game);
     }
 
     private static void AssertFreshLevel2(TempestGame game, Level outgoing, int expectedScore, int expectedLives)
     {
         Assert.NotSame(outgoing, game.CurrentLevel);
         Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
-        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(LevelState.Approach, game.State);
         Assert.Equal(1, game.CurrentLevel.Configuration.ProgressionIndex);
         Assert.Equal(2, game.CurrentLevel.Configuration.DisplayedLevel);
         Assert.Equal(1, game.CurrentLevel.Configuration.BoardIndex);
@@ -427,6 +436,7 @@ public sealed class LevelProgressionTests
             game.RunOneStep();
         Assert.NotSame(outgoing, game.CurrentLevel);
         Assert.Same(LevelConfiguration.Level3Mixed, game.CurrentLevel.Configuration);
+        FinishApproach(game);
     }
 
     private static void AssertFreshLevel3(TempestGame game, Level outgoing,
@@ -483,5 +493,13 @@ public sealed class LevelProgressionTests
     {
         for (int tick = 0; tick < ticks; tick++)
             game.RunOneStep();
+    }
+
+    private static void FinishApproach(TempestGame game)
+    {
+        Assert.Equal(LevelState.Approach, game.State);
+        for (int tick = 0; tick < LevelApproach.DurationTicks; tick++)
+            game.RunOneStep();
+        Assert.Equal(LevelState.Playing, game.State);
     }
 }

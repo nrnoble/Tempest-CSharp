@@ -4888,7 +4888,8 @@ public sealed class SimulationTests
 
         Assert.NotSame(outgoingLevel, game.CurrentLevel);
         Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
-        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(LevelState.Approach, game.State);
+        Assert.Equal(LevelApproach.InitialDepthOffset, game.CurrentApproach!.DepthOffset);
         Assert.Equal(400, game.Player.Depth);
         Assert.Equal(4, game.Eggs.Count);
         Assert.Equal(8, game.CurrentLevel.ReserveEggs);
@@ -4905,7 +4906,8 @@ public sealed class SimulationTests
         game.RunOneStep();
         Assert.NotSame(outgoingLevel, game.CurrentLevel);
         Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
-        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(LevelState.Approach, game.State);
+        Assert.Equal(LevelApproach.InitialDepthOffset, game.CurrentApproach!.DepthOffset);
         Assert.Equal(400, game.Player.Depth);
         Assert.Equal(4, game.Eggs.Count);
         Assert.Equal(8, game.CurrentLevel.ReserveEggs);
@@ -5022,7 +5024,8 @@ public sealed class SimulationTests
         }
         Assert.NotSame(outgoingLevel, game.CurrentLevel);
         Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
-        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(LevelState.Approach, game.State);
+        Assert.Equal(LevelApproach.InitialDepthOffset, renderer.ApproachDepthOffset);
         Assert.Equal(70, Projection.K);
         Assert.Equal(5, Projection.ZOffset);
         IReadOnlyList<Vector2> squarePoints = game.CurrentLevel.Definition.Points;
@@ -5811,6 +5814,9 @@ public sealed class SimulationTests
              !ReferenceEquals(game.CurrentLevel.Configuration, LevelConfiguration.Level2Square); tick++)
             game.RunOneStep();
         Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Approach, game.State);
+        for (int tick = 0; tick < LevelApproach.DurationTicks; tick++)
+            game.RunOneStep();
         Assert.Equal(LevelState.Playing, game.State);
     }
 
@@ -5821,6 +5827,9 @@ public sealed class SimulationTests
             game.RunOneStep();
         Assert.NotSame(outgoing, game.CurrentLevel);
         Assert.Same(LevelConfiguration.Level3Mixed, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Approach, game.State);
+        for (int tick = 0; tick < LevelApproach.DurationTicks; tick++)
+            game.RunOneStep();
         Assert.Equal(LevelState.Playing, game.State);
     }
 

@@ -87,6 +87,7 @@ public sealed class TempestGame
     public bool Level3Test => level3Test;
     public bool Level3GeometryTest => level3GeometryTest;
     public bool NaturalProgressionEnabled => naturalProgressionEnabled;
+    public LevelApproach? CurrentApproach { get; private set; }
     public bool HurryUp { get; private set; }
     public int PulsePhase => pulsePhase;
     public bool Pulsing { get; private set; }
@@ -182,6 +183,12 @@ public sealed class TempestGame
 
     public void RunOneStep(PlayerInput input = default, bool restartPressed = false)
     {
+        if (State == LevelState.Approach)
+        {
+            UpdateLevelApproach(input);
+            return;
+        }
+
         // The display continues to advance during death freezes even though enemy timers do not.
         SuperZapper.AdvanceDisplayStep();
         // Labels have their own short lifetime, including death/exit; gameplay entities freeze.
@@ -288,7 +295,7 @@ public sealed class TempestGame
 
     // Fresh initialization installs a new Level; life reconstruction deliberately retains it.
     // Detaching and rebinding the one SpikeCreated handler keeps old hazards out of the new wave.
-    private void InitializeFreshWave(LevelConfiguration configuration)
+    private void InitializeFreshWave(LevelConfiguration configuration, bool beginApproach = false)
     {
         if (currentLevel is not null)
             currentLevel.SpikeCreated -= OnSpikeCreated;
@@ -298,7 +305,8 @@ public sealed class TempestGame
             NextRandomInclusive);
         currentLevel.SpikeCreated += OnSpikeCreated;
         developmentCollisionOrder.AddRange(currentLevel.Spikes);
-        CurrentLevel.State = LevelState.Playing;
+        CurrentLevel.State = beginApproach ? LevelState.Approach : LevelState.Playing;
+        CurrentApproach = beginApproach ? new LevelApproach() : null;
         exitDelayTicks = 0;
         RestoreProjection();
         DeathTicks = 0;
@@ -462,13 +470,31 @@ public sealed class TempestGame
     {
         UpdatePlayerFiring(input.Fire);
 
+        UpdatePlayerMovement(input);
+    }
+
+    private void UpdatePlayerMovement(PlayerInput input)
+    {
         float movement = input.MouseDeltaX * SpinnerSensitivity;
         if (input.Left)
             movement -= PlayerSpeed;
         if (input.Right)
             movement += PlayerSpeed;
+        movement += input.ControllerAxis * PlayerSpeed;
 
         Player.MoveAlongTube(movement, CurrentLevel);
+    }
+
+    private void UpdateLevelApproach(PlayerInput input)
+    {
+        LevelApproach approach = CurrentApproach ??
+            throw new InvalidOperationException("The approach state has no transition model.");
+        UpdatePlayerMovement(input);
+        if (approach.Advance())
+        {
+            CurrentLevel.State = LevelState.Playing;
+            CurrentApproach = null;
+        }
     }
 
     private IEnumerable<Enemy> GetZapperSourceOrder()
@@ -1504,7 +1530,7 @@ public sealed class TempestGame
                 State == LevelState.ExitZoom &&
                 LevelProgression.GetNextProductionLevel(CurrentLevel.Configuration) is LevelConfiguration next)
             {
-                InitializeFreshWave(next);
+                InitializeFreshWave(next, beginApproach: true);
                 return;
             }
 

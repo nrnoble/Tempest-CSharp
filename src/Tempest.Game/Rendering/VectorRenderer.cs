@@ -61,13 +61,18 @@ public sealed class VectorRenderer
 	// During normal play Player.Depth == Level.Depth, so this is Level.Position (the near rim).
 	// During exit travel Player.Depth shrinks toward 0, moving the projected player down the tube.
 	public float PlayerProjectedDepth => Level.Position + Level.Depth - game.Player.Depth;
-	// Claw height is a fixed 20 px at the rim; once exit travel changes the player's depth it is
-	// rescaled by the same projection ratio so the claw shrinks consistently with the tube. The
-	// (Level.Position + 5) / 70 factor re-derives the rim-sized claw from the normal-play
-	// projection constants (ZOffset 5, K 70) so the two branches agree at the start of travel.
-	public float PlayerClawHeight => game.Player.Depth == Level.Depth
-		? 20
-		: 20 * ((Level.Position + 5) / 70) / ((PlayerProjectedDepth + Projection.ZOffset) / Projection.K);
+	// Claw height is 20 px at the gameplay rim. It scales by the projection ratio during approach
+	// and exit travel so it remains consistent with the tube.
+	public float ApproachDepthOffset => game.State == LevelState.Approach
+		? (game.CurrentApproach ??
+			throw new InvalidOperationException("The approach state has no transition model.")).DepthOffset
+		: 0;
+	public float PlayerClawHeight => game.State == LevelState.Approach
+		? 20 * (PlayerProjectedDepth + Projection.ZOffset) /
+			(PlayerProjectedDepth + ApproachDepthOffset + Projection.ZOffset)
+		: game.Player.Depth == Level.Depth
+			? 20
+			: 20 * ((Level.Position + 5) / 70) / ((PlayerProjectedDepth + Projection.ZOffset) / Projection.K);
 
 	public VectorRenderer(TempestGame game)
 	{
@@ -80,13 +85,15 @@ public sealed class VectorRenderer
 		Raylib.ClearBackground(Color.Black);
 
 		DrawTube((start, end, color) => Raylib.DrawLineV(start, end, color));
-		DrawPulsingLaneBoundaries((start, end, color) => Raylib.DrawLineV(start, end, color));
+		bool approaching = game.State == LevelState.Approach;
+		if (!approaching)
+			DrawPulsingLaneBoundaries((start, end, color) => Raylib.DrawLineV(start, end, color));
 		// Spikes stay visible (and lethal) during exit travel; all other enemies are hidden once
 		// the exit starts. Player shots remain visible only in the spike-exit scenario, where the
 		// player may still fire while travelling.
 		DrawSpikes((start, end) => Raylib.DrawLineV(start, end, SpikerColor),
 			point => Raylib.DrawPixelV(point, Color.White));
-		if (!game.IsExiting)
+		if (!game.IsExiting && !approaching)
 		{
 			DrawEggs();
 			DrawPlayerShots(game.CurrentLevel.Definition.Points);
@@ -103,8 +110,9 @@ public sealed class VectorRenderer
 			DrawPlayerShots(game.CurrentLevel.Definition.Points);
 		}
 
-		DrawFuseballScorePopups((text, position, scale) =>
-			Raylib.DrawTextEx(Raylib.GetFontDefault(), text, position, scale * 7, scale, Color.White));
+		if (!approaching)
+			DrawFuseballScorePopups((text, position, scale) =>
+				Raylib.DrawTextEx(Raylib.GetFontDefault(), text, position, scale * 7, scale, Color.White));
 
 		if (!game.GameOver)
 		{
@@ -395,9 +403,11 @@ public sealed class VectorRenderer
 		for (int i = 0; i < points.Count; i++)
 		{
 			nearRim[i] = Projection.Project(
-				points[i].X, points[i].Y, Level.Position, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+				points[i].X, points[i].Y, Level.Position + ApproachDepthOffset,
+				game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
 			farRim[i] = Projection.Project(
-				points[i].X, points[i].Y, Level.Position + Level.Depth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+				points[i].X, points[i].Y, Level.Position + Level.Depth + ApproachDepthOffset,
+				game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
 		}
 
 		for (int i = 0; i < points.Count; i++)
@@ -576,10 +586,12 @@ public sealed class VectorRenderer
 		int next = NextEdge(game.Player.EdgeIndex, points.Count);
 		p1 = Projection.Project(
 			points[game.Player.EdgeIndex].X, points[game.Player.EdgeIndex].Y,
-			PlayerProjectedDepth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+			PlayerProjectedDepth + ApproachDepthOffset, game.CurrentLevel.Definition.CenterY,
+			game.CurrentLevel.Definition.YOffset);
 		p2 = Projection.Project(
 			points[next].X, points[next].Y,
-			PlayerProjectedDepth, game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+			PlayerProjectedDepth + ApproachDepthOffset, game.CurrentLevel.Definition.CenterY,
+			game.CurrentLevel.Definition.YOffset);
 	}
 
 	// Death burst: 8 asymmetric radials (short inner tail, long outer ray) expanding over the
@@ -661,6 +673,9 @@ public sealed class VectorRenderer
 
 	public IReadOnlyList<string> GetWaveHudLines()
 	{
+		if (game.State == LevelState.Approach)
+			return [];
+
 		if (game.TankerTest)
 		{
 			return

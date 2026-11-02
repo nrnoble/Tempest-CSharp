@@ -47,8 +47,14 @@ campaign with reset score and configured starting lives. Game Over in a
 normal campaign also restarts at Level 1. Neal manually accepted the visible
 natural Level 1 -> Level 2 -> Level 3 progression, Level 3 entry/gameplay, and
 terminal/restart behavior in normal campaign play. This accepts the current
-C# behavior and makes no new arcade-behavior claim. The between-level approach
-presentation remains deferred.
+C# progression and makes no new arcade-behavior claim. Natural progression now
+enters an interactive approach state for each incoming production level. Neal
+manually accepted the current approach presentation in normal campaign play:
+no ExitZoom handoff discontinuity, projection flash, wrong board, Blaster jump
+or new problem was observed. He found it impressive and close to remembered
+Atari behavior; this is qualitative acceptance, not a measured fidelity
+percentage or verification of provisional timing/projection tuning. The more
+elevated Atari approach perspective remains a deferred fidelity refinement.
 
 The closed definition has 16 ordered vertices and 16 playable lanes. The
 topology metadata distinguishes these counts: an open definition with 16
@@ -178,8 +184,13 @@ These broad observable results are **ARCADE VERIFIED** within that manual
 comparison; exact transition ticks and implementation internals are not.
 
 Atari has a brief between-level approach through space with an interactive
-distant Blaster before combat engagement. This presentation is not implemented
-and is deferred; its duration and timing details have not been measured.
+distant Blaster before combat engagement. The C# approach translates only the
+incoming tube/player projection, freezes the incoming wave, and permits
+spinner, left-stick and keyboard rim movement while suppressing fire and
+Super Zapper. Its 120-tick duration and 240-unit starting depth offset are
+provisional project presentation tuning, not arcade measurements. Graphical
+acceptance of pacing, scale, controls and arrival remains pending. Audio and
+sound fidelity remain long-term roadmap items; no audio playback is implemented.
 
 ## Level 3 plus-board geometry diagnostic
 

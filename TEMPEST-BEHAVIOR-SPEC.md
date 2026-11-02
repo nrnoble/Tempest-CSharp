@@ -55,9 +55,17 @@ record the uncertainty rather than guessing.
   -> Level 3 sequence, Level 3 entry/gameplay, and terminal/restart behavior.
   This accepts the current C# implementation; it does not establish
   arcade-observed Level 2-to-Level 3 behavior or hidden implementation details.
-- **PROJECT DECISION** — The recreation does not implement the Atari
-  between-level approach presentation yet. Its behavior observed by Neal is
-  documented under Known uncertainties and deferred behavior.
+- **PROJECT DECISION** — Natural Level 1-to-2 and Level 2-to-3 progression
+  enters a separate interactive approach state. The fresh incoming wave is
+  frozen until arrival; movement uses the existing spinner/keyboard path and
+  the left gamepad stick (with a project 0.15 normalized dead zone), while
+  fire and Super Zapper are suppressed. Neal manually accepted the current
+  approach presentation in normal campaign play: no ExitZoom handoff
+  discontinuity, projection flash, wrong board, Blaster jump or new problem
+  was observed. He found it impressive and close to remembered Atari behavior.
+  This qualitative acceptance does not verify the provisional duration, depth
+  offset, curve, controller dead zone or exact projection trajectory. The
+  elevated Atari approach perspective remains a deferred fidelity refinement.
 - **PROJECT DECISION** — Player shots travel from the Blaster at the near rim
   toward the far end of the currently occupied lane. The current recreation
   limits simultaneous player shots and gives them a fixed travel rate. Those
@@ -653,12 +661,13 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   Tanker arcade eligibility/composition, and exit visuals need direct arcade
   comparison where they matter.
 - **PROJECT DECISION** — Progression beyond terminal Level 3 and authentic
-  later-wave composition, open-tube rendering, audio, bonus rules, broader
+  later-wave composition, open-tube rendering, bonus rules, broader
   enemy/cargo combinations, and source-specific death effects remain out of
   scope or deferred. Natural Level 1-to-Level 2-to-Level 3 progression has
   passed manual acceptance of visible C# behavior. This acceptance does not
   establish hidden implementation details or new arcade behavior; remaining
-  uncertainties are recorded above.
+  uncertainties are recorded above. Audio and sound fidelity remain a
+  long-term roadmap item; no audio playback is implemented.
 - **ARCADE VERIFIED** — Neal observed a brief Atari between-level approach
   after the Blaster exits a tube: a first-person view moves through space
   toward the next tube, which begins small/distant and grows as the player
@@ -666,9 +675,20 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   moves it around that rim during the approach, before combat engagement.
   This qualitative observation does not establish duration, zoom rate,
   projection formulas, enemy-start timing or exact firing enablement.
-- **PROJECT DECISION** — The recreation does not implement this interactive
-  between-level approach presentation yet. Its implementation is deferred;
-  current natural progression begins the next level directly.
+- **PROJECT DECISION (implementation; graphical acceptance pending)** —
+  Natural production progression enters an explicit approach state after the
+  successful exit commit for both Level 1 -> 2 and Level 2 -> 3. The incoming
+  configuration and fresh wave are installed at approach start, but gameplay
+  simulation is frozen until arrival.   spinner, keyboard and left-stick (with a project 0.15 normalized dead zone)
+  movement remain enabled; fire and Super Zapper are suppressed. Rendering
+  applies a transition-only depth offset to the incoming tube and Blaster and
+  reaches the exact normal projection at arrival. The deterministic
+  120-simulation-tick duration, 240-unit initial depth offset and smoothstep
+  curve are provisional project presentation tuning, not arcade-verified
+  values. Automated tests validate state, freeze, movement and projection
+  endpoints; Neal's graphical acceptance of both natural approaches is still
+  required. Do not infer exact Atari timing, curve, projection constants or
+  internal input policy from this implementation.
 
 ## 12. Behavior-validation history
 
@@ -773,10 +793,15 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   brief first-person approach through space to the next tube. The distant
   tube grows in view; the Blaster appears on its distant rim and remains
   spinner-movable during approach, then combat begins. This gameplay-relevant
-  presentation is not implemented and is deferred; Neal does not consider
-  its absence a blocker for current progression development. Duration, zoom
-  rate, projection math, enemy-start timing and firing enablement remain
-  unmeasured and unspecified.
+  approach is implemented for both natural production transitions and Neal
+  manually accepted its current C# presentation. He observed no ExitZoom
+  handoff discontinuity, projection flash, wrong board, Blaster jump or new
+  problem, and found it impressive and close to remembered Atari behavior.
+  These observations accept the current implementation; they do not establish
+  exact arcade timing or projection parameters. The elevated Atari approach
+  perspective (approximately 30-45 degrees by Neal's observation) remains a
+  deferred fidelity refinement; Incitti's approach appears sharper and is an
+  engineering reference, not behavioral authority.
 - **rimit / Hurry-Up milestone** — Automated validation passed 121 focused
   hurry-up/Fuseball/Pulsar cases and all 289 suite cases, with no failures or
   skips; build had zero warnings/errors. Tests protect exact C# trigger order,

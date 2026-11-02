@@ -111,7 +111,7 @@ public sealed class LevelConfigurationTests
 
         Assert.NotSame(previousLevel, game.CurrentLevel);
         Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
-        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(LevelState.Approach, game.State);
         Assert.Equal(1500, game.Score.Score);
         Assert.Equal(2, game.Player.Lives);
         Assert.Equal(4, game.Eggs.Count);
@@ -119,6 +119,9 @@ public sealed class LevelConfigurationTests
         Assert.Equal(7, game.Player.EdgeIndex);
         Assert.Equal(0.5f, game.Player.EdgePosition);
         Assert.Equal(400, game.Player.Depth);
+        for (int tick = 0; tick < LevelApproach.DurationTicks; tick++)
+            game.RunOneStep();
+        Assert.Equal(LevelState.Playing, game.State);
     }
 
     [Fact]

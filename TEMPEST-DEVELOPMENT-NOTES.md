@@ -864,12 +864,29 @@ supply, Flipper-only composition, and the validated B1/B2 hinge/canflip path.
 Normal play advances from Level 1 and Level 2 only after successful standard
 ExitZoom travel updates the player to depth below 10. Wave clear, ExitDelay,
 death, Game Over and Spiker reverse/retry do not advance. The existing
-fresh-wave initializer installs Level 2 and then the existing
-`LevelConfiguration.Level3Mixed` in that same simulation update, resetting
-projection and Super Zapper to two charges/zero flash while carrying score
-and current lives. No level bonus, bonus life, source `startbonus`,
-Begin/Ready presentation, entry-position shift or audio is implemented.
-These are presentation/economy omissions, not arcade-equivalent behavior.
+fresh-wave initializer installs Level 2 or the existing
+`LevelConfiguration.Level3Mixed` at the successful progression commit,
+resetting projection and Super Zapper to two charges/zero flash while carrying
+score and current lives. It enters a distinct approach state rather than
+ordinary `Playing`; gameplay is frozen while the incoming tube approaches.
+At arrival the established gameplay projection is restored exactly, and
+ordinary simulation starts on the next step. No level bonus, bonus life,
+source `startbonus`, Begin/Ready presentation, entry-position shift or audio
+is implemented. These are presentation/economy omissions, not
+arcade-equivalent behavior.
+
+The shared approach permits rim movement by spinner, keyboard and left
+gamepad stick, but suppresses player fire and Super Zapper. It uses a
+transition-only depth offset with a deterministic 120-tick smoothstep to zero;
+the 120-tick duration and 240-unit initial offset are provisional project
+tuning, not arcade measurements. Automated checks cover both natural edges
+and exact projection restoration. Neal manually accepted the current
+presentation during normal campaign play: no ExitZoom handoff discontinuity,
+projection flash, wrong board, Blaster jump or new problem was observed. He
+found it impressive and close to remembered Atari behavior. This is qualitative
+acceptance of the current C# implementation, not verification of the
+provisional timing, depth offset, smoothstep curve, controller dead zone or
+exact projection trajectory.
 
 Natural Level 3 is terminal; R starts a new Level 1 campaign with score reset
 and configured starting lives. Game Over in a normal campaign also restarts
@@ -880,8 +897,10 @@ terminal and replay their own launch scenario. Ordinary death reconstructs
 the existing `Level`, preserving its configuration and resolved outcomes.
 Neal manually accepted the visible natural Level 1 -> Level 2 -> Level 3
 progression and terminal/restart behavior in normal campaign play. This is
-acceptance of the current C# behavior, not new arcade evidence. The
-between-level approach remains deferred.
+acceptance of the current C# behavior, not new arcade evidence. The approach
+presentation is now implemented, but its graphical acceptance is still
+required; this does not revise the previously accepted progression baseline
+or add arcade evidence.
 
 Definitions distinguish 16 ordered vertices from playable lanes: the current
 closed Level 1 has 16 of each, while a geometry-only open-definition fixture
@@ -969,18 +988,49 @@ accounting reset, exact Super Zapper recharge/flash timing, Egg setup
 sequencing, player start offset, callback/list cleanup and projection reset
 remain **REFERENCE VERIFIED / PROJECT DECISION** as applicable.
 
-### Deferred Atari between-level approach
+### Atari between-level approach
 
 Neal reports that after the Blaster exits a tube, Atari shows a brief
 first-person approach through space toward the next tube. The next tube starts
 small and distant and grows as the player approaches; the Blaster is visible
 on the distant rim and spinner movement moves it around that rim during the
 approach. Combat/enemy engagement begins after arrival. This is
-gameplay-relevant because rim movement remains interactive, but Neal does not
-consider its absence a blocker for current progression development. The
-approach presentation is deferred and not implemented. Do not infer duration,
-zoom rate, projection formulas, enemy-start timing or firing enablement; none
-was measured.
+gameplay-relevant because rim movement remains interactive. The C#
+implementation uses a separate approach state for both natural production
+edges, freezes the fresh incoming wave, preserves rim movement, and suppresses
+fire and Super Zapper. Its 120-tick duration, 240-unit initial depth offset and
+smoothstep curve are provisional project tuning, not arcade measurements.
+Automated tests cover state, freeze, movement and projection endpoints.
+Neal manually accepted the current presentation in normal campaign play:
+there was no ExitZoom handoff discontinuity, projection flash, wrong board,
+Blaster jump or newly observed problem. He found it impressive and close to
+remembered Atari behavior. This is qualitative acceptance, not a measurement
+of exact fidelity or the provisional constants. Neal's observation is that
+the Atari approach appears elevated, approximately 30-45 degrees; Incitti also
+approaches from above but at a sharper angle. Matching the elevated Atari
+perspective is deferred; do not treat that refinement as a failure of the
+accepted approach architecture.
+
+## Deferred rendering and presentation fidelity
+
+- **Next milestone: Blaster-lane highlighting.** Neal observed the two web
+  lines bounding the Blaster's current lane change color along the tube depth;
+  early levels use yellow, and the highlight follows the Blaster around the
+  rim so the occupied lane remains visible while looking deeper into the tube.
+  Inspect Incitti as an engineering reference. The broader Atari palette
+  changes every 16 levels; do not assume or implement a permanent yellow or
+  future color cycle without evidence.
+- **Death presentation.** Neal observed that enemies retract backward down
+  the tube rather than disappearing instantly, with a death animation at the
+  Blaster location. The current C# visual presentation differs. Use Neal's
+  Atari observation as behavioral authority and Incitti only as an engineering
+  reference for enemy retraction; do not change accepted death/reconstruction
+  gameplay semantics.
+- **Player-shot size.** Neal observes that C# shots should be slightly larger
+  to better match Atari; defer to a rendering-fidelity pass.
+- **Audio/sound.** Sound effects and fidelity remain a long-term roadmap item.
+  Timing is undecided; avoid coupling gameplay events directly to a specific
+  audio implementation.
 
 Before C4, Neal verified the then-current Level 2 terminal policy: no Level 3
 appeared, the explicit "LEVEL 2 COMPLETE / NEXT LEVEL NOT IMPLEMENTED /
