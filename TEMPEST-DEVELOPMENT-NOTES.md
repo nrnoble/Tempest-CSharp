@@ -218,6 +218,21 @@ Established behavior includes:
 
 Enemy reset/accounting after death must never duplicate or lose enemies.
 
+Neal directly observed active enemies retracting backward/down the tube while
+inactive after the Blaster is destroyed. He observed that Spikes remain fixed
+on the web and that complete retraction takes no more than approximately two
+seconds; the duration is a qualitative upper bound, not an exact measurement.
+The C# implementation keeps the existing 60-update death boundary and applies
+a deterministic linear render-only depth offset over those updates (one
+second at 60 Hz). This timing and curve are **PROJECT DECISIONS**, not
+arcade-exact values. Logical enemy state and accounting stay frozen; Spikes,
+Eggs, bullets and hazards retain their distinct existing policies. Incitti's
+shared depth/projection shift is **REFERENCE VERIFIED**, but it is not a
+dedicated enemy retreat routine. Neal manually accepted the visible C#
+retraction on Levels 1-3, including mixed-wave/Tanker behavior, fixed Spike
+persistence, final-life Game Over and restart. The separate Blaster-location
+animation awaits arcade footage.
+
 ## Egg Terminology and Behavior
 
 ### What "Egg" Means
@@ -390,7 +405,9 @@ reach height one on their hatch tick; Fuseballs hatch at zero and increment
 their lateral counter on that tick. Tests pin the last approaching Egg's
 39th/40th updates, ordinary trigger-tick behavior and next-tick effects.
 If a collision begins PlayerDying on the trigger tick, the end-of-tick latch
-can still activate; it then freezes with the established death policy.
+does not activate: PlayerDying skips the remaining Hurry-Up/all-rim/completion
+checks. A latch that was already active still freezes with the established
+death policy.
 
 The latch starts false, never unlatches during the same-level attempt, and
 survives all 60 PlayerDying updates and ordinary fresh-Egg reconstruction.
@@ -1037,14 +1054,17 @@ accepted approach architecture.
   Neal manually accepted the visible behavior and assessed this feature as
   identical to Atari. The broader Atari palette changes every 16 levels;
   future palette colors/cycling remain deferred and unvalidated.
-- **Death-presentation fidelity.** Neal observed that the current C# visual
-  presentation differs. Use Neal's Atari observation as behavioral authority
-  and Incitti only as an engineering reference; do not change accepted
-  death/reconstruction gameplay semantics.
-- **Enemy death retraction.** Enemies should retract backward down the tube
-  during the arcade death presentation rather than disappearing instantly.
-- **Blaster-location death animation.** Implement the arcade animation at the
-  Blaster's location as a separate presentation item.
+- **Enemy death retraction.** Neal observed active enemies retracting
+  backward/down the tube while inactive, with fixed Spikes remaining on the
+  web. The C# implementation uses a render-only displacement within its
+  existing 60-update death window; its linear one-second tuning is a project
+  choice within Neal's qualitative approximate two-second upper bound. Neal
+  manually accepted its visible direction, inactivity and pacing on Levels
+  1-3, plus Spike persistence and Game Over/restart behavior. The exact C#
+  duration and interpolation curve are not arcade-verified.
+- **Blaster-location death animation.** Refine the separate C# animation to
+  Atari only after Neal supplies footage establishing geometry and timing.
+  Do not copy Incitti's distinct Blaster presentation as Atari behavior.
 - **Player-shot size.** Neal observes that C# shots should be slightly larger
   to better match Atari; defer to a rendering-fidelity pass.
 - **Between-level approach perspective.** Refine the elevated Atari

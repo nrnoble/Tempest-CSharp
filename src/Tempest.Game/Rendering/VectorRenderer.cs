@@ -135,7 +135,7 @@ public sealed class VectorRenderer
 		// Incitti edges use p2 = points[lane], p1 = points[next]; w runs p2 -> p1.
 		Vector2 position = Vector2.Lerp(points[fuseball.EdgeIndex],
 			points[NextEdge(fuseball.EdgeIndex, points.Count)], fuseball.W / 8f);
-		return Projection.Project(position.X, position.Y, Level.Position + Level.Depth - fuseball.Height,
+		return Projection.Project(position.X, position.Y, ProjectEnemyDepth(fuseball.Height),
 			game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
 	}
 
@@ -144,7 +144,7 @@ public sealed class VectorRenderer
 		foreach (Fuseball fuseball in game.Fuseballs)
 		{
 			Vector2 center = ProjectFuseballCenter(fuseball);
-			float depth = Level.Position + Level.Depth - fuseball.Height;
+			float depth = ProjectEnemyDepth(fuseball.Height);
 			float scale = (8 / ((depth + Projection.ZOffset) / Projection.K) + .25f) / 6;
 			for (int arm = 0; arm < 5; arm++)
 			{
@@ -164,7 +164,7 @@ public sealed class VectorRenderer
 		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
 		foreach (Pulsar pulsar in game.Pulsars)
 		{
-			float projectedDepth = Level.Position + Level.Depth - pulsar.Height;
+			float projectedDepth = ProjectEnemyDepth(pulsar.Height);
 			Vector2 p1;
 			Vector2 p2;
 			if (pulsar.State is PulsarState.Flipping or PulsarState.FlippingWithoutClimb)
@@ -252,7 +252,7 @@ public sealed class VectorRenderer
 	}
 
 	public Vector2 ProjectTankerCenter(Tanker tanker) =>
-		ProjectLane(tanker.EdgeIndex, Level.Position + Level.Depth - tanker.Height);
+		ProjectLane(tanker.EdgeIndex, ProjectEnemyDepth(tanker.Height));
 
 	// Tanker: magenta diamond-with-lattice line glyph (Incitti-derived) at the lane midpoint.
 	// Scale uses a 26-unit base plus a 1 px floor so the glyph never collapses at the far end.
@@ -261,7 +261,7 @@ public sealed class VectorRenderer
 		foreach (Tanker tanker in game.Tankers)
 		{
 			Vector2 center = ProjectTankerCenter(tanker);
-			float depth = Level.Position + Level.Depth - tanker.Height;
+			float depth = ProjectEnemyDepth(tanker.Height);
 			float scale = 26 / ((depth + Projection.ZOffset) / Projection.K) + 1;
 			float third = scale / 3;
 			Vector2 top = center + new Vector2(0, -scale);
@@ -347,7 +347,7 @@ public sealed class VectorRenderer
 	{
 		foreach (Spiker spiker in game.Spikers)
 		{
-			float depth = Level.Position + Level.Depth - spiker.Height;
+			float depth = ProjectEnemyDepth(spiker.Height);
 			Vector2 center = ProjectLane(spiker.EdgeIndex, depth);
 			float scale = 22 / ((depth + Projection.ZOffset) / Projection.K) + 2;
 			for (int segment = 0; segment >= -13; segment--)
@@ -495,8 +495,7 @@ public sealed class VectorRenderer
 
 	private void DrawFlipper(IReadOnlyList<Vector2> points, Flipper flipper)
 	{
-		float projectedDepth = game.CurrentLevel.Configuration.Position +
-			game.CurrentLevel.Configuration.Depth - flipper.Height;
+		float projectedDepth = ProjectEnemyDepth(flipper.Height);
 		(Vector2 p1, Vector2 p2) = ProjectFlipperEndpoints(flipper, points, projectedDepth);
 		DrawFlipperShape(p1, p2, projectedDepth);
 	}
@@ -504,9 +503,20 @@ public sealed class VectorRenderer
 	public (Vector2 Start, Vector2 End) ProjectFlipperEndpoints(Flipper flipper)
 	{
 		ArgumentNullException.ThrowIfNull(flipper);
-		float projectedDepth = game.CurrentLevel.Configuration.Position +
-			game.CurrentLevel.Configuration.Depth - flipper.Height;
+		float projectedDepth = ProjectEnemyDepth(flipper.Height);
 		return ProjectFlipperEndpoints(flipper, game.CurrentLevel.Definition.Points, projectedDepth);
+	}
+
+	private float ProjectEnemyDepth(float height)
+	{
+		LevelConfiguration configuration = game.CurrentLevel.Configuration;
+		float projectedDepth = configuration.Position + configuration.Depth - height;
+		float retreatOffset = configuration.Depth * game.EnemyRetractionProgress;
+		// Retreat is a render-only projection offset; gameplay height and lane remain untouched.
+		return retreatOffset == 0
+			? projectedDepth
+			: Math.Clamp(projectedDepth + retreatOffset,
+				configuration.Position, configuration.Position + 2 * configuration.Depth);
 	}
 
 	private (Vector2 Start, Vector2 End) ProjectFlipperEndpoints(

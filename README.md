@@ -397,6 +397,29 @@ trigger ticks and latch timing remain reference/project decisions rather than
 arcade-verified details. See the behavior specification for the evidence
 boundary.
 
+## Player-death enemy retraction
+
+**ARCADE VERIFIED:** Neal observed active enemies retracting backward/down the
+tube when the Blaster is destroyed. They are inactive during that presentation,
+and existing Spikes remain fixed on the web. The full retraction takes no more
+than approximately two seconds; this is a qualitative upper bound, not an
+exact measurement or frame count.
+
+The C# presentation keeps the existing 60-update death/re-entry lifecycle.
+At the fixed 60 Hz simulation rate, a linear render-only depth offset spans one
+tube depth during those updates. This deterministic one-second tuning is a
+**PROJECT DECISION**, not an arcade-exact curve or duration. Enemy gameplay
+positions, lanes, identities, accounting and score remain frozen/unchanged;
+Flippers, Tankers, Spikers, Fuseballs and Pulsars share the offset. Spikes,
+Eggs, projectiles and hazards keep their existing separate presentation and
+lifecycle policies.
+
+Incitti provides a **REFERENCE VERIFIED** shared projection/depth-shift clue,
+not a dedicated enemy-specific retreat routine. Neal manually accepted the
+visible C# retraction on Levels 1-3 and the Spiker/Spike and Game Over/restart
+scenarios. The separate Atari Blaster-location death animation remains deferred
+until arcade footage establishes its geometry and timing.
+
 ## Super Zapper
 
 The source-derived Super Zapper works in normal Level 1, natural Levels 2 and

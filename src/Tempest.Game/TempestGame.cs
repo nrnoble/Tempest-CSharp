@@ -70,6 +70,11 @@ public sealed class TempestGame
     public Player Player { get; }
     public Level CurrentLevel => currentLevel ??
         throw new InvalidOperationException("The current Level has not been initialized.");
+    public PlayerDeathPresentation DeathPresentation { get; } = new(PlayerDeathTicks);
+    // The model controls rendering only; logical enemies stay frozen for existing reconstruction.
+    public float EnemyRetractionProgress => State == LevelState.PlayerDying
+        ? DeathPresentation.EnemyRetractionProgress
+        : 0;
     public ScoreSystem Score { get; } = new();
     public SuperZapperSystem SuperZapper { get; } = new();
     public IReadOnlyList<Shot> Shots => shots;
@@ -270,13 +275,23 @@ public sealed class TempestGame
             UpdateSpikers();
             UpdateFuseballs();
             UpdatePulsars();
-            // A lethal collision wins over same-tick rim completion; qualify only after every
-            // existing enemy, bullet, and spike collision has had its established chance to kill.
+            // Once a collision starts death, stop active gameplay before later collisions,
+            // all-rim completion or Hurry-Up can process on the same tick.
             CheckFlippersAgainstPlayer();
+            if (State != LevelState.Playing)
+                return;
             CheckFuseballsAgainstPlayer();
+            if (State != LevelState.Playing)
+                return;
             CheckPulsarsAgainstPlayer();
+            if (State != LevelState.Playing)
+                return;
             CheckEnemyBulletsAgainstPlayer();
+            if (State != LevelState.Playing)
+                return;
             CheckSpikesAgainstPlayer();
+            if (State != LevelState.Playing)
+                return;
             if (TryCompleteAllRim())
                 return;
             LatchHurryUp();
@@ -310,6 +325,7 @@ public sealed class TempestGame
         exitDelayTicks = 0;
         RestoreProjection();
         DeathTicks = 0;
+        DeathPresentation.Reset();
         HurryUp = false;
         SuperZapper.Reset();
         ResetPlayerPosition();
@@ -371,6 +387,7 @@ public sealed class TempestGame
 
     private void ResetAfterDeath()
     {
+        DeathPresentation.Reset();
         if (CurrentLevel.IsLevel3Mixed)
         {
             ValidateLevel3WaveRepresentation();
@@ -426,6 +443,7 @@ public sealed class TempestGame
 
     private void UpdatePlayerDeath()
     {
+        DeathPresentation.Advance();
         DeathTicks--;
         if (DeathTicks > 0)
             return;
@@ -462,6 +480,7 @@ public sealed class TempestGame
             return;
 
         DeathTicks = PlayerDeathTicks;
+        DeathPresentation.Start();
         CurrentLevel.State = LevelState.PlayerDying;
         shots.Clear();
     }

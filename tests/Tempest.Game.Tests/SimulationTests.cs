@@ -447,7 +447,7 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void HurryUpCanLatchAfterSameTickPlayerCollisionAndThenFreezes()
+    public void PlayerDeathPreventsSameTickHurryUpAndFreezesExistingState()
     {
         TempestGame game = PrepareHurryUpEggs(pulsar: true, survivors: 2);
         MakeReady(game.Eggs[0], game.CurrentLevel);
@@ -459,11 +459,11 @@ public sealed class SimulationTests
         Assert.False(game.HurryUp);
         game.RunOneStep();
         Assert.Equal(LevelState.PlayerDying, game.State);
-        Assert.True(game.HurryUp);
+        Assert.False(game.HurryUp);
         Assert.Empty(game.Eggs);
         Assert.Equal(1, game.Pulsars[1].Height);
         game.RunOneStep();
-        Assert.True(game.HurryUp);
+        Assert.False(game.HurryUp);
         Assert.Equal(1, game.Pulsars[1].Height);
         AssertHurryUpAccounting(game);
     }
@@ -1466,7 +1466,22 @@ public sealed class SimulationTests
         game.RunOneStep();
         Assert.Equal(71, game.PulsePhase);
         Assert.Equal(LevelState.PlayerDying, game.State);
-        Step(game, TempestGame.PlayerDeathTicks);
+        Pulsar retracting = game.Pulsars.First();
+        float pulsarHeight = retracting.Height;
+        PulsarState pulsarState = retracting.State;
+        VectorRenderer renderer = new(game);
+        List<(Vector2 Start, Vector2 End, Color Color)> beforeRetraction = [];
+        renderer.DrawPulsars((start, end, color) =>
+            beforeRetraction.Add((start, end, color)));
+        game.RunOneStep();
+        List<(Vector2 Start, Vector2 End, Color Color)> duringRetraction = [];
+        renderer.DrawPulsars((start, end, color) =>
+            duringRetraction.Add((start, end, color)));
+        Assert.Equal(1f / TempestGame.PlayerDeathTicks, game.EnemyRetractionProgress);
+        Assert.NotEqual(beforeRetraction[0].Start, duringRetraction[0].Start);
+        Assert.Equal(pulsarHeight, retracting.Height);
+        Assert.Equal(pulsarState, retracting.State);
+        Step(game, TempestGame.PlayerDeathTicks - 1);
         Assert.Equal(2, game.Player.Lives);
         Assert.Equal(200, game.Score.Score);
         Assert.Equal(1, game.CurrentLevel.EnemiesDestroyed);
@@ -1797,7 +1812,15 @@ public sealed class SimulationTests
         Assert.Equal(LevelState.PlayerDying, game.State);
         Assert.Equal(FuseballState.KillingPlayer, fuseball.State);
         Assert.Equal(60, game.DeathTicks);
-        Step(game, 60);
+        VectorRenderer renderer = new(game);
+        Vector2 centerBeforeRetraction = renderer.ProjectFuseballCenter(fuseball);
+        float height = fuseball.Height;
+        game.RunOneStep();
+        Assert.Equal(1f / TempestGame.PlayerDeathTicks, game.EnemyRetractionProgress);
+        Assert.NotEqual(centerBeforeRetraction, renderer.ProjectFuseballCenter(fuseball));
+        Assert.Equal(height, fuseball.Height);
+        Assert.Equal(FuseballState.KillingPlayer, fuseball.State);
+        Step(game, TempestGame.PlayerDeathTicks - 1);
         Assert.Empty(game.Fuseballs);
         Assert.Equal(2, game.Player.Lives);
         Assert.Equal(500, game.Score.Score);
@@ -4276,6 +4299,47 @@ public sealed class SimulationTests
         Assert.Contains(spike, game.Spikes);
         Assert.Equal(100, spike.Height);
         AssertSpikerAccounting(game);
+    }
+
+    [Fact]
+    public void ActiveSpikerRetractsWhileItsPersistentSpikeStaysFixedDuringPlayerDeath()
+    {
+        SpikerRandom random = new();
+        TempestGame game = new(true, random);
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        random.ChooseSpikers = false;
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Spiker spiker = Assert.Single(game.Spikers);
+        Assert.Single(game.Flippers);
+        Spike spike = game.Spikes.First(candidate => candidate.EdgeIndex == spiker.EdgeIndex);
+        game.Player.Move(game.Flippers[0].EdgeIndex - game.Player.EdgeIndex, 16);
+        for (int tick = 0; tick < 500 && game.State == LevelState.Playing; tick++)
+            game.RunOneStep();
+        Assert.Equal(LevelState.PlayerDying, game.State);
+
+        float spikeHeight = spike.Height;
+        VectorRenderer renderer = new(game);
+        List<(Vector2 Start, Vector2 End)> beforeRetraction = [];
+        renderer.DrawSpikers((start, end) => beforeRetraction.Add((start, end)));
+        List<(Vector2 Start, Vector2 End)> spikeLines = [];
+        renderer.DrawSpikes((start, end) => spikeLines.Add((start, end)), _ => { });
+        float spikerHeight = spiker.Height;
+        SpikerState spikerState = spiker.State;
+
+        game.RunOneStep();
+
+        List<(Vector2 Start, Vector2 End)> duringRetraction = [];
+        renderer.DrawSpikers((start, end) => duringRetraction.Add((start, end)));
+        List<(Vector2 Start, Vector2 End)> spikesDuringRetraction = [];
+        renderer.DrawSpikes((start, end) => spikesDuringRetraction.Add((start, end)), _ => { });
+        Assert.Equal(1f / TempestGame.PlayerDeathTicks, game.EnemyRetractionProgress);
+        Assert.NotEqual(beforeRetraction[0].Start, duringRetraction[0].Start);
+        Assert.Equal(spikerHeight, spiker.Height);
+        Assert.Equal(spikerState, spiker.State);
+        Assert.Equal(spikeHeight, spike.Height);
+        Assert.Equal(spikeLines, spikesDuringRetraction);
     }
 
     [Fact]

@@ -121,6 +121,28 @@ record the uncertainty rather than guessing.
   Pulsar clock during the full death interval. Incitti advances Pulsars/global
   pulse state during much of its death presentation; the recreation keeps its
   established freeze policy rather than claiming equivalence.
+- **ARCADE VERIFIED** — Neal observed active enemies retract backward/down
+  the tube during player death and remain inactive while doing so. Existing
+  Spikes stay fixed on the web. The complete visible retraction takes no more
+  than approximately two seconds; this is a qualitative upper bound, not an
+  exact measurement, frame count or interpolation curve.
+- **PROJECT DECISION** — The recreation applies a deterministic, linear,
+  render-only depth displacement over 60 updates (one second at the fixed
+  60 Hz simulation rate), within that observed approximate upper bound. Logical
+  enemy height/lane/state and identity/accounting remain unchanged. This
+  tuning is not an arcade-exact duration or curve. Eggs and other projectile/
+  hazard visibility retain their established C# policy pending footage.
+- **REFERENCE VERIFIED** — Incitti uses a shared projection/depth shift during
+  its death/vortex presentation; the inspected source has no dedicated
+  enemy-specific retreat routine. The Atari observation, not Incitti, is the
+  behavioral authority for visible enemy retraction.
+- **PROJECT DECISION** — The Atari Blaster-location death animation remains
+  pending footage for its geometry and timing.
+- **MANUALLY ACCEPTED** — Neal accepted the visible C# enemy retraction on
+  Levels 1-3, including fixed Spike persistence and final-life Game
+  Over/restart behavior. This confirms the visible result and pacing within
+  his remembered approximate two-second maximum; it does not make the C#
+  one-second duration or linear interpolation arcade-verified.
 
 ### Eggs and Level 1 wave accounting
 
@@ -153,10 +175,12 @@ record the uncertainty rather than guessing.
 - **PROJECT DECISION** — The recreation evaluates that trigger after hatching,
   enemy updates and player-collision checks, before its final completion check.
   Enemy updates on the trigger tick use the previous latch; the next active
-  tick uses hurry-up. The latch survives the full player-death freeze and
-  fresh-Egg reconstruction, even when reconstruction restores Egg supply.
-  Full game restart or replay initialization clears it. These exact C# timing
-  and lifecycle rules are not arcade-verified by manual gameplay.
+  tick uses hurry-up. If a collision starts PlayerDying during those checks,
+  remaining same-tick Hurry-Up/all-rim/completion processing is skipped.
+  An already latched value survives the death freeze and fresh-Egg
+  reconstruction. Full game restart or replay initialization clears it. These
+  exact C# timing and lifecycle rules are not arcade-verified by manual
+  gameplay.
 - **DEVELOPMENT ONLY** — Hurry-up is enabled only in the existing direct-hatched
   Fuseball and Pulsar scenarios. Normal Level 1, Spiker and Tanker scenarios
   remain unchanged; these artificial waves do not establish Atari composition.
