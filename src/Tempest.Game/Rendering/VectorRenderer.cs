@@ -631,11 +631,11 @@ public sealed class VectorRenderer
 		if (game.LevelComplete)
 		{
 			if (game.NaturalProgressionEnabled &&
-				game.CurrentLevel.Configuration.DisplayedLevel == 2)
+				LevelProgression.GetNextProductionLevel(game.CurrentLevel.Configuration) is null)
 			{
-				DrawCenteredText("LEVEL 2 COMPLETE", 230, 36, Color.Yellow);
-				DrawCenteredText("NEXT LEVEL NOT IMPLEMENTED", 276, 24, Color.Gray);
-				DrawCenteredText("PRESS R TO START A NEW CAMPAIGN", 310, 24, Color.Gray);
+				DrawCenteredText($"LEVEL {game.CurrentLevel.Configuration.DisplayedLevel} COMPLETE",
+					230, 36, Color.Yellow);
+				DrawCenteredText("PRESS R TO START A NEW CAMPAIGN", 276, 24, Color.Gray);
 			}
 			else
 			{

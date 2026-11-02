@@ -147,6 +147,8 @@ public sealed class LevelProgressionTests
         TempestGame[] developmentGames =
         [
             new(level2Test: true),
+            new(level3Test: true),
+            new(level3GeometryTest: true),
             new(spikerDevelopmentWave: true),
             new(tankerTest: true),
             new(fuseballTest: true),
@@ -155,7 +157,9 @@ public sealed class LevelProgressionTests
 
         Assert.All(developmentGames, game => Assert.False(game.NaturalProgressionEnabled));
         Assert.Same(LevelConfiguration.Level2Square, developmentGames[0].CurrentLevel.Configuration);
-        Assert.All(developmentGames.Skip(1),
+        Assert.Same(LevelConfiguration.Level3Mixed, developmentGames[1].CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level3Plus, developmentGames[2].CurrentLevel.Configuration);
+        Assert.All(developmentGames.Skip(3),
             game => Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration));
     }
 
@@ -213,10 +217,12 @@ public sealed class LevelProgressionTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void NaturalLevel2KillAndAllRimCompletionAreTerminal(bool allRim)
+    public void NaturalLevel2KillAndAllRimCompletionAdvanceToLevel3(bool allRim)
     {
-        TempestGame game = CreateClearedLevel1(kills: 10);
-        AssertFreshLevel2AfterExit(game, expectedScore: 0, expectedLives: 3);
+        TempestGame game = CreateClearedLevel1(kills: 10, startingLives: 5);
+        game.Score.Add(650);
+        game.Player.Lives = 2;
+        AssertFreshLevel2AfterExit(game, expectedScore: 650, expectedLives: 2);
 
         if (allRim)
             CompleteRemainingUnitsAtRim(game, game.CurrentLevel.EnemySupply);
@@ -229,19 +235,86 @@ public sealed class LevelProgressionTests
         }
 
         Assert.Equal(LevelState.ExitDelay, game.State);
-        AssertNoLevelThreeExists();
-        FinishLevel2Exit(game);
-        Assert.True(game.LevelComplete);
-        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
-        Assert.Equal(2, game.CurrentLevel.Configuration.DisplayedLevel);
-
+        Level outgoing = game.CurrentLevel;
         game.Score.Add(125);
-        game.Player.Lives = 2;
+        game.Player.Lives = 1;
+        FinishLevel2Exit(game);
+        AssertFreshLevel3(game, outgoing, expectedScore: 775, expectedLives: 1);
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
+
+        game.CurrentLevel.State = LevelState.ExitZoom;
+        game.Player.AdvanceExit(Level.Depth - 12);
+        game.RunOneStep();
+        Assert.True(game.LevelComplete);
+        Assert.Same(LevelConfiguration.Level3Mixed, game.CurrentLevel.Configuration);
+
+        game.Score.Add(225);
+        game.Player.Lives = 0;
         game.RunOneStep(restartPressed: true);
         Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
         Assert.Equal(0, game.Score.Score);
-        Assert.Equal(3, game.Player.Lives);
+        Assert.Equal(5, game.Player.Lives);
         Assert.Equal(LevelState.Playing, game.State);
+    }
+
+    [Fact]
+    public void NaturalLevel2SuccessfulExitCreatesFreshMixedWaveAndCarriesCampaignState()
+    {
+        TempestGame game = CreateClearedLevel1(kills: 10, startingLives: 5);
+        game.Score.Add(1500);
+        game.Player.Lives = 3;
+        AssertFreshLevel2AfterExit(game, expectedScore: 1500, expectedLives: 3);
+
+        Level outgoing = game.CurrentLevel;
+        game.Score.Add(275);
+        game.Player.Lives = 2;
+        Assert.True(game.SuperZapper.TryActivate([], game.Player.EdgeIndex, 16, continuous: true));
+        Assert.True(game.SuperZapper.FlashTicksRemaining > 0);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Assert.NotEmpty(game.Shots);
+
+        for (int enemy = 0; enemy < outgoing.EnemySupply; enemy++)
+            outgoing.RecordEnemyDestroyed();
+        outgoing.ResetAfterDeath();
+        game.RunOneStep();
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        Assert.Empty(game.Shots);
+
+        FinishLevel2Exit(game);
+
+        AssertFreshLevel3(game, outgoing, expectedScore: 1775, expectedLives: 2);
+    }
+
+    [Fact]
+    public void NaturalLevel3DeathReconstructsInPlaceAndGameOverRestartStartsLevel1()
+    {
+        TempestGame game = CreateClearedLevel1(kills: 10, startingLives: 5);
+        AssertFreshLevel2AfterExit(game, expectedScore: 0, expectedLives: 5);
+        Level level2 = game.CurrentLevel;
+        for (int enemy = 0; enemy < level2.EnemySupply; enemy++)
+            level2.RecordEnemyDestroyed();
+        level2.ResetAfterDeath();
+        game.RunOneStep();
+        FinishLevel2Exit(game);
+
+        Level level3 = game.CurrentLevel;
+        Level3WaveLedger ledger = level3.Level3Ledger!;
+        game.CurrentLevel.State = LevelState.PlayerDying;
+        game.RunOneStep();
+
+        Assert.Same(level3, game.CurrentLevel);
+        Assert.Same(LevelConfiguration.Level3Mixed, game.CurrentLevel.Configuration);
+        Assert.Same(ledger, game.CurrentLevel.Level3Ledger);
+        Assert.Equal(LevelState.Playing, game.State);
+
+        game.Score.Add(300);
+        game.Player.Lives = 0;
+        game.CurrentLevel.State = LevelState.GameOver;
+        game.RunOneStep(restartPressed: true);
+
+        Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
+        Assert.Equal(0, game.Score.Score);
+        Assert.Equal(5, game.Player.Lives);
     }
 
     private static TempestGame CreateClearedLevel1(
@@ -349,15 +422,61 @@ public sealed class LevelProgressionTests
 
     private static void FinishLevel2Exit(TempestGame game)
     {
-        for (int tick = 0; tick < 200 && !game.LevelComplete; tick++)
+        Level outgoing = game.CurrentLevel;
+        for (int tick = 0; tick < 200 && ReferenceEquals(outgoing, game.CurrentLevel); tick++)
             game.RunOneStep();
-        Assert.True(game.LevelComplete);
+        Assert.NotSame(outgoing, game.CurrentLevel);
+        Assert.Same(LevelConfiguration.Level3Mixed, game.CurrentLevel.Configuration);
     }
 
-    private static void AssertNoLevelThreeExists()
+    private static void AssertFreshLevel3(TempestGame game, Level outgoing,
+        int expectedScore, int expectedLives)
     {
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level2Square));
-        Assert.Equal(2, LevelConfiguration.Level2Square.DisplayedLevel);
+        Level level = game.CurrentLevel;
+        Level3WaveLedger ledger = Assert.IsType<Level3WaveLedger>(level.Level3Ledger);
+
+        Assert.NotSame(outgoing, level);
+        Assert.Same(LevelConfiguration.Level3Mixed, level.Configuration);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(2, level.Configuration.ProgressionIndex);
+        Assert.Equal(3, level.Configuration.DisplayedLevel);
+        Assert.Equal(2, level.Configuration.BoardIndex);
+        Assert.Equal(0, level.Configuration.PaletteIndex);
+        Assert.True(level.IsLevel3Mixed);
+        Assert.Equal(15, level.EnemySupply);
+        Assert.Equal(15, level.RemainingEnemies);
+        Assert.Equal(4, level.Eggs.Count);
+        Assert.Equal(11, level.ReserveEggs);
+        Assert.Equal(4, level.EnemiesSpawned);
+        Assert.Equal(0, level.EnemiesDestroyed);
+        Assert.Equal(0, level.EnemiesRimCleared);
+        Assert.Equal(15, ledger.OriginalCount);
+        Assert.Equal(0, ledger.CargoCount);
+        Assert.Equal(15, ledger.TotalIdentityCount);
+        Assert.Equal(15, ledger.UnresolvedOriginalIds.Count);
+        Assert.Empty(ledger.UnresolvedCargoIds);
+        Assert.Empty(game.Flippers);
+        Assert.Empty(game.Tankers);
+        Assert.Empty(game.EnemyBullets);
+        Assert.Empty(game.Shots);
+        Assert.Empty(game.Spikes);
+        Assert.Empty(game.Spikers);
+        Assert.Empty(game.Fuseballs);
+        Assert.Empty(game.Pulsars);
+        Assert.Equal(0, game.PendingTankerCargoUnits);
+        Assert.Equal(0, game.TankerAccountingTotal);
+        Assert.False(game.HurryUp);
+        Assert.Equal(0, game.DeathTicks);
+        Assert.Equal(7, game.Player.EdgeIndex);
+        Assert.Equal(0.5f, game.Player.EdgePosition);
+        Assert.Equal(Level.Depth, game.Player.Depth);
+        Assert.Equal(70, Projection.K);
+        Assert.Equal(5, Projection.ZOffset);
+        Assert.Equal(expectedScore, game.Score.Score);
+        Assert.Equal(expectedLives, game.Player.Lives);
+        Assert.Equal(SuperZapperSystem.InitialCharges, game.SuperZapperChargesRemaining);
+        Assert.Equal(0, game.SuperZapper.FlashTicksRemaining);
+        Assert.All(level.Eggs, egg => Assert.Equal(EggState.Roaming, egg.State));
     }
 
     private static void Step(TempestGame game, int ticks)

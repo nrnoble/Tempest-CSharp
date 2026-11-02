@@ -861,23 +861,27 @@ configuration; `--level2-test` selects that same object for direct development
 access. It retains board 1/palette 0, the closed 16-lane square, 12-unit
 supply, Flipper-only composition, and the validated B1/B2 hinge/canflip path.
 
-Normal play advances from Level 1 only after standard ExitZoom travel updates
-the player to depth below 10. Wave clear, ExitDelay, death, Game Over and
-Spiker reverse/retry do not advance. The existing fresh-wave initializer
-installs Level 2 in that same simulation update, resetting projection and
-Super Zapper to two charges/zero flash while carrying score and current lives.
-No level bonus, bonus life, source `startbonus`, Begin/Ready presentation,
-entry-position shift or audio is implemented. These are presentation/economy
-omissions, not arcade-equivalent behavior.
+Normal play advances from Level 1 and Level 2 only after successful standard
+ExitZoom travel updates the player to depth below 10. Wave clear, ExitDelay,
+death, Game Over and Spiker reverse/retry do not advance. The existing
+fresh-wave initializer installs Level 2 and then the existing
+`LevelConfiguration.Level3Mixed` in that same simulation update, resetting
+projection and Super Zapper to two charges/zero flash while carrying score
+and current lives. No level bonus, bonus life, source `startbonus`,
+Begin/Ready presentation, entry-position shift or audio is implemented.
+These are presentation/economy omissions, not arcade-equivalent behavior.
 
-Natural Level 2 is terminal because Level 3 is unavailable. It displays
-"LEVEL 2 COMPLETE / NEXT LEVEL NOT IMPLEMENTED"; R starts a new Level 1
-campaign with score reset and configured starting lives. Game Over in a normal
-campaign also restarts at Level 1. Direct `--level2-test` completion replays
-Level 2 with its existing score/lives semantics. Spiker, Tanker, Fuseball and
-Pulsar development scenarios remain terminal and replay their own launch
-scenario. Ordinary death reconstructs the existing `Level`, preserving its
-configuration and resolved outcomes.
+Natural Level 3 is terminal; R starts a new Level 1 campaign with score reset
+and configured starting lives. Game Over in a normal campaign also restarts
+at Level 1. Direct `--level2-test` and `--level3-test` completion replay their
+launch configurations with existing score/lives semantics and do not enable
+progression. Spiker, Tanker, Fuseball and Pulsar development scenarios remain
+terminal and replay their own launch scenario. Ordinary death reconstructs
+the existing `Level`, preserving its configuration and resolved outcomes.
+Neal manually accepted the visible natural Level 1 -> Level 2 -> Level 3
+progression and terminal/restart behavior in normal campaign play. This is
+acceptance of the current C# behavior, not new arcade evidence. The
+between-level approach remains deferred.
 
 Definitions distinguish 16 ordered vertices from playable lanes: the current
 closed Level 1 has 16 of each, while a geometry-only open-definition fixture
@@ -978,18 +982,21 @@ approach presentation is deferred and not implemented. Do not infer duration,
 zoom rate, projection formulas, enemy-start timing or firing enablement; none
 was measured.
 
-Neal also verified the current Level 2 terminal policy: no Level 3 appears,
-the explicit "LEVEL 2 COMPLETE / NEXT LEVEL NOT IMPLEMENTED / PRESS R TO
-START A NEW CAMPAIGN" presentation is shown, and R starts a fresh Level 1
-campaign with score reset. This terminal policy is a **PROJECT DECISION**,
-not a claim that Atari Level 2 is terminal.
+Before C4, Neal verified the then-current Level 2 terminal policy: no Level 3
+appeared, the explicit "LEVEL 2 COMPLETE / NEXT LEVEL NOT IMPLEMENTED /
+PRESS R TO START A NEW CAMPAIGN" presentation was shown, and R started a
+fresh Level 1 campaign with score reset. That historical C# behavior was a
+**PROJECT DECISION**, not a claim that Atari Level 2 is terminal; C4 replaces
+it with natural Level 2-to-Level 3 progression.
 
 ```powershell
 dotnet run --project src\Tempest.Game -- --level2-test --lives 10
 ```
 
-Level 1 remains the normal no-flag startup, and normal Level 1 now progresses
-to the natural Level 2 configuration after successful exit travel. The direct
+Level 1 remains the normal no-flag startup. Neal manually accepted natural
+Level 1-to-Level 2 and Level 2-to-Level 3 progression after successful exit
+travel, score/lives carry, and the visible Level 3 entry/gameplay. This is
+acceptance of the current C# behavior, not new arcade evidence. The direct
 development flag remains terminal and replayable; it is mutually exclusive
 with the Spiker, Tanker, Fuseball and Pulsar development scenarios. `--lives`
 and the separately opt-in `--enemy-bullets-test` remain orthogonal and do not
@@ -1129,8 +1136,8 @@ cargo, Super Zapper and input remained normal, with no unrelated regression.
 This validates observable two-before-release capability, not a guaranteed
 per-Tanker count or exact Atari internals. The randomized policy is accepted;
 the 1.75 increment remains **REFERENCE VERIFIED**, not arcade-measured.
-Firing remains development-only; natural Level 2-to-Level 3 progression is
-not authorized.
+Firing remains development-only; the separate C4 progression change uses the
+accepted mixed-wave model without changing its firing policy.
 
 ## C3a Level 3 mixed-wave model and C3b direct graphical access
 
@@ -1143,9 +1150,10 @@ death reconstruction and terminal completion paths.
 C3b adds the direct graphical command
 `dotnet run --project src/Tempest.Game -- --level3-test --lives 10`. Program
 routes it to the same `Level3Mixed` configuration and existing game/renderer;
-this is not another composition or simulation and does not add natural Level
-2-to-Level 3 progression. The Level 3 HUD reads unresolved original/cargo
-counts from the authoritative ledger and counts active Tankers with other
+this is not another composition or simulation. Natural progression now uses
+this same configuration after Level 2, while direct access remains isolated
+and does not enable campaign progression. The Level 3 HUD reads unresolved
+original/cargo counts from the authoritative ledger and counts active Tankers with other
 enemies. Production Tanker bullets use the existing renderer path without the
 optional `--enemy-bullets-test` flag; ordinary/cargo Flipper firing remains
 silent by default. Direct access is terminal and replay/restart use the
@@ -1347,8 +1355,11 @@ flowchart LR
 Tanker/cargo and source-derived selection behavior remain **REFERENCE
 VERIFIED** where classified as such; C# identity, representation,
 reconstruction and completion policies remain **PROJECT DECISIONS**.
-Direct and configuration-based Level 3 access remain **DEVELOPMENT ONLY**;
-manual graphical acceptance remains pending.
+Direct Level 3 access remains **DEVELOPMENT ONLY**. Neal manually accepted
+the C3b graphical behavior on 2026-11-01. Natural Level 2-to-Level 3 campaign
+entry is a separate C4 change and its visible behavior was manually accepted
+in normal campaign play; neither acceptance establishes hidden implementation
+details or new arcade behavior.
 Previously established directly observed/accepted arcade behavior retains its
 existing classification.
 

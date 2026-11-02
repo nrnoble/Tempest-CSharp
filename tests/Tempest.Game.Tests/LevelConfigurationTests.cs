@@ -183,13 +183,18 @@ public sealed class LevelConfigurationTests
     }
 
     [Fact]
-    public void ProductionProgressionContainsOnlyTheValidatedLevelOneToLevelTwoEdge()
+    public void ProductionProgressionContainsOnlyTheLevelOneToThreeCampaignEdges()
     {
         Assert.Same(LevelConfiguration.Level2Square,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level1));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level2Square));
+        Assert.Same(LevelConfiguration.Level3Mixed,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level2Square));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Plus));
         Assert.Null(LevelProgression.GetNextProductionLevel(
             LevelConfiguration.Level1 with { DisplayedLevel = 1 }));
+        Assert.Null(LevelProgression.GetNextProductionLevel(
+            LevelConfiguration.Level2Square with { DisplayedLevel = 2 }));
     }
 
     private static void CompleteLevel1Wave(TempestGame game)

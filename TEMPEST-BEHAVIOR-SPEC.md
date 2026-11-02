@@ -48,6 +48,13 @@ record the uncertainty rather than guessing.
   records observable behavior only, not implementation internals or timing.
   In one manual run, 10 starting lives became 8 after two Level 1 deaths and
   Level 2 began with 8; this is an example, not a fixed life-count rule.
+- **PROJECT DECISION (C4; visible behavior manually accepted)** — After
+  successful Level 2 exit travel, normal play installs the existing
+  `Level3Mixed` configuration as a fresh Level 3 wave, carrying score and
+  current lives. Neal manually accepted the visible natural Level 1 -> Level 2
+  -> Level 3 sequence, Level 3 entry/gameplay, and terminal/restart behavior.
+  This accepts the current C# implementation; it does not establish
+  arcade-observed Level 2-to-Level 3 behavior or hidden implementation details.
 - **PROJECT DECISION** — The recreation does not implement the Atari
   between-level approach presentation yet. Its behavior observed by Neal is
   documented under Known uncertainties and deferred behavior.
@@ -164,12 +171,13 @@ record the uncertainty rather than guessing.
   fresh-runtime replacement, accounting/list/callback cleanup, projection
   reset, player offset and Egg sequencing describe implementation policy;
   they were not measured as Atari internals.
-- **PROJECT DECISION** — Natural Level 2 completion is terminal and displays
-  “LEVEL 2 COMPLETE / NEXT LEVEL NOT IMPLEMENTED / PRESS R TO START A NEW
+- **HISTORICAL PROJECT DECISION (before C4)** — Natural Level 2 completion
+  was terminal and displayed “LEVEL 2 COMPLETE / NEXT LEVEL NOT IMPLEMENTED
+  / PRESS R TO START A NEW
   CAMPAIGN.” R starts a new Level 1 campaign and resets score. Direct
   `--level3-test` access to the mixed Level 3 configuration is **DEVELOPMENT
-  ONLY** and does not add natural progression. The Level 2 policy is a
-  recreation decision, not a claim that Atari Level 2 is terminal.
+  ONLY**. This superseded Level 2 policy was a recreation decision, not a
+  claim that Atari Level 2 is terminal.
 - **ARCADE VERIFIED** — In the natural transition run, Neal observed Level 2
   start with four visible Eggs and the 12-unit wave, score and current lives
   carried, and Super Zapper restored to two usable charges. Previously
@@ -579,7 +587,7 @@ These controls are test conveniences, not arcade level-selection or composition:
 |---|---|
 | `--level2-test` | Direct access to the shared closed 16-lane square, supply-12 Flipper-only canflip configuration; terminal development replay, no progression selection. |
 | `--level3-geometry-test` | Direct access to the Flipper-only Level 3 plus-board geometry diagnostic; separate from the mixed production-shaped wave. |
-| `--level3-test` | Direct graphical access to the existing production-shaped mixed Level 3 configuration; terminal replay, no natural Level 2-to-Level 3 progression. Production Tanker bullets are visible without `--enemy-bullets-test`; ordinary/cargo Flippers are silent by default. |
+| `--level3-test` | Direct graphical access to the existing production-shaped mixed Level 3 configuration; terminal replay without enabling natural progression. Production Tanker bullets are visible without `--enemy-bullets-test`; ordinary/cargo Flippers are silent by default. |
 | `--spiker-test` | Replaces the normal wave with a Spiker/Flipper test wave and height-60 spikes on every lane. |
 | `--tanker-test` | Replaces the normal wave with one controlled Tanker plus ordinary Flipper slots and cargo. |
 | `--fuseball-test` | Direct-hatches the ten-unit supply as Fuseballs, with source-derived late-wave hurry-up. |
@@ -644,12 +652,13 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   presentation/timing, Egg pacing, normal enemy-bullet frequency, Spiker and
   Tanker arcade eligibility/composition, and exit visuals need direct arcade
   comparison where they matter.
-- **PROJECT DECISION** — Progression beyond Level 2 and authentic later-wave
-  composition, open-tube rendering, audio, bonus rules, broader enemy/cargo
-  combinations, and source-specific death effects remain out of scope or
-  deferred. Natural Level 1-to-2 progression is implemented and its broad
-  observable sequence has been manually validated; the exact internals and
-  remaining uncertainties are recorded above.
+- **PROJECT DECISION** — Progression beyond terminal Level 3 and authentic
+  later-wave composition, open-tube rendering, audio, bonus rules, broader
+  enemy/cargo combinations, and source-specific death effects remain out of
+  scope or deferred. Natural Level 1-to-Level 2-to-Level 3 progression has
+  passed manual acceptance of visible C# behavior. This acceptance does not
+  establish hidden implementation details or new arcade behavior; remaining
+  uncertainties are recorded above.
 - **ARCADE VERIFIED** — Neal observed a brief Atari between-level approach
   after the Blaster exits a tube: a first-person view moves through space
   toward the next tube, which begins small/distant and grows as the player
@@ -746,10 +755,20 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   reset, player offset, Egg sequencing, and Zapper recharge/flash-reset timing
   remain **REFERENCE VERIFIED / PROJECT DECISION** as applicable, not arcade
   observations.
-- **Level 2 terminal behavior and restart** — Neal observed no Level 3, the
+- **Pre-C4 Level 2 terminal behavior and restart** — Neal observed no Level 3, the
   explicit terminal message, and R returning to a fresh Level 1 with score
-  reset. The current no-Level-3 terminal and R policy is a **PROJECT
-  DECISION**; it does not claim that Atari Level 2 is terminal.
+  reset. This historical C# terminal and R policy was a **PROJECT DECISION**;
+  it did not claim that Atari Level 2 is terminal and was replaced by C4.
+- **C4 natural Level 2-to-Level 3 implementation** — Automated tests verify
+  that successful natural Level 2 exit installs the existing `Level3Mixed`
+  configuration with fresh wave state, carried score/lives, and the
+  configuration's two-charge Super Zapper state; Level 3 has no successor.
+  Direct development scenarios remain isolated. Neal manually accepted the
+  visible natural progression, Level 3 board/display/HUD, fresh mixed wave,
+  two usable Super Zapper charges, gameplay spot-check, terminal behavior and
+  restart in normal campaign play. This validates visible behavior of the
+  current C# implementation; neither tests nor manual acceptance establish
+  hidden scheduling/internal behavior or new arcade evidence.
 - **Between-level approach presentation** — Neal reports that Atari shows a
   brief first-person approach through space to the next tube. The distant
   tube grows in view; the Blaster appears on its distant rim and remains

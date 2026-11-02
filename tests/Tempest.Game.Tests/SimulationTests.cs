@@ -5448,7 +5448,7 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void NaturalLevel2CompletionIsTerminalAndRStartsANewCampaign()
+    public void NaturalLevel3CompletionIsTerminalAndRStartsANewCampaign()
     {
         TempestGame game = new(startingLives: 5);
         for (int enemyIndex = 0; enemyIndex < 10; enemyIndex++)
@@ -5469,8 +5469,19 @@ public sealed class SimulationTests
         game.RunOneStep();
         FinishLevel2Exit(game);
 
+        Assert.False(game.LevelComplete);
+        Assert.Same(LevelConfiguration.Level3Mixed, game.CurrentLevel.Configuration);
+        Assert.Equal(1500, game.Score.Score);
+        Assert.Equal(2, game.Player.Lives);
+
+        Level level3 = game.CurrentLevel;
+        game.CurrentLevel.State = LevelState.ExitZoom;
+        game.Player.AdvanceExit(Level.Depth - 12);
+        game.RunOneStep();
         Assert.True(game.LevelComplete);
-        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
+        Assert.Same(level3, game.CurrentLevel);
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
+
         game.RunOneStep(new PlayerInput(true, 80, false, false));
         Assert.Empty(game.Shots);
         Assert.Equal(7, game.Player.EdgeIndex);
@@ -5805,9 +5816,12 @@ public sealed class SimulationTests
 
     private static void FinishLevel2Exit(TempestGame game)
     {
-        for (int tick = 0; tick < 200 && !game.LevelComplete; tick++)
+        Level outgoing = game.CurrentLevel;
+        for (int tick = 0; tick < 200 && ReferenceEquals(outgoing, game.CurrentLevel); tick++)
             game.RunOneStep();
-        Assert.True(game.LevelComplete);
+        Assert.NotSame(outgoing, game.CurrentLevel);
+        Assert.Same(LevelConfiguration.Level3Mixed, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Playing, game.State);
     }
 
     private static void FinishTerminalExit(TempestGame game)

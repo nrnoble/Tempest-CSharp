@@ -36,18 +36,19 @@ Flipper-only normal composition. `LevelConfiguration.Level2Square` is the
 single production Level 2 object and also powers the direct development
 launch. `Level` remains the mutable per-wave runtime.
 
-Normal play progresses from Level 1 to Level 2 after successful standard exit
-travel, when the updated player depth falls below 10. Wave clear and the exit
-delay do not advance the level. Score and current lives carry unchanged.
-Manual play confirmed two usable Super Zapper charges at Level 2 start; the
-exact internal recharge/flash-reset timing remains a project implementation
-detail. The recreation adds no level bonus, bonus life, startbonus
-presentation, entry animation or audio.
-Natural Level 2 remains terminal because natural Level 3 progression is not
-implemented. Pressing R there starts a new Level 1 campaign with reset score
-and configured starting lives. Game Over in a normal campaign also restarts
-at Level 1. The separate Level 3 geometry diagnostic below does not change
-normal progression.
+Normal play progresses from Level 1 to Level 2 and then to the existing
+`LevelConfiguration.Level3Mixed` after each successful standard exit. Wave
+clear and exit delay do not commit progression; score and current lives carry
+unchanged across both transitions. Fresh-level initialization gives Level 3
+the same accepted production mixed-wave setup used by direct development
+access, including two Super Zapper charges and a cleared flash. The Level 3
+configuration remains terminal; pressing R there starts a new Level 1
+campaign with reset score and configured starting lives. Game Over in a
+normal campaign also restarts at Level 1. Neal manually accepted the visible
+natural Level 1 -> Level 2 -> Level 3 progression, Level 3 entry/gameplay, and
+terminal/restart behavior in normal campaign play. This accepts the current
+C# behavior and makes no new arcade-behavior claim. The between-level approach
+presentation remains deferred.
 
 The closed definition has 16 ordered vertices and 16 playable lanes. The
 topology metadata distinguishes these counts: an open definition with 16
@@ -141,9 +142,10 @@ are **REFERENCE VERIFIED**, not arcade-measured tuning. The recreation
 preserves two-lane shot acceptance during pivots and completed-pivot player
 safety; Incitti's destination-only shot ownership is not silently imported.
 Normal Level 1 progresses automatically to this Level 2 after successful
-travel. `--level2-test` itself remains terminal and replayable with R; it does
-not enable progression. Level 2 completes with an explicit "NEXT LEVEL NOT
-IMPLEMENTED" message; R starts a new normal campaign at Level 1.
+travel. Natural Level 2 now progresses to Level 3 after its successful exit;
+`--level2-test` itself remains terminal and replayable with R and does not
+enable campaign progression. Natural Level 3 is terminal; R starts a new
+normal campaign at Level 1.
 
 Score and current lives carry from Level 1. The Super Zapper is restored to
 two charges on fresh Level 2 setup. There is no level-completion bonus, bonus
@@ -197,9 +199,9 @@ graphically included in this diagnostic.
 The diagnostic is terminal and R replays it; Game Over restart stays on the
 same board. It conflicts with other scenario-selection flags and composes
 with `--lives` and the existing optional `--enemy-bullets-test`. Normal play
-still progresses only from Level 1 to Level 2, then stops. Production Tanker
-mixed-wave access is provided separately below; natural progression remains
-deferred. Level 1/2 wave policy and
+progresses through Level 1 and Level 2 to terminal Level 3. Production Tanker
+mixed-wave access is provided separately below; the diagnostic remains
+Flipper-only. Level 1/2 wave policy and
 progression remain unchanged, but C1.5 changed directed enemy pivot
 geometry/timing. Neal manually validated and passed the inward-pivot,
 directed-sweep and geometry behavior for Level 1, Level 2, the Level 3
@@ -215,9 +217,11 @@ dotnet run --project src/Tempest.Game -- --level3-test --lives 10
 
 `--level3-test` is **DEVELOPMENT ONLY** direct graphical access to the existing
 `LevelConfiguration.Level3Mixed` model. It displays Level 3, uses the production
-randomized mixed Flipper/Tanker wave and remains terminal; it does not add
-natural Level 2-to-Level 3 progression. The window title and HUD label this as
-a Level 3 mixed-wave test. The HUD uses the Level 3 identity ledger's unresolved
+randomized mixed Flipper/Tanker wave and remains terminal when launched
+directly. Natural campaign progression now enters this same model from Level
+2; direct access remains isolated and does not enable progression. The window
+title and HUD label direct access as a Level 3 mixed-wave test. The HUD uses
+the Level 3 identity ledger's unresolved
 original and cargo counts and includes Eggs, Flippers and Tankers in its active
 count.
 
@@ -376,13 +380,15 @@ boundary.
 
 ## Super Zapper
 
-The source-derived Super Zapper works in normal Level 1, natural Level 2 and
-every existing development wave. Space or the right mouse button activates it
-on a press edge. Each fresh Level setup provides two charges; ordinary life
+The source-derived Super Zapper works in normal Level 1, natural Levels 2 and
+3, and every existing development wave. Space or the right mouse button
+activates it on a press edge. Each fresh Level setup provides two charges; ordinary life
 loss preserves the remaining charge. Natural Level 1-to-2 progression restores
-two charges and clears flash state through fresh-wave initialization; normal
-Game Over and natural Level 2 terminal R start a new campaign. Development
-replay keeps its established fresh-charge behavior. The first use assigns
+two charges and clears flash state through fresh-wave initialization; Level
+2-to-3 uses the same boundary. Normal Game Over and terminal Level 3 R start a
+new campaign. The fresh Level 3 charge state is an implementation decision,
+not a new manual arcade observation. Development replay keeps its established
+fresh-charge behavior. The first use assigns
 delays 4, 6, 8, ... to accepted enemies in source insertion order. The second
 use selects one eligible enemy using Incitti's literal lane-distance, height
 and type comparisons, then assigns delay 4.

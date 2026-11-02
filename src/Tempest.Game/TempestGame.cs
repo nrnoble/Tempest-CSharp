@@ -11,10 +11,10 @@ namespace Tempest.Game;
 /// renderer only reads the public state exposed here.
 /// </summary>
 /// <remarks>
-/// Normal play progresses from Level 1 to the configured square Level 2. Direct Level 2/3 access,
-/// the Level 3 geometry diagnostic, the configuration-based headless Level 3 mixed model, and the
-/// Spiker, Tanker, Fuseball and Pulsar scenarios are development-only. Enemy bullets remain an
-/// orthogonal test option. Flipper waves use the existing accounting and shot path.
+/// Normal play progresses from Level 1 through the square Level 2 to the mixed Level 3. Direct
+/// Level 2/3 access, the Level 3 geometry diagnostic, the configuration-based headless Level 3
+/// mixed model, and the Spiker, Tanker, Fuseball and Pulsar scenarios are development-only. Enemy
+/// bullets remain an orthogonal test option. Flipper waves use the existing accounting and shot path.
 /// </remarks>
 public sealed class TempestGame
 {
@@ -199,8 +199,8 @@ public sealed class TempestGame
             if (restartPressed)
             {
                 if (naturalProgressionEnabled &&
-                    ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level2Square))
-                    // Level 3 is not implemented; R starts a new campaign instead of replaying Level 2.
+                    LevelProgression.GetNextProductionLevel(CurrentLevel.Configuration) is null)
+                    // A naturally reached terminal production level starts a fresh campaign.
                     ResetGame();
                 else
                     // Development scenarios replay their launch configuration, not a production next level.
@@ -1502,7 +1502,6 @@ public sealed class TempestGame
             // Wave clear only starts travel; production progression commits after successful travel.
             if (naturalProgressionEnabled &&
                 State == LevelState.ExitZoom &&
-                ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level1) &&
                 LevelProgression.GetNextProductionLevel(CurrentLevel.Configuration) is LevelConfiguration next)
             {
                 InitializeFreshWave(next);
