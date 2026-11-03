@@ -102,8 +102,10 @@ public sealed class BlasterLaneHighlightTests
         List<(Vector2 Start, Vector2 End, Color Color)> lines = CaptureTube(renderer);
         AssertLaneRails(game, lines, game.Player.EdgeIndex, BlasterLaneColor);
         approachOffset = approach.DepthOffset;
-        Vector2 expectedNear = ProjectVertex(game, game.Player.EdgeIndex,
-            Level.Position + approachOffset);
+        Vector2 point = game.CurrentLevel.Definition.Points[game.Player.EdgeIndex];
+        Vector2 expectedNear = Projection.Project(point.X, point.Y,
+            Level.Position + approachOffset, game.CurrentLevel.Definition.CenterY,
+            game.CurrentLevel.Definition.YOffset + renderer.ApproachVerticalOffset);
         Assert.Equal(expectedNear, lines[game.Player.EdgeIndex].Start);
         Assert.All(lines, line =>
         {

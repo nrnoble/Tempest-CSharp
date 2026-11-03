@@ -20,6 +20,8 @@ public sealed class VectorRenderer
 	public const int ScreenWidth = DisplayConfiguration.WindowWidth;
 	public const int ScreenHeight = DisplayConfiguration.WindowHeight;
 	public const int EggPointSize = 3;
+	// Experimental viewpoint elevation, in pre-projection units; not a measured Atari angle.
+	public const float InitialApproachVerticalOffset = 96;
 	private static readonly Color SpikerColor = new(0, 255, 0, 255);
 	private static readonly Color TankerColor = new(255, 0, 255, 255);
 	private static readonly Color PulsarColor = new(0, 255, 255, 255);
@@ -98,6 +100,8 @@ public sealed class VectorRenderer
 		? (game.CurrentApproach ??
 			throw new InvalidOperationException("The approach state has no transition model.")).DepthOffset
 		: 0;
+	public float ApproachVerticalOffset =>
+		InitialApproachVerticalOffset * (ApproachDepthOffset / LevelApproach.InitialDepthOffset);
 	public float PlayerClawHeight => game.State == LevelState.Approach
 		? 20 * (PlayerProjectedDepth + Projection.ZOffset) /
 			(PlayerProjectedDepth + ApproachDepthOffset + Projection.ZOffset)
@@ -110,12 +114,18 @@ public sealed class VectorRenderer
 		this.game = game;
 	}
 
+	private Vector2 ProjectApproachGeometry(Vector2 point, float depth) =>
+		Projection.Project(point.X, point.Y, depth + ApproachDepthOffset,
+			game.CurrentLevel.Definition.CenterY,
+			game.CurrentLevel.Definition.YOffset + ApproachVerticalOffset);
+
 	public void Draw()
 	{
 		Raylib.BeginDrawing();
 		Raylib.ClearBackground(Color.Black);
 		Raylib.BeginMode2D(DisplayConfiguration.PresentationCamera);
 
+		DrawTransitionStars((position, color) => Raylib.DrawPixelV(position, color));
 		DrawTube((start, end, color) => Raylib.DrawLineV(start, end, color));
 		bool approaching = game.State == LevelState.Approach;
 		if (!approaching)
@@ -158,12 +168,37 @@ public sealed class VectorRenderer
 				DrawPlayer(game.CurrentLevel.Definition.Points);
 		}
 
+		DrawRechargeMessage(DrawCenteredText);
 		DrawHud();
 		Raylib.EndMode2D();
 		Raylib.EndDrawing();
 	}
 
 	private static int NextEdge(int edge, int edgeCount) => (edge + 1) % edgeCount;
+
+	public void DrawTransitionStars(Action<Vector2, Color> drawPoint)
+	{
+		ArgumentNullException.ThrowIfNull(drawPoint);
+		if (game.State == LevelState.ExitZoom)
+		{
+			TransitionStarfield.Draw(game.CurrentLevel.Configuration.DisplayedLevel,
+				TransitionStarfield.ExitVisibility(game.Player.Depth, Level.Depth), drawPoint);
+		}
+		else if (game.State == LevelState.Approach)
+		{
+			LevelApproach approach = game.CurrentApproach ??
+				throw new InvalidOperationException("The approach state has no transition model.");
+			TransitionStarfield.Draw(approach.ExitedLevel,
+				TransitionStarfield.ApproachVisibility(approach.Progress), drawPoint);
+		}
+	}
+
+	public void DrawRechargeMessage(Action<string, int, int, Color> drawCenteredText)
+	{
+		ArgumentNullException.ThrowIfNull(drawCenteredText);
+		if (game.State == LevelState.Approach)
+			drawCenteredText("SUPERZAPPER RECHARGE", 540, 20, Color.White);
+	}
 
 	public Vector2 ProjectFuseballCenter(Fuseball fuseball)
 	{
@@ -367,8 +402,7 @@ public sealed class VectorRenderer
 	{
 		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
 		Vector2 midpoint = (points[lane] + points[NextEdge(lane, points.Count)]) / 2;
-		return Projection.Project(midpoint.X, midpoint.Y, depth,
-			game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+		return ProjectApproachGeometry(midpoint, depth);
 	}
 
 	// Spike: green line anchored at the far web growing toward the rim, with a single white pixel
@@ -463,12 +497,8 @@ public sealed class VectorRenderer
 
 		for (int i = 0; i < points.Count; i++)
 		{
-			nearRim[i] = Projection.Project(
-				points[i].X, points[i].Y, Level.Position + ApproachDepthOffset,
-				game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
-			farRim[i] = Projection.Project(
-				points[i].X, points[i].Y, Level.Position + Level.Depth + ApproachDepthOffset,
-				game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
+			nearRim[i] = ProjectApproachGeometry(points[i], Level.Position);
+			farRim[i] = ProjectApproachGeometry(points[i], Level.Position + Level.Depth);
 		}
 
 		for (int i = 0; i < points.Count; i++)
@@ -659,14 +689,8 @@ public sealed class VectorRenderer
 	public void GetPlayerEdge(IReadOnlyList<Vector2> points, out Vector2 p1, out Vector2 p2)
 	{
 		int next = NextEdge(game.Player.EdgeIndex, points.Count);
-		p1 = Projection.Project(
-			points[game.Player.EdgeIndex].X, points[game.Player.EdgeIndex].Y,
-			PlayerProjectedDepth + ApproachDepthOffset, game.CurrentLevel.Definition.CenterY,
-			game.CurrentLevel.Definition.YOffset);
-		p2 = Projection.Project(
-			points[next].X, points[next].Y,
-			PlayerProjectedDepth + ApproachDepthOffset, game.CurrentLevel.Definition.CenterY,
-			game.CurrentLevel.Definition.YOffset);
+		p1 = ProjectApproachGeometry(points[game.Player.EdgeIndex], PlayerProjectedDepth);
+		p2 = ProjectApproachGeometry(points[next], PlayerProjectedDepth);
 	}
 
 	public void DrawPlayerExplosion(

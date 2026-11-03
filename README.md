@@ -61,8 +61,10 @@ manually accepted the current approach presentation in normal campaign play:
 no ExitZoom handoff discontinuity, projection flash, wrong board, Blaster jump
 or new problem was observed. He found it impressive and close to remembered
 Atari behavior; this is qualitative acceptance, not a measured fidelity
-percentage or verification of provisional timing/projection tuning. The more
-elevated Atari approach perspective remains a deferred fidelity refinement.
+percentage or measurement of Atari projection parameters. Neal has now also
+manually accepted the refined elevated approach, brighter 288-point starfield,
+distant tube and rim-attached spinner-movable Blaster, recharge message, and
+smooth arrival. No further tuning of this accepted transition is requested.
 
 The closed definition has 16 ordered vertices and 16 playable lanes. The
 topology metadata distinguishes these counts: an open definition with 16
@@ -235,12 +237,27 @@ Atari has a brief between-level approach through space with an interactive
 distant Blaster before combat engagement. The C# approach translates only the
 incoming tube/player projection, freezes the incoming wave, and permits
 spinner, left-stick and keyboard rim movement while suppressing fire and
-Super Zapper. Its 120-tick duration and 240-unit starting depth offset are
-provisional project presentation tuning, not arcade measurements. Neal
-manually accepted the visible natural Level 1 -> Level 2 -> Level 3 -> Level 4
-campaign approach; this does not verify exact timing, scale, or projection
-parameters. Audio and sound fidelity remain long-term roadmap items; no audio
-playback is implemented.
+Super Zapper. Neal manually accepted the combined perspective/starfield
+presentation: tiny point stars begin during late exit, continue across the
+handoff, diminish before arrival, and surround the distant tube and its
+spinner-movable Blaster. `SUPERZAPPER RECHARGE` appears lower-center while the
+normal top HUD remains visible. Atari frames establish the point-star
+presentation and message; Neal observes blue stars on exits 1-4 and a
+white/red/green/blue mixture from exit 5 onward.
+
+The accepted **PROJECT DECISIONS** are 288 deterministic stars, a centralized
+1.6x clamped RGB gain, a 960-unit initial depth offset, a 96-unit approach-only
+vertical bias, and a 181-update smoothstep approach. The first visible star
+occurs on ExitZoom update 65; 59 remaining exit intervals plus 181 approach
+updates give approximately four seconds at the normal 60-FPS cadence.
+The frame-paced runtime does not catch up after slow frames. Stars are gone
+at approach tick 154; bias and depth offset reach exactly zero at arrival.
+These constants/distribution/interpolation choices are not measured Atari
+values. The goal is Neal-accepted arcade fidelity with reasonable compromises,
+not frame-perfect equivalence; do not keep tuning this accepted presentation.
+Later star colors are implemented/tested without adding Level 5 gameplay.
+Audio and sound fidelity remain long-term roadmap items; no audio playback
+is implemented.
 
 ## Level 3 plus-board geometry diagnostic
 

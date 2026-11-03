@@ -30,6 +30,183 @@ public sealed class LevelApproachTests
     }
 
     [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void PerspectiveBiasIsDeterministicDepthDependentAndRestoresNormalGeometry(int displayedLevel)
+    {
+        TempestGame game = StartApproach(displayedLevel);
+        VectorRenderer renderer = new(game);
+        Level incoming = game.CurrentLevel;
+        Vector2[] originalPoints = incoming.Definition.Points.ToArray();
+        float previousBias = float.PositiveInfinity;
+        float previousNearShift = float.PositiveInfinity;
+        float previousFarShift = float.PositiveInfinity;
+        float firstBiasStep = 0;
+        float middleBiasStep = 0;
+        float previousNearEdgeLength = 0;
+        float previousFarEdgeLength = 0;
+
+        Assert.Equal(181, LevelApproach.DurationTicks);
+        Assert.Equal(960, LevelApproach.InitialDepthOffset);
+        Assert.Equal(VectorRenderer.InitialApproachVerticalOffset, renderer.ApproachVerticalOffset);
+
+        for (int tick = 0; tick <= LevelApproach.DurationTicks; tick++)
+        {
+            float progress = tick / (float)LevelApproach.DurationTicks;
+            float remaining = 1 - progress * progress * (3 - 2 * progress);
+            Assert.Equal(LevelApproach.InitialDepthOffset * remaining, renderer.ApproachDepthOffset);
+            float bias = renderer.ApproachVerticalOffset;
+            Assert.Equal(VectorRenderer.InitialApproachVerticalOffset *
+                (renderer.ApproachDepthOffset / LevelApproach.InitialDepthOffset), bias);
+            Assert.True(float.IsFinite(bias));
+            Assert.InRange(bias, 0, previousBias);
+            if (tick < LevelApproach.DurationTicks)
+            {
+                Assert.Equal(LevelState.Approach, game.State);
+                Assert.True(bias > 0);
+                Assert.Equal(tick, game.CurrentApproach!.ElapsedTicks);
+            }
+            if (tick == 1)
+                firstBiasStep = previousBias - bias;
+            if (tick == LevelApproach.DurationTicks / 2)
+                middleBiasStep = previousBias - bias;
+
+            Vector2[] tube = CaptureTube(renderer);
+            Assert.Equal(tube, CaptureTube(renderer));
+            float nearEdgeLength = Vector2.Distance(tube[0], tube[2]);
+            float farEdgeLength = Vector2.Distance(tube[1], tube[3]);
+            Assert.True(nearEdgeLength > previousNearEdgeLength);
+            Assert.True(farEdgeLength > previousFarEdgeLength);
+            previousNearEdgeLength = nearEdgeLength;
+            previousFarEdgeLength = farEdgeLength;
+            if (tick == 0)
+            {
+                Vector2 first = originalPoints[0];
+                Vector2 second = originalPoints[1];
+                Vector2 PreviousStart(Vector2 point) => Projection.Project(point.X, point.Y,
+                    Level.Position + 240, incoming.Definition.CenterY, incoming.Definition.YOffset);
+                float previousInitialLength = Vector2.Distance(PreviousStart(first), PreviousStart(second));
+                Assert.InRange(nearEdgeLength / previousInitialLength, .28f, .30f);
+                Assert.InRange(renderer.PlayerClawHeight, 1, 2);
+            }
+            float[] shifts = new float[2];
+            for (int vertex = 0; vertex < originalPoints.Length; vertex++)
+            {
+                Vector2 point = originalPoints[vertex];
+                for (int rim = 0; rim < 2; rim++)
+                {
+                    float depth = Level.Position + rim * Level.Depth + renderer.ApproachDepthOffset;
+                    Vector2 accepted = Projection.Project(point.X, point.Y, depth,
+                        incoming.Definition.CenterY, incoming.Definition.YOffset);
+                    Vector2 expected = Projection.Project(point.X, point.Y, depth,
+                        incoming.Definition.CenterY, incoming.Definition.YOffset + bias);
+                    Vector2 actual = tube[vertex * 2 + rim];
+                    Assert.True(float.IsFinite(actual.X));
+                    Assert.True(float.IsFinite(actual.Y));
+                    Assert.Equal(accepted.X, actual.X);
+                    Assert.Equal(expected, actual);
+                    Assert.InRange(MathF.Abs((actual.Y - accepted.Y) -
+                        bias * Projection.K / (depth + Projection.ZOffset)), 0, .0001f);
+                    if (vertex == 0)
+                        shifts[rim] = actual.Y - accepted.Y;
+                }
+            }
+            if (tick < LevelApproach.DurationTicks)
+                Assert.True(shifts[0] > shifts[1]);
+            Assert.InRange(shifts[0], 0, previousNearShift + .0001f);
+            Assert.InRange(shifts[1], 0, previousFarShift + .0001f);
+            previousNearShift = shifts[0];
+            previousFarShift = shifts[1];
+
+            renderer.GetPlayerEdge(originalPoints, out Vector2 playerStart, out Vector2 playerEnd);
+            Assert.Equal(tube[game.Player.EdgeIndex * 2], playerStart);
+            Assert.Equal(tube[incoming.NextEdge(game.Player.EdgeIndex) * 2], playerEnd);
+            Assert.Equal(70f, Projection.K);
+            Assert.Equal(5f, Projection.ZOffset);
+            Assert.Equal(originalPoints, incoming.Definition.Points);
+            if (tick < LevelApproach.DurationTicks)
+            {
+                previousBias = bias;
+                game.RunOneStep(new PlayerInput(false, 8, false, false));
+            }
+        }
+
+        Assert.True(firstBiasStep < middleBiasStep);
+        Assert.True(previousBias < middleBiasStep);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Null(game.CurrentApproach);
+        Assert.Equal(0, renderer.ApproachVerticalOffset);
+        Assert.Equal(0, renderer.ApproachDepthOffset);
+        Assert.All(game.Eggs, egg => Assert.Equal(0, egg.UpdateCounter));
+        Vector2[] arrivalTube = CaptureTube(renderer);
+        game.RunOneStep();
+        Assert.Equal(arrivalTube, CaptureTube(renderer));
+        Assert.Equal(1, game.Eggs[0].UpdateCounter);
+    }
+
+    [Theory]
+    [InlineData(LevelState.Playing)]
+    [InlineData(LevelState.ExitDelay)]
+    [InlineData(LevelState.ExitZoom)]
+    [InlineData(LevelState.ReverseZoom)]
+    [InlineData(LevelState.PlayerDying)]
+    [InlineData(LevelState.Complete)]
+    public void PerspectiveBiasDoesNotAffectRenderingOutsideApproach(LevelState state)
+    {
+        TempestGame game = StartApproach(2);
+        VectorRenderer renderer = new(game);
+        game.CurrentLevel.State = state;
+
+        Assert.Equal(0, renderer.ApproachVerticalOffset);
+        Assert.Equal(0, renderer.ApproachDepthOffset);
+        Vector2[] tube = CaptureTube(renderer);
+        for (int vertex = 0; vertex < game.CurrentLevel.Definition.Points.Count; vertex++)
+        {
+            Vector2 point = game.CurrentLevel.Definition.Points[vertex];
+            for (int rim = 0; rim < 2; rim++)
+                Assert.Equal(Projection.Project(point.X, point.Y, Level.Position + rim * Level.Depth,
+                    game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset),
+                    tube[vertex * 2 + rim]);
+        }
+    }
+
+    [Fact]
+    public void IncomingLevel4SpikesUseTheSameApproachProjectionAsTheWeb()
+    {
+        TempestGame game = StartApproach(4);
+        VectorRenderer renderer = new(game);
+        Assert.NotEmpty(game.Spikes);
+
+        for (int tick = 0; tick <= LevelApproach.DurationTicks; tick++)
+        {
+            List<(Vector2 Start, Vector2 Tip)> lines = [];
+            List<Vector2> tips = [];
+            renderer.DrawSpikes((start, tip) => lines.Add((start, tip)), tips.Add);
+            Assert.Equal(game.Spikes.Count, lines.Count);
+            for (int i = 0; i < game.Spikes.Count; i++)
+            {
+                Spike spike = game.Spikes[i];
+                IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
+                Vector2 midpoint = (points[spike.EdgeIndex] +
+                    points[game.CurrentLevel.NextEdge(spike.EdgeIndex)]) / 2;
+                Vector2 Expected(float depth) => Projection.Project(midpoint.X, midpoint.Y,
+                    depth + renderer.ApproachDepthOffset, game.CurrentLevel.Definition.CenterY,
+                    game.CurrentLevel.Definition.YOffset + renderer.ApproachVerticalOffset);
+                Assert.Equal(Expected(Level.Position + Level.Depth), lines[i].Start);
+                Assert.Equal(Expected(Level.Position + Level.Depth - spike.Height), lines[i].Tip);
+                Assert.Equal(lines[i].Tip, tips[i]);
+                Assert.True(float.IsFinite(lines[i].Start.X));
+                Assert.True(float.IsFinite(lines[i].Start.Y));
+                Assert.True(float.IsFinite(lines[i].Tip.X));
+                Assert.True(float.IsFinite(lines[i].Tip.Y));
+            }
+            if (tick < LevelApproach.DurationTicks)
+                game.RunOneStep();
+        }
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void ApproachFreezesIncomingWaveAndSuppressesFireAndZapper(bool level3)
@@ -84,7 +261,7 @@ public sealed class LevelApproachTests
     [Fact]
     public void ApproachModelIsFiniteMonotonicBoundedAndCompletesOnlyOnce()
     {
-        LevelApproach approach = new();
+        LevelApproach approach = new(exitedLevel: 1);
         float previousOffset = approach.DepthOffset;
         Assert.Equal(0, approach.Progress);
         Assert.False(approach.IsComplete);
@@ -148,6 +325,7 @@ public sealed class LevelApproachTests
         Assert.Equal(eggs, game.Eggs);
         Assert.All(eggs, egg => Assert.Equal(0, egg.UpdateCounter));
         Assert.Equal(0, renderer.ApproachDepthOffset);
+        Assert.Equal(0, renderer.ApproachVerticalOffset);
         Assert.Equal(20, renderer.PlayerClawHeight);
 
         Vector2[] gameplayTube = CaptureTube(renderer);
@@ -259,14 +437,17 @@ public sealed class LevelApproachTests
         Assert.Same(incoming, game.CurrentLevel);
     }
 
-    private static TempestGame StartApproach(bool enterLevel3)
+    private static TempestGame StartApproach(bool enterLevel3) =>
+        StartApproach(enterLevel3 ? 3 : 2);
+
+    private static TempestGame StartApproach(int displayedLevel)
     {
         TempestGame game = new();
-        CommitNextLevel(game);
-        if (enterLevel3)
+        for (int nextLevel = 2; nextLevel <= displayedLevel; nextLevel++)
         {
-            FinishApproach(game);
             CommitNextLevel(game);
+            if (nextLevel < displayedLevel)
+                FinishApproach(game);
         }
         return game;
     }

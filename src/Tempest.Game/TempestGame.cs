@@ -334,6 +334,9 @@ public sealed class TempestGame
     // Detaching and rebinding the one SpikeCreated handler keeps old hazards out of the new wave.
     private void InitializeFreshWave(LevelConfiguration configuration, bool beginApproach = false)
     {
+        LevelApproach? approach = beginApproach
+            ? new LevelApproach(CurrentLevel.Configuration.DisplayedLevel)
+            : null;
         if (currentLevel is not null)
             currentLevel.SpikeCreated -= OnSpikeCreated;
 
@@ -343,7 +346,7 @@ public sealed class TempestGame
         currentLevel.SpikeCreated += OnSpikeCreated;
         developmentCollisionOrder.AddRange(currentLevel.Spikes);
         CurrentLevel.State = beginApproach ? LevelState.Approach : LevelState.Playing;
-        CurrentApproach = beginApproach ? new LevelApproach() : null;
+        CurrentApproach = approach;
         exitDelayTicks = 0;
         RestoreProjection();
         DeathTicks = 0;

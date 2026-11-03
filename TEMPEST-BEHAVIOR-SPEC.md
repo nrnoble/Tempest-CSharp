@@ -134,9 +134,11 @@ record the uncertainty rather than guessing.
   approach presentation in normal campaign play: no ExitZoom handoff
   discontinuity, projection flash, wrong board, Blaster jump or new problem
   was observed. He found it impressive and close to remembered Atari behavior.
-  This qualitative acceptance does not verify the provisional duration, depth
-  offset, curve, controller dead zone or exact projection trajectory. The
-  elevated Atari approach perspective remains a deferred fidelity refinement.
+  Neal subsequently accepted the combined elevated-perspective, brighter
+  288-point starfield and recharge-message refinement. This qualitative
+  acceptance does not establish measured Atari constants, distribution,
+  controller dead zone or exact projection trajectory. No further visual
+  tuning of this accepted transition is requested.
 - **PROJECT DECISION** — Player shots travel from the Blaster at the near rim
   toward the far end of the currently occupied lane. The current recreation
   limits simultaneous player shots and gives them a fixed travel rate. Those
@@ -917,22 +919,43 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   toward the next tube, which begins small/distant and grows as the player
   approaches; the Blaster is visible on the distant rim and spinner movement
   moves it around that rim during the approach, before combat engagement.
-  This qualitative observation does not establish duration, zoom rate,
-  projection formulas, enemy-start timing or exact firing enablement.
-- **PROJECT DECISION (implementation; visible D2 behavior manually accepted)** —
+  Supplied actual Atari transition frames establish tiny point stars around
+  the distant tube, blue early-level stars, diminishing stars as the tube
+  grows, the visible rim Blaster, and exact `SUPERZAPPER RECHARGE` wording.
+  Neal directly observes onset around halfway through the current tube's
+  exit, disappearance shortly before arrival, blue exits 1-4, and a
+  white/red/green/blue mixture from exit 5 onward. His approximately
+  four-second first-star-to-arrival target and roughly 30-45-degree elevated
+  impression are qualitative observations, not frame/angle measurements.
+  These observations do not establish projection formulas, exact thresholds,
+  enemy-start timing or exact firing enablement.
+- **PROJECT DECISION (implementation; combined presentation manually accepted)** —
   Natural production progression enters an explicit approach state after the
   successful exit commit for Level 1 -> 2, Level 2 -> 3, and Level 3 -> 4. The incoming
   configuration and fresh wave are installed at approach start, but gameplay
-  simulation is frozen until arrival.   spinner, keyboard and left-stick (with a project 0.15 normalized dead zone)
+  simulation is frozen until arrival. Spinner, keyboard and left-stick (with a project 0.15 normalized dead zone)
   movement remain enabled; fire and Super Zapper are suppressed. Rendering
   applies a transition-only depth offset to the incoming tube and Blaster and
-  reaches the exact normal projection at arrival. The deterministic
-  120-simulation-tick duration, 240-unit initial depth offset and smoothstep
-  curve are provisional project presentation tuning, not arcade-verified
-  values. Automated tests validate state, freeze, movement and projection
-  endpoints. Neal manually accepted the visible natural Level 1 -> 2 -> 3 -> 4
-  campaign approach. Do not infer exact Atari timing, curve, projection
-  constants or internal input policy from this implementation.
+  reaches the exact normal projection at arrival. Accepted implementation
+  choices are 288 deterministic point stars with 1.6x clamped RGB gain,
+  960 initial depth offset, 96-unit approach-only vertical bias and a
+  181-update smoothstep approach. Stars begin after 50% remaining exit depth
+  and reach full visibility at 20%; actual first nonzero-alpha submission is
+  ExitZoom update 65. The following 59 exit intervals plus 181 approach updates
+  give 240 frame intervals, approximately four seconds under the normal
+  one-update-per-frame 60-FPS cadence, not wall-clock catch-up timing.
+  The starfield remains continuous across the handoff; removal follows
+  `1 - smoothstep(progress / 0.85)` and finishes by approach tick 154.
+  The existing 192-star-reference zero-alpha gate preserves visibility
+  boundaries independently of density. All counts, coordinates, color
+  proportions/RGB values, gain, thresholds, ticks, interpolation and text
+  styling are PROJECT DECISIONS, not measured Atari internals.
+  The exact uppercase recharge message is lower-center during Approach;
+  the normal top HUD is preserved. Rendering consumes no gameplay randomness.
+  Tests protect state, freeze, movement, deterministic geometry/color policy,
+  timing and exact arrival projection, not subjective fidelity. Neal manually
+  accepted the combined presentation and requested it be retained. Later
+  colors are supported without implementing Level 5 progression.
 
 ## 12. Behavior-validation history
 
@@ -1044,10 +1067,14 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   Blaster jump or new
   problem, and found it impressive and close to remembered Atari behavior.
   These observations accept the current implementation; they do not establish
-  exact arcade timing or projection parameters. The elevated Atari approach
-  perspective (approximately 30-45 degrees by Neal's observation) remains a
-  deferred fidelity refinement; Incitti's approach appears sharper and is an
-  engineering reference, not behavioral authority.
+  exact arcade timing or projection parameters. Neal subsequently manually
+  accepted the refined perspective, distant tube, brighter 288-star field,
+  recharge message, spinner movement and smooth arrival, including the
+  approximately-four-second journey under normal cadence. The exact constants
+  remain PROJECT DECISIONS; the target is acceptable arcade fidelity with
+  reasonable compromises, not a frame-perfect clone. Do not continue tuning
+  accepted transition details. Incitti remains an engineering reference, not
+  behavioral authority.
 - **rimit / Hurry-Up milestone** — Automated validation passed 121 focused
   hurry-up/Fuseball/Pulsar cases and all 289 suite cases, with no failures or
   skips; build had zero warnings/errors. Tests protect exact C# trigger order,

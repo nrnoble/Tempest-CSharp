@@ -2,13 +2,21 @@ namespace Tempest.Game.Levels;
 
 public sealed class LevelApproach
 {
-    // Provisional project presentation tuning; Atari observation establishes no numeric curve.
-    public const int DurationTicks = 120;
-    public const float InitialDepthOffset = 240;
+    // At the normal 60 FPS cadence, 59 remaining exit updates + 181 approach updates take 4 seconds.
+    // Exact distance and smoothstep remain project tuning, not measured Atari geometry.
+    public const int DurationTicks = 181;
+    public const float InitialDepthOffset = 960;
 
     private int elapsedTicks;
     private bool isComplete;
 
+    public LevelApproach(int exitedLevel)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(exitedLevel);
+        ExitedLevel = exitedLevel;
+    }
+
+    public int ExitedLevel { get; }
     public int ElapsedTicks => elapsedTicks;
     public float Progress => elapsedTicks / (float)DurationTicks;
     public float DepthOffset

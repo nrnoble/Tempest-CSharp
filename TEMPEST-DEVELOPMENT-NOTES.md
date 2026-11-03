@@ -949,15 +949,15 @@ arcade-equivalent behavior.
 
 The shared approach permits rim movement by spinner, keyboard and left
 gamepad stick, but suppresses player fire and Super Zapper. It uses a
-transition-only depth offset with a deterministic 120-tick smoothstep to zero;
-the 120-tick duration and 240-unit initial offset are provisional project
-tuning, not arcade measurements. Automated checks cover both natural edges
+transition-only depth offset with a deterministic 181-tick smoothstep to zero;
+the accepted 960-unit initial offset and 96-unit vertical bias are project
+tuning, not arcade measurements. Automated checks cover all natural edges
 and exact projection restoration. Neal manually accepted the current
 presentation during normal campaign play: no ExitZoom handoff discontinuity,
 projection flash, wrong board, Blaster jump or new problem was observed. He
 found it impressive and close to remembered Atari behavior. This is qualitative
 acceptance of the current C# implementation, not verification of the
-provisional timing, depth offset, smoothstep curve, controller dead zone or
+chosen timing, depth offset, smoothstep curve, controller dead zone or
 exact projection trajectory.
 
 Natural Level 3 now progresses to Level 4 after the accepted ledger reports
@@ -1085,18 +1085,47 @@ approach. Combat/enemy engagement begins after arrival. This is
 gameplay-relevant because rim movement remains interactive. The C#
 implementation uses a separate approach state for natural production edges,
 freezes the fresh incoming wave, preserves rim movement, and suppresses fire
-and Super Zapper. Its 120-tick duration, 240-unit initial depth offset and
-smoothstep curve are provisional project tuning, not arcade measurements.
-Automated tests cover state, freeze, movement and projection endpoints.
-Neal manually accepted the first two natural campaign approaches:
-there was no ExitZoom handoff discontinuity, projection flash, wrong board,
-Blaster jump or newly observed problem. He found it impressive and close to
-remembered Atari behavior. This is qualitative acceptance, not a measurement
-of exact fidelity or the provisional constants. Neal's observation is that
-the Atari approach appears elevated, approximately 30-45 degrees; Incitti also
-approaches from above but at a sharper angle. Matching the elevated Atari
-perspective is deferred; do not treat that refinement as a failure of the
-accepted approach architecture.
+and Super Zapper. Neal has manually accepted the combined perspective and
+starfield presentation and requested that it be retained without further
+visual tuning. The recreation seeks convincing, personally accepted arcade
+fidelity with reasonable compromises, not frame-perfect equivalence.
+
+**ARCADE VERIFIED / direct visual evidence:** supplied Atari frames show many
+tiny point stars (not streaks), blue early-level stars, a distant growing tube,
+its tiny rim Blaster, diminishing stars and exact `SUPERZAPPER RECHARGE`
+wording. **Neal's direct arcade observations:** stars start around halfway
+through current-tube exit; exits 1-4 are blue and exit 5 onward mixes white,
+red, green and blue; stars vanish shortly before arrival; spinner moves the
+tiny Blaster. His approximately four-second journey target and 30-45-degree
+elevated impression are qualitative, not measured numeric timing or pitch.
+
+**PROJECT DECISIONS (manually accepted implementation):** 288 deterministic
+point stars use a fixed integer-hashed jittered 16x18 distribution, with no
+gameplay randomness. A centralized 1.6x RGB gain clamps channels to 255 without
+changing alpha or point size. Source-level identity retained in `LevelApproach`
+preserves colors across the exit/approach boundary. The 960-unit depth offset
+and 96-unit vertical bias follow smoothstep to exact zero over 181 approach
+updates, preserving normal projection, geometry and 1280x960 scaling.
+
+Exit star visibility uses 50%-to-20% remaining-depth thresholds and a
+192-star-reference zero-alpha cutoff. The first visible star is submitted on
+ExitZoom update 65, with the incoming level committed on update 124.
+59 remaining exit intervals plus 181 approach updates equal 240 intervals:
+approximately four seconds at the normal 60-FPS cadence. `Program` runs one
+update then one draw per frame; there is no accumulator/catch-up loop, so
+slow frames can lengthen real time. Star removal follows
+`1 - smoothstep(progress / 0.85)`; tick 154 is star-free, leaving 27 updates
+before arrival. The recharge message is white, centered at logical Y=540,
+size 20 during Approach; the normal top HUD is unchanged.
+
+Those counts, distribution, gain, depth/bias, exact ticks/thresholds, color
+proportions, interpolation and text styling are implementation choices, not
+measured Atari internals. Later color policy is tested but adds no Level 5
+gameplay. Automated tests protect deterministic state/geometry/timing and
+gameplay freeze, not subjective arcade fidelity. Manual acceptance covers
+the distant tube, bright points, tiny Blaster/spinner interaction, recharge
+message and seamless arrival without snap, flash, wrong board or Blaster jump.
+Incitti's sharper presentation is an engineering reference only.
 
 ## Deferred rendering and presentation fidelity
 
@@ -1127,8 +1156,6 @@ accepted approach architecture.
   distinct Blaster presentation as Atari behavior.
 - **Player-shot size.** Neal observes that C# shots should be slightly larger
   to better match Atari; defer to a rendering-fidelity pass.
-- **Between-level approach perspective.** Refine the elevated Atari
-  perspective separately from the accepted current approach architecture.
 - **Broader entity/rendering fidelity.** Continue as a separate presentation
   workstream.
 - **Spinner characterization/refinement.** A future task should compare actual
