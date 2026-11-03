@@ -1874,3 +1874,88 @@ Blaster collides and is destroyed. The earlier post-death manual check also
 passed, including preservation of shortened Spike height and renewed
 shootability. Retry and final-life behavior remain protected by automated
 coverage. No further gameplay test is requested.
+
+## Sound effects foundation (2026-11-02)
+
+The 12 authoritative mono, 16-bit, 22,050 Hz PCM WAV effects are required game
+content under the repository-root `sfx/` directory. Keep those source files
+there and tracked; `Tempest.Game.csproj` links them into `sfx/` under the build
+output without maintaining duplicate source copies. `AudioSystem` loads each
+WAV once relative to `AppContext.BaseDirectory`, owns its Raylib sound
+resources, and unloads them before the composition root closes the audio
+device. PlayerShot owns exactly one persistent Raylib Sound voice. Every
+accepted PlayerShot event stops that voice if playing, then restarts the same
+voice from sample zero. No player-shot aliases are allocated. All other clips
+retain four Raylib playback voices backed by one loaded sample. When all four
+voices for those clips are busy, a new event is skipped rather than interrupting
+an already-playing effect; this bounded overlap policy is a **PROJECT DECISION**.
+
+The accepted player-shot policy (2026-11-03) is a **PROJECT DECISION**
+based on **REFERENCE VERIFIED** Incitti playback: `tempest.bmx:650` calls
+`PlaySound(shotsfx, schan)` on the persistent channel allocated at line 983.
+Classic FreeAudio replaces the previous channel playback and starts from zero.
+The WAV, gain, pitch, firing cadence, projectile limit, input, and simulation
+remain unchanged. Neal **MANUALLY ACCEPTED / ARCADE VERIFIED** isolated shots,
+sustained firing, and the final uninterrupted shot after releasing Fire.
+He reports that Blaster firing now sounds exactly like Atari Tempest and
+slightly better than Incitti's already-nearly-perfect result. The earlier
+isolated-playback concern did not remain in his final listening tests.
+Freeze this behavior: one persistent voice, stop if playing and restart from
+sample zero for every accepted shot, unchanged authoritative shot.wav, no
+pitch/volume adjustment, trimming, sample edits, or cadence changes. Do not
+further tune the Blaster-shot sound.
+
+The semantic audio-event seam is separate from audio hardware. Headless
+`TempestGame` instances default to `SilentAudioEvents`; automated event tests
+inject a recording sink. Neither path initializes Raylib audio or loads WAVs.
+Production audio calls are attached to existing successful gameplay events
+and do not change simulation timing, RNG use, collision ordering, scoring,
+enemy accounting, lives, or progression.
+
+**REFERENCE VERIFIED** against Incitti:
+
+- `tick.wav` for Blaster lane movement; `shot.wav` when a player shot is
+  created; `bullet.wav` when an enemy bullet is created; `spikeshot.wav` when
+  a shot shortens a Spike.
+- `pulse.wav` when the shared Pulsar pulse window begins while a Pulsar is
+  active; `zap.wav` when each eligible enemy's delayed zap resolution
+  completes; `killedbybullet.wav` for bullet-caused Blaster death.
+- `killedbyflipper.wav` for Flipper, Spike, Pulsar, and Fuseball contact
+  deaths; `flippershot.wav` for player-shot destruction of Flippers, Pulsars,
+  Fuseballs, Tankers, and Spikers.
+- `zoomout.wav` at accepted ExitZoom entry; `zoomin.wav` at LevelApproach
+  entry.
+
+Zap resolution does not play for rejected targets, canceled timers, or enemies
+removed by ordinary shots. Natural Tanker release, enemy escape/retreat,
+non-destructive hits, and non-enemy targets do not use the enemy-destruction
+sound.
+
+**PROJECT DECISIONS:** a lane crossing emits at most one movement sound per
+simulation update, even if a large input crosses multiple lanes. Separate
+Raylib aliases permit overlapping one-shots for effects other than PlayerShot;
+their four-voice cap prevents restarting existing sounds under bursts.
+These choices preserve gameplay and avoid an unbounded stream of spinner ticks.
+AudioSystem architecture, the silent/recording headless seam, bounded overlap
+for non-PlayerShot effects, and resource/output-copy strategy are **PROJECT
+DECISIONS**, not claims about Atari implementation internals.
+
+**ARCADE VERIFIED / MANUALLY ACCEPTED (2026-11-03):** Neal directly compared
+against original Atari Tempest behavior and Incitti. All implemented sound
+effects and their timing remain correct; no gameplay regression was observed.
+This acceptance specifically includes final PlayerShot single-channel playback.
+These are Neal's listening observations, not conclusions from automated tests.
+
+`bonus.wav` is loaded and has a semantic `BonusLife` event, but the current C#
+game has no score-threshold extra-life award. It remains a required asset
+intended for tracking alongside the other eleven WAVs. The event is intentionally
+not emitted until the actual extra-life gameplay milestone exists; no lives
+or score-rollover rules were added merely to exercise audio. Bonus playback is
+deferred and is not included in the manual playback acceptance.
+
+Manual launch commands:
+
+```powershell
+dotnet run --project src/Tempest.Game
+dotnet run --project src/Tempest.Game -- --pulsar-test --lives 10
+```

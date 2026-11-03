@@ -39,42 +39,55 @@ Raylib.InitWindow(VectorRenderer.ScreenWidth, VectorRenderer.ScreenHeight,
 Raylib.DisableCursor();
 Raylib.SetTargetFPS(60);
 
-TempestGame game = new(DebugController.UseSpikerWave(args),
-    startingLives: DebugController.GetStartingLives(args),
-    enemyBulletsTest: DebugController.UseEnemyBulletsTest(args),
-	tankerTest: DebugController.UseTankerTest(args),
-    fuseballTest: DebugController.UseFuseballTest(args),
-    pulsarTest: DebugController.UsePulsarTest(args),
-	level2Test: level2Test,
-    level3Test: level3Test,
-    level3GeometryTest: level3GeometryTest,
-    level4Test: level4Test);
-InputSystem input = new();
-VectorRenderer renderer = new(game);
-int activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
-
-while (!input.QuitRequested())
+try
 {
-    // Input routing mirrors the simulation phases: frozen end states only accept restart; the
-    // death freeze and automated exit travel ignore the player entirely (except the spike-exit
-    // scenario, where movement/firing stay live); otherwise full player input applies.
-    if (game.GameOver || game.LevelComplete)
-        game.RunOneStep(restartPressed: input.RestartPressed());
-    else if (game.DeathTicks > 0 || (game.IsExiting && !game.SpikeExitControlsEnabled))
-        game.RunOneStep();
-    else
-        game.RunOneStep(input.ReadPlayer());
+    Raylib.InitAudioDevice();
+    if (!Raylib.IsAudioDeviceReady())
+        throw new InvalidOperationException("Raylib could not initialize the audio device.");
 
-    if (!level2Test && !level3Test && !level4Test && !level3GeometryTest &&
-        game.CurrentLevel.Configuration.DisplayedLevel != activeDisplayedLevel)
+    using AudioSystem audio = new();
+    TempestGame game = new(DebugController.UseSpikerWave(args),
+        startingLives: DebugController.GetStartingLives(args),
+        enemyBulletsTest: DebugController.UseEnemyBulletsTest(args),
+        tankerTest: DebugController.UseTankerTest(args),
+        fuseballTest: DebugController.UseFuseballTest(args),
+        pulsarTest: DebugController.UsePulsarTest(args),
+        level2Test: level2Test,
+        level3Test: level3Test,
+        level3GeometryTest: level3GeometryTest,
+        level4Test: level4Test,
+        audioEvents: audio);
+    InputSystem input = new();
+    VectorRenderer renderer = new(game);
+    int activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
+
+    while (!input.QuitRequested())
     {
-        activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
-        Raylib.SetWindowTitle($"Tempest C# - Level {activeDisplayedLevel}");
+        // Input routing mirrors the simulation phases: frozen end states only accept restart; the
+        // death freeze and automated exit travel ignore the player entirely (except the spike-exit
+        // scenario, where movement/firing stay live); otherwise full player input applies.
+        if (game.GameOver || game.LevelComplete)
+            game.RunOneStep(restartPressed: input.RestartPressed());
+        else if (game.DeathTicks > 0 || (game.IsExiting && !game.SpikeExitControlsEnabled))
+            game.RunOneStep();
+        else
+            game.RunOneStep(input.ReadPlayer());
+
+        if (!level2Test && !level3Test && !level4Test && !level3GeometryTest &&
+            game.CurrentLevel.Configuration.DisplayedLevel != activeDisplayedLevel)
+        {
+            activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
+            Raylib.SetWindowTitle($"Tempest C# - Level {activeDisplayedLevel}");
+        }
+
+        renderer.Draw();
     }
-
-    renderer.Draw();
 }
-
-Raylib.EnableCursor();
-Raylib.CloseWindow();
+finally
+{
+    Raylib.EnableCursor();
+    if (Raylib.IsAudioDeviceReady())
+        Raylib.CloseAudioDevice();
+    Raylib.CloseWindow();
+}
 return 0;

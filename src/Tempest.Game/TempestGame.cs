@@ -53,6 +53,7 @@ public sealed class TempestGame
     private readonly HashSet<int> rimClearedCargoUnits = [];
     private readonly Random random;
     private readonly int startingLives;
+    private readonly IAudioEvents audioEvents;
     // New-game restarts target the original selection even after natural progression changes the active Level.
     private readonly LevelConfiguration launchConfiguration;
     // Development scenarios stay terminal even when their runtime uses the Level 1 configuration identity.
@@ -157,7 +158,7 @@ public sealed class TempestGame
         bool tankerTest = false, bool fuseballTest = false, bool pulsarTest = false,
         bool level2Test = false, bool level3GeometryTest = false,
         LevelConfiguration? startingConfiguration = null, bool level3Test = false,
-        bool level4Test = false)
+        bool level4Test = false, IAudioEvents? audioEvents = null)
     {
         if ((level2Test ? 1 : 0) + (level3Test ? 1 : 0) +
             (level4Test ? 1 : 0) + (level3GeometryTest ? 1 : 0) +
@@ -170,6 +171,7 @@ public sealed class TempestGame
 
         this.random = random ?? Random.Shared;
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
+        this.audioEvents = audioEvents ?? SilentAudioEvents.Instance;
         this.launchConfiguration = startingConfiguration ?? (level2Test
             ? LevelConfiguration.Level2Square
             : level3Test
@@ -198,10 +200,12 @@ public sealed class TempestGame
     public TempestGame(
         LevelConfiguration startingConfiguration,
         Random? random = null,
-        int startingLives = Player.DefaultStartingLives)
+        int startingLives = Player.DefaultStartingLives,
+        IAudioEvents? audioEvents = null)
         : this(spikerDevelopmentWave: false, random: random, startingLives: startingLives,
             startingConfiguration: startingConfiguration ??
-                throw new ArgumentNullException(nameof(startingConfiguration)))
+                throw new ArgumentNullException(nameof(startingConfiguration)),
+            audioEvents: audioEvents)
     {
     }
 
@@ -253,7 +257,10 @@ public sealed class TempestGame
         {
             exitDelayTicks++;
             if (exitDelayTicks > 20)
+            {
                 CurrentLevel.State = LevelState.ExitZoom;
+                audioEvents.Play(AudioEvent.ZoomOut);
+            }
         }
         else if (State == LevelState.ExitZoom)
         {
@@ -347,6 +354,8 @@ public sealed class TempestGame
         developmentCollisionOrder.AddRange(currentLevel.Spikes);
         CurrentLevel.State = beginApproach ? LevelState.Approach : LevelState.Playing;
         CurrentApproach = approach;
+        if (beginApproach)
+            audioEvents.Play(AudioEvent.ZoomIn);
         exitDelayTicks = 0;
         RestoreProjection();
         DeathTicks = 0;
@@ -530,7 +539,10 @@ public sealed class TempestGame
             movement += PlayerSpeed;
         movement += input.ControllerAxis * PlayerSpeed;
 
+        int previousLane = Player.EdgeIndex;
         Player.MoveAlongTube(movement, CurrentLevel);
+        if (Player.EdgeIndex != previousLane)
+            audioEvents.Play(AudioEvent.PlayerMove);
     }
 
     private void UpdateLevelApproach(PlayerInput input)
@@ -563,6 +575,7 @@ public sealed class TempestGame
         {
             shots.Add(new Shot { EdgeIndex = Player.EdgeIndex, Height = Player.Depth });
             shotTimer = 0;
+            audioEvents.Play(AudioEvent.PlayerShot);
         }
 
         shotTimer++;
@@ -604,6 +617,7 @@ public sealed class TempestGame
     {
         spike.Shorten();
         Score.Add(1);
+        audioEvents.Play(AudioEvent.SpikeHit);
         if (!spike.IsDepleted)
             return;
 
@@ -621,6 +635,7 @@ public sealed class TempestGame
             flippers.RemoveAt(flipperIndex);
             CurrentLevel.RecordEnemyDestroyed();
             Score.Add(150);
+            audioEvents.Play(AudioEvent.EnemyDestroyed);
             return true;
         }
 
@@ -823,12 +838,14 @@ public sealed class TempestGame
                     Score.Add(fuseball.KillScore);
                     fuseballScorePopups.Add(new FuseballScorePopup(
                         fuseball.EdgeIndex, fuseball.Height, fuseball.KillScore));
+                    audioEvents.Play(AudioEvent.EnemyDestroyed);
                     return true;
                 case Pulsar pulsar when pulsar.IsHitBy(shot):
                     pulsars.Remove(pulsar);
                     developmentCollisionOrder.Remove(pulsar);
                     CurrentLevel.RecordEnemyDestroyed();
                     Score.Add(200);
+                    audioEvents.Play(AudioEvent.EnemyDestroyed);
                     return true;
                 case Spike spike when spike.IsHitBy(shot):
                     HitSpike(spike);
@@ -841,6 +858,7 @@ public sealed class TempestGame
                     else
                         CurrentLevel.RecordEnemyDestroyed();
                     Score.Add(50);
+                    audioEvents.Play(AudioEvent.EnemyDestroyed);
                     return true;
                 case EnemyBullet enemyBullet when enemyBullet.IsHitBy(shot):
                     enemyBullets.Remove(enemyBullet);
@@ -856,6 +874,7 @@ public sealed class TempestGame
                         Score.Add(200);
                     }
                     ReleaseTankerCargo(tanker, TankerReleaseKind.PlayerShotDestruction);
+                    audioEvents.Play(AudioEvent.EnemyDestroyed);
                     return true;
                 case Flipper flipper when flipper.IsHitBy(shot):
                     flippers.Remove(flipper);
@@ -876,6 +895,7 @@ public sealed class TempestGame
                         CurrentLevel.RecordEnemyDestroyed();
                     }
                     Score.Add(150);
+                    audioEvents.Play(AudioEvent.EnemyDestroyed);
                     return true;
             }
         }
@@ -898,6 +918,7 @@ public sealed class TempestGame
                 else
                     CurrentLevel.RecordEnemyDestroyed();
                 Score.Add(50);
+                audioEvents.Play(AudioEvent.ZapResolution);
                 continue;
             }
 
@@ -914,6 +935,7 @@ public sealed class TempestGame
                 // tick. It remains independent of the Spiker's retreat/removal lifecycle.
                 enemyBullets.Add(bullet);
                 developmentCollisionOrder.Add(bullet);
+                audioEvents.Play(AudioEvent.EnemyBullet);
             }
 
             if (spiker.State != SpikerState.ReturnedToReserve)
@@ -939,6 +961,7 @@ public sealed class TempestGame
                 Score.Add(points);
                 fuseballScorePopups.Add(new FuseballScorePopup(
                     fuseball.EdgeIndex, fuseball.Height, points));
+                audioEvents.Play(AudioEvent.ZapResolution);
                 continue;
             }
 
@@ -952,7 +975,10 @@ public sealed class TempestGame
         if (pulsePhase > 180)
             pulsePhase = 0;
 
+        bool wasPulsing = Pulsing;
         Pulsing = pulsePhase > 70 && pulsePhase < 110;
+        if (!wasPulsing && Pulsing && pulsars.Count > 0)
+            audioEvents.Play(AudioEvent.PulsarPulse);
         // Resetting after 180 makes the cycle 181 calls long; changing this to >=180 shortens it.
         float amplitude = MathF.Abs((pulsePhase % 90) - 45) / 4f;
         pulseZh = amplitude < 2 ? 0 : MathF.Min(amplitude, 12);
@@ -969,6 +995,7 @@ public sealed class TempestGame
                 developmentCollisionOrder.Remove(pulsar);
                 CurrentLevel.RecordEnemyDestroyed();
                 Score.Add(200);
+                audioEvents.Play(AudioEvent.ZapResolution);
                 continue;
             }
 
@@ -1002,6 +1029,7 @@ public sealed class TempestGame
 
             if (collision == PulsarCollision.Rim)
                 pulsar.BeginRimPlayerKill();
+            audioEvents.Play(AudioEvent.PlayerKilledByEnemy);
             KillPlayer();
             return;
         }
@@ -1018,6 +1046,7 @@ public sealed class TempestGame
                 continue;
 
             fuseball.BeginPlayerKill();
+            audioEvents.Play(AudioEvent.PlayerKilledByEnemy);
             KillPlayer();
             return;
         }
@@ -1040,6 +1069,7 @@ public sealed class TempestGame
                     Score.Add(200);
                 }
                 ReleaseTankerCargo(tanker, TankerReleaseKind.SuperZapperDestruction);
+                audioEvents.Play(AudioEvent.ZapResolution);
                 continue;
             }
 
@@ -1055,6 +1085,7 @@ public sealed class TempestGame
                 // Tanker afterwards: destroying or releasing the Tanker never removes it.
                 enemyBullets.Add(bullet);
                 developmentCollisionOrder.Add(bullet);
+                audioEvents.Play(AudioEvent.EnemyBullet);
             }
 
             if (result != TankerUpdateResult.NaturalCargoRelease)
@@ -1205,6 +1236,7 @@ public sealed class TempestGame
                     CurrentLevel.RecordEnemyDestroyed();
                 }
                 Score.Add(150);
+                audioEvents.Play(AudioEvent.ZapResolution);
                 continue;
             }
 
@@ -1219,6 +1251,7 @@ public sealed class TempestGame
             if (CurrentLevel.UsesProductionLedger ||
                 CurrentLevel.SpikerDevelopmentWave || enemyBulletsTest)
                 developmentCollisionOrder.Add(bullet);
+            audioEvents.Play(AudioEvent.EnemyBullet);
         }
     }
 
@@ -1264,6 +1297,7 @@ public sealed class TempestGame
 
             enemyBullets.RemoveAt(bulletIndex);
             developmentCollisionOrder.Remove(bullet);
+            audioEvents.Play(AudioEvent.PlayerKilledByBullet);
             KillPlayer();
             return;
         }
@@ -1280,6 +1314,7 @@ public sealed class TempestGame
                 continue;
 
             flipper.ClearCompletedCollision();
+            audioEvents.Play(AudioEvent.PlayerKilledByEnemy);
             KillPlayer();
             return;
         }
@@ -1706,6 +1741,7 @@ public sealed class TempestGame
         {
             CurrentLevel.State = LevelState.ExitZoom;
             exitDelayTicks = 0;
+            audioEvents.Play(AudioEvent.ZoomOut);
         }
     }
 
@@ -1727,6 +1763,7 @@ public sealed class TempestGame
             return;
 
         DeathTicks = PlayerDeathTicks;
+        audioEvents.Play(AudioEvent.PlayerKilledByEnemy);
         CurrentLevel.State = LevelState.ReverseZoom;
         exitDelayTicks = 0;
         enemyBullets.Clear();

@@ -8,4 +8,9 @@
   <ItemGroup>
     <PackageReference Include="Raylib-cs" Version="8.1.0" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\sfx\*.wav"
+             Link="sfx\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

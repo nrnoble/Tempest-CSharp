@@ -35,6 +35,31 @@ the ordinary/Super Zapper tube colors. Neal manually accepted this C# rendering
 across the implemented boards and interactions as visually identical to Atari.
 Later palette colors and cycling remain deferred and have not been validated.
 
+## Audio effects
+
+The game uses the authoritative WAV files intended for Git tracking in the repository-root
+`sfx/` directory. The build links them into `sfx/` under the application output;
+runtime loading uses the application base directory, not the current working
+directory. `AudioSystem` owns the Raylib sounds and is disposed before the audio
+device closes. Headless `TempestGame` instances use a silent audio-event sink,
+so tests do not initialize Raylib audio or decode WAV files.
+
+Audio events are attached to existing gameplay transitions and do not change
+simulation behavior. Player firing restarts one persistent voice; all other
+effects retain bounded four-voice overlap. The architecture, headless seam,
+overlap bounds, and output-copy/loading strategy are **PROJECT DECISIONS**.
+Incitti WAV mappings and single-channel shot restart are **REFERENCE VERIFIED**.
+On 2026-11-03, Neal **MANUALLY ACCEPTED / ARCADE VERIFIED** the implemented
+effects and timing, including isolated, sustained, and final-after-release
+Blaster shots, with no observed gameplay regression. PlayerShot's accepted
+single-voice stop/restart behavior is frozen: do not tune its WAV, pitch,
+volume, or firing cadence.
+`bonus.wav` remains a required asset intended for Git, with semantic support
+but no playback until the actual score-threshold extra-life milestone exists.
+See the audio-effects section in
+`TEMPEST-DEVELOPMENT-NOTES.md` for the event mappings and deferred bonus-life
+sound.
+
 ## Level configuration and wave lifecycle
 
 `LevelConfiguration.Level1` explicitly records internal/displayed identity
