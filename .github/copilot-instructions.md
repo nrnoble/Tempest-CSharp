@@ -22,8 +22,10 @@ Initial milestone:
 5. Add one Flipper.
 6. Add collision and scoring.
 
-Maintainability:
-- Code must be maintainable by a developer returning to the project years later without access to AI conversation history. Add concise comments explaining class responsibilities, gameplay state machines, non-obvious algorithms, arcade-specific rules, important ordering requirements, unusual constants, and design decisions whose purpose is not evident from the code itself. Prefer comments explaining why over comments restating what the C# statement does. Do not add comments to trivial properties, obvious assignments, simple loops, or self-explanatory code.
+Code comments:
+- When creating or modifying code, add appropriate maintainability comments by default unless explicitly instructed otherwise. Comments should help a developer returning years later understand non-obvious behavior and design decisions.
+- Prefer explaining why behavior exists, especially non-obvious gameplay rules, arcade-specific behavior that might look like a bug, timing and update-order requirements, state transitions and lifecycle invariants, unusual geometry or rendering, deterministic or accounting rules, and deliberate compatibility, fidelity, or engineering decisions.
+- Keep comments concise. Do not comment on straightforward code or merely restate obvious assignments, simple loops, ordinary conditions, self-explanatory method names, or clear syntax. Preserve useful comments unless behavior changes; update affected comments when it does.
 - Comments must distinguish established arcade behavior, behavior derived from Incitti, development-only behavior, and approximations needing arcade comparison.
 
 Process:
