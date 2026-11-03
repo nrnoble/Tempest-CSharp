@@ -66,12 +66,27 @@ record the uncertainty rather than guessing.
   accounting or general arcade fidelity.
 - **PROJECT DECISION (D2; visible behavior manually accepted)** — Natural Level 3
   completion now proceeds through the existing approach into the same Level 4
-  production configuration used by `--level4-test`. Successful Level 4
-  completion is temporarily terminal because Level 5 is not implemented; R
-  starts a fresh natural campaign at Level 1. This is a C# progression policy,
+  production configuration used by `--level4-test`. A successful Level 4
+  Avoid Spikes exit now enters production Level 5. Level 5 is terminal for this
+  milestone; R starts a fresh natural campaign at Level 1. This is a C# progression policy,
   not an arcade observation. Neal manually accepted the visible natural
   Level 1 -> 2 -> 3 -> 4 campaign; this does not establish hidden implementation
   details or general arcade fidelity.
+- **REFERENCE VERIFIED (Level 5 source findings)** — The Original Arcade
+  campaign's displayed Level 5 is the closed cross on board 4, palette 0,
+  with 16 lanes, center Y 415, offset -90, 20 original obligations, four
+  initial Eggs, and 16 height-60 Spikes. It uses Flippers, Tankers, and
+  Spikers; Pulsars and Fuseballs are excluded. This is the fifth row of
+  `Reference/incitti/levelsets/levelset1.txt`; the separate custom
+  `levelset5.txt` is not the Original Arcade campaign.
+- **PROJECT DECISION (Level 5 implementation; manual acceptance pending)** —
+  Natural Level 4 installs this configuration only after the successful
+  Avoid Spikes exit; score/lives carry and fresh-level state follow the
+  existing setup path. The transition remains blue because star colors use
+  the exited level. Level 5 completion remains terminal with no Level 6.
+  Automated tests protect the configuration, ledger reconstruction, handoff,
+  fresh Super Zapper, and terminal boundary. This does not claim manual or
+  visual acceptance of Level 5.
 - **REFERENCE VERIFIED (D1 source findings)** — Displayed Level 4 is internal
   source index 3, board 3 ("binoculars"), palette group 0, with a closed
   16-lane board, center Y 380, offset -65, 17 original enemy obligations,
@@ -394,7 +409,7 @@ record the uncertainty rather than guessing.
   within the strict band `0 < FlipperHeight - ShotHeight < 16`, awarding
   150 points. Its lane is assigned to the destination when a pivot starts.
 - **ARCADE VERIFIED (closed rims only)** — For Flippers on the currently
-  implemented closed-rim Levels 1-4, once pursuit direction is established it
+  implemented closed-rim Levels 1-5, once pursuit direction is established it
   does not reverse merely because the Blaster crosses behind and makes the
   opposite route shorter. The observation verifies persistence, not the hidden
   direction-selection implementation or exact selection tick, and does not
@@ -518,7 +533,7 @@ record the uncertainty rather than guessing.
 ### Rim pursuit direction correction
 
 - **ARCADE VERIFIED (closed rims only)** — Neal manually accepted persistent
-  pursuit direction for the currently implemented closed-rim Levels 1-4: a
+  pursuit direction for the currently implemented closed-rim Levels 1-5: a
   Flipper does not reverse merely because the Blaster moves behind it and the
   opposite route becomes shorter. This does not establish a universal rule
   across later difficulty levels.
@@ -538,28 +553,57 @@ record the uncertainty rather than guessing.
 
 ## 4. Enemy bullets
 
-- **REFERENCE VERIFIED** — Incitti gives Flippers one to three rounds and a
-  firing countdown. Eligible Flipper updates can fire during a climb or after
-  a rim-pause transition. The bullet travels outward on a lane, expires beyond
-  the rim, can be shot for 25 points, and threatens the Blaster only on its
-  lane near the rim. The reference's exact ammunition, countdown, random
-  threshold, speed, and collision distances have not been validated against
-  Atari gameplay.
+- **ARCADE/MANUAL ACCEPTED (production Flipper firing)** — Neal observed that
+  Level 1 Flippers fire while climbing, with reasonably sparse shots, no
+  machine-gun behavior or obvious bullet flood, and one bullet sound per
+  actual shot. In Level 2 they continue normal below-rim lane changing, visibly
+  fire before reaching the rim, and do not leave the entire level silent.
+  Lane transitions may temporarily block emission but do not cause prolonged
+  firing droughts; individual Flippers generally produce only a small number
+  of shots. In Levels 3-5, ordinary and Tanker-released cargo Flippers fire
+  sensibly, Tanker firing remains normal, and shared enemy-shot pressure
+  prevents excessive bullet volume. Flipper movement, geometry, directed
+  pivots, rim pursuit, death/re-entry, progression, and Level 5 behavior
+  remain unchanged. No new issues were observed. This is Neal's visible
+  gameplay acceptance, not manual verification of numeric ROM constants.
+- **REFERENCE VERIFIED (Atari ROM)** — The global `enm_shoot` phase runs after
+  enemy movement and existing-shot movement. A newly initialized enemy has
+  `shot_delay = 0`; eligible enemies decrement it before the between-segments
+  check. Thus lane changing advances the timer but blocks emission, and an
+  expired delay remains ready until the transition ends. Successful shots
+  alone reload the per-level holdoff (80/77/74/71/68 ticks on displayed Levels
+  1-5). Medium/default active-shot capacities are 2/2/2/3/4. The chance table
+  accepts a random byte greater than or equal to thresholds 00/E0/F0/FA/FF for
+  0/1/2/3/4 active shots. These source facts are anchored at `enm_shoot`
+  `$a2a5-$a303`, the normal gameplay call sequence `$9717-$9723`, and enemy
+  initialization `$9977-$9979` in
+  `Reference/arcade/Tempest Rom Source code.md`.
+- **PROJECT DECISION (C# approximation)** — Natural production Levels 1-5
+  use a separate `TempestGame` Flipper-fire phase after movement. Flipper
+  movement does not create bullets. `Height <= 343` approximates the ROM
+  `enemy_along >= $30` cutoff by mapping arcade `$f0/$10` to C# entry/rim
+  heights 0/400; exact coordinate equivalence is unavailable. Successful
+  shots reuse `EnemyBullet`, its established travel/collision/scoring/rendering
+  behavior, and emit `AudioEvent.EnemyBullet` once.
+- **PROJECT DECISION (Tanker boundary)** — Existing C# Tanker firing is
+  unchanged. Tanker-created bullets share the global active-shot count used
+  by Flipper probability and capacity. Exact arcade Tanker firing integration
+  remains deferred.
+- **REFERENCE VERIFIED (Incitti divergence)** — The former C#/Incitti-derived
+  movement-state firing countdown advanced only in selected Flipper states,
+  starving below-rim Level 2 lane changes and allowing a silent level. This
+  differs from the ROM's separate global firing phase and Neal's observations;
+  finite Flipper ammunition and that countdown are no longer the production
+  firing policy.
 - **REFERENCE VERIFIED** — Incitti's Spiker (“Spinner” in the source) can
   fire a bullet after a growth-driven retreat decision; its separate firing
   roll is strictly greater than 70. This optional behavior is also not
   arcade-verified.
-- **DEVELOPMENT ONLY** — Enemy bullets are not enabled in the ordinary
-  Level 1/2 launch; `--enemy-bullets-test` enables development firing policies
-  in scenarios that support them. Bullet hits do not count as enemy kills.
+- **PROJECT DECISION** — Natural progression enables the ROM-derived Flipper
+  firing policy on Levels 1-5. `--enemy-bullets-test` remains a development
+  seam for isolated scenarios that support it; it does not arm Flippers in
+  isolated Tanker or Spiker tests. Bullet hits do not count as enemy kills.
   The recreation clears bullets on life reconstruction and when exit begins.
-- **PROJECT DECISION (D1)** — Production Tanker firing remains enabled for
-  Levels 3-4, and the Level 4 candidate supports source-backed Spiker
-  growth-retreat bullets. Ordinary/cargo Flippers remain silent across
-  production Levels 1-4 to preserve the accepted Level 1-3 behavior; the
-  optional `--enemy-bullets-test` can still enable Flipper firing. Incitti
-  makes ordinary Flippers bullet-eligible from Level 1, so this is a known
-  project discrepancy rather than a source-derived Level 4 unlock.
 - **DEVELOPMENT ONLY** — Spiker retreat bullets require the Spiker and enemy
   bullet test options together in the isolated Spiker wave. Isolated
   `--tanker-test` bullets require the enemy-bullet option; production-shaped
@@ -838,7 +882,7 @@ These controls are test conveniences, not arcade level-selection or composition:
 |---|---|
 | `--level2-test` | Direct access to the shared closed 16-lane square, supply-12 Flipper-only canflip configuration; terminal development replay, no progression selection. |
 | `--level3-geometry-test` | Direct access to the Flipper-only Level 3 plus-board geometry diagnostic; separate from the mixed production-shaped wave. |
-| `--level3-test` | Direct graphical access to the existing production-shaped mixed Level 3 configuration; terminal replay without enabling natural progression. Production Tanker bullets are visible without `--enemy-bullets-test`; ordinary/cargo Flippers are silent by default. |
+| `--level3-test` | Direct graphical access to the existing production-shaped mixed Level 3 configuration; terminal replay without enabling natural progression. Production Tanker bullets are visible without `--enemy-bullets-test`; the natural progression Flipper firing phase is not enabled by this diagnostic alone. |
 | `--level4-test` | Direct access to the isolated Level 4 production candidate: binoculars board, 17 original obligations, randomized Flipper/Tanker/Spiker eligibility, persistent starting Spikes, and spike-avoid exit with its configured Avoid Spikes warning; terminal replay without natural progression. Visible behavior manually accepted; no claim of general arcade fidelity. |
 | `--spiker-test` | Replaces the normal wave with a Spiker/Flipper test wave and height-60 spikes on every lane. |
 | `--tanker-test` | Replaces the normal wave with one controlled Tanker plus ordinary Flipper slots and cargo. |
@@ -904,16 +948,17 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   presentation/timing, Egg pacing, normal enemy-bullet frequency, Spiker and
   Tanker arcade eligibility/composition, and exit visuals need direct arcade
   comparison where they matter.
-- **PROJECT DECISION** — The temporary terminal after Level 4 and authentic
+- **PROJECT DECISION** — The temporary terminal after Level 5 and authentic
   later-wave composition, open-tube rendering, bonus rules, broader
   enemy/cargo combinations, and source-specific death effects remain out of
   scope or deferred. Natural Level 1-to-Level 2-to-Level 3 progression has
   passed manual acceptance of visible C# behavior. Neal also manually accepted
-  the natural Level 3 -> Level 4 handoff and terminal Level 4 campaign,
-  including the corrected firing boundary. This does not establish hidden
+  the natural Level 3 -> Level 4 handoff and Level 4 campaign, including the
+  corrected firing boundary. The Level 4 -> 5 implementation still awaits
+  manual acceptance. This does not establish hidden
   implementation details or general arcade fidelity; remaining uncertainties
-  are recorded above. Audio and sound fidelity remain a long-term roadmap item;
-  no audio playback is implemented.
+  are recorded above. Audio fidelity remains a long-term roadmap item; the
+  accepted C# audio system is documented separately.
 - **ARCADE VERIFIED** — Neal observed a brief Atari between-level approach
   after the Blaster exits a tube: a first-person view moves through space
   toward the next tube, which begins small/distant and grows as the player
@@ -954,8 +999,10 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   the normal top HUD is preserved. Rendering consumes no gameplay randomness.
   Tests protect state, freeze, movement, deterministic geometry/color policy,
   timing and exact arrival projection, not subjective fidelity. Neal manually
-  accepted the combined presentation and requested it be retained. Later
-  colors are supported without implementing Level 5 progression.
+  accepted the combined presentation and requested it be retained. The
+  Level 4 -> 5 approach remains blue because colors follow the exited level.
+  The new Level 5 progression has automated coverage but awaits manual
+  gameplay acceptance.
 
 ## 12. Behavior-validation history
 

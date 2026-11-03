@@ -125,6 +125,26 @@ public sealed class LevelConfigurationTests
     }
 
     [Fact]
+    public void NaturalLevel2UsesTheArcadeFlipperFiringPhase()
+    {
+        TempestGame game = new(random: new MinimumRandom());
+        CompleteLevel1Wave(game);
+        for (int tick = 0; tick < 200 &&
+             !ReferenceEquals(game.CurrentLevel.Configuration, LevelConfiguration.Level2Square); tick++)
+            game.RunOneStep();
+
+        Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
+        for (int tick = 0; tick < LevelApproach.DurationTicks; tick++)
+            game.RunOneStep();
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+
+        Assert.False(game.EnemyBulletsTest);
+        Assert.Equal(77, Assert.Single(game.Flippers).ShotDelayTicks);
+        Assert.Single(game.EnemyBullets);
+    }
+
+    [Fact]
     public void GameOverRestartReplacesLevelAndResetsScoreAndStartingLives()
     {
         TempestGame game = new(startingLives: 5);
@@ -186,7 +206,7 @@ public sealed class LevelConfigurationTests
     }
 
     [Fact]
-    public void ProductionProgressionContainsOnlyTheImplementedLevelOneToFourCampaignEdges()
+    public void ProductionProgressionContainsOnlyTheImplementedLevelOneToFiveCampaignEdges()
     {
         Assert.Same(LevelConfiguration.Level2Square,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level1));
@@ -194,7 +214,9 @@ public sealed class LevelConfigurationTests
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level2Square));
         Assert.Same(LevelConfiguration.Level4Candidate,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level4Candidate));
+        Assert.Same(LevelConfiguration.Level5Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level4Candidate));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level5Production));
         Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Plus));
         Assert.Null(LevelProgression.GetNextProductionLevel(
             LevelConfiguration.Level1 with { DisplayedLevel = 1 }));
@@ -203,7 +225,7 @@ public sealed class LevelConfigurationTests
     }
 
     [Fact]
-    public void SpikeAvoidanceExitPolicyIsIndependentOfSpikePresenceAndLevelFourIsTerminal()
+    public void SpikeAvoidanceExitPolicyIsIndependentOfSpikePresenceAndLevelFiveIsTerminal()
     {
         LevelConfiguration[] existingLevels =
         [
@@ -217,7 +239,10 @@ public sealed class LevelConfigurationTests
         Assert.Equal(LevelExitPolicy.AvoidSpikes, LevelConfiguration.Level4Candidate.ExitPolicy);
         Assert.Same(LevelConfiguration.Level4Candidate,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level4Candidate));
+        Assert.Same(LevelConfiguration.Level5Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level4Candidate));
+        Assert.Equal(LevelExitPolicy.AvoidSpikes, LevelConfiguration.Level5Production.ExitPolicy);
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level5Production));
 
         LevelConfiguration futureSpikeLevel = LevelConfiguration.Level4Candidate with
         {
@@ -235,5 +260,18 @@ public sealed class LevelConfigurationTests
         game.CurrentLevel.ResetAfterDeath();
         game.RunOneStep();
         Assert.Equal(LevelState.ExitDelay, game.State);
+    }
+
+    private static void MakeReady(Egg egg, Level level)
+    {
+        egg.BeginApproach();
+        for (int tick = 0; tick < 100 && egg.State != EggState.ReadyToHatch; tick++)
+            egg.Update(level);
+        Assert.Equal(EggState.ReadyToHatch, egg.State);
+    }
+
+    private sealed class MinimumRandom : Random
+    {
+        public override int Next(int minValue, int maxValue) => minValue;
     }
 }

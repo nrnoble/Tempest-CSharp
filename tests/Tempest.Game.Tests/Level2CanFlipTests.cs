@@ -64,16 +64,16 @@ public sealed class Level2CanFlipTests
     [Theory]
     [InlineData(0, 1, 3)]
     [InlineData(1, -1, 5)]
-    public void InitialSameLaneTieUsesOneInjectedRollAfterTheShootAttempt(
+    public void InitialSameLaneTieUsesOneInjectedMovementRoll(
         int roll, int direction, int destination)
     {
         Level level = Square();
-        Flipper flipper = new(4, 0, bulletAmmunition: 1);
+        Flipper flipper = new(4, 0);
         int calls = 0;
         flipper.Update(level, 4, (minimum, maximum) =>
         {
             Assert.Equal((0, 1), (minimum, maximum));
-            Assert.Equal(15, flipper.BulletTimer);
+            Assert.Equal(0, flipper.ShotDelayTicks);
             Assert.Equal(FlipperState.Pausing, flipper.State);
             calls++;
             return roll;
@@ -82,7 +82,7 @@ public sealed class Level2CanFlipTests
         Assert.Equal(direction, flipper.Direction);
         flipper.Update(level, 4, UnexpectedRandom);
         Assert.Equal(destination, flipper.DestinationEdge);
-        Assert.Equal(14, flipper.BulletTimer);
+        Assert.Equal(0, flipper.ShotDelayTicks);
     }
 
     [Fact]
@@ -313,7 +313,8 @@ public sealed class Level2CanFlipTests
         Assert.Equal(1, calls);
         Assert.Equal(direction, flipper.Direction);
         Assert.Equal(destination, flipper.DestinationEdge);
-        int ticks = (int)MathF.Ceiling(flipper.TotalTurnAngle / 8);
+        int ticks = (int)MathF.Ceiling(
+            flipper.TotalTurnAngle / level.Configuration.Flipper.TurnSpeedDegrees);
         for (int tick = 0; tick < ticks; tick++)
         {
             flipper.Update(level, 8, UnexpectedRandom);
@@ -353,78 +354,9 @@ public sealed class Level2CanFlipTests
     }
 
     [Theory]
-    [InlineData(75, false)]
-    [InlineData(76, true)]
-    public void BulletTimerCountsOnlyClimbAndPauseExpiryAttempts(int roll, bool fires)
-    {
-        Level level = Square();
-        Flipper flipper = new(4, 0, bulletAmmunition: 1);
-        int attempts = 0;
-        int randomCalls = 0;
-        EnemyBullet? bullet = null;
-        for (int tick = 0; tick < 3000 && attempts < 17; tick++)
-        {
-            bool eligible = flipper.State == FlipperState.Climbing ||
-                flipper.State == FlipperState.Pausing && flipper.PauseTicks <= 1;
-            int timer = flipper.BulletTimer;
-            bullet = flipper.Update(level, (flipper.EdgeIndex + 8) % 16, (minimum, maximum) =>
-            {
-                Assert.Equal((0, 100), (minimum, maximum));
-                randomCalls++;
-                return roll;
-            });
-            if (eligible)
-            {
-                attempts++;
-                Assert.Equal(attempts == 17 ? 16 : 16 - attempts, flipper.BulletTimer);
-            }
-            else
-                Assert.Equal(timer, flipper.BulletTimer);
-            if (attempts < 17)
-                Assert.Null(bullet);
-        }
-        Assert.Equal(17, attempts);
-        Assert.Equal(1, randomCalls);
-        Assert.Equal(fires ? 0 : 1, flipper.BulletAmmunition);
-        if (fires)
-        {
-            Assert.NotNull(bullet);
-            Assert.Equal(flipper.DestinationEdge, bullet.EdgeIndex);
-            Assert.Equal(flipper.Height, bullet.Height);
-        }
-        else
-            Assert.Null(bullet);
-    }
-
-    [Fact]
-    public void RimPauseExpiryUsesLatchedDirectionBeforeTheExpiredFiringRoll()
-    {
-        Level level = Square();
-        Flipper flipper = new(4, 0, bulletAmmunition: 1);
-        for (int tick = 0; tick < 3000 &&
-            !(flipper.Height == 400 && flipper.State == FlipperState.Pausing &&
-              flipper.PauseTicks == 1 && flipper.BulletTimer == 0); tick++)
-            flipper.Update(level, (flipper.EdgeIndex + 8) % 16, UnexpectedRandom);
-        Assert.Equal(0, flipper.BulletTimer);
-        Assert.Equal(1, flipper.PauseTicks);
-        int direction = Assert.IsType<int>(flipper.RimPursuitDirection);
-        List<(int, int)> calls = [];
-        EnemyBullet? bullet = flipper.Update(level, flipper.EdgeIndex, (minimum, maximum) =>
-        {
-            calls.Add((minimum, maximum));
-            return 76;
-        });
-        Assert.Equal(new[] { (0, 100) }, calls);
-        Assert.Equal(direction, flipper.Direction);
-        Assert.NotNull(bullet);
-        Assert.Equal(flipper.DestinationEdge, bullet.EdgeIndex);
-        Assert.Equal(400, bullet.Height);
-    }
-
-    [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void HatchUsesExistingGameRandomWithOptionalAmmoBeforeInitialDirection(bool bullets)
+    public void FlipperStartsFiringReadyWithoutChangingMovementRandomOrder(bool bullets)
     {
         RecordingRandom random = new();
         TempestGame game = new(level2Test: true, enemyBulletsTest: bullets, random: random);
@@ -433,9 +365,9 @@ public sealed class Level2CanFlipTests
         game.Player.ResetPosition(egg.EdgeIndex);
         game.RunOneStep();
         Flipper flipper = Assert.Single(game.Flippers);
-        Assert.Equal(bullets ? new[] { (1, 4), (0, 2) } : new[] { (0, 2) }, random.Calls);
-        Assert.Equal(bullets ? 1 : 0, flipper.BulletAmmunition);
-        Assert.Equal(bullets ? 15 : 16, flipper.BulletTimer);
+        Assert.Equal(bullets ? new[] { (0, 2), (0, 256) } : new[] { (0, 2) }, random.Calls);
+        Assert.Equal(bullets ? 77 : 0, flipper.ShotDelayTicks);
+        Assert.Equal(bullets ? 1 : 0, game.EnemyBullets.Count);
         Assert.Equal(2, flipper.Height);
         Assert.Equal(FlipperState.Pausing, flipper.State);
         Assert.Equal(0, flipper.PauseTicks);
@@ -553,12 +485,12 @@ public sealed class Level2CanFlipTests
         AssertFinite(renderer.ProjectFlipperEndpoints(flipper).End);
         float height = flipper.Height;
         int pause = flipper.PauseTicks;
-        int timer = flipper.BulletTimer;
+        int timer = flipper.ShotDelayTicks;
         for (int tick = 0; tick < 59; tick++)
             game.RunOneStep(new PlayerInput(true, 80, false, false));
         Assert.Equal(height, flipper.Height);
         Assert.Equal(pause, flipper.PauseTicks);
-        Assert.Equal(timer, flipper.BulletTimer);
+        Assert.Equal(timer, flipper.ShotDelayTicks);
         Assert.Equal(callsBefore, random.Calls.Count);
         game.RunOneStep();
         Assert.Equal(LevelState.Playing, game.State);
@@ -574,7 +506,7 @@ public sealed class Level2CanFlipTests
         Assert.Equal(2, fresh.Height);
         Assert.Equal(FlipperState.Pausing, fresh.State);
         Assert.Equal(0, fresh.PauseTicks);
-        Assert.Equal(bullets ? 15 : 16, fresh.BulletTimer);
+        Assert.Equal(bullets ? 77 : 0, fresh.ShotDelayTicks);
     }
 
     private static Level Square() => new(LevelConfiguration.Level2Square);
@@ -590,7 +522,8 @@ public sealed class Level2CanFlipTests
 
     private static void FinishPivot(Flipper flipper, Level level, int playerEdge)
     {
-        int ticks = (int)MathF.Ceiling(flipper.TotalTurnAngle / 8);
+        int ticks = (int)MathF.Ceiling(
+            flipper.TotalTurnAngle / level.Configuration.Flipper.TurnSpeedDegrees);
         for (int tick = 0; tick < ticks; tick++)
             flipper.Update(level, playerEdge, UnexpectedRandom);
         Assert.Equal(FlipperState.Pausing, flipper.State);
@@ -617,7 +550,8 @@ public sealed class Level2CanFlipTests
         for (int tick = 0; tick < pause; tick++)
             flipper.Update(game.CurrentLevel, destination);
         Assert.Equal(FlipperState.Flipping, flipper.State);
-        int ticks = (int)MathF.Ceiling(flipper.TotalTurnAngle / 8);
+        int ticks = (int)MathF.Ceiling(
+            flipper.TotalTurnAngle / game.CurrentLevel.Configuration.Flipper.TurnSpeedDegrees);
         for (int tick = 0; tick < ticks - 1; tick++)
             flipper.Update(game.CurrentLevel, destination);
         Assert.False(flipper.CompletedIntoPlayer);
@@ -629,7 +563,7 @@ public sealed class Level2CanFlipTests
 
         public override int Next(int minValue, int maxValue)
         {
-            Assert.Contains((minValue, maxValue), new[] { (1, 4), (0, 2), (0, 101) });
+            Assert.Contains((minValue, maxValue), new[] { (0, 256), (0, 2), (0, 101) });
             Calls.Add((minValue, maxValue));
             return minValue;
         }

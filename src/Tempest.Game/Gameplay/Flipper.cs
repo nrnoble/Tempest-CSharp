@@ -12,27 +12,23 @@ public enum FlipperState
 }
 
 /// <summary>
-/// Flipper state machine (Climbing -> Pausing -> Flipping -> Pausing ...). Timing constants are
-/// configuration-backed Incitti values, not measured arcade timing. Ordinary Level 2-test canflip
-/// retains its below-rim direction; rim pursuit latches the first selected direction.
+/// Flipper state machine (Climbing -> Pausing -> Flipping -> Pausing ...). Its arcade shot delay
+/// is advanced by TempestGame's separate firing phase, independently of movement state.
+/// Ordinary Level 2-test canflip retains its below-rim direction; rim pursuit latches the first
+/// selected direction.
 /// The entity never touches game state: lethal contact is reported through
 /// <see cref="CompletedIntoPlayer"/> and consumed by TempestGame after player-shot collision.
 /// </summary>
 public sealed class Flipper : Enemy
 {
     public Flipper(int edge = 0, float height = 0)
-        : this(edge, height, 0)
-    {
-    }
-
-    public Flipper(int edge, float height, int bulletAmmunition)
     {
         EdgeIndex = edge;
         SourceEdge = edge;
         DestinationEdge = edge;
         Height = height;
-        BulletAmmunition = Math.Max(0, bulletAmmunition);
-        BulletTimer = 16;
+        // The ROM initializes shot_delay to zero, so the first eligible fire phase is ready.
+        ShotDelayTicks = 0;
         State = FlipperState.Climbing;
     }
 
@@ -49,19 +45,17 @@ public sealed class Flipper : Enemy
     // (Incitti CheckPlayerColl: unconditional for a climbing Flipper) and on a pivot completing
     // into the player's lane at full depth. A player who leaves before either moment is safe.
     public bool CompletedIntoPlayer { get; private set; }
-    public int BulletAmmunition { get; private set; }
-    public int BulletTimer { get; private set; }
+    public int ShotDelayTicks { get; private set; }
     // Tanker identity: slot of the original enemy this unit stands for (-1 if none) and cargo
     // unit id (-1 if not Tanker cargo). The two IDs belong to separate ledger namespaces.
     public int OriginalSlotId { get; private set; } = -1;
     public int CargoUnitId { get; private set; } = -1;
     public bool IsTankerCargo => CargoUnitId >= 0;
 
-    public EnemyBullet? Update(Level level, int playerEdge, Func<int, int, int>? randomInclusive = null)
+    public void Update(Level level, int playerEdge, Func<int, int, int>? randomInclusive = null)
     {
         FlipperConfiguration tuning = level.Configuration.Flipper;
         bool canFlip = tuning.CanFlip && !IsTankerCargo;
-        EnemyBullet? bullet = null;
         switch (State)
         {
             case FlipperState.Climbing:
@@ -78,9 +72,8 @@ public sealed class Flipper : Enemy
                 if (canFlip && startedBelowRim)
                     // Incitti's first canflip climb enters type 3 without assigning a pause.
                     BeginPause(0);
-                bullet = TryFireBullet(EdgeIndex, randomInclusive);
                 if (canFlip && startedBelowRim)
-                    // Source order is Shoot(), then FindShortDir. Retain this below the rim.
+                    // The ROM selects this route during movement; the global shot phase runs later.
                     Direction = level.FindReferenceShortestDirection(EdgeIndex, playerEdge, randomInclusive);
                 break;
 
@@ -92,7 +85,6 @@ public sealed class Flipper : Enemy
                 if (PauseTicks <= 0)
                 {
                     BeginPivot(level, playerEdge, randomInclusive);
-                    bullet = TryFireBullet(DestinationEdge, randomInclusive);
                 }
                 else if (canFlip && pausedBelowRim && Height >= Level.Depth && EdgeIndex == playerEdge)
                     // A lane pause can arrive at the rim too; active pivots remain safe until complete.
@@ -113,16 +105,14 @@ public sealed class Flipper : Enemy
                         : tuning.RimPauseTicks);
                 break;
         }
-
-        return bullet;
     }
 
     // Cargo is born in its mandatory release pivot at Tanker height. Its below-rim direction
     // remains fixed; rim pivots resume player pursuit.
     public static Flipper CreateTankerCargo(
-        Level level, TankerCargoSpawn cargo, int cargoUnitId, int bulletAmmunition = 0)
+        Level level, TankerCargoSpawn cargo, int cargoUnitId)
     {
-        Flipper flipper = new(cargo.SourceLane, cargo.Height, bulletAmmunition)
+        Flipper flipper = new(cargo.SourceLane, cargo.Height)
         {
             SourceEdge = cargo.SourceLane,
             DestinationEdge = cargo.DestinationLane,
@@ -137,32 +127,27 @@ public sealed class Flipper : Enemy
         return flipper;
     }
 
-    internal void SetBulletAmmunition(int ammunition) => BulletAmmunition = Math.Max(0, ammunition);
-
     // Ordinary climbing Flipper used when cargo re-enters through a fresh Egg after a life loss.
-    public static Flipper CreateFreshTankerCargo(int edge, int cargoUnitId, int bulletAmmunition = 0) => new(
-        edge, 0, bulletAmmunition)
+    public static Flipper CreateFreshTankerCargo(int edge, int cargoUnitId) => new(edge, 0)
     {
         CargoUnitId = cargoUnitId
     };
 
     internal void SetOriginalSlotId(int originalSlotId) => OriginalSlotId = originalSlotId;
 
-    private EnemyBullet? TryFireBullet(int edgeIndex, Func<int, int, int>? randomInclusive)
+    internal bool AdvanceShotDelay()
     {
-        if (BulletAmmunition <= 0 || randomInclusive is null)
-            return null;
+        if (ShotDelayTicks == 0)
+            return true;
 
-        BulletTimer--;
-        if (BulletTimer >= 0)
-            return null;
+        ShotDelayTicks--;
+        return false;
+    }
 
-        BulletTimer = 16;
-        if (randomInclusive(0, 100) <= 75)
-            return null;
-
-        BulletAmmunition--;
-        return new EnemyBullet(edgeIndex, Height);
+    internal void ReloadShotDelay(int ticks)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(ticks);
+        ShotDelayTicks = ticks;
     }
 
     public bool IsHitBy(Shot shot)

@@ -209,7 +209,7 @@ hinges. Flippers choose direction after their first climb update, retain it
 across below-rim pivots and pauses. At the first rim pursuit turn they choose a
 direction from the then-current Blaster lane and keep it even if the Blaster
 crosses behind and the opposite route becomes shorter; Neal's arcade observation
-now confirms this closed-rim behavior on the currently implemented Levels 1-4.
+now confirms this closed-rim behavior on the currently implemented Levels 1-5.
 This does not establish an identical rule at every later difficulty level.
 On future open/unconnected tubes, physical endpoints can legitimately require
 reversal. Neal recalls Level 8 as the first open normal-progression board and
@@ -224,11 +224,11 @@ travel. Natural Level 2 now progresses to Level 3 after its successful exit;
 `--level2-test` itself remains terminal and replayable with R and does not
 enable campaign progression. Natural Level 3 now progresses through the
 accepted Level 4 configuration after its successful exit. Level 4 is
-temporarily terminal because Level 5 is not implemented; R starts a fresh
-natural campaign at Level 1.
+followed by production Level 5 after a successful Avoid Spikes exit. Level 5
+is terminal for this milestone; R starts a fresh natural campaign at Level 1.
 
 Score and current lives carry unchanged into each natural level, including
-Level 4. The Super Zapper is restored to two charges on fresh-level setup.
+Level 5. The Super Zapper is restored to two charges on fresh-level setup.
 There is no level-completion bonus, bonus
 life, source `startbonus`, Begin/Ready entry animation, entry-position shift
 or audio. These are incomplete presentation/economy features, not claims of
@@ -280,9 +280,10 @@ at approach tick 154; bias and depth offset reach exactly zero at arrival.
 These constants/distribution/interpolation choices are not measured Atari
 values. The goal is Neal-accepted arcade fidelity with reasonable compromises,
 not frame-perfect equivalence; do not keep tuning this accepted presentation.
-Later star colors are implemented/tested without adding Level 5 gameplay.
-Audio and sound fidelity remain long-term roadmap items; no audio playback
-is implemented.
+Exiting Level 4 into Level 5 remains blue because star color is keyed to the
+exited level.
+Audio playback uses the accepted sound-effects system; fidelity tuning and
+score-threshold bonus-life audio remain deferred.
 
 ## Level 3 plus-board geometry diagnostic
 
@@ -302,7 +303,7 @@ graphically included in this diagnostic.
 The diagnostic is terminal and R replays it; Game Over restart stays on the
 same board. It conflicts with other scenario-selection flags and composes
 with `--lives` and the existing optional `--enemy-bullets-test`. Normal play
-progresses through Level 1, Level 2, Level 3, and terminal Level 4. Production
+progresses through Level 1 to terminal Level 5. Production
 Tanker mixed-wave access is provided separately below; the diagnostic remains
 Flipper-only. Level 1/2 wave policy and
 progression remain unchanged, but C1.5 changed directed enemy pivot
@@ -329,8 +330,8 @@ original and cargo counts and includes Eggs, Flippers and Tankers in its active
 count.
 
 Production Tanker bullets use the existing renderer path and are visible
-without `--enemy-bullets-test`. Ordinary and cargo Flippers remain silent by
-default; the optional flag may enable their development firing behavior. On
+without `--enemy-bullets-test`. This direct diagnostic does not enable the
+natural-campaign Flipper firing phase. On
 successful completion, R replays a fresh Level 3 mixed wave while retaining
 score and lives. Game Over restart follows the existing full new-game behavior.
 Neal manually accepted the visible graphical behavior across multiple runs,
@@ -354,8 +355,8 @@ gameplay. The configuration uses the source-derived closed 16-lane binoculars
 board, 17 original enemy obligations, four initial Eggs, and 16 persistent
 height-60 Spikes. Its randomized eligible originals are Flippers, Tankers, and
 Spikers; Tankers carry two Flippers. Fuseballs and Pulsars are excluded. Level 4 uses
-the spike-avoid exit and remains terminal; natural-campaign R starts a fresh
-Level 1 campaign, while diagnostic replay/Game Over restart return to Level 4.
+the spike-avoid exit; a successful natural exit installs Level 5, while the
+direct diagnostic remains terminal and replays Level 4 on R.
 A prominent **Avoid Spikes** warning remains through the configured avoidance
 interval and controllable pretravel delay, then hides when exit travel begins.
 Exit policy is configured independently of Spike presence. Levels 1-3 have no
@@ -366,11 +367,13 @@ Later Spike-bearing levels may use a standard exit without this warning. Neal
 recalls recycled Levels 17 and 18 without Spikes, so Spike presence must remain
 explicit per level rather than inferred from a permanent
 `displayedLevel >= 4` rule. Neal recalls Level 8 as an open, V-shaped board;
-neither it nor later levels or open-rim gameplay is implemented. Levels 5-8
-are not implemented here.
+neither it nor later levels or open-rim gameplay is implemented. Level 6 and
+beyond are not implemented here.
 
 Neal manually accepted the natural Level 1 -> Level 2 -> Level 3 -> Level 4
-campaign, late-wave Spiker behavior, and overall Level 4 feel. Later focused
+campaign, late-wave Spiker behavior, and overall Level 4 feel. Level 4 -> 5
+implementation has automated coverage but is awaiting manual gameplay
+acceptance. Later focused
 exit validation split: post-death Spike shooting passed, but sustained firing
 could erase a long Spike before contact and exit safely. That long-Spike result
 failed manual acceptance. Neal has since passed manual revalidation: during
@@ -601,12 +604,12 @@ until arcade footage establishes its geometry and timing.
 ## Super Zapper
 
 The source-derived Super Zapper works in normal Level 1, natural Levels 2
-through 4, and every existing development wave. Space or the right mouse button
+through 5, and every existing development wave. Space or the right mouse button
 activates it on a press edge. Each fresh Level setup provides two charges; ordinary life
 loss preserves the remaining charge. Natural Level 1-to-2 progression restores
 two charges and clears flash state through fresh-wave initialization; Level
-2-to-3 and 3-to-4 use the same boundary. Normal Game Over and terminal Level 4
-R start a new campaign. Fresh Level 3 and Level 4 charge states are project
+2-to-3, 3-to-4, and 4-to-5 use the same boundary. Normal Game Over and
+terminal Level 5 R start a new campaign. Fresh Level 3 and Level 4 charge states are project
 decisions, not a new manual arcade observation. Development replay keeps its
 established fresh-charge behavior. The first use assigns
 delays 4, 6, 8, ... to accepted enemies in source insertion order. The second
@@ -709,3 +712,25 @@ Automated coverage also protects retry persistence and final-life Game Over.
 - levelset files -> `Levels/LevelLoader.cs` / data files later
 
 The repository-specific Copilot guidance is in `.github/copilot-instructions.md`.
+
+## Production Level 5
+
+Natural Level 4 completion now commits to Level 5 only after a successful
+Avoid Spikes exit. Level 5 uses the Original Arcade cross from
+`Reference/incitti/levelsets/levelset1.txt` (the unrelated custom `levelset5.txt`
+is not this campaign's board): progression/display/board/palette identity
+4/5/4/0, closed 16-lane geometry, center Y 415, offset -90, 20 original
+obligations, four initial Eggs, 16 reserve, and 16 starting height-60 Spikes.
+It reuses the accepted Flipper/Tanker/Spiker composition, ledger, Spike exit,
+Super Zapper, audio, and approach systems; Pulsars and Fuseballs remain
+disabled. The Level 4 -> 5 transition uses blue stars because the rule follows
+the exited level. Level 5 completion remains terminal; no Level 6 is installed.
+
+The source configuration is **REFERENCE VERIFIED**; natural progression,
+accounting, and terminal behavior are protected by automated tests. Neal's
+manual gameplay acceptance of the new Level 4 -> 5 path and Level 5 remains
+pending. Launch normal play with additional lives for that validation:
+
+```powershell
+dotnet run --project src/Tempest.Game -- --lives 10
+```

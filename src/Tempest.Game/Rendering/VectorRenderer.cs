@@ -92,7 +92,7 @@ public sealed class VectorRenderer
 	private readonly TempestGame game;
 	public IReadOnlyList<Egg> Eggs => game.Eggs;
 	public bool ShouldDrawEnemyBullets =>
-		game.EnemyBulletsTest || game.CurrentLevel.UsesProductionLedger;
+		game.NaturalProgressionEnabled || game.EnemyBulletsTest || game.CurrentLevel.UsesProductionLedger;
 	// During normal play Player.Depth == Level.Depth, so this is Level.Position (the near rim).
 	// During exit travel Player.Depth shrinks toward 0, moving the projected player down the tube.
 	public float PlayerProjectedDepth => Level.Position + Level.Depth - game.Player.Depth;

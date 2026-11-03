@@ -1,3 +1,4 @@
+using Raylib_cs;
 using Tempest.Game;
 using Tempest.Game.Gameplay;
 using Tempest.Game.Levels;
@@ -359,12 +360,15 @@ public sealed class LevelProgressionTests
     }
 
     [Fact]
-    public void NaturalLevel4AvoidSpikesExitIsTerminalAndRestartStartsFreshCampaign()
+    public void NaturalLevel4AvoidSpikesExitInstallsLevel5AndStartsBlueStarApproach()
     {
         TempestGame game = CreateNaturalLevel4();
         game.Score.Add(88);
         game.Player.Lives = 2;
         FinishApproach(game);
+        Assert.True(game.SuperZapper.TryActivate([], game.Player.EdgeIndex, 16, continuous: true));
+        Assert.True(game.SuperZapper.TryActivate([], game.Player.EdgeIndex, 16, continuous: true));
+        Assert.Equal(0, game.SuperZapperChargesRemaining);
         CompleteLevel4Wave(game);
         Assert.Equal(LevelState.AvoidSpikes, game.State);
         Assert.Equal(16, game.Spikes.Count);
@@ -402,15 +406,95 @@ public sealed class LevelProgressionTests
         Assert.DoesNotContain(pathSpike, game.Spikes);
         Assert.Equal(15, game.Spikes.Count);
 
-        Level completedLevel = game.CurrentLevel;
-        for (int tick = 0; tick < 250 && !game.LevelComplete; tick++)
+        Level outgoing = game.CurrentLevel;
+        for (int tick = 0; tick < 250 && ReferenceEquals(outgoing, game.CurrentLevel); tick++)
             game.RunOneStep();
-        Assert.True(game.LevelComplete);
-        Assert.Same(completedLevel, game.CurrentLevel);
-        Assert.Same(LevelConfiguration.Level4Candidate, game.CurrentLevel.Configuration);
-        Assert.Null(LevelProgression.GetNextProductionLevel(game.CurrentLevel.Configuration));
+
+        Level incoming = game.CurrentLevel;
+        Assert.NotSame(outgoing, incoming);
+        Assert.Same(LevelConfiguration.Level5Production, incoming.Configuration);
+        Assert.Equal(LevelState.Approach, game.State);
+        Assert.Equal(4, game.CurrentApproach!.ExitedLevel);
+        Assert.Equal(5, incoming.Configuration.DisplayedLevel);
+        Assert.Equal(4, incoming.Configuration.ProgressionIndex);
+        Assert.Equal(4, incoming.Configuration.BoardIndex);
+        Assert.Equal(0, incoming.Configuration.PaletteIndex);
+        Assert.Equal(20, incoming.EnemySupply);
+        Assert.Equal(20, incoming.Level3Ledger!.OriginalCount);
+        Assert.Equal(20, incoming.Level3Ledger.UnresolvedOriginalIds.Count);
+        Assert.Equal(4, game.Eggs.Count);
+        Assert.Equal(16, incoming.ReserveEggs);
+        Assert.Equal(16, game.Spikes.Count);
+        Assert.All(game.Spikes, spike => Assert.Equal(60, spike.Height));
+        Assert.Equal(SuperZapperSystem.InitialCharges, game.SuperZapperChargesRemaining);
+        Assert.Equal(0, game.SuperZapper.FlashTicksRemaining);
         Assert.Equal(94, game.Score.Score);
         Assert.Equal(2, game.Player.Lives);
+
+        List<Color> transitionColors = [];
+        TransitionStarfield.Draw(game.CurrentApproach.ExitedLevel, 1, (_, color) =>
+            transitionColors.Add(color));
+        Assert.NotEmpty(transitionColors);
+        Assert.All(transitionColors, color =>
+        {
+            Assert.Equal(0, color.R);
+            Assert.Equal(194, color.G);
+            Assert.Equal(255, color.B);
+        });
+
+        FinishApproach(game);
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Same(incoming, game.CurrentLevel);
+    }
+
+    [Fact]
+    public void NaturalLevel5CompletionIsTerminalAndRestartStartsFreshCampaign()
+    {
+        TempestGame game = CreateNaturalLevel4();
+        FinishApproach(game);
+        CompleteLevel4Wave(game);
+        game.Spikes.Single(spike => spike.EdgeIndex == game.Player.EdgeIndex).Height = 0;
+        for (int tick = 0; tick < 151 && game.State == LevelState.AvoidSpikes; tick++)
+            game.RunOneStep();
+        for (int tick = 0; tick < 21 && game.State == LevelState.ExitDelay; tick++)
+            game.RunOneStep();
+        Level outgoing = game.CurrentLevel;
+        for (int tick = 0; tick < 250 && ReferenceEquals(outgoing, game.CurrentLevel); tick++)
+            game.RunOneStep();
+        Assert.NotSame(outgoing, game.CurrentLevel);
+        Assert.Same(LevelConfiguration.Level5Production, game.CurrentLevel.Configuration);
+        FinishApproach(game);
+        Assert.Same(LevelConfiguration.Level5Production, game.CurrentLevel.Configuration);
+
+        Level level = game.CurrentLevel;
+        Level3WaveLedger ledger = level.Level3Ledger!;
+        foreach (int id in ledger.UnresolvedOriginalIds.Order())
+        {
+            if (ledger.GetOriginalState(id) == Level3OriginalState.Reserve)
+                ledger.MarkOriginalEgg(id);
+            ledger.CommitOriginalAsFlipper(id);
+            ledger.MarkOriginalDestroyed(id);
+            level.RecordEnemyDestroyed();
+        }
+
+        level.ResetAfterDeath();
+        game.RunOneStep();
+        Assert.Equal(LevelState.AvoidSpikes, game.State);
+        Assert.Empty(ledger.UnresolvedOriginalIds);
+        game.Spikes.Single(spike => spike.EdgeIndex == game.Player.EdgeIndex).Height = 0;
+
+        for (int tick = 0; tick < 151 && game.State == LevelState.AvoidSpikes; tick++)
+            game.RunOneStep();
+        for (int tick = 0; tick < 21 && game.State == LevelState.ExitDelay; tick++)
+            game.RunOneStep();
+        for (int tick = 0; tick < 250 && game.State == LevelState.ExitZoom; tick++)
+            game.RunOneStep();
+
+        Assert.True(game.LevelComplete);
+        Assert.Same(level, game.CurrentLevel);
+        Assert.Same(LevelConfiguration.Level5Production, game.CurrentLevel.Configuration);
+        Assert.Null(LevelProgression.GetNextProductionLevel(game.CurrentLevel.Configuration));
+        Assert.Empty(ledger.UnresolvedOriginalIds);
 
         game.RunOneStep(restartPressed: true);
         Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);

@@ -119,7 +119,12 @@ public sealed class Level3TestModeTests
     [Fact]
     public void BulletVisibilityAndHudRemainCorrectForExistingModes()
     {
-        Assert.False(new VectorRenderer(new TempestGame()).ShouldDrawEnemyBullets);
+        TempestGame normalGame = new();
+        Assert.True(normalGame.NaturalProgressionEnabled);
+        Assert.False(normalGame.EnemyBulletsTest);
+        Assert.Same(LevelConfiguration.Level1, normalGame.CurrentLevel.Configuration);
+        Assert.False(normalGame.CurrentLevel.UsesProductionLedger);
+        Assert.True(new VectorRenderer(normalGame).ShouldDrawEnemyBullets);
         Assert.False(new VectorRenderer(new TempestGame(level2Test: true)).ShouldDrawEnemyBullets);
         Assert.False(new VectorRenderer(new TempestGame(level3GeometryTest: true)).ShouldDrawEnemyBullets);
         Assert.False(new VectorRenderer(new TempestGame(tankerTest: true)).ShouldDrawEnemyBullets);

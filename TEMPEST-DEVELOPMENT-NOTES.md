@@ -590,9 +590,10 @@ also require manual rechecking. Automated tests did not open a game window.
 
 ## Flipper Enemy Bullet Development Milestone
 
-Normal Level 1 still does not fire EnemyBullets. The opt-in
-`--enemy-bullets-test` argument enables Flipper ammunition and firing; it
-composes independently with `--spiker-test` and `--lives`. Examples:
+Historical implementation note: at this milestone, normal Level 1 was silent
+and `--enemy-bullets-test` enabled a finite-ammunition Flipper model. That
+movement-bound model was retired by the arcade firing correction below. The
+flag remains a development seam in supported isolated scenarios. Examples:
 
 ```powershell
 dotnet run --project src/Tempest.Game -- --enemy-bullets-test
@@ -600,12 +601,10 @@ dotnet run --project src/Tempest.Game -- --enemy-bullets-test --lives 10
 dotnet run --project src/Tempest.Game -- --spiker-test --enemy-bullets-test --lives 10
 ```
 
-Enabled Flippers receive 1-3 bullet attempts using the injected Random source and
-begin with a 16-call timer. During climbing and after pause-to-edge transitions,
-eligible calls decrement it. Below zero, it resets to 16; only a random result
-above 75 fires and consumes ammunition. A bullet starts on the firing lane at
-the Flipper's post-movement height. It moves outward by 3 per update and expires
-only after exceeding depth 400. Same-lane player collision requires
+The retired model assigned 1-3 bullet attempts and a 16-call timer. The retained
+bullet starts on the firing lane at the Flipper's post-movement height, moves
+outward by 3 per update, and expires only after exceeding depth 400. Same-lane
+player collision requires
 `Depth - bullet.Height < 8`; same-lane player shots hit when shot depth is
 strictly below bullet height. Bullet hits award 25 points and do not alter enemy
 accounting. Bullets remain frozen through the death animation and are cleared on
@@ -672,9 +671,10 @@ slot and cargo-side choice; it is a development test, not normal arcade progress
 
 ## Flipper Enemy Bullet Development Milestone
 
-Normal Level 1 still does not fire EnemyBullets. The opt-in `--enemy-bullets-test`
-argument enables Flipper ammunition and firing; it composes independently with
-`--spiker-test` and `--lives`. Examples:
+Historical implementation note: normal Level 1 was then silent and the opt-in
+`--enemy-bullets-test` flag enabled a finite-ammunition Flipper model. That
+movement-bound model was retired by the arcade firing correction below. The
+flag remains a development seam in supported isolated scenarios. Examples:
 
 ```powershell
 dotnet run --project src/Tempest.Game -- --enemy-bullets-test
@@ -682,12 +682,10 @@ dotnet run --project src/Tempest.Game -- --enemy-bullets-test --lives 10
 dotnet run --project src/Tempest.Game -- --spiker-test --enemy-bullets-test --lives 10
 ```
 
-An enabled Flipper is assigned 1-3 bullet attempts using the injected Random
-source and begins with a 16-call timer. During climbing and after pause-to-edge
-transitions, eligible calls decrement the timer. Below zero, it resets to 16;
-only a random value above 75 fires and consumes ammunition. A bullet starts on
-the firing lane at the Flipper's post-movement height. It moves outward by 3 per
-update and expires only after exceeding depth 400. Same-lane player collision
+The retired model assigned 1-3 bullet attempts and a 16-call timer. The retained
+bullet starts on the firing lane at the Flipper's post-movement height, moves
+outward by 3 per update, and expires only after exceeding depth 400. Same-lane
+player collision
 requires `Depth - bullet.Height < 8`; same-lane player shots hit when shot depth
 is strictly below bullet height. Bullet hits award 25 points and do not alter
 enemy accounting. Bullets remain frozen through the death animation and are
@@ -737,10 +735,11 @@ latent/materialized CARGO units, and ACTIVE entities.
 Shot targets in tanker mode use the existing development insertion order. Tanker
 is inserted when its Egg hatches; released cargo appends after carrier removal.
 The consuming shot cannot hit newly created children. Normal Level 1 retains its
-existing collision path. Existing Flipper bullets can be explicitly enabled by
-combining `--enemy-bullets-test`; they never originate from Tankers. Tanker
-bullets, Super Zapper, zap/stillborn cargo, other enemy types and full progression
-are deferred.
+existing collision path. The isolated Tanker diagnostic's
+`--enemy-bullets-test` option arms Tanker firing but does not enable Flipper cargo
+firing. In natural production Levels 1-5, Tanker-created bullets share the global
+active-shot pressure and capacity used by the Flipper firing phase. Exact arcade
+Tanker firing integration remains deferred.
 
 Automated validation: at the completion of the Tanker cargo milestone, 142 headless
 tests passed, zero failed/skipped (per the Tanker implementation report; later
@@ -1311,7 +1310,7 @@ not a guaranteed count under production randomness.
 
 **DEVELOPMENT ONLY:** `--tanker-test` alone remains silent. Combined
 `--tanker-test --enemy-bullets-test` enables the existing armed Tanker path and
-also arms ordinary/cargo Flippers; it is not production Tanker promotion.
+does not enable Flipper cargo firing; it is not production Tanker promotion.
 Neal's qualitative observation of individual interval shots and at least two
 possible before release remains separate from the exact reference constants.
 Exact Atari ammo, initial delay, interval, chance, cutoff and per-Tanker count
@@ -1347,8 +1346,8 @@ this same configuration after Level 2, while direct access remains isolated
 and does not enable campaign progression. The Level 3 HUD reads unresolved
 original/cargo counts from the authoritative ledger and counts active Tankers with other
 enemies. Production Tanker bullets use the existing renderer path without the
-optional `--enemy-bullets-test` flag; ordinary/cargo Flipper firing remains
-silent by default. Direct access is terminal and replay/restart use the
+optional `--enemy-bullets-test` flag; this direct diagnostic does not enable
+the natural-campaign Flipper firing phase. Direct access is terminal and replay/restart use the
 established lifecycle. This is **DEVELOPMENT ONLY**.
 
 Neal manually accepted the visible C# graphical behavior across multiple
@@ -1636,14 +1635,92 @@ type, and does not score or change original/total identity counts. Its next
 Egg hatch reruns general Level 4 selection; Tanker cargo remains governed by
 the normal Tanker path. Spike-only exit shooting cannot change these counts.
 
-**PROJECT DECISION — bullets:** production Tanker bullets remain enabled and
-the Level 4 candidate enables the source-backed Spiker growth-retreat bullet
-path. Ordinary/cargo Flippers remain silent across production Levels 1-4 to
-preserve the accepted Level 1-3 behavior; `--enemy-bullets-test` remains an
-opt-in diagnostic. Incitti enables ordinary Flipper bullets from Level 1, so
-this is an explicit known source discrepancy, not a Level-4-only unlock.
+**PROJECT DECISION — bullets (Flipper silence superseded 2026-11-03):**
+production Tanker bullets remain enabled and the Level 4 candidate enables
+the source-backed Spiker growth-retreat bullet path. The earlier Flipper
+silence decision is superseded by the arcade-source-derived production phase
+documented below; direct development diagnostics remain separate.
 Production rimit/Fuseball/Pulsar behavior remains deferred; no Spiker-specific
 rimit behavior was added.
+
+## Production Flipper firing correction (2026-11-03)
+
+**ARCADE/MANUAL ACCEPTED:** In Level 1, Neal observed Flippers firing while
+climbing, with reasonably sparse shots, no machine-gun behavior or obvious
+bullet flood, and one bullet sound per actual shot. In Level 2, Flippers
+continue normal below-rim lane changing and visibly fire before reaching the
+rim; the level is no longer silent. Lane transitions may temporarily block
+emission but do not cause prolonged firing droughts, and individual Flippers
+generally produce only a small number of shots. In Levels 3-5, ordinary and
+Tanker-released cargo Flippers fire sensibly, Tanker firing remains normal,
+and shared enemy-shot pressure prevents excessive bullet volume. Flipper
+movement, geometry, directed pivots, rim pursuit, death/re-entry, progression,
+and Level 5 behavior remain unchanged. No new issues were observed. This
+records visible gameplay acceptance, not manual verification of numeric ROM
+constants.
+
+**REFERENCE VERIFIED — Atari ROM:** Normal gameplay calls `enm_shoot` after
+enemy movement and existing-shot movement (`$9717-$9723`). Enemy initialization
+sets `shot_delay` to zero (`$9977-$9979`). The global firing routine
+(`$a2a5-$a303`) applies the `$30` along-position cutoff, decrements delay before
+the between-segments test, keeps an expired delay ready during a transition,
+tests the active-shot probability table, and reloads the level holdoff only on
+successful creation. Medium/default Levels 1-5 use 80/77/74/71/68 delay ticks
+and 2/2/2/3/4 active slots. Thresholds for 0-4 active shots are
+`00/E0/F0/FA/FF`, with acceptance when the random byte is greater than or equal
+to the threshold.
+
+**REFERENCE VERIFIED — divergence:** The former C#/Incitti-derived Flipper
+model embedded firing attempts in selected movement branches. Its Level 2
+lane changes allowed only about eight timer advances before rim arrival, so
+ordinary Flippers could not reach a firing decision. Incitti exhibits the same
+silence; it is not authoritative over Neal's direct arcade observations or the
+Atari ROM's independent global phase.
+
+**PROJECT DECISION — implementation:** Natural production Levels 1-5 now run
+a separate Flipper firing phase after movement. Every new/reconstructed
+Flipper starts ready; only successful shots reload its per-enemy delay. The
+phase advances while lane-changing but blocks emission until the pivot is
+complete. It reuses the established `EnemyBullet`, global collection, player
+collision, player-shot destruction, 25-point score, and one `EnemyBullet`
+audio event per emitted bullet. The project approximates ROM `enemy_along >=
+$30` with `Height <= 343`, mapping source endpoints `$F0/$10` to project
+entry/rim heights 0/400; exact equivalence is unavailable. Tanker firing code
+is unchanged, but its bullets contribute to Flipper shot pressure/capacity.
+Exact arcade Tanker firing integration remains deferred.
+
+**AUTOMATED TESTED:** Initial-ready behavior; five holdoffs and capacities;
+timer progression through Level 2 below-rim lane changes; transition emission
+gates; cutoff semantics; exact inclusive probability boundaries; capacity
+rejection without reload; bullet lane/height, collection, audio, and existing
+render/collision/lifecycle paths; Tanker firing regressions.
+
+## Level 5 production implementation (2026-11-03)
+
+Natural progression now continues Level 1 -> 2 -> 3 -> 4 -> 5. The production
+Level 5 data uses the Original Arcade cross from
+`Reference/incitti/levelsets/levelset1.txt`: progression/display/board/palette
+4/5/4/0, closed 16-lane geometry, center Y 415, offset -90, 20 original
+obligations, four initial Eggs, and 16 height-60 Spikes. `levelset5.txt` is a
+different custom set and is not the fifth board in the Original Arcade
+campaign.
+
+Level 5 reuses the established Flipper/Tanker/Spiker composition, identity
+ledger, death reconstruction, Spike and Avoid Spikes exit, Super Zapper,
+audio, and approach systems. Pulsars and Fuseballs remain excluded. A safe
+natural Level 4 exit installs a fresh Level 5 wave and begins the existing
+approach with blue stars, since transition color is based on the exited
+Level 4. A successful Level 5 exit remains terminal; Level 6 is not installed.
+
+**REFERENCE VERIFIED:** Level 5 source geometry, identity, supply, enemy
+eligibility, and Spike values.
+**PROJECT DECISION:** the bounded Level 4 Avoid Spikes successor path and
+terminal Level 5 boundary.
+**AUTOMATED TESTED:** exact configuration, production-ledger reconstruction,
+Level 4 -> 5 handoff/state carry/recharge/star color, and Level 5 terminal
+completion.
+Manual Level 4 -> 5 and Level 5 gameplay acceptance remains pending; no
+visual/arcade acceptance is claimed.
 
 The accepted render-only player-death retraction timing and Blaster animation
 were not changed. Level 4 uses palette-0 lane highlighting and the shared

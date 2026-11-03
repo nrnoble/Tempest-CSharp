@@ -1992,7 +1992,7 @@ public sealed class SimulationTests
     [Fact]
     public void CombinedTankerAndBulletFlagsArmBothTankerAndFlippers()
     {
-        // Queue: Tanker ammunition 2, timer offset 64, ordinary Flipper ammunition 3.
+        // Tanker firing remains on its independent ammunition/timer implementation.
         TempestGame game = CreateTankerWave(enemyBulletsTest: true,
             random: new BulletRandom(2, [64, 3]));
         Tanker tanker = Assert.Single(game.Tankers);
@@ -2003,7 +2003,7 @@ public sealed class SimulationTests
         MakeReady(ordinaryEgg, game.CurrentLevel);
         game.RunOneStep();
         Flipper ordinary = Assert.Single(game.Flippers, flipper => !flipper.IsTankerCargo);
-        Assert.Equal(3, ordinary.BulletAmmunition);
+        Assert.Equal(0, ordinary.ShotDelayTicks);
         Assert.Equal(TankerState.Climbing, tanker.State);
         Assert.Equal(78, tanker.BulletTimer);
         Assert.Empty(game.EnemyBullets);
@@ -2155,8 +2155,7 @@ public sealed class SimulationTests
     public void TankerTimedGameShotsKeepClimbingAndSurviveNaturalReleaseIndependently()
     {
         StrictTankerRandom random = new(
-            (1, 3, [2]), (1, 65, [7]), (0, 101, []),
-            (1, 4, [1, 1, 1, 1, 1]));
+            (1, 3, [2]), (1, 65, [7]), (0, 101, []));
         TempestGame game = CreateTankerWave(enemyBulletsTest: true, random: random);
         Tanker tanker = Assert.Single(game.Tankers);
         Assert.Equal(11.75f, tanker.Height);
@@ -2167,9 +2166,7 @@ public sealed class SimulationTests
             // Ordinary Flippers remain below the rim; script their decisions as failures
             // before the Tanker's decision, matching the established game update order.
             Assert.All(game.Flippers, flipper => Assert.Equal(FlipperState.Climbing, flipper.State));
-            List<int> rolls = game.Flippers
-                .Where(flipper => flipper.BulletAmmunition > 0 && flipper.BulletTimer == 0)
-                .Select(_ => 75).ToList();
+            List<int> rolls = [];
             if (update >= 24 && update <= 211 && (update - 24) % 17 == 0)
                 rolls.Add(update is 194 or 211 ? 76 : 75);
             random.ExpectDecisions(rolls);
@@ -2231,10 +2228,6 @@ public sealed class SimulationTests
         });
         random.AssertComplete();
 
-        random.ExpectDecisions(game.Flippers
-            .Where(flipper => flipper.State == FlipperState.Climbing &&
-                flipper.BulletAmmunition > 0 && flipper.BulletTimer == 0)
-            .Select(_ => 75));
         game.RunOneStep();
         random.AssertDecisionsComplete();
         Assert.Contains(survivingBullet, game.EnemyBullets);
@@ -2249,7 +2242,7 @@ public sealed class SimulationTests
     public void ArmedTankerPendingZapAllowsFireButExpirySkipsReadyDecisionAndKeepsBullet()
     {
         StrictTankerRandom random = new(
-            (1, 3, [2]), (1, 65, [1]), (0, 101, [76]), (1, 4, [1, 1]));
+            (1, 3, [2]), (1, 65, [1]), (0, 101, [76]));
         TempestGame game = CreateTankerWave(enemyBulletsTest: true, random: random);
         Tanker tanker = Assert.Single(game.Tankers);
         Step(game, 16);
@@ -2521,10 +2514,10 @@ public sealed class SimulationTests
     [Fact]
     public void LifeLossClearsTankerBulletsAndRearmsFreshTankerWithNewValues()
     {
-        // Queue: first Tanker ammo 1 and offset 1, decision 100 (fire), ordinary Flipper ammo 1,
-        // then fresh ammo 2 and offset 5 for the Tanker rebuilt after the life loss.
+        // Queue: first Tanker ammo 1 and offset 1, decision 100 (fire), then fresh ammo 2 and
+        // offset 5 for the Tanker rebuilt after the life loss.
         TempestGame game = CreateTankerWave(enemyBulletsTest: true,
-            random: new BulletRandom(1, [1, 100, 1, 2, 5]));
+            random: new BulletRandom(1, [1, 100, 2, 5]));
         Tanker firstTanker = Assert.Single(game.Tankers);
         Step(game, 16);
         game.RunOneStep();
@@ -2879,7 +2872,7 @@ public sealed class SimulationTests
         game.RunOneStep(new PlayerInput(true, 0, false, false));
         Shot shot = Assert.Single(game.Shots);
         ForceClimbToJustBelowRim(flipper, game);
-        shot.Height = flipper.Height - 5;
+        shot.Height = flipper.Height + 5;
         game.RunOneStep();
         Assert.DoesNotContain(flipper, game.Flippers);
         Assert.NotEqual(LevelState.PlayerDying, game.State);
@@ -3299,8 +3292,7 @@ public sealed class SimulationTests
         Assert.Equal(FlipperState.Climbing, freshCargo.State);
         Assert.Equal(2, freshCargo.Height);
         Assert.Equal(survivingCargo.CargoUnitId, freshCargo.CargoUnitId);
-        Assert.InRange(freshCargo.BulletAmmunition, 1, 3);
-        Assert.Equal(15, freshCargo.BulletTimer);
+        Assert.Equal(0, freshCargo.ShotDelayTicks);
         Assert.NotEqual((int)formerHeight, (int)freshCargo.Height);
         AssertTankerAccounting(game);
     }
@@ -3542,10 +3534,10 @@ public sealed class SimulationTests
         });
     }
 
-    // --- Enemy-bullet development scenario (--enemy-bullets-test) ---
+    // --- Flipper enemy-bullet behavior ---
 
     [Fact]
-    public void EnemyBulletFlagIsIndependentAndNormalAndSpikerLaunchesDoNotFire()
+    public void EnemyBulletTestFlagIsIndependentFromProductionFiring()
     {
         Assert.False(Tempest.Game.Debug.DebugController.UseEnemyBulletsTest([]));
         string[] bulletArguments = ["--enemy-bullets-test", "--lives", "10"];
@@ -3567,62 +3559,16 @@ public sealed class SimulationTests
         Assert.True(spiker.CurrentLevel.SpikerDevelopmentWave);
 
         Flipper ordinary = new(2, 0);
-        Assert.Equal(0, ordinary.BulletAmmunition);
-        Assert.Equal(16, ordinary.BulletTimer);
+        Assert.Equal(0, ordinary.ShotDelayTicks);
     }
 
     [Fact]
-    public void FlipperBulletAmmunitionAndTimerPreserveSourceRanges()
+    public void NewFlipperStartsReadyForTheSeparateArcadeFiringPhase()
     {
-        Assert.InRange(new Flipper(0, 0, 1).BulletAmmunition, 1, 3);
-        Assert.InRange(new Flipper(0, 0, 2).BulletAmmunition, 1, 3);
-        Assert.InRange(new Flipper(0, 0, 3).BulletAmmunition, 1, 3);
-        Flipper flipper = new(4, 0, 1);
-        Assert.Equal(16, flipper.BulletTimer);
-
-        int decision = 75;
-        for (int tick = 0; tick < 16; tick++)
-            Assert.Null(flipper.Update(new Level(), 7, (_, _) => decision));
-        Assert.Equal(0, flipper.BulletTimer);
-        Assert.Null(flipper.Update(new Level(), 7, (_, _) => decision));
-        Assert.Equal(16, flipper.BulletTimer);
-        Assert.Equal(1, flipper.BulletAmmunition);
-
-        decision = 76;
-        for (int tick = 0; tick < 16; tick++)
-            Assert.Null(flipper.Update(new Level(), 7, (_, _) => decision));
-        EnemyBullet bullet = Assert.IsType<EnemyBullet>(flipper.Update(new Level(), 7, (_, _) => decision));
-        Assert.Equal(4, bullet.EdgeIndex);
-        Assert.Equal(flipper.Height, bullet.Height);
-        Assert.Equal(0, flipper.BulletAmmunition);
-        Assert.Equal(16, flipper.BulletTimer);
-    }
-
-    [Fact]
-    public void FlipperDoesNotSpendTimerOrFireWithoutAmmunition()
-    {
-        Flipper flipper = new(4, 0);
-        for (int tick = 0; tick < 100; tick++)
-            Assert.Null(flipper.Update(new Level(), 7, (_, _) => throw new InvalidOperationException()));
-        Assert.Equal(0, flipper.BulletAmmunition);
-        Assert.Equal(16, flipper.BulletTimer);
-    }
-
-    [Fact]
-    public void FlipperCanFireAtPauseEdgeTransitionWithoutChangingTransitionTiming()
-    {
-        Flipper flipper = new(4, 28, 1);
-        for (int tick = 0; tick < 186; tick++)
-            Assert.Null(flipper.Update(new Level(), 7, (_, _) => 75));
-        Assert.Equal(FlipperState.Pausing, flipper.State);
-        Assert.Equal(0, flipper.BulletTimer);
-        for (int tick = 0; tick < 23; tick++)
-            Assert.Null(flipper.Update(new Level(), 7, (_, _) => 76));
-        Assert.Equal(FlipperState.Pausing, flipper.State);
-        EnemyBullet bullet = Assert.IsType<EnemyBullet>(flipper.Update(new Level(), 7, (_, _) => 76));
-        Assert.Equal(FlipperState.Flipping, flipper.State);
-        Assert.Equal(flipper.DestinationEdge, bullet.EdgeIndex);
-        Assert.Equal(400, bullet.Height);
+        Flipper flipper = new(4);
+        Assert.Equal(0, flipper.ShotDelayTicks);
+        flipper.Update(new Level(), 7);
+        Assert.Equal(0, flipper.ShotDelayTicks);
     }
 
     [Fact]
@@ -3665,43 +3611,43 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void BulletDevelopmentFlagHatchesFlipperWithAmmoAndCreatesBulletAtLaneAndHeight()
+    public void EnemyBulletFlagUsesTheSeparatePhaseAndCreatesBulletAtLaneAndHeight()
     {
         TempestGame game = new(enemyBulletsTest: true, random: new BulletRandom(1, [76]));
         MakeReady(game.Eggs[0], game.CurrentLevel);
         game.RunOneStep();
         Flipper flipper = Assert.Single(game.Flippers);
-        Assert.Equal(1, flipper.BulletAmmunition);
-        Assert.Equal(15, flipper.BulletTimer);
-        Step(game, 15);
-        Assert.Empty(game.EnemyBullets);
-        Assert.Equal(0, flipper.BulletTimer);
-        game.RunOneStep();
         EnemyBullet bullet = Assert.Single(game.EnemyBullets);
         Assert.Equal(flipper.EdgeIndex, bullet.EdgeIndex);
         Assert.Equal(flipper.Height, bullet.Height);
-        Assert.Equal(34, bullet.Height);
-        Assert.Equal(0, flipper.BulletAmmunition);
+        Assert.Equal(2, bullet.Height);
+        Assert.Equal(80, flipper.ShotDelayTicks);
     }
 
-    [Theory]
-    [InlineData(1)]
-    [InlineData(2)]
-    [InlineData(3)]
-    public void BulletDevelopmentAmmoUsesControlledInclusiveOneToThreeRange(int ammunition)
+    [Fact]
+    public void ProductionFlipperFiresImmediatelyThenReloadsArcadeLevelOneHoldoff()
     {
-        TempestGame game = new(enemyBulletsTest: true,
-            random: new BulletRandom(ammunition, []));
+        BulletRandom random = new(2, [76]);
+        TempestGame game = new(random: random);
+        Assert.False(game.EnemyBulletsTest);
         MakeReady(game.Eggs[0], game.CurrentLevel);
         game.RunOneStep();
-        Assert.Equal(ammunition, Assert.Single(game.Flippers).BulletAmmunition);
-        Assert.Equal(15, game.Flippers[0].BulletTimer);
+
+        Flipper flipper = Assert.Single(game.Flippers);
+        Assert.Equal(80, flipper.ShotDelayTicks);
+        Assert.Single(game.EnemyBullets);
+        Assert.Equal(new[] { (0, 256) }, random.Calls);
+
+        Step(game, 16);
+        Assert.Single(game.EnemyBullets);
+        Assert.Equal(64, flipper.ShotDelayTicks);
+        Assert.Equal(new[] { (0, 256) }, random.Calls);
     }
 
     [Fact]
     public void PlayerCanShootEnemyBulletForTwentyFiveWithoutEnemyAccountingChange()
     {
-        TempestGame game = PrepareBulletGame(1, 76);
+        TempestGame game = PrepareProductionBulletGame(1, 76);
         EnemyBullet bullet = Assert.Single(game.EnemyBullets);
         game.Player.Move(bullet.EdgeIndex - game.Player.EdgeIndex, 16);
         for (int tick = 0; tick < 80 && game.EnemyBullets.Count > 0; tick++)
@@ -3715,6 +3661,48 @@ public sealed class SimulationTests
     }
 
     [Fact]
+    public void ProductionPlayerShotCanDestroyFlipperBulletWithoutEnemyBulletFlag()
+    {
+        TempestGame game = PrepareProductionBulletGame(1, 76);
+        Flipper flipper = Assert.Single(game.Flippers);
+        EnemyBullet bullet = Assert.Single(game.EnemyBullets);
+        Step(game, 40);
+        game.Player.Move(bullet.EdgeIndex - game.Player.EdgeIndex, 16);
+
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot shot = Assert.Single(game.Shots);
+        shot.Height = bullet.Height - 15;
+        game.RunOneStep();
+
+        Assert.Empty(game.EnemyBullets);
+        Assert.Contains(flipper, game.Flippers);
+        Assert.Equal(25, game.Score.Score);
+        Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
+    }
+
+    [Fact]
+    public void ProductionLifeResetClearsBulletsAndRearmsFreshFlipper()
+    {
+        TempestGame game = new(random: new BulletRandom(1, [76, 1]));
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Flipper previous = Assert.Single(game.Flippers);
+        Step(game, 16);
+        Assert.Single(game.EnemyBullets);
+
+        game.CurrentLevel.State = LevelState.PlayerDying;
+        game.RunOneStep();
+        Assert.Empty(game.EnemyBullets);
+        Assert.DoesNotContain(previous, game.Flippers);
+
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Flipper fresh = Assert.Single(game.Flippers);
+        Assert.NotSame(previous, fresh);
+        Assert.Equal(80, fresh.ShotDelayTicks);
+    }
+
+    [Fact]
     public void FlipperAndBulletCollisionPriorityUsesDevelopmentInsertionOrder()
     {
         TempestGame game = PrepareBulletGame(1, 76);
@@ -3723,7 +3711,7 @@ public sealed class SimulationTests
         game.Player.Move(flipper.EdgeIndex - game.Player.EdgeIndex, 16);
         game.RunOneStep(new PlayerInput(true, 0, false, false));
         Shot shot = Assert.Single(game.Shots);
-        shot.Height = flipper.Height - 5;
+        shot.Height = flipper.Height + 5;
         game.RunOneStep();
         Assert.Empty(game.Flippers);
         Assert.Contains(bullet, game.EnemyBullets);
@@ -3734,7 +3722,7 @@ public sealed class SimulationTests
     [Fact]
     public void EnemyBulletPlayerHitUsesNormalDeathAndSingleLifeLoss()
     {
-        TempestGame game = PrepareBulletGame(3, 76, 76, 76);
+        TempestGame game = CreateGameWithFourReadyFlippers();
         EnemyBullet firstBullet = game.EnemyBullets[0];
         game.Player.Move(firstBullet.EdgeIndex - game.Player.EdgeIndex, 16);
         int ticks = 0;
@@ -3743,7 +3731,7 @@ public sealed class SimulationTests
         Assert.Equal(LevelState.PlayerDying, game.State);
         Assert.Equal(60, game.DeathTicks);
         Assert.Equal(3, game.Player.Lives);
-        Assert.NotEmpty(game.EnemyBullets);
+        Assert.Single(game.EnemyBullets);
         game.Score.Add(125);
         Step(game, 59);
         Assert.Equal(1, game.DeathTicks);
@@ -3763,7 +3751,7 @@ public sealed class SimulationTests
     [Fact]
     public void EnemyBulletsDoNotBlockCompletionAndAreClearedBeforeExit()
     {
-        TempestGame game = PrepareBulletGame(1, 76);
+        TempestGame game = PrepareProductionBulletGame(1, 76);
         Flipper flipper = Assert.Single(game.Flippers);
 
         EnemyBullet bullet = Assert.Single(game.EnemyBullets);
@@ -3785,19 +3773,12 @@ public sealed class SimulationTests
 
     [Fact]
 
-    public void BulletDevelopmentDoesNotChangeNormalOrSpikerFlipperAmmunition()
+    public void SpikerOnlyScenarioRemainsSilentWithoutEnemyBulletFlag()
     {
-        TempestGame normal = new();
-        MakeReady(normal.Eggs[0], normal.CurrentLevel);
-        normal.RunOneStep();
-        Assert.Equal(0, Assert.Single(normal.Flippers).BulletAmmunition);
-        Step(normal, 100);
-        Assert.Empty(normal.EnemyBullets);
-
         TempestGame spikerOnly = new(true, new SpikerRandom { ChooseSpikers = false });
         MakeReady(spikerOnly.Eggs[0], spikerOnly.CurrentLevel);
         spikerOnly.RunOneStep();
-        Assert.Equal(0, Assert.Single(spikerOnly.Flippers).BulletAmmunition);
+        Assert.Equal(0, Assert.Single(spikerOnly.Flippers).ShotDelayTicks);
         Assert.False(spikerOnly.EnemyBulletsTest);
     }
 
@@ -3820,7 +3801,7 @@ public sealed class SimulationTests
         float expectedDiameter = 12 / ((projectedDepth + Projection.ZOffset) / Projection.K);
         Assert.InRange(Vector2.Distance(lines[0].Start, lines[0].End),
             expectedDiameter - 0.001f, expectedDiameter + 0.001f);
-        Assert.Equal(34, bullet.Height);
+        Assert.Equal(2, bullet.Height);
         Assert.InRange(renderer.ProjectEnemyBullet(bullet).X, 0, 800);
         Assert.InRange(renderer.ProjectEnemyBullet(bullet).Y, 0, 600);
     }
@@ -4634,10 +4615,30 @@ public sealed class SimulationTests
         MakeReady(game.Eggs[0], game.CurrentLevel);
         game.RunOneStep();
         Assert.Single(game.Flippers);
-        Step(game, 15);
-        Assert.Empty(game.EnemyBullets);
-        game.RunOneStep();
         Assert.Single(game.EnemyBullets);
+        return game;
+    }
+
+    private static TempestGame CreateGameWithFourReadyFlippers()
+    {
+        TempestGame game = new(enemyBulletsTest: true,
+            random: new BulletRandom(1, [255, 255, 255, 255]));
+        foreach (Egg egg in game.Eggs)
+            MakeReady(egg, game.CurrentLevel);
+        game.RunOneStep();
+        Assert.Equal(2, game.EnemyBullets.Count);
+        return game;
+    }
+
+    private static TempestGame PrepareProductionBulletGame(int ammunition, params int[] firingDecisions)
+    {
+        TempestGame game = new(random: new BulletRandom(ammunition, firingDecisions));
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Assert.Single(game.Flippers);
+        Step(game, 16);
+        Assert.Single(game.EnemyBullets);
+        Assert.False(game.EnemyBulletsTest);
         return game;
     }
 
@@ -4819,6 +4820,8 @@ public sealed class SimulationTests
     {
         private readonly Queue<int> values;
 
+        public List<(int Minimum, int Maximum)> Calls { get; } = [];
+
         public BulletRandom(int ammunition, IEnumerable<int> firingDecisions)
         {
             values = new Queue<int>(new[] { ammunition }.Concat(firingDecisions));
@@ -4826,6 +4829,7 @@ public sealed class SimulationTests
 
         public override int Next(int minValue, int maxValue)
         {
+            Calls.Add((minValue, maxValue));
             if (values.Count == 0)
                 return minValue;
 
@@ -5009,7 +5013,8 @@ public sealed class SimulationTests
         Assert.Equal(5, Projection.ZOffset);
         Assert.Equal(4, game.Eggs.Count);
         Assert.Equal(8, game.CurrentLevel.ReserveEggs);
-        Assert.Equal(1500, game.Score.Score);
+        Assert.True(game.Score.Score >= 1500);
+        Assert.Equal(0, (game.Score.Score - 1500) % 25);
         Assert.Equal(2, game.Player.Lives);
         Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
         Assert.Equal(0, game.CurrentLevel.EnemiesRimCleared);
@@ -5503,7 +5508,7 @@ public sealed class SimulationTests
     [Fact]
     public void DestroyingLastEnemyStartsExitDelayOnTheSameTick()
     {
-        TempestGame game = new();
+        TempestGame game = new(random: new MinimumRandom());
         for (int enemyIndex = 0; enemyIndex < 9; enemyIndex++)
             game.CurrentLevel.RecordEnemyDestroyed();
         game.CurrentLevel.ResetAfterDeath();
@@ -5523,7 +5528,7 @@ public sealed class SimulationTests
         Assert.Equal(LevelState.ExitDelay, game.State);
         Assert.False(game.LevelComplete);
         Assert.Empty(game.Flippers);
-        Assert.Equal(150, game.Score.Score);
+        Assert.Equal(175, game.Score.Score);
         Assert.Equal(0, game.DeathTicks);
     }
 
@@ -5851,7 +5856,7 @@ public sealed class SimulationTests
     [Fact]
     public void EntireEggWaveCanBeDestroyedWithSameTickExitThenFreshLevel2()
     {
-        TempestGame game = new();
+        TempestGame game = new(random: new MinimumRandom());
         int previousDestroyed = 0;
         for (int tick = 0; tick < 5000 && !game.IsExiting && !game.GameOver; tick++)
         {
@@ -5860,7 +5865,9 @@ public sealed class SimulationTests
                 game.Player.Move(target.EdgeIndex - game.Player.EdgeIndex, 16);
             game.RunOneStep(new PlayerInput(true, 0, false, false));
             AssertAccounting(game);
-            Assert.Equal(game.CurrentLevel.EnemiesDestroyed * 150, game.Score.Score);
+            int flipperScore = game.CurrentLevel.EnemiesDestroyed * 150;
+            Assert.True(game.Score.Score >= flipperScore);
+            Assert.Equal(0, (game.Score.Score - flipperScore) % 25);
             Assert.Equal(game.CurrentLevel.RemainingEnemies,
                 game.CurrentLevel.ReserveEggs + game.Eggs.Count + game.Flippers.Count);
             Assert.Equal(0, game.CurrentLevel.EnemiesRimCleared);
@@ -5873,7 +5880,8 @@ public sealed class SimulationTests
         Assert.False(game.LevelComplete);
         Assert.Same(LevelConfiguration.Level2Square, game.CurrentLevel.Configuration);
         Assert.Equal(LevelState.Playing, game.State);
-        Assert.Equal(1500, game.Score.Score);
+        Assert.True(game.Score.Score >= 1500);
+        Assert.Equal(0, (game.Score.Score - 1500) % 25);
         Assert.Equal(8, game.CurrentLevel.ReserveEggs);
         Assert.Equal(4, game.Eggs.Count);
         Assert.Empty(game.Flippers);

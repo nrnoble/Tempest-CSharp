@@ -51,7 +51,8 @@ public sealed class Level4CandidateTests
             configuration.NormalEnemyComposition);
         Assert.Equal(FlipperPivotGeometry.EndpointHinge, configuration.FlipperPivotMode);
         Assert.True(configuration.FlipperCanFlip);
-        Assert.Null(LevelProgression.GetNextProductionLevel(configuration));
+        Assert.Same(LevelConfiguration.Level5Production,
+            LevelProgression.GetNextProductionLevel(configuration));
         Assert.Same(LevelConfiguration.Level4Candidate,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
     }

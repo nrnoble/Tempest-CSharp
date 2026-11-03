@@ -53,6 +53,25 @@ public sealed record LevelConfiguration(
 {
     public int VertexCount => Definition.VertexCount;
     public int PlayableLaneCount => Definition.PlayableLaneCount;
+    // Medium/default ROM values for ordinary displayed production Levels 1-5.
+    public int FlipperShotHoldoffTicks => DisplayedLevel switch
+    {
+        1 => 80,
+        2 => 77,
+        3 => 74,
+        4 => 71,
+        5 => 68,
+        _ => throw new InvalidOperationException(
+            $"No arcade Flipper shot holdoff is defined for displayed Level {DisplayedLevel}.")
+    };
+    public int MaximumActiveEnemyShots => DisplayedLevel switch
+    {
+        1 or 2 or 3 => 2,
+        4 => 3,
+        5 => 4,
+        _ => throw new InvalidOperationException(
+            $"No arcade enemy-shot capacity is defined for displayed Level {DisplayedLevel}.")
+    };
     public FlipperConfiguration Flipper { get; init; } = new(false, 2, 8, 21, 24);
     public bool FlipperCanFlip => Flipper.CanFlip;
     public FlipperPivotGeometry FlipperPivotMode { get; init; } = FlipperPivotGeometry.LegacyLaneTurn;
@@ -154,6 +173,34 @@ public sealed record LevelConfiguration(
         InitialPlayerLane: 7,
         InitialPlayerLanePosition: 0.5f,
         EnemySupply: 17,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(Enumerable.Range(0, 16).ToArray()),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.AvoidSpikes,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersTankersAndSpikers)
+    {
+        Flipper = new(true, 2, 8, 21, 24),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        StartingSpikeHeight = 60
+    };
+
+    // REFERENCE VERIFIED: Original Arcade Level 5 cross, supply, enemy eligibility, and Spikes.
+    // Natural campaign progression reuses the accepted Level 4 production systems.
+    public static LevelConfiguration Level5Production { get; } = new(
+        ProgressionIndex: 4,
+        DisplayedLevel: 5,
+        BoardIndex: 4,
+        PaletteIndex: 0,
+        Definition: LevelLoader.LoadLevel5Cross(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: 20,
         InitialActiveEggCount: 4,
         ReserveReleaseIntervalTicks: 50,
         MaximumActiveEggs: 4,

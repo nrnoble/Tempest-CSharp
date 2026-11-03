@@ -72,9 +72,9 @@ public sealed class AudioEventTests
     {
         RecordingAudioEvents audio = new();
         TempestGame game = new(
-            enemyBulletsTest: true,
             random: new MaximumRandom(),
             audioEvents: audio);
+        Assert.False(game.EnemyBulletsTest);
         MakeReady(game.Eggs[0], game.CurrentLevel);
         game.RunOneStep();
         Step(game, 17);

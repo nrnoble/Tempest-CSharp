@@ -350,19 +350,12 @@ public sealed class Level2SquareTests
             egg.Update(game.CurrentLevel);
         game.RunOneStep();
         Flipper flipper = Assert.Single(game.Flippers);
-        Assert.InRange(flipper.BulletAmmunition, 1, 3);
         VectorRenderer renderer = new(game);
 
-        for (int tick = 0; tick < 2000 &&
-            !(flipper.BulletTimer == 0 && flipper.State == FlipperState.Pausing &&
-              flipper.PauseTicks == 1); tick++)
-            flipper.Update(game.CurrentLevel, (flipper.EdgeIndex + 8) % 16, (_, _) => 76);
-        Assert.Equal(0, flipper.BulletTimer);
-        Assert.Equal(1, flipper.PauseTicks);
-        game.Player.Move((flipper.EdgeIndex + 8) % 16 - game.Player.EdgeIndex, 16);
-        game.RunOneStep();
-
         EnemyBullet bullet = Assert.Single(game.EnemyBullets);
+        Assert.Equal(flipper.EdgeIndex, bullet.EdgeIndex);
+        Assert.Equal(flipper.Height, bullet.Height);
+        Assert.Equal(77, flipper.ShotDelayTicks);
         AssertFinite(renderer.ProjectEnemyBullet(bullet));
         AssertFinite(renderer.ProjectFlipperEndpoints(flipper).Start);
         AssertFinite(renderer.ProjectFlipperEndpoints(flipper).End);
@@ -582,8 +575,8 @@ public sealed class Level2SquareTests
     private sealed class DeterministicEnemyBulletRandom : Random
     {
         public override int Next(int minValue, int maxValue) =>
-            minValue == 1 && maxValue == 4 ? 1 :
-            minValue == 0 && maxValue == 101 ? 76 :
+            minValue == 0 && maxValue == 2 ? 0 :
+            minValue == 0 && maxValue == 256 ? 0 :
             throw new InvalidOperationException($"Unexpected random range [{minValue}, {maxValue}).");
     }
 }

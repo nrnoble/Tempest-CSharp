@@ -6,7 +6,7 @@
 // direct production configurations; --level3-geometry-test selects plus-board geometry only;
 // --spiker-test, --tanker-test, --fuseball-test and --pulsar-test select isolated enemy waves.
 // These scenarios are mutually exclusive; --enemy-bullets-test and --lives compose with any.
-// Normal play progresses Level 1 through Level 2 and Level 3 to terminal Level 4.
+// Normal play progresses Level 1 through terminal Level 5.
 using Raylib_cs;
 using Tempest.Game;
 using Tempest.Game.Rendering;

@@ -615,7 +615,7 @@ public sealed class Level3MixedWaveTests
         Assert.Equal(0, game.Tankers[0].OriginalSlotId);
         Assert.Equal(1, game.Flippers[0].OriginalSlotId);
         Assert.Equal(1, game.Tankers[0].BulletAmmunition);
-        Assert.Equal(0, game.Flippers[0].BulletAmmunition);
+        Assert.Equal(0, game.Flippers[0].ShotDelayTicks);
         Assert.Equal(Level3OriginalType.Tanker,
             game.CurrentLevel.Level3Ledger!.GetOriginalType(0));
         Assert.Equal(new[] { 0, 1 },
@@ -723,7 +723,7 @@ public sealed class Level3MixedWaveTests
             .Select(flipper => flipper.CargoUnitId).Order());
         Assert.False(game.EnemyBulletsTest);
         Assert.All(game.Flippers.Where(flipper => flipper.IsTankerCargo),
-            child => Assert.Equal(0, child.BulletAmmunition));
+            child => Assert.Equal(0, child.ShotDelayTicks));
         Assert.False(game.CurrentLevel.Level3Ledger.HasPendingShotActivation);
         Assert.Equal(3, tanker.PendingZapTicks);
         game.RunOneStep();
@@ -915,7 +915,7 @@ public sealed class Level3MixedWaveTests
             Flipper reenteredCargo = Assert.Single(game.Flippers);
             Assert.Equal(lethalEgg.CargoUnitId, reenteredCargo.CargoUnitId);
             Assert.Equal(0, reenteredCargo.PendingZapTicks);
-            Assert.Equal(0, reenteredCargo.BulletAmmunition);
+            Assert.Equal(0, reenteredCargo.ShotDelayTicks);
             ForceFlipperIntoPlayer(game, reenteredCargo);
             game.RunOneStep();
 
