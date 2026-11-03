@@ -119,6 +119,8 @@ public sealed class TempestGame
     public bool SpikeExitControlsEnabled =>
         SpikeExitEnabled &&
         State is LevelState.AvoidSpikes or LevelState.ExitDelay or LevelState.ExitZoom;
+    public bool ExitMovementInputEnabled =>
+        State == LevelState.ExitZoom || SpikeExitControlsEnabled;
     public bool ShouldShowAvoidSpikesWarning =>
         CurrentLevel.Configuration.ExitPolicy == LevelExitPolicy.AvoidSpikes &&
         (State is LevelState.AvoidSpikes or LevelState.ExitDelay) &&
@@ -272,6 +274,9 @@ public sealed class TempestGame
         else if (State == LevelState.ExitZoom)
         {
             UpdateExitZoom();
+            // As in Spike travel, do not apply outgoing-tube input after the approach handoff.
+            if (State == LevelState.ExitZoom)
+                UpdatePlayerMovement(input);
         }
         else if (State == LevelState.PlayerDying)
         {

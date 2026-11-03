@@ -29,6 +29,8 @@ Code comments:
 - Comments must distinguish established arcade behavior, behavior derived from Incitti, development-only behavior, and approximations needing arcade comparison.
 
 Process:
+- VS Code Copilot must not launch the interactive Tempest game for manual acceptance. After automated validation, stop and provide the exact launch command: `dotnet run --project src\Tempest.Game -- --lives 10`. Neal will launch and test it; he often walks away while agent prompts run because completion time is unpredictable.
+- Future automated gameplay verification using deterministic, recorded or synthetic controller/input events is desirable for regression testing, but supplements rather than replaces Neal's manual gameplay acceptance.
 - Do not replace a working implementation merely because another design is cleaner; design changes need demonstrated benefit.
 - Identify disagreements among arcade, Incitti and the C# implementation explicitly.
 - Avoid broad refactoring during bug fixes.

@@ -304,6 +304,18 @@ record the uncertainty rather than guessing.
 
 ### Completion and tube exit
 
+- **PROJECT DECISION — ordinary-exit lane control correction (2026-11-03)** —
+  Actual `ExitZoom` travel on Levels 1-3 polls spinner, keyboard and controller
+  input and uses the same normal player movement path as the working Level 4-5
+  Spike exit. Ordinary `ExitDelay` remains frozen; firing gates are unchanged.
+  The existing 21-update delay, 124-update travel, projection progression and
+  successful between-level approach handoff are unchanged. Avoid Spikes
+  waiting, Spike collision/reversal/retry and Spike firing/scoring are unchanged.
+  Automated coverage passes. Neal manually accepted the C# correction on
+  2026-11-03: lane changes work during actual tube-exit travel on every
+  implemented Level 1-5, including corrected ordinary exits on Levels 1-3 and
+  the previously working Spike/Avoid Spikes exits on Levels 4-5. No new
+  gameplay issue was observed. This is C# acceptance, not new arcade verification.
 - **ARCADE VERIFIED** — Neal manually confirmed the broad all-rim behavior in
   all five existing scenarios: ordinary Level 1 (`--lives 10`),
   `--fuseball-test --lives 10`, `--pulsar-test --lives 10`,

@@ -63,12 +63,11 @@ try
 
     while (!input.QuitRequested())
     {
-        // Input routing mirrors the simulation phases: frozen end states only accept restart; the
-        // death freeze and automated exit travel ignore the player entirely (except the spike-exit
-        // scenario, where movement/firing stay live); otherwise full player input applies.
+        // Death and ordinary exit delay stay frozen. Actual exit travel polls movement input;
+        // the simulation retains the separate ordinary/Spike firing gates.
         if (game.GameOver || game.LevelComplete)
             game.RunOneStep(restartPressed: input.RestartPressed());
-        else if (game.DeathTicks > 0 || (game.IsExiting && !game.SpikeExitControlsEnabled))
+        else if (game.DeathTicks > 0 || (game.IsExiting && !game.ExitMovementInputEnabled))
             game.RunOneStep();
         else
             game.RunOneStep(input.ReadPlayer());

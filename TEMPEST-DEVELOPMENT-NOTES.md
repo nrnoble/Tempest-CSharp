@@ -23,6 +23,13 @@ Do not silently change established arcade behavior because another implementatio
 - Use the VS Code coding agent for coordinated multi-file work.
 - Require `dotnet build` and `dotnet test` after significant changes.
 - Manually validate graphical and control behavior after automated tests pass.
+- VS Code Copilot must not launch the interactive Tempest game for manual acceptance.
+  Neal often walks away while an agent prompt runs because completion time is
+  unpredictable. After automated validation, stop and provide the exact command:
+  `dotnet run --project src\Tempest.Game -- --lives 10`. Neal launches and tests it.
+- Future automated gameplay verification using deterministic, recorded or synthetic
+  controller/input events is desirable for regression testing, but supplements
+  rather than replaces Neal's manual gameplay acceptance.
 - Commit only known-good milestones to Git.
 - Do not rely on AI conversation history as the permanent project record.
 
@@ -510,12 +517,14 @@ Do not begin later enemy types merely because scaffold files already exist. Intr
 
 The final enemy kill now enters `LevelState.ExitDelay` on the same update,
 provided all 10 enemies are destroyed and reserve Eggs, active Eggs and active
-Flippers are exhausted. Shots are cleared. Movement, firing, restart and enemy
-simulation are ignored throughout the exit, with cursor capture unchanged.
+Flippers are exhausted. Shots are cleared. Firing, restart and enemy simulation
+are ignored throughout the ordinary exit, with cursor capture unchanged.
+Movement is frozen during ordinary ExitDelay, but remains available during
+actual ExitZoom travel through the normal player movement path.
 
 ExitDelay lasts exactly 21 subsequent updates. The transition update enters
-`ExitZoom`; active zoom movement starts on the following update. The occupied
-lane and lane position remain fixed, and the cleared tube and Blaster stay visible.
+`ExitZoom`; active zoom movement starts on the following update. The Blaster can
+change lanes during travel, and the cleared tube and Blaster stay visible.
 
 Player depth starts at 400, with projected depth computed as
 `Level.Position + Level.Depth - Player.Depth`. Phase 1 reduces `Projection.ZOffset`
@@ -537,6 +546,26 @@ final-shot precedence, replay and the established gameplay regressions.
 Manual visual validation is still required for recognizable cleared-level travel,
 Blaster scale and lane alignment, zoom smoothness/framing, the final projection
 restoration, message timing and physical spinner/cursor behavior after replay.
+
+### Ordinary exit lane-control correction (2026-11-03)
+
+Cause D: the ordinary exit had two gates absent from the working Spike exit:
+Program discarded input during travel, and the simulation only advanced zoom.
+Actual exit travel now polls input and reuses `UpdatePlayerMovement` /
+`Player.MoveAlongTube`, without invoking ordinary firing. The final travel
+update does not apply outgoing-tube movement after the approach handoff.
+
+Focused coverage checks both directions of spinner, keyboard and controller
+movement on Levels 1-3, exact delay/travel/projection progression, firing/restart
+gates, and the normal approach. Level 4-5 movement, waiting and Spike
+collision/reversal/retry remain covered and unchanged. All 686 solution tests
+pass; the full build has no warnings or errors.
+
+Neal manually accepted the correction on 2026-11-03: the Blaster can change
+lanes during actual tube-exit travel on every implemented Level 1-5. Levels
+1-3 now retain ordinary-exit lane control; Levels 4-5 retain their previously
+working Spike/Avoid Spikes exit lane control. No new gameplay issue was
+observed. This records acceptance of the C# correction, not new arcade fidelity.
 
 ## Spiker and Spike Development Milestone
 

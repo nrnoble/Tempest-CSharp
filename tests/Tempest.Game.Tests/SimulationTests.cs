@@ -4939,18 +4939,19 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void ExitZoomIgnoresInputAndCommitsOnlyAfterSuccessfulTravel()
+    public void ExitZoomAllowsMovementButIgnoresFireAndRestartUntilSuccessfulTravel()
     {
         TempestGame game = BeginExit();
         Level outgoingLevel = game.CurrentLevel;
-        int edge = game.Player.EdgeIndex;
-        float position = game.Player.EdgePosition;
+        Player expected = new();
         PlayerInput input = new(true, 800, true, true);
         for (int tick = 0; tick < 21 + 123; tick++)
         {
+            if (tick >= 21)
+                expected.MoveAlongTube(10, outgoingLevel);
             game.RunOneStep(input, restartPressed: true);
-            Assert.Equal(edge, game.Player.EdgeIndex);
-            Assert.Equal(position, game.Player.EdgePosition);
+            Assert.Equal(expected.EdgeIndex, game.Player.EdgeIndex);
+            Assert.Equal(expected.EdgePosition, game.Player.EdgePosition);
             Assert.Empty(game.Shots);
             Assert.Empty(game.Eggs);
             Assert.Empty(game.Flippers);
