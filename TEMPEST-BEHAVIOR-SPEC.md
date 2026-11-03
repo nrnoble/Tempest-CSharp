@@ -209,8 +209,26 @@ record the uncertainty rather than guessing.
   its death/vortex presentation; the inspected source has no dedicated
   enemy-specific retreat routine. The Atari observation, not Incitti, is the
   behavioral authority for visible enemy retraction.
-- **PROJECT DECISION** — The Atari Blaster-location death animation remains
-  pending footage for its geometry and timing.
+- **ARCADE VERIFIED** — The supplied sequential Atari frames 0041-0065 show
+  the Blaster-location death effect developing as a compact, angular,
+  layered multicolor presentation; expanding substantially; contracting to a
+  smaller remnant; and diminishing until it disappears. The tube remains
+  visible behind it. Exact geometry, outline count, color schedule, and timing
+  have not been measured.
+- **PROJECT DECISION** — The C# renderer approximates that observed progression
+  with deterministic, layered vector outlines sampled from the existing
+  60-update death countdown. Its accepted presentation uses 150% of the
+  original implementation's visual radius. The chosen geometry, layer
+  scales/orientations, 150% multiplier, and interpolation envelope are project
+  implementation values, not arcade-verified measurements. The effect remains
+  render-only and does not change ordinary death or Spike reverse-zoom gameplay
+  semantics.
+- **MANUALLY ACCEPTED** — Neal judged the 150%-scale Blaster death effect
+  nearly perfect and accepted its fidelity; no further visual adjustments are
+  needed. The project aims to reproduce the arcade experience to an acceptably
+  faithful level with reasonable compromises, not to make a frame-perfect or
+  identical clone. This acceptance does not upgrade the implementation's
+  geometry, timing, or scale constants to arcade-verified facts.
 - **MANUALLY ACCEPTED** — Neal accepted the visible C# enemy retraction on
   Levels 1-3, including fixed Spike persistence and final-life Game
   Over/restart behavior. This confirms the visible result and pacing within

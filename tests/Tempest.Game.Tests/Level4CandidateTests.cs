@@ -738,6 +738,39 @@ public sealed class Level4CandidateTests
     }
 
     [Fact]
+    public void SpikeReverseZoomDrawsBlasterEffectWithoutOrdinaryEnemyRetraction()
+    {
+        TempestGame game = CreateResolvedLevelFourSpikeExit();
+        Spike spike = game.Spikes.Single(candidate => candidate.EdgeIndex == game.Player.EdgeIndex);
+        spike.Height = 390;
+        game.CurrentLevel.State = LevelState.ExitZoom;
+
+        for (int tick = 0; tick < 200 && game.State == LevelState.ExitZoom; tick++)
+            game.RunOneStep();
+
+        Assert.Equal(LevelState.ReverseZoom, game.State);
+        Assert.Equal(TempestGame.PlayerDeathTicks, game.DeathTicks);
+        Assert.Equal(0, game.EnemyRetractionProgress);
+
+        VectorRenderer renderer = new(game);
+        List<(Vector2 Start, Vector2 End, Color Color)> lines = [];
+        renderer.DrawPlayerExplosion(game.CurrentLevel.Definition.Points,
+            (start, end, color) => lines.Add((start, end, color)));
+        Assert.NotEmpty(lines);
+
+        game.RunOneStep();
+
+        Assert.Equal(TempestGame.PlayerDeathTicks - 1, game.DeathTicks);
+        Assert.Equal(0, game.EnemyRetractionProgress);
+        lines.Clear();
+        renderer.DrawPlayerExplosion(game.CurrentLevel.Definition.Points,
+            (start, end, color) => lines.Add((start, end, color)));
+        Assert.NotEmpty(lines);
+        Assert.Equal(5, game.Player.Lives);
+        Assert.Contains(spike, game.Spikes);
+    }
+
+    [Fact]
     public void SpikeExitCollisionWinsSameUpdateShotAndDoesNotHitAfterSpikeWasRemoved()
     {
         TempestGame raceGame = CreateResolvedLevelFourSpikeExit();

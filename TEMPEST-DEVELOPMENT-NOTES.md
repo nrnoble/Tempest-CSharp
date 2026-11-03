@@ -262,8 +262,15 @@ Eggs, bullets and hazards retain their distinct existing policies. Incitti's
 shared depth/projection shift is **REFERENCE VERIFIED**, but it is not a
 dedicated enemy retreat routine. Neal manually accepted the visible C#
 retraction on Levels 1-3, including mixed-wave/Tanker behavior, fixed Spike
-persistence, final-life Game Over and restart. The separate Blaster-location
-animation awaits arcade footage.
+persistence, final-life Game Over and restart. The supplied Atari frames
+establish the Blaster-location effect's qualitative layered, multicolor
+expansion/contraction/remnant progression; exact geometry, timing, and scale
+remain unmeasured. The C# renderer uses the accepted 150% visual-radius
+implementation, independently from gameplay. Neal judged the enlarged result
+nearly perfect, reported no gameplay issue, and requested no further visual
+tweaking. The project targets acceptably faithful arcade experience with
+reasonable compromises, not a frame-perfect or identical clone; the exact
+implementation constants remain project decisions.
 
 ## Egg Terminology and Behavior
 
@@ -1109,9 +1116,15 @@ accepted approach architecture.
   manually accepted its visible direction, inactivity and pacing on Levels
   1-3, plus Spike persistence and Game Over/restart behavior. The exact C#
   duration and interpolation curve are not arcade-verified.
-- **Blaster-location death animation.** Refine the separate C# animation to
-  Atari only after Neal supplies footage establishing geometry and timing.
-  Do not copy Incitti's distinct Blaster presentation as Atari behavior.
+- **Blaster-location death animation.** The supplied Atari frame sequence
+  establishes a qualitative compact-to-large-to-contracting, diminishing
+  remnant layered multicolor vector effect. Neal manually accepted the C#
+  deterministic countdown-envelope presentation at 150% of its initial visual
+  radius as nearly perfect; no further tweaking is needed. This is acceptable
+  fidelity with reasonable compromises, not a frame-perfect or identical-clone
+  goal. Exact C# geometry, timing, and scale constants remain project
+  implementation choices, not measured arcade values. Do not copy Incitti's
+  distinct Blaster presentation as Atari behavior.
 - **Player-shot size.** Neal observes that C# shots should be slightly larger
   to better match Atari; defer to a rendering-fidelity pass.
 - **Between-level approach perspective.** Refine the elevated Atari

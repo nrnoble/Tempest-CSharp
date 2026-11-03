@@ -24,11 +24,41 @@ public sealed class VectorRenderer
 	private static readonly Color TankerColor = new(255, 0, 255, 255);
 	private static readonly Color PulsarColor = new(0, 255, 255, 255);
 	private static readonly Color PaletteZeroBlasterLaneColor = new(255, 255, 0, 255);
+	private static readonly Color DeathOrangeColor = new(255, 80, 0, 255);
 	private static readonly Color[] FuseballArmColors =
 	[
 		new(255, 255, 0, 255), new(0, 255, 0, 255), new(255, 0, 255, 255),
 		new(0, 255, 255, 255), new(255, 0, 0, 255)
 	];
+	private static readonly float[] DeathStarburstRadii =
+	[
+		1, .34f, .78f, .30f, 1, .40f, .72f, .34f,
+		1, .34f, .78f, .30f, 1, .40f, .72f, .34f
+	];
+	private static readonly DeathEffectLayer[] DeathEffectLayers =
+	[
+		new(Color.Yellow, .88f, -.055f),
+		new(DeathOrangeColor, 1f, .025f),
+		new(Color.White, .76f, .075f)
+	];
+	private static readonly DeathEffectKeyframe[] DeathEffectEnvelope =
+	[
+		new(0, .12f),
+		new(.10f, .28f),
+		new(.25f, .70f),
+		new(.40f, 1f),
+		new(.52f, .92f),
+		new(.68f, .62f),
+		new(.82f, .32f),
+		new(.94f, .14f),
+		new(1, 0)
+	];
+	private const float DeathEffectPeakRadius = 52;
+	private const float DeathEffectVisualScale = 1.5f;
+
+	private readonly record struct DeathEffectLayer(Color Color, float Scale, float Rotation);
+	private readonly record struct DeathEffectKeyframe(float Age, float Scale);
+
 	// Incitti ReadFuseballData: four frames, five colored arms, six points per arm.
 	// Values are scaled by 1/6 at draw time; do not replace this asymmetric flicker with rotation.
 	private static readonly int[,] FuseballArmPoints =
@@ -122,7 +152,8 @@ public sealed class VectorRenderer
 		if (!game.GameOver)
 		{
 			if (game.DeathTicks > 0)
-				DrawPlayerExplosion(game.CurrentLevel.Definition.Points);
+				DrawPlayerExplosion(game.CurrentLevel.Definition.Points,
+					(start, end, color) => Raylib.DrawLineV(start, end, color));
 			else
 				DrawPlayer(game.CurrentLevel.Definition.Points);
 		}
@@ -638,23 +669,54 @@ public sealed class VectorRenderer
 			game.CurrentLevel.Definition.YOffset);
 	}
 
-	// Death burst: 8 asymmetric radials (short inner tail, long outer ray) expanding over the
-	// fixed 60-tick death freeze.
-	private void DrawPlayerExplosion(IReadOnlyList<Vector2> points)
+	public void DrawPlayerExplosion(
+		IReadOnlyList<Vector2> points,
+		Action<Vector2, Vector2, Color> drawLine)
 	{
+		if (game.DeathTicks <= 0)
+			return;
+
 		GetPlayerEdge(points, out Vector2 p1, out Vector2 p2);
 		Vector2 center = Vector2.Lerp(p2, p1, game.Player.EdgePosition);
-		float progress = 1f - game.DeathTicks / (float)TempestGame.PlayerDeathTicks;
-		float radius = 8 + progress * 48;
+		float age = 1 - game.DeathTicks / (float)TempestGame.PlayerDeathTicks;
+		float radius = DeathEffectPeakRadius * DeathEffectVisualScale *
+			SampleDeathEffectScale(age);
 
-		for (int angle = 0; angle < 360; angle += 45)
+		foreach (DeathEffectLayer layer in DeathEffectLayers)
 		{
-			float radians = angle * MathF.PI / 180;
-			Vector2 offset = new(
-				MathF.Cos(radians) * radius,
-				MathF.Sin(radians) * radius);
-			Raylib.DrawLineV(center - offset * .25f, center + offset, Color.Yellow);
+			Vector2 previous = GetDeathEffectVertex(center, radius, layer, 0);
+			for (int index = 1; index <= DeathStarburstRadii.Length; index++)
+			{
+				Vector2 next = GetDeathEffectVertex(
+					center, radius, layer, index % DeathStarburstRadii.Length);
+				drawLine(previous, next, layer.Color);
+				previous = next;
+			}
 		}
+	}
+
+	private static Vector2 GetDeathEffectVertex(
+		Vector2 center, float radius, DeathEffectLayer layer, int index)
+	{
+		float angle = index * MathF.Tau / DeathStarburstRadii.Length + layer.Rotation;
+		float vertexRadius = radius * layer.Scale * DeathStarburstRadii[index];
+		return center + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * vertexRadius;
+	}
+
+	private static float SampleDeathEffectScale(float age)
+	{
+		for (int index = 1; index < DeathEffectEnvelope.Length; index++)
+		{
+			DeathEffectKeyframe next = DeathEffectEnvelope[index];
+			if (age > next.Age)
+				continue;
+
+			DeathEffectKeyframe previous = DeathEffectEnvelope[index - 1];
+			float progress = (age - previous.Age) / (next.Age - previous.Age);
+			return previous.Scale + (next.Scale - previous.Scale) * progress;
+		}
+
+		return 0;
 	}
 
 	private void DrawHud()

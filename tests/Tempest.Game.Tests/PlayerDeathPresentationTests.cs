@@ -1,4 +1,5 @@
 using System.Numerics;
+using Raylib_cs;
 using Tempest.Game;
 using Tempest.Game.Gameplay;
 using Tempest.Game.Levels;
@@ -81,6 +82,55 @@ public sealed class PlayerDeathPresentationTests
         Assert.Equal(spikeLines, CaptureSpikes(renderer));
         Assert.Equal(0, game.Score.Score);
         Assert.Equal(0, game.CurrentLevel.EnemiesDestroyed);
+    }
+
+    [Fact]
+    public void BlasterDeathEffectExpandsContractsAndLeavesAStableMulticolorRemnant()
+    {
+        TempestGame game = PrepareDyingGame();
+        VectorRenderer renderer = new(game);
+        Vector2 deathOrigin = GetPlayerDeathOrigin(game, renderer);
+
+        List<(Vector2 Start, Vector2 End, Color Color)> initial =
+            CapturePlayerDeathEffect(game, renderer);
+        float initialRadius = MaximumRadius(initial, deathOrigin, new Color(255, 80, 0, 255));
+        Assert.True(initialRadius > 0);
+        AssertClose(deathOrigin, AverageEndpoint(initial));
+
+        Step(game, 6);
+        List<(Vector2 Start, Vector2 End, Color Color)> developed =
+            CapturePlayerDeathEffect(game, renderer);
+        float developedRadius = MaximumRadius(developed, deathOrigin, new Color(255, 80, 0, 255));
+        Assert.True(developedRadius > initialRadius);
+        AssertClose(deathOrigin, AverageEndpoint(developed));
+
+        Step(game, 18);
+        List<(Vector2 Start, Vector2 End, Color Color)> peak =
+            CapturePlayerDeathEffect(game, renderer);
+        float peakRadius = MaximumRadius(peak, deathOrigin, new Color(255, 80, 0, 255));
+        Assert.True(peakRadius > developedRadius * 1.5f);
+        Assert.Contains(peak, line => line.Color == Color.White);
+        Assert.Contains(peak, line => line.Color == new Color(255, 80, 0, 255));
+        Assert.Contains(peak, line => line.Color == Color.Yellow);
+        AssertClose(deathOrigin, AverageEndpoint(peak));
+
+        Step(game, 18);
+        List<(Vector2 Start, Vector2 End, Color Color)> contracted =
+            CapturePlayerDeathEffect(game, renderer);
+        float contractedRadius = MaximumRadius(contracted, deathOrigin, new Color(255, 80, 0, 255));
+        Assert.True(contractedRadius < peakRadius);
+
+        Step(game, 16);
+        List<(Vector2 Start, Vector2 End, Color Color)> remnant =
+            CapturePlayerDeathEffect(game, renderer);
+        float remnantRadius = MaximumRadius(remnant, deathOrigin, new Color(255, 80, 0, 255));
+        Assert.True(remnantRadius > 0);
+        Assert.True(remnantRadius < contractedRadius);
+
+        Step(game, 2);
+        Assert.Empty(CapturePlayerDeathEffect(game, renderer));
+        Assert.Equal(LevelState.Playing, game.State);
+        Assert.Equal(2, game.Player.Lives);
     }
 
     [Fact]
@@ -221,6 +271,42 @@ public sealed class PlayerDeathPresentationTests
         renderer.DrawTankers((start, end) => lines.Add((start, end)));
         return lines;
     }
+
+    private static List<(Vector2 Start, Vector2 End, Color Color)> CapturePlayerDeathEffect(
+        TempestGame game, VectorRenderer renderer)
+    {
+        List<(Vector2 Start, Vector2 End, Color Color)> lines = [];
+        renderer.DrawPlayerExplosion(game.CurrentLevel.Definition.Points,
+            (start, end, color) => lines.Add((start, end, color)));
+        return lines;
+    }
+
+    private static Vector2 GetPlayerDeathOrigin(TempestGame game, VectorRenderer renderer)
+    {
+        renderer.GetPlayerEdge(game.CurrentLevel.Definition.Points,
+            out Vector2 p1, out Vector2 p2);
+        return Vector2.Lerp(p2, p1, game.Player.EdgePosition);
+    }
+
+    private static float MaximumRadius(
+        IReadOnlyList<(Vector2 Start, Vector2 End, Color Color)> lines,
+        Vector2 center,
+        Color color) =>
+        lines.Where(line => line.Color == color)
+            .SelectMany(line => new[] { line.Start, line.End })
+            .Max(point => Vector2.Distance(point, center));
+
+    private static Vector2 AverageEndpoint(
+        IReadOnlyList<(Vector2 Start, Vector2 End, Color Color)> lines)
+    {
+        Vector2 sum = Vector2.Zero;
+        foreach (var line in lines)
+            sum += line.Start + line.End;
+        return sum / (lines.Count * 2);
+    }
+
+    private static void AssertClose(Vector2 expected, Vector2 actual) =>
+        Assert.InRange(Vector2.Distance(expected, actual), 0, 0.001f);
 
     private static float ProjectedScale(
         TempestGame game, VectorRenderer renderer, Flipper flipper)
