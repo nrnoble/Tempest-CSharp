@@ -1155,7 +1155,11 @@ Incitti's sharper presentation is an engineering reference only.
   implementation choices, not measured arcade values. Do not copy Incitti's
   distinct Blaster presentation as Atari behavior.
 - **Player-shot size.** Neal observes that C# shots should be slightly larger
-  to better match Atari; defer to a rendering-fidelity pass.
+  to better match Atari. Neal manually accepted the rendering-only increase
+  from a depth-scaled base radius of 4 to 4.5 units as a noticeable visual
+  improvement and requested that the size be retained without further tuning.
+  The 4.5 value is a project decision based on that visual acceptance, not a
+  measured Atari constant. Shot gameplay and collision behavior are unchanged.
 - **Broader entity/rendering fidelity.** Continue as a separate presentation
   workstream.
 - **Spinner characterization/refinement.** A future task should compare actual

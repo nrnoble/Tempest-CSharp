@@ -10,7 +10,8 @@ namespace Tempest.Game.Rendering;
 /// Height runs from 0 (far end of the tube) up to Level.Depth (near rim), so every entity converts
 /// to projection depth as Level.Position + Level.Depth - Height; smaller projected depth is closer
 /// to the camera and therefore draws larger, which gives approach scaling without per-entity size
-/// tables. Glyph shapes/scales are Incitti-derived and await manual arcade comparison.
+/// tables. Glyph shapes generally follow Incitti; scales remain project choices for arcade
+/// comparison.
 /// Most Draw*/Project* members take line/point callbacks or are public so headless tests can
 /// capture the exact submitted geometry. Those tests can prove submissions are finite and placed
 /// at the expected lanes/depths, but not native framebuffer output or arcade visual fidelity.
@@ -20,6 +21,7 @@ public sealed class VectorRenderer
 	public const int ScreenWidth = DisplayConfiguration.WindowWidth;
 	public const int ScreenHeight = DisplayConfiguration.WindowHeight;
 	public const int EggPointSize = 3;
+	public const float PlayerShotBaseSize = 4.5f;
 	// Experimental viewpoint elevation, in pre-projection units; not a measured Atari angle.
 	public const float InitialApproachVerticalOffset = 96;
 	private static readonly Color SpikerColor = new(0, 255, 0, 255);
@@ -519,18 +521,31 @@ public sealed class VectorRenderer
 		}
 	}
 
-	// Player shot: white rotating 8-radial star like EnemyBullet, but with a smaller 4-unit base
-	// size. Shot.Height decreases as it travels away from the player, so projected depth grows and
-	// the star naturally shrinks into the tube.
+	// Shot.Height decreases as it travels away from the player, so projected depth grows and the
+	// star naturally shrinks into the tube.
 	private void DrawPlayerShots(IReadOnlyList<Vector2> points)
+	{
+		DrawPlayerShots(points, (start, end) => Raylib.DrawLineV(start, end, Color.White));
+	}
+
+	public void DrawPlayerShots(Action<Vector2, Vector2> drawLine)
+	{
+		ArgumentNullException.ThrowIfNull(drawLine);
+		DrawPlayerShots(game.CurrentLevel.Definition.Points, drawLine);
+	}
+
+	private void DrawPlayerShots(
+		IReadOnlyList<Vector2> points,
+		Action<Vector2, Vector2> drawLine)
 	{
 		foreach (Shot shot in game.Shots)
 		{
 			Vector2 center = ProjectShot(shot, points);
 			float projectedDepth = game.CurrentLevel.Configuration.Depth - shot.Height +
 				game.CurrentLevel.Configuration.Position;
-			float size = 4 / ((projectedDepth + Projection.ZOffset) / Projection.K);
-			DrawRotatingShot(center, size, shot.Rotation);
+			float size = PlayerShotBaseSize /
+				((projectedDepth + Projection.ZOffset) / Projection.K);
+			DrawRotatingShot(center, size, shot.Rotation, drawLine);
 		}
 	}
 
@@ -550,7 +565,11 @@ public sealed class VectorRenderer
 			game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
 	}
 
-	private void DrawRotatingShot(Vector2 center, float size, float rotation)
+	private void DrawRotatingShot(
+		Vector2 center,
+		float size,
+		float rotation,
+		Action<Vector2, Vector2> drawLine)
 	{
 		for (int angle = 0; angle < 360; angle += 45)
 		{
@@ -558,7 +577,7 @@ public sealed class VectorRenderer
 			Vector2 offset = new(
 				MathF.Cos(radians) * size,
 				MathF.Sin(radians) * size);
-			Raylib.DrawLineV(center - offset, center + offset, Color.White);
+			drawLine(center - offset, center + offset);
 		}
 	}
 
