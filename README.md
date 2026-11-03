@@ -84,6 +84,33 @@ The HUD's ACTIVE counter includes active Eggs and active enemies.
 Tests run headlessly without initializing a Raylib window. Visual appearance,
 spinner feel and cursor capture still require manual gameplay testing.
 
+## Windowed presentation candidate
+
+The logical gameplay/projection canvas remains 800 x 600. The window requests
+a 1280 x 960 client area, and one Raylib Camera2D zoom of 1.6 scales the entire
+scene, vectors, HUD and text uniformly. Model geometry, logical drawing
+coordinates, gameplay projection (K = 70, ZOffset = 5), simulation and input
+behavior remain unchanged. The input diagnostic uses the same presentation.
+This is a **PROJECT DECISION candidate**, not yet manually accepted; the
+original cabinet monitor orientation does not imply a portrait conversion.
+Fullscreen is not implemented or required for this milestone.
+
+On a 1920 x 1080 desktop at 100% scaling, the client area leaves 120 vertical
+pixels for title bar, borders, taskbar and margins. Check the whole window
+against the actual desktop work area, especially with DPI scaling; the target
+has not been reduced to compensate.
+
+Manual acceptance checklist:
+
+- The physical window is substantially larger and comfortable, and the entire
+  window including title bar/borders fits acceptably on the 1080p desktop.
+- Tube proportions match the accepted version, with no cropping.
+- The complete HUD is visible and text positions remain sensible.
+- Spinner response and controller input feel identical; keyboard controls and
+  firing work normally.
+- Level 1, Level 2 square, Level 3 plus and Level 4 geometry look normal.
+- Between-level approaches and the Level 4 exit presentation remain correct.
+
 ## Controls
 
 - **Fire:** left/right Ctrl or left mouse button (existing arcade Fire input).

@@ -62,7 +62,12 @@ The Egg/hatching work should receive its own commit only after full manual valid
 
 Preserve unless intentionally revisited:
 
-- Window: 800 x 600.
+- Logical rendering/projection canvas: 800 x 600.
+- Windowed client area: 1280 x 960 (PROJECT DECISION candidate; manual
+  acceptance pending), uniformly scaling the logical canvas by
+  1.6 with one Raylib camera transform. The full scene, text and HUD share the
+  same 4:3 presentation scale; gameplay geometry and HUD coordinates remain
+  on the 800 x 600 canvas.
 - `Projection.K = 70`.
 - `Projection.ZOffset = 5`.
 - Level 1 uses the established 16-segment circular tube geometry.
@@ -88,6 +93,33 @@ movement, Super Zapper and Pulsar interactions, with no flicker or rendering
 artifacts. Later palette colors/cycling have not been validated.
 
 Do not tune projection or Level 1 geometry casually. These were established early and have remained stable through subsequent gameplay work.
+
+The checked-in Incitti implementation also declares an 800 x 600 logical
+canvas and opens that size directly in windowed mode, with no separate
+presentation upscaling. It defaults to windowed mode and toggles between
+windowed and fullscreen with F12; fullscreen requests an available
+800 x 600 display mode. The larger C# window keeps Incitti's fixed-canvas
+approach while applying one uniform 1.6x output transform. This does not
+change the 60 Hz simulation or relative mouse/controller input. Fullscreen is
+not currently implemented; the larger fixed window is the display target.
+Manually validate the enlarged native window and gameplay presentation before
+treating the display change as visually accepted.
+
+The original cabinet's vertical vector monitor is not a reason to switch
+this recreation to portrait or alter its established projection/model
+geometry. Gameplay starts and resets with K = 70 and ZOffset = 5; the
+pre-existing Projection type initializer of K = 65 is not a presentation
+setting and remains unchanged. Existing exit/reverse zoom animation remains
+unchanged.
+
+For Neal's 1920 x 1080 desktop, 960 client pixels leave only 120 vertical
+pixels for the title bar, borders, taskbar and placement margins at 100%
+desktop scaling. Decorations and DPI scaling can reduce usable space further;
+manually check the entire outer window against the desktop work area.
+Do not silently shrink the 1280 x 960 candidate to address this concern.
+The camera changes drawing only, not raw relative mouse deltas, cursor
+capture, keyboard/controller mappings or the standalone diagnostic's event
+logging. Native visual quality and input feel remain manual checks.
 
 ## Player Controls
 

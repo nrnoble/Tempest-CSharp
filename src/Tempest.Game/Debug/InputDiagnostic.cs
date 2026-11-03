@@ -93,6 +93,7 @@ public static class InputDiagnostic
 
                 Raylib.BeginDrawing();
                 Raylib.ClearBackground(Color.Black);
+                Raylib.BeginMode2D(DisplayConfiguration.PresentationCamera);
                 Raylib.DrawText("DEVELOPMENT ONLY - INPUT DIAGNOSTIC (no gameplay)", 12, 12, 20, Color.Yellow);
                 Raylib.DrawText("Tap twice, pause; hold 2 seconds, release. Test one button at a time.", 12, 42, 16, Color.White);
                 Raylib.DrawText("P Enter Space Ctrl Alt Shift Z X C V 1 5 | Escape/window X closes", 12, 66, 16, Color.White);
@@ -103,6 +104,7 @@ public static class InputDiagnostic
                     Raylib.DrawText(line, 12, y, 12, Color.White);
                     y += 22;
                 }
+                Raylib.EndMode2D();
                 Raylib.EndDrawing();
             }
             Log("CLOSED (Escape or window close); no gameplay was run.");

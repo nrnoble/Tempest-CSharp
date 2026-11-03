@@ -17,8 +17,8 @@ namespace Tempest.Game.Rendering;
 /// </summary>
 public sealed class VectorRenderer
 {
-	public const int ScreenWidth = 800;
-	public const int ScreenHeight = 600;
+	public const int ScreenWidth = DisplayConfiguration.WindowWidth;
+	public const int ScreenHeight = DisplayConfiguration.WindowHeight;
 	public const int EggPointSize = 3;
 	private static readonly Color SpikerColor = new(0, 255, 0, 255);
 	private static readonly Color TankerColor = new(255, 0, 255, 255);
@@ -84,6 +84,7 @@ public sealed class VectorRenderer
 	{
 		Raylib.BeginDrawing();
 		Raylib.ClearBackground(Color.Black);
+		Raylib.BeginMode2D(DisplayConfiguration.PresentationCamera);
 
 		DrawTube((start, end, color) => Raylib.DrawLineV(start, end, color));
 		bool approaching = game.State == LevelState.Approach;
@@ -127,6 +128,7 @@ public sealed class VectorRenderer
 		}
 
 		DrawHud();
+		Raylib.EndMode2D();
 		Raylib.EndDrawing();
 	}
 
@@ -754,6 +756,6 @@ public sealed class VectorRenderer
 	private void DrawCenteredText(string text, int y, int size, Color color)
 	{
 		int width = Raylib.MeasureText(text, size);
-		Raylib.DrawText(text, (ScreenWidth - width) / 2, y, size, color);
+		Raylib.DrawText(text, (DisplayConfiguration.LogicalWidth - width) / 2, y, size, color);
 	}
 }

@@ -8,8 +8,8 @@ namespace Tempest.Game.Rendering;
 /// </summary>
 public static class Projection
 {
-    public const float Width = 800;
-    public const float Height = 600;
+    public const float Width = DisplayConfiguration.LogicalWidth;
+    public const float Height = DisplayConfiguration.LogicalHeight;
     public static float K { get; set; } = 65;
     public static float ZOffset { get; set; } = 5;
 
