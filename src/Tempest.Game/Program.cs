@@ -2,8 +2,8 @@
 // Raylib window, input and rendering together; all gameplay simulation belongs in TempestGame so
 // it stays headless-testable. Keep it that way — logic added here is invisible to the test suite.
 //
-// Development command-line modes (see DebugController): --gameplay-playback runs a seeded Level 1
-// input sequence; --gameplay-playback-level4 runs it on the production Level 4 configuration;
+// Development command-line modes (see DebugController): --gameplay-playback runs the seeded Level 1
+// input profile; --gameplay-playback-level4 runs the distinct profile on production Level 4;
 // --level2-test, --level3-test and --level4-test select direct production configurations;
 // --level3-geometry-test selects plus-board geometry only; --spiker-test, --tanker-test,
 // --fuseball-test and --pulsar-test select isolated enemy waves. These scenarios are mutually
@@ -33,13 +33,12 @@ bool level2Test = DebugController.UseLevel2Test(args);
 bool level3Test = DebugController.UseLevel3Test(args);
 bool level4Test = DebugController.UseLevel4Test(args);
 bool level3GeometryTest = DebugController.UseLevel3GeometryTest(args);
+bool level4Playback = DebugController.UseLevel4GameplayPlayback(args);
 PlayerInputReplay? playback = DebugController.UseGameplayPlayback(args)
-    ? GameplayPlayback.CreateDemo()
-    : DebugController.UseLevel4GameplayPlayback(args)
-        ? GameplayPlayback.CreateDemo(LevelConfiguration.Level4Candidate)
-    : null;
-bool level4Playback = playback is not null &&
-    ReferenceEquals(playback.StartingConfiguration, LevelConfiguration.Level4Candidate);
+    ? GameplayPlayback.CreateLevel1()
+    : level4Playback
+        ? GameplayPlayback.CreateLevel4()
+        : null;
 Raylib.InitWindow(VectorRenderer.ScreenWidth, VectorRenderer.ScreenHeight,
     playback is not null
         ? $"Tempest C# - Deterministic Gameplay Playback - Level {playback.StartingConfiguration.DisplayedLevel}" :

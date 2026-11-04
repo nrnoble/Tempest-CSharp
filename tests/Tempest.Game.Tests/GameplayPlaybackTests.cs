@@ -1,4 +1,5 @@
 using Tempest.Game.Debug;
+using Tempest.Game.Gameplay;
 using Tempest.Game.Levels;
 using Tempest.Game.Systems;
 using Xunit;
@@ -33,15 +34,28 @@ public sealed class GameplayPlaybackTests
     }
 
     [Fact]
-    public void SeededVisibleDemoProducesMatchingGameplayAtTickCheckpoints()
+    public void LevelOneProfilePreservesItsEstablishedSeedDurationAndInputs()
     {
-        PlayerInputReplay replay = GameplayPlayback.CreateDemo();
+        GameplayPlaybackProfile profile = GameplayPlayback.Level1Profile;
+        PlayerInputReplay replay = GameplayPlayback.CreateLevel1();
         TempestGame first = new(random: new Random(replay.RandomSeed));
         TempestGame second = new(random: new Random(replay.RandomSeed));
 
+        Assert.Same(LevelConfiguration.Level1, profile.StartingConfiguration);
+        Assert.Equal(1981, profile.RandomSeed);
+        Assert.Equal(240, profile.DurationTicks);
         Assert.Same(LevelConfiguration.Level1, replay.StartingConfiguration);
         Assert.Same(replay.StartingConfiguration, first.CurrentLevel.Configuration);
         Assert.True(first.NaturalProgressionEnabled);
+        Assert.Equal(new PlayerInputFrame(0, new PlayerInput(false, 0, false, true)),
+            replay.GetFrame(0));
+        Assert.Equal(new PlayerInputFrame(30, new PlayerInput(true, 0, false, false)),
+            replay.GetFrame(30));
+        Assert.Equal(new PlayerInputFrame(90,
+            new PlayerInput(false, 0, false, false, ZapPressed: true)), replay.GetFrame(90));
+        Assert.Equal(new PlayerInputFrame(91, new PlayerInput(true, 0, true, false)),
+            replay.GetFrame(91));
+        Assert.Equal(new PlayerInputFrame(150, default), replay.GetFrame(150));
 
         for (int tick = 0; tick < replay.DurationTicks; tick++)
         {
@@ -56,13 +70,43 @@ public sealed class GameplayPlaybackTests
     }
 
     [Fact]
-    public void SeededVisibleDemoSelectsAndReproducesTheLevelFourProductionConfiguration()
+    public void LevelFourProfileSelectsItsOwnProductionConfigurationAndDistinctInputs()
     {
-        PlayerInputReplay replay = GameplayPlayback.CreateDemo(LevelConfiguration.Level4Candidate);
+        GameplayPlaybackProfile profile = GameplayPlayback.Level4Profile;
+        PlayerInputReplay replay = GameplayPlayback.CreateLevel4();
+
+        Assert.Same(LevelConfiguration.Level4Candidate, profile.StartingConfiguration);
+        Assert.Equal(1981, profile.RandomSeed);
+        Assert.Equal(240, profile.DurationTicks);
+        Assert.Same(profile.StartingConfiguration, replay.StartingConfiguration);
+        Assert.Equal(new PlayerInputFrame(0, new PlayerInput(true, 0, false, false)),
+            replay.GetFrame(0));
+        Assert.Equal(new PlayerInputFrame(60, new PlayerInput(true, 0, false, true)),
+            replay.GetFrame(60));
+        Assert.Equal(new PlayerInputFrame(100,
+            new PlayerInput(false, 0, false, false, ZapPressed: true)), replay.GetFrame(100));
+        Assert.Equal(new PlayerInputFrame(101, new PlayerInput(true, 0, true, false)),
+            replay.GetFrame(101));
+        Assert.Equal(new PlayerInputFrame(140,
+            new PlayerInput(false, 0, false, false, ZapPressed: true)), replay.GetFrame(140));
+        Assert.Equal(new PlayerInputFrame(180, default), replay.GetFrame(180));
+        Assert.NotEqual(GameplayPlayback.Level1Profile.Frames[0], profile.Frames[0]);
+    }
+
+    [Fact]
+    public void SeededLevelFourPlaybackIsDeterministicAndExercisesItsProductionEnvironment()
+    {
+        PlayerInputReplay replay = GameplayPlayback.CreateLevel4();
         TempestGame first = new(level4Test: true, random: new Random(replay.RandomSeed));
         TempestGame second = new(level4Test: true, random: new Random(replay.RandomSeed));
+        int initialPlayerLane = first.Player.EdgeIndex;
         float initialPlayerPosition = first.Player.EdgePosition;
+        int initialZapperCharges = first.SuperZapperChargesRemaining;
+        Spike startingLaneSpike = first.Spikes.Single(
+            spike => spike.EdgeIndex == first.Player.EdgeIndex);
         bool sawPlayerShot = false;
+        bool sawPlayerMovement = false;
+        bool sawSpikeHit = false;
 
         Assert.Same(LevelConfiguration.Level4Candidate, replay.StartingConfiguration);
         Assert.Same(replay.StartingConfiguration, first.CurrentLevel.Configuration);
@@ -77,13 +121,25 @@ public sealed class GameplayPlaybackTests
             first.RunOneStep(frame.Input, frame.RestartPressed);
             second.RunOneStep(frame.Input, frame.RestartPressed);
             sawPlayerShot |= first.Shots.Count > 0;
+            sawPlayerMovement |= first.Player.EdgeIndex != initialPlayerLane ||
+                first.Player.EdgePosition != initialPlayerPosition;
+            sawSpikeHit |= startingLaneSpike.Height < 60 ||
+                !first.Spikes.Contains(startingLaneSpike);
 
             if ((tick + 1) % 30 == 0)
                 AssertEquivalentGameplayState(first, second);
         }
 
-        Assert.NotEqual(initialPlayerPosition, first.Player.EdgePosition);
+        Assert.True(sawPlayerMovement);
         Assert.True(sawPlayerShot);
+        Assert.True(sawSpikeHit);
+        Assert.Equal(initialZapperCharges - 2, first.SuperZapperChargesRemaining);
+        Assert.False(replay.IsActiveAt(replay.DurationTicks));
+        Assert.Equal(LevelState.Playing, first.State);
+
+        (int lane, float position) = (first.Player.EdgeIndex, first.Player.EdgePosition);
+        first.RunOneStep(new PlayerInput(false, 0, false, true));
+        Assert.NotEqual((lane, position), (first.Player.EdgeIndex, first.Player.EdgePosition));
     }
 
     private static void AssertEquivalentGameplayState(TempestGame first, TempestGame second)
@@ -121,6 +177,8 @@ public sealed class GameplayPlaybackTests
                 (enemy.EdgeIndex, enemy.Height, enemy.State, enemy.Growth, enemy.Rotation)),
             second.Spikers.Select(enemy =>
                 (enemy.EdgeIndex, enemy.Height, enemy.State, enemy.Growth, enemy.Rotation)));
+        Assert.Equal(first.Spikes.Select(spike => (spike.EdgeIndex, spike.Height)),
+            second.Spikes.Select(spike => (spike.EdgeIndex, spike.Height)));
         Assert.Equal(first.EnemyBullets.Select(enemy =>
                 (enemy.EdgeIndex, enemy.Height, enemy.PendingZapTicks)),
             second.EnemyBullets.Select(enemy =>

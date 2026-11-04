@@ -9,11 +9,11 @@ using Tempest.Game.Gameplay;
 /// square/canflip run; --level3-geometry-test selects a non-production plus-board geometry
 /// diagnostic. Both are terminal and do not enable progression. Scenario flags are mutually
 /// exclusive; --enemy-bullets-test (opt-in Flipper firing) and --lives (starting-life override)
-/// compose with any scenario or normal play. --gameplay-playback selects a seeded Level 1 script;
-/// --gameplay-playback-level4 selects the same script on the production Level 4 configuration.
+/// compose with any scenario or normal play. --gameplay-playback selects a seeded Level 1 profile;
+/// --gameplay-playback-level4 selects a distinct profile on the production Level 4 configuration.
 /// --level3-test directly selects the production-shaped
 /// mixed Level 3 wave and remains terminal; --level3-geometry-test remains Flipper-only.
-/// Both playback commands return to live input when their short seeded sequence ends.
+/// Both playback commands return to live input when their seeded profile ends.
 /// --input-diagnostic instead opens a standalone development-only input window with no gameplay.
 /// </summary>
 public sealed class DebugController

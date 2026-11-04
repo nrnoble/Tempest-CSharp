@@ -1849,25 +1849,36 @@ produce matching gameplay state in headless tests, including during a bounded
 240-tick playback. This guarantees repeatability for the same runtime and
 random implementation, not cross-runtime replay compatibility.
 
-The small `PlayerInputReplay` representation stores the starting
-`LevelConfiguration`, random seed, duration, and tick-indexed input/restart
-frames; omitted ticks mean neutral input. `--gameplay-playback` runs the seeded
-Level 1 demonstration. `--gameplay-playback-level4` selects the existing
-production `LevelConfiguration.Level4Candidate` and runs the same scripted
-movement, fire, and Super Zapper inputs there. Both use the normal `TempestGame`
-initialization, fixed-step simulation, and renderer; the Level 4 option reuses
-the established isolated Level 4 startup path and does not simulate campaign
-progression. Level 4 adds the production mixed enemy wave and starting Spike
-layout, making its direct inspection useful without playing through Levels
-1-3. When the 240-tick script ends, live input resumes.
+`GameplayPlaybackProfile` describes a starting `LevelConfiguration`, random
+seed, duration, and tick-indexed player inputs; `PlayerInputReplay` validates
+and indexes those frames, with omitted ticks meaning neutral input.
+`--gameplay-playback` selects the seeded Level 1 profile, and
+`--gameplay-playback-level4` selects the distinct Level 4 profile. Both use the
+normal `TempestGame` initialization, fixed-step simulation, and renderer; the
+Level 4 option reuses the established isolated Level 4 startup path and does
+not simulate campaign progression.
 
-Scenario-selectable playback is useful for focused visual checks of meaningful
-gameplay and later-level behavior without manually completing earlier levels.
+The Level 1 profile retains its accepted 240-tick behavior: move right for 30
+ticks, fire while stationary for 60 ticks, activate Super Zapper at tick 90,
+then fire while moving left for 59 ticks before remaining neutral. The Level 4
+profile also lasts 240 ticks but first fires from its starting lane for 60
+ticks, then sweeps right while firing, activates Super Zapper at tick 100,
+sweeps left while firing, activates it again at tick 140, and makes a final
+rightward firing sweep through tick 179. That initial firing naturally sends
+production shots toward the configured starting Spike; the movement and
+Super-Zapper inputs also sample the Level 4 mixed wave. All profile data is
+deterministic player input only: it does not alter enemies, Spikes, counters,
+player position, level state, or RNG. Normal production initialization and
+simulation remain authoritative. When either 240-tick profile ends, live input
+resumes.
+
+Scenario-appropriate profiles make visible playback useful for focused
+observation of meaningful gameplay without manually completing earlier levels.
 Headless unit/integration and campaign tests remain the routine automated
 regression path; visible playback is selective manual verification, not a
 replacement for those tests. Normal manual gameplay remains the final
-arcade-fidelity and playability authority. The playback is still a scripted
-seam, not a recorder or serialized replay format. Only the Level 1 and Level 4
+arcade-fidelity and playability authority. Playback remains a scripted seam,
+not a recorder or serialized replay format. Only the Level 1 and Level 4
 production configurations are selectable from the command line; arbitrary
 scenario setup, serialized random-generator state, recorded-player replay, AI
 play, and a complete attract screen remain unsupported.
@@ -1888,10 +1899,11 @@ verification. Playback does not make every automated test visible or replace
 headless regression or manual gameplay acceptance.
 
 **Completed playback checkpoints:** commit `3723c45` established seeded,
-tick-indexed Level 1 playback with live-input handoff. This checkpoint builds
-on that foundation and adds selectable Level 4 playback using the existing
-production configuration and direct initialization path. Level 1 and Level 4
-are now the two supported visible deterministic playback scenarios.
+tick-indexed Level 1 playback with live-input handoff. Commit `47d96bb` is the
+accepted scenario-selectable playback foundation: it added direct selectable
+Level 4 playback using the existing production configuration and initialization
+path. This checkpoint adds separate, scenario-appropriate Level 1 and Level 4
+input profiles without changing either scenario's production simulation.
 
 Neal manually accepted the Level 4 playback on 2026-11-03. He verified that it
 opens directly on Level 4 without playing Levels 1-3; shows the expected Level
@@ -1903,13 +1915,14 @@ malformed startup was observed. This is manual project acceptance of the
 scenario-selectable playback infrastructure, not arcade/reference
 verification of the scripted sequence.
 
-The next deterministic-playback checkpoint is to investigate
-scenario-appropriate scripted input profiles. The current Level 1 and Level 4
-options reuse the same input profile; the next step should give selected
-scenarios inputs that meaningfully exercise the gameplay being observed,
-rather than only proving generic movement, fire, and Super Zapper input there.
-Do not implement that work as part of this checkpoint or prematurely expand it
-into arbitrary scenario setup.
+The smallest next playback checkpoint is Neal's selective visual review of the
+new Level 4 profile and its live-input handoff. Use that observation to accept
+the profile or make only a narrowly justified adjustment; do not assume a
+third scenario or broader replay capability is needed. A later scenario
+profile should be added only for a concrete manual-observation question.
+Recording, replay persistence, and attract mode remain deferred; this
+checkpoint provides no evidence that any of them is the appropriate next
+implementation step.
 
 Headless automated tests remain the routine efficient regression path. Visible
 playback remains selective manual verification when watching behavior adds
