@@ -27,11 +27,22 @@ Do not silently change established arcade behavior because another implementatio
   Neal often walks away while an agent prompt runs because completion time is
   unpredictable. After automated validation, stop and provide the exact command:
   `dotnet run --project src\Tempest.Game -- --lives 10`. Neal launches and tests it.
-- Future automated gameplay verification using deterministic, recorded or synthetic
-  controller/input events is desirable for regression testing, but supplements
-  rather than replaces Neal's manual gameplay acceptance.
+- Use the four-layer development and testing strategy below; automated validation
+  supplements rather than replaces Neal's manual gameplay acceptance.
 - Commit only known-good milestones to Git.
 - Do not rely on AI conversation history as the permanent project record.
+
+## Four-Layer Development and Testing Strategy
+
+1. **Unit/integration tests** verify precise mechanical correctness.
+2. **Headless gameplay and campaign regression** rapidly exercises real game-state sequences.
+3. **Visible deterministic gameplay playback** lets Neal watch selected levels and scenarios
+   without manually reaching them, and may eventually support a recorded-player arcade-style
+   attract mode.
+4. **Normal manual gameplay** remains the final authority for arcade fidelity, visual and audio
+   behavior, responsiveness, feel, and playability.
+
+Automated validation supplements Neal's manual gameplay acceptance. It does not replace it.
 
 ## Current Architecture
 
