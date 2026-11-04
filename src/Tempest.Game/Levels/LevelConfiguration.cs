@@ -53,7 +53,7 @@ public sealed record LevelConfiguration(
 {
     public int VertexCount => Definition.VertexCount;
     public int PlayableLaneCount => Definition.PlayableLaneCount;
-    // Medium/default ROM values for ordinary displayed production Levels 1-5.
+    // Medium/default ROM values for ordinary displayed production Levels 1-6.
     public int FlipperShotHoldoffTicks => DisplayedLevel switch
     {
         1 => 80,
@@ -61,6 +61,7 @@ public sealed record LevelConfiguration(
         3 => 74,
         4 => 71,
         5 => 68,
+        6 => 65,
         _ => throw new InvalidOperationException(
             $"No arcade Flipper shot holdoff is defined for displayed Level {DisplayedLevel}.")
     };
@@ -69,6 +70,7 @@ public sealed record LevelConfiguration(
         1 or 2 or 3 => 2,
         4 => 3,
         5 => 4,
+        6 => 3,
         _ => throw new InvalidOperationException(
             $"No arcade enemy-shot capacity is defined for displayed Level {DisplayedLevel}.")
     };
@@ -76,6 +78,8 @@ public sealed record LevelConfiguration(
     public bool FlipperCanFlip => Flipper.CanFlip;
     public FlipperPivotGeometry FlipperPivotMode { get; init; } = FlipperPivotGeometry.LegacyLaneTurn;
     public float? StartingSpikeHeight { get; init; }
+    // The exit state transitions after the counter exceeds this value.
+    public int AvoidSpikesWaitThreshold { get; init; } = 150;
 
     public static LevelConfiguration Level1 { get; } = new(
         ProgressionIndex: 0,
@@ -214,5 +218,33 @@ public sealed record LevelConfiguration(
         Flipper = new(true, 2, 8, 21, 24),
         FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
         StartingSpikeHeight = 60
+    };
+
+    // REFERENCE VERIFIED: Original Arcade Level 6 source data; the shared picker remains accepted C# behavior.
+    public static LevelConfiguration Level6Production { get; } = new(
+        ProgressionIndex: 5,
+        DisplayedLevel: 6,
+        BoardIndex: 5,
+        PaletteIndex: 0,
+        Definition: LevelLoader.LoadLevel6Triangle(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: 22,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(Enumerable.Range(0, 16).ToArray()),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.AvoidSpikes,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersTankersAndSpikers)
+    {
+        Flipper = new(true, 2, 9, 20, 23),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        StartingSpikeHeight = 60,
+        AvoidSpikesWaitThreshold = 70
     };
 }

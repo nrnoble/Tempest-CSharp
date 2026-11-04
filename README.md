@@ -224,11 +224,12 @@ travel. Natural Level 2 now progresses to Level 3 after its successful exit;
 `--level2-test` itself remains terminal and replayable with R and does not
 enable campaign progression. Natural Level 3 now progresses through the
 accepted Level 4 configuration after its successful exit. Level 4 is
-followed by production Level 5 after a successful Avoid Spikes exit. Level 5
-is terminal for this milestone; R starts a fresh natural campaign at Level 1.
+followed by production Level 5 after a successful Avoid Spikes exit, then
+production Level 6 after another successful Avoid Spikes exit. Level 6 is
+terminal for this milestone; R starts a fresh natural campaign at Level 1.
 
 Score and current lives carry unchanged into each natural level, including
-Level 5. The Super Zapper is restored to two charges on fresh-level setup.
+Levels 5 and 6. The Super Zapper is restored to two charges on fresh-level setup.
 There is no level-completion bonus, bonus
 life, source `startbonus`, Begin/Ready entry animation, entry-position shift
 or audio. These are incomplete presentation/economy features, not claims of
@@ -303,7 +304,7 @@ graphically included in this diagnostic.
 The diagnostic is terminal and R replays it; Game Over restart stays on the
 same board. It conflicts with other scenario-selection flags and composes
 with `--lives` and the existing optional `--enemy-bullets-test`. Normal play
-progresses through Level 1 to terminal Level 5. Production
+progresses through Level 1 to terminal Level 6. Production
 Tanker mixed-wave access is provided separately below; the diagnostic remains
 Flipper-only. Level 1/2 wave policy and
 progression remain unchanged, but C1.5 changed directed enemy pivot
@@ -367,13 +368,13 @@ Later Spike-bearing levels may use a standard exit without this warning. Neal
 recalls recycled Levels 17 and 18 without Spikes, so Spike presence must remain
 explicit per level rather than inferred from a permanent
 `displayedLevel >= 4` rule. Neal recalls Level 8 as an open, V-shaped board;
-neither it nor later levels or open-rim gameplay is implemented. Level 6 and
+neither it nor later levels or open-rim gameplay is implemented. Level 7 and
 beyond are not implemented here.
 
 Neal manually accepted the natural Level 1 -> Level 2 -> Level 3 -> Level 4
 campaign, late-wave Spiker behavior, and overall Level 4 feel. Level 4 -> 5
-implementation has automated coverage but is awaiting manual gameplay
-acceptance. Later focused
+and Level 5 have completed manual acceptance. Neal also played Level 6 multiple
+times and accepted it with no gameplay issues observed. Later focused
 exit validation split: post-death Spike shooting passed, but sustained firing
 could erase a long Spike before contact and exit safely. That long-Spike result
 failed manual acceptance. Neal has since passed manual revalidation: during
@@ -604,12 +605,12 @@ until arcade footage establishes its geometry and timing.
 ## Super Zapper
 
 The source-derived Super Zapper works in normal Level 1, natural Levels 2
-through 5, and every existing development wave. Space or the right mouse button
+through 6, and every existing development wave. Space or the right mouse button
 activates it on a press edge. Each fresh Level setup provides two charges; ordinary life
 loss preserves the remaining charge. Natural Level 1-to-2 progression restores
 two charges and clears flash state through fresh-wave initialization; Level
-2-to-3, 3-to-4, and 4-to-5 use the same boundary. Normal Game Over and
-terminal Level 5 R start a new campaign. Fresh Level 3 and Level 4 charge states are project
+2-to-3, 3-to-4, 4-to-5, and 5-to-6 use the same boundary. Normal Game Over and
+terminal Level 6 R start a new campaign. Fresh Level 3 and Level 4 charge states are project
 decisions, not a new manual arcade observation. Development replay keeps its
 established fresh-charge behavior. The first use assigns
 delays 4, 6, 8, ... to accepted enemies in source insertion order. The second
@@ -713,7 +714,7 @@ Automated coverage also protects retry persistence and final-life Game Over.
 
 The repository-specific Copilot guidance is in `.github/copilot-instructions.md`.
 
-## Production Level 5
+## Production Levels 5 and 6
 
 Natural Level 4 completion now commits to Level 5 only after a successful
 Avoid Spikes exit. Level 5 uses the Original Arcade cross from
@@ -724,13 +725,56 @@ obligations, four initial Eggs, 16 reserve, and 16 starting height-60 Spikes.
 It reuses the accepted Flipper/Tanker/Spiker composition, ledger, Spike exit,
 Super Zapper, audio, and approach systems; Pulsars and Fuseballs remain
 disabled. The Level 4 -> 5 transition uses blue stars because the rule follows
-the exited level. Level 5 completion remains terminal; no Level 6 is installed.
+the exited level. Its 151-update Avoid Spikes wait is preserved.
 
-The source configuration is **REFERENCE VERIFIED**; natural progression,
-accounting, and terminal behavior are protected by automated tests. Neal's
-manual gameplay acceptance of the new Level 4 -> 5 path and Level 5 remains
-pending. Launch normal play with additional lives for that validation:
+Level 5 now progresses naturally to Level 6 only after its successful Spike
+exit travel. Level 6 is the Original Arcade triangle from
+`Reference/incitti/levelsets/levelset1.txt`: progression/display/board/palette
+5/6/5/0, closed 16-lane geometry, center Y 360, offset -40, 22 original
+obligations, four initial Eggs, 18 reserve, and 16 starting height-60 Spikes.
+Its exact ordered vertices are
+`(-116,145), (-171,145), (-137,72), (-102,0), (-68,-72), (-34,-145),
+(0,-218), (34,-145), (68,-72), (102,0), (137,72), (171,145), (116,145),
+(54,145), (0,145), (-54,145)`.
+
+The accepted production composition makes Flippers, Tankers, and Spikers
+eligible; Fuseballs and Pulsars are excluded. Level 6 Flippers use the
+source-derived turn/pause values 9 degrees, 20 lane updates, and 23 rim
+updates, plus the production firing values of 65-update successful-shot
+holdoff and three active enemy shots. The C# production picker is deliberately
+preserved, including its existing candidate-3-as-Tanker behavior; this is not
+literal Incitti picker equivalence or new arcade verification. Level 6 uses a
+71-update Avoid Spikes wait. Levels 4 and 5 retain 151 updates.
+
+The existing successful-exit boundary installs a fresh Level 6 wave and
+ledger, carries score and lives, restores two Super Zapper charges, clears
+stale runtime targets, and begins the interactive approach. Exiting Level 5
+uses the existing mixed-color starfield. Level 6 completion is terminal as a
+temporary **PROJECT DECISION**; the reference continues to Level 7 clover, but
+Level 7 is not implemented.
+
+Direct Level 6 access is **DEVELOPMENT ONLY** and uses the same production
+configuration and Flipper firing phase without enabling campaign progression:
 
 ```powershell
-dotnet run --project src/Tempest.Game -- --lives 10
+dotnet run --project src\Tempest.Game -- --level6-test --lives 10
 ```
+
+The direct test replays Level 6 on completion and restarts Level 6 after Game
+Over. Natural terminal Level 6 restarts a fresh Level 1 campaign. The focused
+Level 6/progression/exit suites passed 86 tests; the final solution run passed
+all 719 tests, and the solution build succeeded with zero warnings or errors.
+**LEVEL 6 MANUAL ACCEPTANCE: PASS (2026-11-04).** Neal played Level 6 multiple
+times, found no gameplay issues, and accepted it as the next production
+campaign milestone. Levels 1-6 are now the accepted production campaign
+foundation; Level 7 remains unimplemented. This accepts the C# gameplay, not
+arcade verification of exact timing, random composition, Spiker speed, firing
+constants, internal accounting, or other hidden mechanics.
+
+Sound-effect volume balance remains a separate, non-blocking deferred issue
+across the current game. Neal specifically identified the enemy-destruction/
+explosion effect when a Blaster shot destroys an enemy as significantly too
+loud relative to other effects. It is not yet established whether any other
+effects need adjustment. Windows volume adjustment is an acceptable temporary
+workaround. No audio change is authorized or included in this closeout; see
+the deferred audio-fidelity note in `TEMPEST-DEVELOPMENT-NOTES.md`.

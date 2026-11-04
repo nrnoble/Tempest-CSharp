@@ -206,7 +206,7 @@ public sealed class LevelConfigurationTests
     }
 
     [Fact]
-    public void ProductionProgressionContainsOnlyTheImplementedLevelOneToFiveCampaignEdges()
+    public void ProductionProgressionContainsOnlyTheImplementedLevelOneToSixCampaignEdges()
     {
         Assert.Same(LevelConfiguration.Level2Square,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level1));
@@ -216,7 +216,9 @@ public sealed class LevelConfigurationTests
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Mixed));
         Assert.Same(LevelConfiguration.Level5Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level4Candidate));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level5Production));
+        Assert.Same(LevelConfiguration.Level6Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level5Production));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level6Production));
         Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Plus));
         Assert.Null(LevelProgression.GetNextProductionLevel(
             LevelConfiguration.Level1 with { DisplayedLevel = 1 }));
@@ -225,7 +227,7 @@ public sealed class LevelConfigurationTests
     }
 
     [Fact]
-    public void SpikeAvoidanceExitPolicyIsIndependentOfSpikePresenceAndLevelFiveIsTerminal()
+    public void SpikeAvoidanceExitPolicyIsIndependentOfSpikePresenceAndLevelSixIsTerminal()
     {
         LevelConfiguration[] existingLevels =
         [
@@ -242,7 +244,13 @@ public sealed class LevelConfigurationTests
         Assert.Same(LevelConfiguration.Level5Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level4Candidate));
         Assert.Equal(LevelExitPolicy.AvoidSpikes, LevelConfiguration.Level5Production.ExitPolicy);
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level5Production));
+        Assert.Same(LevelConfiguration.Level6Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level5Production));
+        Assert.Equal(LevelExitPolicy.AvoidSpikes, LevelConfiguration.Level6Production.ExitPolicy);
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level6Production));
+        Assert.Equal(150, LevelConfiguration.Level4Candidate.AvoidSpikesWaitThreshold);
+        Assert.Equal(150, LevelConfiguration.Level5Production.AvoidSpikesWaitThreshold);
+        Assert.Equal(70, LevelConfiguration.Level6Production.AvoidSpikesWaitThreshold);
 
         LevelConfiguration futureSpikeLevel = LevelConfiguration.Level4Candidate with
         {

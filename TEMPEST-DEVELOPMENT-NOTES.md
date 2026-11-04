@@ -2119,6 +2119,93 @@ passed, including preservation of shortened Spike height and renewed
 shootability. Retry and final-life behavior remain protected by automated
 coverage. No further gameplay test is requested.
 
+## Level 6 production implementation (2026-11-04)
+
+Natural Level 5 completion now progresses to Level 6 only after the existing
+Avoid Spikes exit and successful travel reach the progression commit point.
+The new immutable production configuration uses the Original Arcade triangle
+from `Reference/incitti/levelsets/levelset1.txt`: progression/display/board/
+palette identity 5/6/5/0, closed 16-lane geometry, center Y 360, offset -40,
+depth 400, ready position 50, player lane 7 at 0.5, 22 original obligations,
+four initial Eggs, and 18 reserve. Its exact source-ordered vertices are:
+
+```text
+(-116,145), (-171,145), (-137,72), (-102,0), (-68,-72), (-34,-145),
+(0,-218), (34,-145), (68,-72), (102,0), (137,72), (171,145), (116,145),
+(54,145), (0,145), (-54,145)
+```
+
+Level 6 enables Flippers, Tankers, and Spikers, excludes Fuseballs/Pulsars,
+uses 16 starting height-60 Spikes and Avoid Spikes, and retains the accepted
+production identity ledger, cargo, reconstruction, hazard, and approach
+systems. Source-derived Flipper tuning is turn speed 9 degrees per update,
+20-update lane pause, and 23-update rim pause. ROM-backed production firing
+uses a successful-shot holdoff of 65 updates and a three-shot capacity.
+Levels 1-5 firing values are unchanged.
+
+The Avoid Spikes wait uses a narrow configuration threshold: 70 means 71
+updates under the existing `counter > threshold` state transition. This is
+the source-derived Level 6 interval. Levels 4 and 5 retain their accepted
+151-update waits. Firing, movement, warning, damage, collision, reverse/retry,
+life-loss, and in-flight-shot behavior were not retuned.
+
+**REFERENCE VERIFIED:** Level 6 board, identity, supply, Egg, eligibility,
+Spike, and source-derived Flipper timing data; ROM-backed Flipper firing values.
+**ACCEPTED C# REUSE:** The existing production picker remains unchanged,
+including candidate 3 being accepted as Tanker even though Incitti rejects
+that candidate when Fuseballs are disabled. This preserves Levels 3-5 policy
+and does not claim literal source equivalence or a newly verified arcade
+distribution.
+**PROJECT DECISION:** The successful Level 5 Spike exit installs fresh Level 6
+state through the normal initializer, carries score/lives, recharges the
+Super Zapper, clears stale runtime targets, and begins the existing approach.
+The exited Level 5 produces the established mixed-color starfield. Level 6 is
+temporarily terminal; the reference continues to Level 7 clover, but Level 7
+is outside this milestone. Natural terminal restart starts fresh Level 1.
+The **DEVELOPMENT ONLY** `--level6-test` selector uses the same production
+configuration and Flipper firing phase, remains isolated from natural
+progression, and replays/restarts on Level 6.
+
+Automated coverage verifies the Level 5 -> 6 safe handoff, fresh ledger/wave,
+score/lives and Super Zapper state, 16 Spikes, mixed approach, 71-update
+Level 6 wait, unchanged 151-update Level 4/5 waits, Level 6 firing values,
+reconstruction, terminal/restart behavior, direct diagnostic behavior, and
+campaign-soak arrival at Level 6. The focused suites passed 86 tests; the full
+solution passed all 719 tests, and the build succeeded with zero warnings or
+errors. Full results are recorded in
+`AI-Logs/Reports/2026-11-04-level6-implementation-report.md`.
+
+### Level 6 manual acceptance - PASS (2026-11-04)
+
+Neal played Level 6 multiple times and found no gameplay issues.
+**LEVEL 6 MANUAL ACCEPTANCE: PASS.** He accepted Level 6 as the next production
+campaign milestone. Levels 1-6 are now the accepted production campaign
+foundation; Level 7 remains unimplemented. No further Level 6 retuning or
+manual gameplay test is requested.
+
+This is manual acceptance of the C# recreation, not new **ARCADE VERIFIED**
+evidence for exact Level 6 timing, random composition, Spiker speed, firing
+constants, internal accounting, or other hidden mechanics. Existing
+**REFERENCE VERIFIED**, **PROJECT DECISION**, and accepted C# reuse
+classifications remain unchanged.
+
+### Deferred audio-fidelity issue - non-blocking (2026-11-04)
+
+Sound-effect volume balance requires future review across the current game;
+this is not Level-6-specific. During manual gameplay, Neal specifically
+identified the enemy-destruction/explosion effect triggered when a Blaster
+shot destroys an enemy as significantly too loud relative to other effects.
+It is not yet established whether any additional individual effects require
+adjustment; do not assume they are incorrect before manual identification.
+Review broader sound-effect balance when addressing this deferred issue.
+
+The issue is non-blocking, and Windows volume adjustment is an acceptable
+temporary workaround. No audio change is authorized during this Level 6
+closeout: AudioSystem, audio events, WAV assets, gain, pitch, gameplay timing,
+and event timing remain unchanged. The earlier audio acceptance below is a
+historical listening result; this later volume observation records its narrow
+outstanding refinement without reopening accepted PlayerShot behavior.
+
 ## Sound effects foundation (2026-11-02)
 
 The 12 authoritative mono, 16-bit, 22,050 Hz PCM WAV effects are required game

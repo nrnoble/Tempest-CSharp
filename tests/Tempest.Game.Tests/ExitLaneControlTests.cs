@@ -127,10 +127,11 @@ public sealed class ExitLaneControlTests
     [Theory]
     [InlineData(4)]
     [InlineData(5)]
+    [InlineData(6)]
     public void SpikeExitStillUsesNormalMovementDuringActualTravel(int displayedLevel)
     {
         TempestGame game = CreateSpikeExit(displayedLevel);
-        Step(game, 151);
+        Step(game, game.CurrentLevel.Configuration.AvoidSpikesWaitThreshold + 1);
         Assert.Equal(LevelState.ExitDelay, game.State);
         Step(game, 21);
         Assert.Equal(LevelState.ExitZoom, game.State);
@@ -155,17 +156,20 @@ public sealed class ExitLaneControlTests
     [Theory]
     [InlineData(4)]
     [InlineData(5)]
+    [InlineData(6)]
     public void SpikeWaitCollisionReverseAndRetryRemainUnchanged(int displayedLevel)
     {
         TempestGame game = CreateSpikeExit(displayedLevel);
         Level outgoing = game.CurrentLevel;
         Spike[] spikes = game.Spikes.ToArray();
         PlayerInput fire = new(true, 0, false, false);
-        for (int tick = 0; tick < 151; tick++)
+        int avoidanceThreshold = game.CurrentLevel.Configuration.AvoidSpikesWaitThreshold;
+        for (int tick = 0; tick <= avoidanceThreshold; tick++)
         {
             Assert.True(game.ExitMovementInputEnabled);
             game.RunOneStep(fire);
-            Assert.Equal(tick < 150 ? LevelState.AvoidSpikes : LevelState.ExitDelay, game.State);
+            Assert.Equal(tick < avoidanceThreshold
+                ? LevelState.AvoidSpikes : LevelState.ExitDelay, game.State);
             Assert.Equal(Level.Depth, game.Player.Depth);
             Assert.Empty(game.Shots);
         }
@@ -205,7 +209,7 @@ public sealed class ExitLaneControlTests
         Assert.Equal(1, game.Score.Score);
 
         collisionSpike.Height = 0;
-        Step(game, 151 + 21);
+        Step(game, avoidanceThreshold + 1 + 21);
         Assert.Equal(LevelState.ExitZoom, game.State);
         Step(game, 123);
         Assert.Equal(LevelState.ExitZoom, game.State);
@@ -213,6 +217,31 @@ public sealed class ExitLaneControlTests
         Assert.Equal(LevelState.Complete, game.State);
         Assert.Equal(4, game.Player.Lives);
         Assert.Equal(1, game.Score.Score);
+    }
+
+    [Fact]
+    public void LevelSixFinalSpikeCollisionEndsWithoutInstallingAnotherLevel()
+    {
+        TempestGame game = CreateSpikeExit(6);
+        int avoidanceThreshold = game.CurrentLevel.Configuration.AvoidSpikesWaitThreshold;
+        Step(game, avoidanceThreshold + 1 + 21);
+        Assert.Equal(LevelState.ExitZoom, game.State);
+
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot shot = Assert.Single(game.Shots);
+        Spike collisionSpike = game.Spikes.Single(spike =>
+            spike.EdgeIndex == game.Player.EdgeIndex);
+        collisionSpike.Height = shot.Height;
+        game.Player.Lives = 1;
+        game.RunOneStep(new PlayerInput(true, 80, false, false));
+        Assert.Equal(LevelState.ReverseZoom, game.State);
+
+        Step(game, TempestGame.PlayerDeathTicks);
+
+        Assert.True(game.GameOver);
+        Assert.Same(LevelConfiguration.Level6Production, game.CurrentLevel.Configuration);
+        Assert.Null(LevelProgression.GetNextProductionLevel(game.CurrentLevel.Configuration));
+        Assert.Equal(0, game.Player.Lives);
     }
 
     private static float AcceptedMovement(PlayerInput input) =>
@@ -235,8 +264,13 @@ public sealed class ExitLaneControlTests
 
     private static TempestGame CreateSpikeExit(int displayedLevel)
     {
-        LevelConfiguration configuration = displayedLevel == 4
-            ? LevelConfiguration.Level4Candidate : LevelConfiguration.Level5Production;
+        LevelConfiguration configuration = displayedLevel switch
+        {
+            4 => LevelConfiguration.Level4Candidate,
+            5 => LevelConfiguration.Level5Production,
+            6 => LevelConfiguration.Level6Production,
+            _ => throw new ArgumentOutOfRangeException(nameof(displayedLevel))
+        };
         TempestGame game = new(configuration, startingLives: 5, random: new Random(0));
         ResolveWave(game);
         Assert.Equal(LevelState.AvoidSpikes, game.State);

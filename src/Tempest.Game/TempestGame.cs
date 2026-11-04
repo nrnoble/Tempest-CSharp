@@ -67,6 +67,7 @@ public sealed class TempestGame
     private readonly bool tankerTest;
     private readonly bool level3Test;
     private readonly bool level4Test;
+    private readonly bool level6Test;
     private readonly bool level3GeometryTest;
     private Level? currentLevel;
     private int pulsePhase;
@@ -100,6 +101,7 @@ public sealed class TempestGame
     public bool Level2Test { get; }
     public bool Level3Test => level3Test;
     public bool Level4Test => level4Test;
+    public bool Level6Test => level6Test;
     public bool Level3GeometryTest => level3GeometryTest;
     public bool NaturalProgressionEnabled => naturalProgressionEnabled;
     public LevelApproach? CurrentApproach { get; private set; }
@@ -114,7 +116,7 @@ public sealed class TempestGame
         CurrentLevel.SpikerDevelopmentWave ||
         CurrentLevel.Configuration.ExitPolicy == LevelExitPolicy.AvoidSpikes;
     private bool FlipperBulletFiringEnabled =>
-        naturalProgressionEnabled || enemyBulletsTest && !tankerTest &&
+        naturalProgressionEnabled || level6Test || enemyBulletsTest && !tankerTest &&
         !spikerDevelopmentWave && !CurrentLevel.UsesProductionLedger;
     public bool SpikeExitControlsEnabled =>
         SpikeExitEnabled &&
@@ -167,16 +169,16 @@ public sealed class TempestGame
         bool tankerTest = false, bool fuseballTest = false, bool pulsarTest = false,
         bool level2Test = false, bool level3GeometryTest = false,
         LevelConfiguration? startingConfiguration = null, bool level3Test = false,
-        bool level4Test = false, IAudioEvents? audioEvents = null)
+        bool level4Test = false, IAudioEvents? audioEvents = null, bool level6Test = false)
     {
         if ((level2Test ? 1 : 0) + (level3Test ? 1 : 0) +
-            (level4Test ? 1 : 0) + (level3GeometryTest ? 1 : 0) +
+            (level4Test ? 1 : 0) + (level6Test ? 1 : 0) + (level3GeometryTest ? 1 : 0) +
             (spikerDevelopmentWave ? 1 : 0) + (tankerTest ? 1 : 0) +
             (fuseballTest ? 1 : 0) + (pulsarTest ? 1 : 0) > 1 ||
             startingConfiguration is not null &&
             (level2Test || level3Test || level4Test || level3GeometryTest || spikerDevelopmentWave ||
-             tankerTest || fuseballTest || pulsarTest))
-            throw new ArgumentException("Level 2, Level 3 mixed, Level 4 candidate, Level 3 geometry, Tanker, Spiker, Fuseball and Pulsar development scenarios cannot be combined.");
+             level6Test || tankerTest || fuseballTest || pulsarTest))
+            throw new ArgumentException("Level 2, Level 3 mixed, Level 4 candidate, Level 6 production, Level 3 geometry, Tanker, Spiker, Fuseball and Pulsar development scenarios cannot be combined.");
 
         this.random = random ?? Random.Shared;
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
@@ -187,6 +189,8 @@ public sealed class TempestGame
                 ? LevelConfiguration.Level3Mixed
             : level4Test
                 ? LevelConfiguration.Level4Candidate
+            : level6Test
+                ? LevelConfiguration.Level6Production
             : level3GeometryTest
                 ? LevelConfiguration.Level3Plus
             : LevelConfiguration.Level1);
@@ -195,9 +199,11 @@ public sealed class TempestGame
         this.tankerTest = tankerTest;
         this.level3Test = level3Test;
         this.level4Test = level4Test;
+        this.level6Test = level6Test;
         this.level3GeometryTest = level3GeometryTest;
         naturalProgressionEnabled = startingConfiguration is null &&
-            !level2Test && !level3Test && !level4Test && !spikerDevelopmentWave && !tankerTest &&
+            !level2Test && !level3Test && !level4Test && !level6Test &&
+            !spikerDevelopmentWave && !tankerTest &&
             !fuseballTest && !pulsarTest && !level3GeometryTest;
         FuseballTest = fuseballTest;
         PulsarTest = pulsarTest;
@@ -1777,7 +1783,7 @@ public sealed class TempestGame
         {
             RestoreProjection();
             Player.ResetDepth();
-            if (++exitDelayTicks > 150)
+            if (++exitDelayTicks > CurrentLevel.Configuration.AvoidSpikesWaitThreshold)
             {
                 CurrentLevel.State = LevelState.ExitDelay;
                 exitDelayTicks = 0;

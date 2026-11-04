@@ -21,6 +21,7 @@ public sealed record GameplayFileCommand(GameplayFileMode Mode, string Path);
 /// --gameplay-playback-level4 selects a distinct profile on the production Level 4 configuration.
 /// --level3-test directly selects the production-shaped
 /// mixed Level 3 wave and remains terminal; --level3-geometry-test remains Flipper-only.
+/// --level6-test directly selects the production Level 6 wave and firing phase, remaining terminal.
 /// Both playback commands return to live input when their seeded profile ends.
 /// --input-diagnostic instead opens a standalone development-only input window with no gameplay.
 /// </summary>
@@ -98,6 +99,10 @@ public sealed class DebugController
 	public static bool UseLevel4Test(IEnumerable<string> arguments) =>
 		arguments.Contains("--level4-test", StringComparer.Ordinal);
 
+	// DEVELOPMENT ONLY: direct access to the production Level 6 wave and Flipper firing phase.
+	public static bool UseLevel6Test(IEnumerable<string> arguments) =>
+		arguments.Contains("--level6-test", StringComparer.Ordinal);
+
 	// DEVELOPMENT ONLY: validates the source-derived plus board, not a production mixed wave.
 	public static bool UseLevel3GeometryTest(IEnumerable<string> arguments) =>
 		arguments.Contains("--level3-geometry-test", StringComparer.Ordinal);
@@ -118,7 +123,7 @@ public sealed class DebugController
 		(UseGameplayPlayback(arguments) ? 1 : 0) +
 		(UseLevel4GameplayPlayback(arguments) ? 1 : 0) +
 		(UseLevel2Test(arguments) ? 1 : 0) + (UseLevel3Test(arguments) ? 1 : 0) +
-		(UseLevel4Test(arguments) ? 1 : 0) +
+		(UseLevel4Test(arguments) ? 1 : 0) + (UseLevel6Test(arguments) ? 1 : 0) +
 		(UseLevel3GeometryTest(arguments) ? 1 : 0) +
 		(UseTankerTest(arguments) ? 1 : 0) +
 		(UseSpikerWave(arguments) ? 1 : 0) + (UseFuseballTest(arguments) ? 1 : 0) +

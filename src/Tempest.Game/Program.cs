@@ -4,12 +4,12 @@
 //
 // Development command-line modes (see DebugController): --gameplay-playback runs the seeded Level 1
 // input profile; --gameplay-playback-level4 runs the distinct profile on production Level 4;
-// --level2-test, --level3-test and --level4-test select direct production configurations;
+// --level2-test, --level3-test, --level4-test and --level6-test select direct production configurations;
 // --level3-geometry-test selects plus-board geometry only; --spiker-test, --tanker-test,
 // --fuseball-test and --pulsar-test select isolated enemy waves. These scenarios are mutually
 // exclusive; --enemy-bullets-test and --lives compose with existing scenarios. --record-gameplay
 // and --playback-file are standalone Level 1 modes.
-// Normal play progresses Level 1 through terminal Level 5.
+// Normal play progresses Level 1 through terminal Level 6.
 using System.Text.Json;
 using Raylib_cs;
 using Tempest.Game;
@@ -27,7 +27,7 @@ if (!DebugController.TryParseGameplayFileCommand(args,
 
 if (DebugController.HasConflictingScenarios(args))
 {
-    Console.Error.WriteLine("--gameplay-playback, --gameplay-playback-level4, --level2-test, --level3-test, --level4-test, --level3-geometry-test, --tanker-test, --spiker-test, --fuseball-test and --pulsar-test are mutually exclusive.");
+    Console.Error.WriteLine("--gameplay-playback, --gameplay-playback-level4, --level2-test, --level3-test, --level4-test, --level6-test, --level3-geometry-test, --tanker-test, --spiker-test, --fuseball-test and --pulsar-test are mutually exclusive.");
     return 2;
 }
 
@@ -41,6 +41,7 @@ Projection.ZOffset = 5;
 bool level2Test = DebugController.UseLevel2Test(args);
 bool level3Test = DebugController.UseLevel3Test(args);
 bool level4Test = DebugController.UseLevel4Test(args);
+bool level6Test = DebugController.UseLevel6Test(args);
 bool level3GeometryTest = DebugController.UseLevel3GeometryTest(args);
 bool level4Playback = DebugController.UseLevel4GameplayPlayback(args);
 PlayerInputReplay? playback = null;
@@ -86,6 +87,7 @@ Raylib.InitWindow(VectorRenderer.ScreenWidth, VectorRenderer.ScreenHeight,
     level2Test ? "Tempest C# - Development Level 2 Square Test" :
     level3Test ? "Tempest C# - Development Level 3 Mixed Wave Test" :
     level4Test ? "Tempest C# - Development Level 4 Production Candidate" :
+    level6Test ? "Tempest C# - Development Level 6 Production Test" :
     level3GeometryTest ? "Tempest C# - Development Level 3 Geometry Diagnostic" :
     "Tempest C# - Level 1");
 Raylib.DisableCursor();
@@ -109,7 +111,8 @@ try
         level3Test: level3Test,
         level3GeometryTest: level3GeometryTest,
         level4Test: level4Test || level4Playback,
-        audioEvents: audio);
+        audioEvents: audio,
+        level6Test: level6Test);
     InputSystem input = new();
     VectorRenderer renderer = new(game);
     int activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
@@ -143,7 +146,7 @@ try
         recording?.CaptureTick(simulationTick, effectiveInput, effectiveRestartPressed);
         simulationTick++;
 
-        if (!level2Test && !level3Test && !level4Test && !level3GeometryTest &&
+        if (!level2Test && !level3Test && !level4Test && !level6Test && !level3GeometryTest &&
             game.CurrentLevel.Configuration.DisplayedLevel != activeDisplayedLevel)
         {
             activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;

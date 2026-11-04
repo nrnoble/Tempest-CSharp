@@ -16,14 +16,15 @@ public sealed class CampaignSoakTests
         LevelConfiguration.Level2Square,
         LevelConfiguration.Level3Mixed,
         LevelConfiguration.Level4Candidate,
-        LevelConfiguration.Level5Production
+        LevelConfiguration.Level5Production,
+        LevelConfiguration.Level6Production
     ];
 
     [Fact]
     // This covers orchestration only, not combat/scoring, enemy distribution, natural Tanker
     // cargo release, Spiker combat, Spike shooting/avoidance, difficulty, rendering/audio,
     // responsiveness, arcade feel, or playability.
-    public void ProductionCampaignReachesLevel5WithoutClaimingCombatValidation()
+    public void ProductionCampaignReachesLevel6WithoutClaimingCombatValidation()
     {
         TempestGame game = new(random: new Random(CampaignSeed));
         int carriedScore = game.Score.Score;
@@ -49,7 +50,7 @@ public sealed class CampaignSoakTests
                 carriedScore, carriedLives);
 
             if (outgoingConfiguration.ExitPolicy == LevelExitPolicy.AvoidSpikes)
-                RunLevel4SpikeExitWait(game, outgoingConfiguration);
+                RunAvoidSpikesWait(game, outgoingConfiguration);
 
             RunExitDelay(game, outgoingConfiguration);
             RunOutwardTravel(game, outgoingLevel, outgoingConfiguration, incomingConfiguration);
@@ -63,8 +64,8 @@ public sealed class CampaignSoakTests
                 exitedLevel: outgoingConfiguration.DisplayedLevel);
         }
 
-        AssertFreshBoundary(game, LevelConfiguration.Level5Production, "soak endpoint",
-            LevelState.Playing, carriedScore, carriedLives, exitedLevel: 4);
+        AssertFreshBoundary(game, LevelConfiguration.Level6Production, "soak endpoint",
+            LevelState.Playing, carriedScore, carriedLives, exitedLevel: 5);
     }
 
     private static void ResolveFreshCampaignWaveForSoak(TempestGame game)
@@ -77,9 +78,10 @@ public sealed class CampaignSoakTests
         bool counterWave = ReferenceEquals(configuration, LevelConfiguration.Level1) ||
             ReferenceEquals(configuration, LevelConfiguration.Level2Square);
         bool ledgerWave = ReferenceEquals(configuration, LevelConfiguration.Level3Mixed) ||
-            ReferenceEquals(configuration, LevelConfiguration.Level4Candidate);
+            ReferenceEquals(configuration, LevelConfiguration.Level4Candidate) ||
+            ReferenceEquals(configuration, LevelConfiguration.Level5Production);
         if (!counterWave && !ledgerWave)
-            ThrowUnsupportedWave(game, "only fresh production Levels 1-4 are supported");
+            ThrowUnsupportedWave(game, "only fresh production Levels 1-5 are supported");
 
         if (level.EnemiesDestroyed != 0 || level.EnemiesRimCleared != 0 ||
             level.EnemiesSpawned != configuration.InitialActiveEggCount ||
@@ -158,7 +160,7 @@ public sealed class CampaignSoakTests
             $"Eggs={level.Eggs.Count}, reserve={level.ReserveEggs}.");
     }
 
-    private static void RunLevel4SpikeExitWait(
+    private static void RunAvoidSpikesWait(
         TempestGame game, LevelConfiguration configuration)
     {
         Spike[] exitLaneSpikes = game.Spikes
@@ -175,10 +177,12 @@ public sealed class CampaignSoakTests
             game.Spikes.Count(spike => spike.EdgeIndex != inertExitLaneSpike.EdgeIndex),
             configuration, "TEST-ONLY safe exit setup", game);
 
-        for (int tick = 0; tick < 151; tick++)
+        for (int tick = 0; tick <= configuration.AvoidSpikesWaitThreshold; tick++)
         {
             game.RunOneStep();
-            LevelState expected = tick < 150 ? LevelState.AvoidSpikes : LevelState.ExitDelay;
+            LevelState expected = tick < configuration.AvoidSpikesWaitThreshold
+                ? LevelState.AvoidSpikes
+                : LevelState.ExitDelay;
             AssertBoundaryValue("Avoid Spikes wait state", expected, game.State,
                 configuration, "Avoid Spikes waiting period", game);
         }

@@ -48,4 +48,13 @@ public static class LevelLoader
 			new(30, -210), new(60, -120), new(120, -60), new(210, -30),
 			new(210, 30), new(120, 60), new(60, 120), new(30, 210)
 		}), "Level 5 - cross");
+
+	public static LevelDefinition LoadLevel6Triangle() => new(true, 360, -40,
+		Array.AsReadOnly(new Vector2[]
+		{
+			new(-116, 145), new(-171, 145), new(-137, 72), new(-102, 0),
+			new(-68, -72), new(-34, -145), new(0, -218), new(34, -145),
+			new(68, -72), new(102, 0), new(137, 72), new(171, 145),
+			new(116, 145), new(54, 145), new(0, 145), new(-54, 145)
+		}), "Level 6 - triangle");
 }

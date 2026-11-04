@@ -67,9 +67,9 @@ record the uncertainty rather than guessing.
 - **PROJECT DECISION (D2; visible behavior manually accepted)** — Natural Level 3
   completion now proceeds through the existing approach into the same Level 4
   production configuration used by `--level4-test`. A successful Level 4
-  Avoid Spikes exit now enters production Level 5. Level 5 is terminal for this
-  milestone; R starts a fresh natural campaign at Level 1. This is a C# progression policy,
-  not an arcade observation. Neal manually accepted the visible natural
+  Avoid Spikes exit enters production Level 5. At that earlier milestone,
+  Level 5 was temporarily terminal; the later Level 6 implementation below
+  supersedes that boundary. Neal manually accepted the visible natural
   Level 1 -> 2 -> 3 -> 4 campaign; this does not establish hidden implementation
   details or general arcade fidelity.
 - **REFERENCE VERIFIED (Level 5 source findings)** — The Original Arcade
@@ -83,7 +83,8 @@ record the uncertainty rather than guessing.
   Natural Level 4 installs this configuration only after the successful
   Avoid Spikes exit; score/lives carry and fresh-level state follow the
   existing setup path. The transition remains blue because star colors use
-  the exited level. Level 5 completion remains terminal with no Level 6.
+  the exited level. Level 5 was terminal at this earlier implementation
+  checkpoint; the Level 6 milestone below supersedes that boundary.
   Automated tests protect the configuration, ledger reconstruction, handoff,
   fresh Super Zapper, and terminal boundary. Neal completed manual acceptance
   through natural production progression:
@@ -102,9 +103,43 @@ record the uncertainty rather than guessing.
     obvious regression occurred.
   Together with the previously reconciled manual validation, this completes
   manual acceptance of the implemented production campaign through Level 5
-  in the recreation. The accepted Level 1-5 foundation is the baseline for
-  the next milestone; Level 6 remains unimplemented. These observations do
+  in the recreation at that checkpoint. These observations do
   not establish arcade equivalence, hidden accounting, or exact timing.
+- **REFERENCE VERIFIED (Level 6 source findings)** — The Original Arcade
+  campaign's displayed Level 6 is the closed triangle on board 5, palette 0,
+  with 16 lanes, center Y 360, offset -40, 22 original obligations, four
+  initial Eggs, 18 reserve obligations, and 16 height-60 Spikes. Its ordered
+  points are `(-116,145), (-171,145), (-137,72), (-102,0), (-68,-72),
+  (-34,-145), (0,-218), (34,-145), (68,-72), (102,0), (137,72), (171,145),
+  (116,145), (54,145), (0,145), (-54,145)`. Flippers, Tankers, and Spikers
+  are eligible; Fuseballs and Pulsars are excluded. The source-derived Flipper
+  turn/lane-pause/rim-pause values are 9/20/23; the ROM-backed production
+  firing values are 65 updates and three enemy-shot slots. Avoid Spikes uses
+  71 updates at Level 6; the accepted C# 151-update behavior remains for
+  Levels 4 and 5. These are reference findings, not new arcade observations.
+- **PROJECT DECISION (Level 6 implementation; visible C# gameplay manually accepted)** —
+  Natural Level 5 progresses to a fresh Level 6 only after successful Avoid
+  Spikes travel, reusing the accepted ledger, exit, initialization, and
+  approach paths. The implementation preserves the accepted C# mixed picker,
+  including candidate 3 as Tanker; it does not claim literal Incitti picker
+  equivalence. The Level 6 avoid threshold is configured as 70 for exactly 71
+  updates; Level 4 and 5 retain their 151-update waits. `--level6-test` is
+  DEVELOPMENT ONLY, uses the exact production configuration and Flipper
+  firing phase, and remains isolated/replayable. Successful Level 6 completion
+  is temporarily terminal, with natural restart returning to a fresh Level 1
+  campaign. The reference proceeds to Level 7 clover; that level remains
+  unimplemented. Focused validation passed 86 tests; `dotnet test
+  TempestCSharp.slnx` passed all 719 tests, and `dotnet build
+  TempestCSharp.slnx` succeeded with zero warnings/errors. These tests are
+  evidence of C# behavior only and do not upgrade these findings to ARCADE
+  VERIFIED.
+- **MANUALLY ACCEPTED (Level 6; 2026-11-04)** — Neal played Level 6 multiple
+  times with no gameplay issues observed and accepted it as the next production
+  campaign milestone. **LEVEL 6 MANUAL ACCEPTANCE: PASS.** Levels 1-6 are now
+  the accepted production campaign foundation; Level 7 remains unimplemented.
+  This acceptance does not establish exact arcade timing, random composition,
+  Spiker speed, firing constants, internal accounting, or other hidden
+  mechanics as ARCADE VERIFIED. Existing evidence classifications remain.
 - **REFERENCE VERIFIED (D1 source findings)** — Displayed Level 4 is internal
   source index 3, board 3 ("binoculars"), palette group 0, with a closed
   16-lane board, center Y 380, offset -65, 17 original enemy obligations,
@@ -914,6 +949,7 @@ These controls are test conveniences, not arcade level-selection or composition:
 | `--level3-geometry-test` | Direct access to the Flipper-only Level 3 plus-board geometry diagnostic; separate from the mixed production-shaped wave. |
 | `--level3-test` | Direct graphical access to the existing production-shaped mixed Level 3 configuration; terminal replay without enabling natural progression. Production Tanker bullets are visible without `--enemy-bullets-test`; the natural progression Flipper firing phase is not enabled by this diagnostic alone. |
 | `--level4-test` | Direct access to the isolated Level 4 production candidate: binoculars board, 17 original obligations, randomized Flipper/Tanker/Spiker eligibility, persistent starting Spikes, and spike-avoid exit with its configured Avoid Spikes warning; terminal replay without natural progression. Visible behavior manually accepted; no claim of general arcade fidelity. |
+| `--level6-test` | Direct access to the production Level 6 triangle, 22-unit Flipper/Tanker/Spiker wave, starting Spikes, Level 6 Avoid Spikes timing, and production Flipper firing; terminal replay without natural progression. DEVELOPMENT ONLY; Level 6 C# gameplay manually accepted, not a claim of general arcade fidelity. |
 | `--spiker-test` | Replaces the normal wave with a Spiker/Flipper test wave and height-60 spikes on every lane. |
 | `--tanker-test` | Replaces the normal wave with one controlled Tanker plus ordinary Flipper slots and cargo. |
 | `--fuseball-test` | Direct-hatches the ten-unit supply as Fuseballs, with source-derived late-wave hurry-up. |
@@ -978,7 +1014,7 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   presentation/timing, Egg pacing, normal enemy-bullet frequency, Spiker and
   Tanker arcade eligibility/composition, and exit visuals need direct arcade
   comparison where they matter.
-- **PROJECT DECISION** — The temporary terminal after Level 5 and authentic
+- **PROJECT DECISION** — The temporary terminal after Level 6 and authentic
   later-wave composition, open-tube rendering, bonus rules, broader
   enemy/cargo combinations, and source-specific death effects remain out of
   scope or deferred. Natural Level 1-to-Level 2-to-Level 3 progression has
@@ -987,11 +1023,22 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   corrected firing boundary. Neal has now manually accepted natural Level
   4 -> 5, Level 5 startup/gameplay, and completion into the existing terminal
   boundary. Together with the prior acceptance reconciliation, the implemented
-  Level 1-5 production campaign has completed manual acceptance in the
-  recreation; Level 6 remains unimplemented. This does not establish hidden
+  Level 1-5 production campaign completed manual acceptance in the recreation.
+  Neal also played Level 6 multiple times and accepted it with no gameplay
+  issues observed. Levels 1-6 are now the accepted production campaign
+  foundation. The reference's continuation to Level 7 clover does not authorize
+  Level 7 implementation in this milestone. This does not establish hidden
   implementation details or general arcade fidelity; remaining uncertainties
   are recorded above. Audio fidelity remains a long-term roadmap item; the
   accepted C# audio system is documented separately.
+- **DEFERRED / NON-BLOCKING (sound-effect volume balance; 2026-11-04)** —
+  Neal identified the enemy-destruction/explosion effect triggered when a
+  Blaster shot destroys an enemy as significantly too loud relative to other
+  effects across the current game, not specifically Level 6. Broader
+  sound-effect balance needs future review; no other individual effect is
+  established as incorrect. Windows volume adjustment is an acceptable
+  temporary workaround. No audio implementation change is authorized during
+  this closeout.
 - **ARCADE VERIFIED** — Neal observed a brief Atari between-level approach
   after the Blaster exits a tube: a first-person view moves through space
   toward the next tube, which begins small/distant and grows as the player

@@ -56,7 +56,8 @@ public sealed class Level5ProductionTests
         Assert.False(game.NaturalProgressionEnabled);
         Assert.Empty(game.Pulsars);
         Assert.Empty(game.Fuseballs);
-        Assert.Null(LevelProgression.GetNextProductionLevel(configuration));
+        Assert.Same(LevelConfiguration.Level6Production,
+            LevelProgression.GetNextProductionLevel(configuration));
     }
 
     [Fact]

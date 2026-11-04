@@ -1,4 +1,5 @@
 using Tempest.Game;
+using Tempest.Game.Debug;
 using Tempest.Game.Gameplay;
 using Tempest.Game.Levels;
 using Tempest.Game.Systems;
@@ -14,6 +15,7 @@ public sealed class ArcadeFlipperFiringTests
     [InlineData(3, 74, 2)]
     [InlineData(4, 71, 3)]
     [InlineData(5, 68, 4)]
+    [InlineData(6, 65, 3)]
     public void ProductionLevelsUseRomHoldoffAndDefaultShotCapacity(
         int displayedLevel, int holdoff, int capacity)
     {
@@ -217,8 +219,86 @@ public sealed class ArcadeFlipperFiringTests
         3 => LevelConfiguration.Level3Mixed,
         4 => LevelConfiguration.Level4Candidate,
         5 => LevelConfiguration.Level5Production,
+        6 => LevelConfiguration.Level6Production,
         _ => throw new ArgumentOutOfRangeException(nameof(displayedLevel))
     };
+
+    [Fact]
+    public void DirectLevel6DiagnosticUsesProductionFlipperFiringAndReplaysLevel6()
+    {
+        string[] arguments = ["--level6-test", "--lives", "10"];
+        TempestGame game = new(level6Test: DebugController.UseLevel6Test(arguments),
+            startingLives: DebugController.GetStartingLives(arguments),
+            random: new Level6FiringRandom());
+
+        Assert.True(DebugController.UseLevel6Test(arguments));
+        Assert.False(DebugController.HasConflictingScenarios(arguments));
+        Assert.Equal(10, game.Player.Lives);
+        Assert.True(game.Level6Test);
+        Assert.False(game.NaturalProgressionEnabled);
+        Assert.False(game.EnemyBulletsTest);
+        Assert.Same(LevelConfiguration.Level6Production, game.CurrentLevel.Configuration);
+        foreach (Egg egg in game.Eggs)
+            MakeReady(egg, game.CurrentLevel);
+
+        game.RunOneStep();
+
+        Assert.Equal(4, game.Flippers.Count);
+        Assert.Equal(3, game.EnemyBullets.Count);
+        Assert.Equal(new[] { 65, 65, 65, 0 },
+            game.Flippers.Select(flipper => flipper.ShotDelayTicks));
+        Assert.True(DebugController.HasConflictingScenarios(["--level6-test", "--level4-test"]));
+        Assert.Throws<ArgumentException>(() => new TempestGame(level6Test: true, level4Test: true));
+
+        game.CurrentLevel.State = LevelState.Complete;
+        game.RunOneStep(restartPressed: true);
+
+        Assert.Same(LevelConfiguration.Level6Production, game.CurrentLevel.Configuration);
+        Assert.Equal(4, game.Eggs.Count);
+        Assert.Equal(18, game.CurrentLevel.ReserveEggs);
+        Assert.Empty(game.Flippers);
+        Assert.Empty(game.EnemyBullets);
+
+        game.Score.Add(100);
+        game.Player.Lives = 0;
+        game.CurrentLevel.State = LevelState.GameOver;
+        game.RunOneStep(restartPressed: true);
+        Assert.Same(LevelConfiguration.Level6Production, game.CurrentLevel.Configuration);
+        Assert.Equal(10, game.Player.Lives);
+        Assert.Equal(0, game.Score.Score);
+    }
+
+    [Fact]
+    public void NaturalLevel6UsesProductionFlipperFiringConfiguration()
+    {
+        TempestGame game = new(random: new Level6FiringRandom());
+        while (game.CurrentLevel.Configuration.DisplayedLevel < 6)
+        {
+            Level outgoing = game.CurrentLevel;
+            if (outgoing.Configuration.StartingSpikeHeight is not null)
+                game.Spikes.Single(spike => spike.EdgeIndex == game.Player.EdgeIndex).Height = 0;
+            outgoing.State = LevelState.ExitZoom;
+            game.Player.AdvanceExit(Level.Depth - 8);
+            game.RunOneStep();
+            Assert.NotSame(outgoing, game.CurrentLevel);
+            Assert.Equal(outgoing.Configuration.DisplayedLevel + 1,
+                game.CurrentLevel.Configuration.DisplayedLevel);
+            for (int tick = 0; tick < LevelApproach.DurationTicks; tick++)
+                game.RunOneStep();
+        }
+
+        Assert.True(game.NaturalProgressionEnabled);
+        Assert.Same(LevelConfiguration.Level6Production, game.CurrentLevel.Configuration);
+        foreach (Egg egg in game.Eggs)
+            MakeReady(egg, game.CurrentLevel);
+
+        game.RunOneStep();
+
+        Assert.Equal(4, game.Flippers.Count);
+        Assert.Equal(3, game.EnemyBullets.Count);
+        Assert.Equal(new[] { 65, 65, 65, 0 },
+            game.Flippers.Select(flipper => flipper.ShotDelayTicks));
+    }
 
     private static TempestGame CreateGame(
         LevelConfiguration configuration, Random random, IAudioEvents? audio = null) =>
@@ -245,6 +325,13 @@ public sealed class ArcadeFlipperFiringTests
     private sealed class ArcadeFiringRandom : Random
     {
         public override int Next(int minValue, int maxValue) =>
+            minValue == 0 && maxValue == 256 ? 255 : minValue;
+    }
+
+    private sealed class Level6FiringRandom : Random
+    {
+        public override int Next(int minValue, int maxValue) =>
+            minValue == -6 && maxValue == 5 ? 1 :
             minValue == 0 && maxValue == 256 ? 255 : minValue;
     }
 
