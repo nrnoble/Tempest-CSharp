@@ -2179,9 +2179,10 @@ errors. Full results are recorded in
 
 Neal played Level 6 multiple times and found no gameplay issues.
 **LEVEL 6 MANUAL ACCEPTANCE: PASS.** He accepted Level 6 as the next production
-campaign milestone. Levels 1-6 are now the accepted production campaign
-foundation; Level 7 remains unimplemented. No further Level 6 retuning or
-manual gameplay test is requested.
+campaign milestone. At that checkpoint, Levels 1-6 were the accepted
+production campaign foundation and Level 7 was unimplemented; the Level 7
+section below supersedes that status. No further Level 6 retuning or manual
+gameplay test is requested.
 
 This is manual acceptance of the C# recreation, not new **ARCADE VERIFIED**
 evidence for exact Level 6 timing, random composition, Spiker speed, firing
@@ -2362,3 +2363,102 @@ UI/browser or selection UI, replay editing, additional recording features,
 automated visual assertions, replay compatibility or migration infrastructure,
 curated long-term playback assets, and other replay enhancements remain
 deferred until there is a concrete future need.
+
+## Production Level 7 clover (manual acceptance passed)
+
+Natural Level 6 progression now commits to Level 7 only after the successful
+Spike exit reaches the existing progression boundary. The fresh Level 7
+configuration is progression/display/board/palette 6/7/6/0, with the exact
+source-ordered closed 16-vertex clover, center Y 310, offset -10, depth 400,
+ready position 50 and player lane 7 at 0.5. It has 20 ROM-backed original
+obligations represented by four initial Eggs and 16 reserve, with Flippers,
+Tankers carrying Flippers, and Spikers eligible; Pulsars and Fuseballs and
+their cargo are excluded. The 25-original Incitti calculation is intentionally
+not used. Sixteen height-60 Spikes start one per lane.
+
+Level 7 explicitly uses successful-shot holdoff 62 and active shot capacity
+3. Its Avoid Spikes threshold is 30, producing 31 avoidance updates before
+the unchanged 21-update pretravel and exit; Levels 4/5 remain at 151 and Level
+6 remains at 71. Existing Spike damage, scoring, collision, retry and exit
+mechanics are reused.
+
+**ARCADE VERIFIED:** Neal observed no ordinary individual Flippers entering
+Level 7 from the bottom; Tankers enter and release Flippers. The visible
+below-rim lane-change sequence is `2-3-2-2-2`, superseding the prior
+two/three-route interpretation. The ROM's `$24` program independently traces
+as 2/reverse/3/reverse/repeat; the direct arcade observation governs the
+visible Level 7 implementation. C# uses per-Flipper counters for the
+observed five-block sequence and reverses at each block boundary. The repeat
+boundary, fixed initial physical direction `+1`, 9-degree turn and
+2-height-per-update cadence are **PROJECT APPROXIMATIONS**, not arcade-verified
+timing or handedness. There is no generic 20-tick below-rim pause. Flip-start
+updates do not advance along the tube; active turning updates advance both
+angle and height, retaining the complete directed sweep at reflex hinges.
+Existing rim pursuit and its persistent direction remain separate and
+unchanged. These project approximations remain despite completed perceptual
+gameplay acceptance; they are not claims of arcade timing or handedness.
+
+**ARCADE VERIFIED:** The no-individual-bottom-Flipper observation does not
+remove Tanker cargo Flippers or already active Flippers. **ROM-BACKED:** the
+Level 7 normal picker has Flipper minimum/maximum 0/5 (the zero minimum makes
+ordinary Flipper selection unreachable), Tanker 1/2, Spiker 2/4, and six
+active enemy slots. A selected Tanker consumes one generic pending unit;
+its two Flipper children are allocated separately. Death reconstructs the
+unresolved active and pending quantity as generic supply without restoring
+species, cargo association, or movement programs. With one generic unit, the
+selector first creates a Spiker. At the no-pending Spiker condition, that same
+unit may become a Flipper-carrying Tanker at the bottom; this is not a
+two-Flipper merge or another supply decrement.
+
+The Level 7 implementation opts into a dedicated picker and reconstruction
+rule; Levels 1-6 keep the existing selector and ledger behavior. The ledger
+clears unresolved Level 7 original species, discards unmaterialized latent
+carrier cargo, and transfers released cargo units into generic re-entry
+records while preserving resolved outcomes and unit counts. The final-pending
+Spiker conversion reuses the same original identity and adds only latent
+Tanker cargo. Mapping the ROM `$f2`/`$f0` along-coordinate branch to the C#
+Spiker return-to-height-zero boundary is a **PROJECT APPROXIMATION**; it is
+not literal ROM timing. The existing Level 7 `Height <= 370` deep-cargo
+threshold remains a project approximation.
+
+Tankers themselves remain straight-lane climbers. Neal directly observed that
+deep player-shot Level 7 Tanker cargo siblings move apart in opposite
+directions for two lane changes, reverse, then travel at least three more
+before another apparent reversal or rim arrival. Only deep player-shot Level
+7 releases use fresh independent two/three route state with opposite initial
+directions. Near-rim/natural releases retain the accepted cargo path.
+`Height <= 370` is a named **PROJECT APPROXIMATION** at the release seam, not
+an exact conversion of the ROM along-coordinate threshold. Reconstructed
+cargo gets fresh route state, not the destroyed instance's runtime phase.
+
+The Level 6 -> 7 safe boundary carries score/lives, installs a fresh ledger,
+enemies and Spikes, restores two Super Zapper charges, clears stale state, and
+uses the existing mixed-color approach with rim control but no firing or
+Zapper input. Level 7 is terminal by **PROJECT DECISION**: natural restart
+starts a fresh Level 1 campaign; the isolated `--level7-test` diagnostic uses
+the exact production configuration, movement, cargo policy and firing, and
+replays Level 7. It composes with `--lives`. Level 8 remains unimplemented.
+
+Automated tests cover Level 7 configuration/geometry, movement boundaries,
+independent routes and cargo reconstruction, firing, exit timing, safe/failed
+progression, terminal/direct-mode policy and campaign arrival. This correction
+passed 37 focused Level 7/firing tests, 190 focused Level 1-7/shared-seam
+regression tests, and all 743 solution tests. `dotnet build
+TempestCSharp.slnx` succeeded with zero warnings/errors and `git diff --check`
+passed. Tests verify C# behavior, not arcade fidelity. Levels 1-6 were not
+intentionally retuned; their acceptance remains unchanged. **LEVEL 7 MANUAL
+ACCEPTANCE: PASS.** Neal manually verified no individual Flippers entering
+from the bottom, normal Tanker entry and Flipper release, and the visible
+`2-3-2-2-2` below-rim lane changes. As a highly experienced original Tempest
+arcade player, he judged the corrected Level 7 gameplay extremely difficult
+to distinguish from arcade gameplay. This is a perceptual acceptance
+judgment, not cycle-exact or mathematically identical emulation.
+
+The exact one-enemy death/re-entry visual case was **NOT MANUALLY REPRODUCED**.
+It is difficult to force during normal play, is not an observable gameplay
+problem, and is non-blocking for acceptance; Neal may continue trying to
+observe it later. The underlying one-unit reconstruction and final-pending
+behavior retain separate ROM-backed and automated-test evidence. Do not
+describe this visual case as manually verified or leave overall acceptance
+pending because of it. See the evidence distinctions and source findings in
+`TEMPEST-BEHAVIOR-SPEC.md`. No audio or reference implementation was changed.

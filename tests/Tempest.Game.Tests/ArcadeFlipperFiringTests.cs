@@ -16,6 +16,7 @@ public sealed class ArcadeFlipperFiringTests
     [InlineData(4, 71, 3)]
     [InlineData(5, 68, 4)]
     [InlineData(6, 65, 3)]
+    [InlineData(7, 62, 3)]
     public void ProductionLevelsUseRomHoldoffAndDefaultShotCapacity(
         int displayedLevel, int holdoff, int capacity)
     {
@@ -220,6 +221,7 @@ public sealed class ArcadeFlipperFiringTests
         4 => LevelConfiguration.Level4Candidate,
         5 => LevelConfiguration.Level5Production,
         6 => LevelConfiguration.Level6Production,
+        7 => LevelConfiguration.Level7Production,
         _ => throw new ArgumentOutOfRangeException(nameof(displayedLevel))
     };
 
@@ -298,6 +300,37 @@ public sealed class ArcadeFlipperFiringTests
         Assert.Equal(3, game.EnemyBullets.Count);
         Assert.Equal(new[] { 65, 65, 65, 0 },
             game.Flippers.Select(flipper => flipper.ShotDelayTicks));
+    }
+
+    [Fact]
+    public void NaturalLevel7UsesProductionPickerAndFlipperFiringConfiguration()
+    {
+        TempestGame game = new(random: new Level6FiringRandom());
+        while (game.CurrentLevel.Configuration.DisplayedLevel < 7)
+        {
+            Level outgoing = game.CurrentLevel;
+            if (outgoing.Configuration.StartingSpikeHeight is not null)
+                game.Spikes.Single(spike => spike.EdgeIndex == game.Player.EdgeIndex).Height = 0;
+            outgoing.State = LevelState.ExitZoom;
+            game.Player.AdvanceExit(Level.Depth - 8);
+            game.RunOneStep();
+            Assert.NotSame(outgoing, game.CurrentLevel);
+            for (int tick = 0; tick < LevelApproach.DurationTicks; tick++)
+                game.RunOneStep();
+        }
+
+        Assert.True(game.NaturalProgressionEnabled);
+        Assert.Same(LevelConfiguration.Level7Production, game.CurrentLevel.Configuration);
+        foreach (Egg egg in game.Eggs)
+            MakeReady(egg, game.CurrentLevel);
+
+        game.RunOneStep();
+
+        Assert.Empty(game.Flippers);
+        Assert.Equal(3, game.Spikers.Count);
+        Assert.Single(game.Tankers);
+        Assert.Equal(62, game.CurrentLevel.Configuration.FlipperShotHoldoffTicks);
+        Assert.Equal(3, game.CurrentLevel.Configuration.MaximumActiveEnemyShots);
     }
 
     private static TempestGame CreateGame(

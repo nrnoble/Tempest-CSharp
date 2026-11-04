@@ -55,6 +55,8 @@ public sealed class TempestGame
     private readonly HashSet<int> unresolvedCargoUnits = [];
     private readonly HashSet<int> resolvedCargoUnits = [];
     private readonly HashSet<int> rimClearedCargoUnits = [];
+    // Identity-scoped policy survives life reconstruction; route counters remain on each Flipper.
+    private readonly Dictionary<int, int> level7DeepCargoDirections = [];
     private readonly Random random;
     private readonly int startingLives;
     private readonly IAudioEvents audioEvents;
@@ -68,6 +70,7 @@ public sealed class TempestGame
     private readonly bool level3Test;
     private readonly bool level4Test;
     private readonly bool level6Test;
+    private readonly bool level7Test;
     private readonly bool level3GeometryTest;
     private Level? currentLevel;
     private int pulsePhase;
@@ -102,6 +105,7 @@ public sealed class TempestGame
     public bool Level3Test => level3Test;
     public bool Level4Test => level4Test;
     public bool Level6Test => level6Test;
+    public bool Level7Test => level7Test;
     public bool Level3GeometryTest => level3GeometryTest;
     public bool NaturalProgressionEnabled => naturalProgressionEnabled;
     public LevelApproach? CurrentApproach { get; private set; }
@@ -116,7 +120,7 @@ public sealed class TempestGame
         CurrentLevel.SpikerDevelopmentWave ||
         CurrentLevel.Configuration.ExitPolicy == LevelExitPolicy.AvoidSpikes;
     private bool FlipperBulletFiringEnabled =>
-        naturalProgressionEnabled || level6Test || enemyBulletsTest && !tankerTest &&
+        naturalProgressionEnabled || level6Test || level7Test || enemyBulletsTest && !tankerTest &&
         !spikerDevelopmentWave && !CurrentLevel.UsesProductionLedger;
     public bool SpikeExitControlsEnabled =>
         SpikeExitEnabled &&
@@ -169,16 +173,18 @@ public sealed class TempestGame
         bool tankerTest = false, bool fuseballTest = false, bool pulsarTest = false,
         bool level2Test = false, bool level3GeometryTest = false,
         LevelConfiguration? startingConfiguration = null, bool level3Test = false,
-        bool level4Test = false, IAudioEvents? audioEvents = null, bool level6Test = false)
+        bool level4Test = false, IAudioEvents? audioEvents = null, bool level6Test = false,
+        bool level7Test = false)
     {
         if ((level2Test ? 1 : 0) + (level3Test ? 1 : 0) +
-            (level4Test ? 1 : 0) + (level6Test ? 1 : 0) + (level3GeometryTest ? 1 : 0) +
+            (level4Test ? 1 : 0) + (level6Test ? 1 : 0) + (level7Test ? 1 : 0) +
+            (level3GeometryTest ? 1 : 0) +
             (spikerDevelopmentWave ? 1 : 0) + (tankerTest ? 1 : 0) +
             (fuseballTest ? 1 : 0) + (pulsarTest ? 1 : 0) > 1 ||
             startingConfiguration is not null &&
             (level2Test || level3Test || level4Test || level3GeometryTest || spikerDevelopmentWave ||
-             level6Test || tankerTest || fuseballTest || pulsarTest))
-            throw new ArgumentException("Level 2, Level 3 mixed, Level 4 candidate, Level 6 production, Level 3 geometry, Tanker, Spiker, Fuseball and Pulsar development scenarios cannot be combined.");
+             level6Test || level7Test || tankerTest || fuseballTest || pulsarTest))
+            throw new ArgumentException("Level 2, Level 3 mixed, Level 4 candidate, Level 6 production, Level 7 production, Level 3 geometry, Tanker, Spiker, Fuseball and Pulsar development scenarios cannot be combined.");
 
         this.random = random ?? Random.Shared;
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
@@ -191,6 +197,8 @@ public sealed class TempestGame
                 ? LevelConfiguration.Level4Candidate
             : level6Test
                 ? LevelConfiguration.Level6Production
+            : level7Test
+                ? LevelConfiguration.Level7Production
             : level3GeometryTest
                 ? LevelConfiguration.Level3Plus
             : LevelConfiguration.Level1);
@@ -200,9 +208,10 @@ public sealed class TempestGame
         this.level3Test = level3Test;
         this.level4Test = level4Test;
         this.level6Test = level6Test;
+        this.level7Test = level7Test;
         this.level3GeometryTest = level3GeometryTest;
         naturalProgressionEnabled = startingConfiguration is null &&
-            !level2Test && !level3Test && !level4Test && !level6Test &&
+            !level2Test && !level3Test && !level4Test && !level6Test && !level7Test &&
             !spikerDevelopmentWave && !tankerTest &&
             !fuseballTest && !pulsarTest && !level3GeometryTest;
         FuseballTest = fuseballTest;
@@ -408,6 +417,7 @@ public sealed class TempestGame
         unresolvedCargoUnits.Clear();
         resolvedCargoUnits.Clear();
         rimClearedCargoUnits.Clear();
+        level7DeepCargoDirections.Clear();
         nextCargoUnitId = 0;
         if (tankerTest)
             for (int slotId = 0; slotId < CurrentLevel.EnemySupply; slotId++)
@@ -456,7 +466,10 @@ public sealed class TempestGame
             fuseballScorePopups.Clear();
             developmentCollisionOrder.Clear();
             developmentCollisionOrder.AddRange(CurrentLevel.Spikes);
-            CurrentLevel.ResetAfterDeath();
+            if (CurrentLevel.Configuration.UsesLevel7RomWavePolicy)
+                level7DeepCargoDirections.Clear();
+            CurrentLevel.ResetAfterDeath(
+                CurrentLevel.Configuration.UsesLevel7RomWavePolicy);
             CurrentLevel.State = LevelState.Playing;
             ValidateLevel3WaveRepresentation();
             return;
@@ -721,7 +734,10 @@ public sealed class TempestGame
             if (egg.OriginalSlotId >= 0)
                 throw new InvalidOperationException("A Level 3 Egg cannot hold both identity namespaces.");
             ledger.MarkCargoActive(egg.CargoUnitId);
-            return Flipper.CreateFreshTankerCargo(egg.EdgeIndex, egg.CargoUnitId);
+            int? programmedDirection = level7DeepCargoDirections.TryGetValue(
+                egg.CargoUnitId, out int direction) ? direction : null;
+            return Flipper.CreateFreshTankerCargo(
+                egg.EdgeIndex, egg.CargoUnitId, programmedDirection);
         }
 
         int originalId = egg.OriginalSlotId;
@@ -731,11 +747,26 @@ public sealed class TempestGame
         Level3OriginalType selectedType = ledger.GetOriginalType(originalId);
         if (selectedType == Level3OriginalType.Unselected)
         {
-            selectedType = CurrentLevel.Configuration.NormalEnemyComposition ==
-                LevelEnemyComposition.FlippersTankersAndSpikers
-                ? SelectLevel4OriginalType()
-                : SelectLevel3OriginalType();
-            if (selectedType == Level3OriginalType.Tanker)
+            if (CurrentLevel.Configuration.UsesLevel7RomWavePolicy)
+            {
+                Level3OriginalType? level7SelectedType = Level7WaveSelection.SelectOriginalType(
+                    NextRandomInclusive,
+                    tankers.Count,
+                    spikers.Count,
+                    CountProductionActiveEnemyUnits());
+                if (level7SelectedType is null)
+                    return null;
+                selectedType = level7SelectedType.Value;
+            }
+            else
+            {
+                selectedType = CurrentLevel.Configuration.NormalEnemyComposition ==
+                    LevelEnemyComposition.FlippersTankersAndSpikers
+                    ? SelectLevel4OriginalType()
+                    : SelectLevel3OriginalType();
+            }
+            if (selectedType == Level3OriginalType.Tanker &&
+                !CurrentLevel.Configuration.UsesLevel7RomWavePolicy)
                 Level3WaveSelection.SelectTwoFlipperCargo(NextRandomInclusive);
         }
 
@@ -754,7 +785,8 @@ public sealed class TempestGame
 
         if (selectedType == Level3OriginalType.Tanker)
         {
-            if (tankers.Count >= 6)
+            int maximumTankers = CurrentLevel.Configuration.UsesLevel7RomWavePolicy ? 2 : 6;
+            if (tankers.Count >= maximumTankers)
                 return null;
 
             int ammunition = NextRandomInclusive(1, 2);
@@ -907,7 +939,10 @@ public sealed class TempestGame
                     flippers.Remove(flipper);
                     developmentCollisionOrder.Remove(flipper);
                     if (CurrentLevel.UsesProductionLedger && flipper.IsTankerCargo)
+                    {
                         CurrentLevel.Level3Ledger!.MarkCargoDestroyed(flipper.CargoUnitId);
+                        level7DeepCargoDirections.Remove(flipper.CargoUnitId);
+                    }
                     else if (CurrentLevel.UsesProductionLedger)
                         CurrentLevel.Level3Ledger!.MarkOriginalDestroyed(flipper.OriginalSlotId);
                     else if (tankerTest)
@@ -970,7 +1005,21 @@ public sealed class TempestGame
 
             spikers.RemoveAt(index--);
             developmentCollisionOrder.Remove(spiker);
-            CurrentLevel.ReturnOriginalToReserve(spiker.OriginalSlotId);
+            if (CurrentLevel.Configuration.UsesLevel7RomWavePolicy &&
+                CurrentLevel.PendingGenericEnemyUnits == 0)
+            {
+                // ROM `$a009-$a024` turns the same final-pending Spiker slot into a
+                // Flipper-carrying Tanker at the bottom. Height zero is the C# reserve-return
+                // approximation of that ROM along-coordinate transition, not literal timing.
+                CurrentLevel.Level3Ledger!.ConvertActiveSpikerToTanker(spiker.OriginalSlotId);
+                Tanker converted = new(spiker.EdgeIndex, spiker.OriginalSlotId,
+                    bulletAmmunition: NextRandomInclusive(1, 2),
+                    bulletTimer: 16 + NextRandomInclusive(1, 64));
+                tankers.Add(converted);
+                developmentCollisionOrder.Add(converted);
+            }
+            else
+                CurrentLevel.ReturnOriginalToReserve(spiker.OriginalSlotId);
         }
     }
 
@@ -1132,6 +1181,8 @@ public sealed class TempestGame
         // Children are added after this tick's Flipper update, so their first update is next tick.
         TankerReleaseResult result = tanker.ReleaseFlipperCargo(
             CurrentLevel, firstSideDirection: 1, releaseKind);
+        bool useLevel7ProgrammedRoute = tanker.UsesLevel7ProgrammedCargo(
+            CurrentLevel.Configuration, releaseKind);
 
         if (CurrentLevel.UsesProductionLedger)
         {
@@ -1163,8 +1214,11 @@ public sealed class TempestGame
             for (int index = 0; index < result.Cargo.Count; index++)
             {
                 int cargoId = cargoIds[index];
+                if (useLevel7ProgrammedRoute)
+                    level7DeepCargoDirections.Add(cargoId, result.Cargo[index].Direction);
                 Flipper child = Flipper.CreateTankerCargo(
-                    CurrentLevel, result.Cargo[index], cargoId);
+                    CurrentLevel, result.Cargo[index], cargoId,
+                    useLevel7ProgrammedRoute);
 
                 if (releaseKind == TankerReleaseKind.SuperZapperDestruction)
                     child.TryZap(8);
@@ -1223,12 +1277,14 @@ public sealed class TempestGame
 
     private void ResolveCargoUnit(int cargoUnitId)
     {
+        level7DeepCargoDirections.Remove(cargoUnitId);
         if (unresolvedCargoUnits.Remove(cargoUnitId))
             resolvedCargoUnits.Add(cargoUnitId);
     }
 
     private void ResolveCargoUnitRimCleared(int cargoUnitId)
     {
+        level7DeepCargoDirections.Remove(cargoUnitId);
         if (unresolvedCargoUnits.Remove(cargoUnitId))
             rimClearedCargoUnits.Add(cargoUnitId);
     }
@@ -1245,7 +1301,10 @@ public sealed class TempestGame
                 if (CurrentLevel.UsesProductionLedger)
                 {
                     if (flipper.IsTankerCargo)
+                    {
                         CurrentLevel.Level3Ledger!.MarkCargoDestroyed(flipper.CargoUnitId);
+                        level7DeepCargoDirections.Remove(flipper.CargoUnitId);
+                    }
                     else
                         CurrentLevel.Level3Ledger!.MarkOriginalDestroyed(flipper.OriginalSlotId);
                 }
@@ -1624,6 +1683,7 @@ public sealed class TempestGame
                 case Flipper flipper when flipper.IsTankerCargo:
                     flippers.Remove(flipper);
                     ledger.MarkCargoRimCleared(flipper.CargoUnitId);
+                    level7DeepCargoDirections.Remove(flipper.CargoUnitId);
                     break;
                 case Flipper flipper:
                     flippers.Remove(flipper);

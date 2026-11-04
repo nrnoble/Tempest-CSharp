@@ -128,6 +128,7 @@ public sealed class ExitLaneControlTests
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
+    [InlineData(7)]
     public void SpikeExitStillUsesNormalMovementDuringActualTravel(int displayedLevel)
     {
         TempestGame game = CreateSpikeExit(displayedLevel);
@@ -157,6 +158,7 @@ public sealed class ExitLaneControlTests
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
+    [InlineData(7)]
     public void SpikeWaitCollisionReverseAndRetryRemainUnchanged(int displayedLevel)
     {
         TempestGame game = CreateSpikeExit(displayedLevel);
@@ -240,7 +242,7 @@ public sealed class ExitLaneControlTests
 
         Assert.True(game.GameOver);
         Assert.Same(LevelConfiguration.Level6Production, game.CurrentLevel.Configuration);
-        Assert.Null(LevelProgression.GetNextProductionLevel(game.CurrentLevel.Configuration));
+        Assert.False(game.NaturalProgressionEnabled);
         Assert.Equal(0, game.Player.Lives);
     }
 
@@ -269,6 +271,7 @@ public sealed class ExitLaneControlTests
             4 => LevelConfiguration.Level4Candidate,
             5 => LevelConfiguration.Level5Production,
             6 => LevelConfiguration.Level6Production,
+            7 => LevelConfiguration.Level7Production,
             _ => throw new ArgumentOutOfRangeException(nameof(displayedLevel))
         };
         TempestGame game = new(configuration, startingLives: 5, random: new Random(0));

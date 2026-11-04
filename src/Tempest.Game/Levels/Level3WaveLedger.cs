@@ -28,7 +28,8 @@ public enum Level3CargoState
     Egg,
     Active,
     Destroyed,
-    RimCleared
+    RimCleared,
+    Reconstructed
 }
 
 public enum Level3IdentityKind
@@ -249,10 +250,12 @@ public sealed class Level3WaveLedger
     public void MarkCargoActive(int cargoId) =>
         TransitionCargo(cargoId, Level3CargoState.Egg, Level3CargoState.Active);
 
-    public void RebuildAfterDeath()
+    public void RebuildAfterDeath(bool clearUnresolvedSpeciesSelections = false)
     {
         HashSet<int> unresolvedOriginals = UnresolvedOriginalIds.ToHashSet();
-        HashSet<int> unresolvedCargo = UnresolvedCargoIds.ToHashSet();
+        HashSet<int> unresolvedCargo = clearUnresolvedSpeciesSelections
+            ? []
+            : UnresolvedCargoIds.ToHashSet();
         Dictionary<int, Level3OriginalType> selectedTypes = originals
             .Where(pair => pair.Value.Type != Level3OriginalType.Unselected)
             .ToDictionary(pair => pair.Key, pair => pair.Value.Type);
@@ -268,29 +271,85 @@ public sealed class Level3WaveLedger
             .ToHashSet();
 
         // Keep ownership and terminal outcomes; only unresolved materialized units re-enter.
-        foreach (OriginalEntry entry in originals.Values)
+        foreach ((int id, OriginalEntry entry) in originals)
         {
             if (!IsTerminal(entry.State))
+            {
                 entry.State = Level3OriginalState.Reserve;
+                if (clearUnresolvedSpeciesSelections)
+                {
+                    if (entry.Type == Level3OriginalType.Tanker)
+                    {
+                        foreach (int cargoId in GetCargoIdsForOriginal(id)
+                                     .Where(cargoId => GetCargoState(cargoId) == Level3CargoState.Latent))
+                            cargo.Remove(cargoId);
+                    }
+                    entry.Type = Level3OriginalType.Unselected;
+                }
+            }
         }
 
-        foreach (CargoEntry entry in cargo.Values)
+        foreach ((int id, CargoEntry entry) in cargo.ToArray())
         {
-            if (entry.State != Level3CargoState.Latent &&
-                !IsTerminal(entry.State))
-                entry.State = Level3CargoState.ReentryReserve;
+            if (entry.State == Level3CargoState.Latent &&
+                clearUnresolvedSpeciesSelections)
+            {
+                cargo.Remove(id);
+            }
+            else if (entry.State != Level3CargoState.Latent && !IsTerminal(entry.State))
+            {
+                if (clearUnresolvedSpeciesSelections)
+                {
+                    // Released Level 7 cargo is an active generic unit after death, not a
+                    // guaranteed Flipper. Transfer its bookkeeping identity to fresh supply.
+                    entry.State = Level3CargoState.Reconstructed;
+                    int genericId = originals.Count;
+                    originals.Add(genericId, new OriginalEntry(Level3OriginalState.Reserve));
+                    unresolvedOriginals.Add(genericId);
+                }
+                else
+                {
+                    entry.State = Level3CargoState.ReentryReserve;
+                }
+            }
         }
 
         ValidateState();
-        if (!unresolvedOriginals.SetEquals(UnresolvedOriginalIds) ||
-            !unresolvedCargo.SetEquals(UnresolvedCargoIds) ||
-            !selectedTypes.All(pair => GetOriginalType(pair.Key) == pair.Value) ||
-            !terminalOriginals.All(pair => GetOriginalState(pair.Key) == pair.Value) ||
-            !terminalCargo.All(pair => GetCargoState(pair.Key) == pair.Value) ||
-            !latentCargo.SetEquals(cargo.Values
+        bool unresolvedOriginalsMatch = unresolvedOriginals.SetEquals(UnresolvedOriginalIds);
+        bool unresolvedCargoMatch = unresolvedCargo.SetEquals(UnresolvedCargoIds);
+        bool selectedTypesMatch = clearUnresolvedSpeciesSelections ||
+            selectedTypes.All(pair => GetOriginalType(pair.Key) == pair.Value);
+        bool terminalOriginalsMatch =
+            terminalOriginals.All(pair => GetOriginalState(pair.Key) == pair.Value);
+        bool terminalCargoMatch =
+            terminalCargo.All(pair => GetCargoState(pair.Key) == pair.Value);
+        bool latentCargoMatch = clearUnresolvedSpeciesSelections ||
+            latentCargo.SetEquals(cargo.Values
                 .Where(entry => entry.State == Level3CargoState.Latent)
-                .Select(entry => (entry.OwnerOriginalId, entry.Ordinal))))
-            throw new InvalidOperationException("Level 3 death reconstruction changed a committed identity set.");
+                .Select(entry => (entry.OwnerOriginalId, entry.Ordinal)));
+        if (!unresolvedOriginalsMatch || !unresolvedCargoMatch || !selectedTypesMatch ||
+            !terminalOriginalsMatch || !terminalCargoMatch || !latentCargoMatch)
+            throw new InvalidOperationException(
+                $"Level 3 death reconstruction changed a committed identity set " +
+                $"(originals={unresolvedOriginalsMatch}, cargo={unresolvedCargoMatch}, " +
+                $"types={selectedTypesMatch}, terminalOriginals={terminalOriginalsMatch}, " +
+                $"terminalCargo={terminalCargoMatch}, latentCargo={latentCargoMatch}).");
+    }
+
+    public void ConvertActiveSpikerToTanker(int id)
+    {
+        OriginalEntry entry = GetOriginal(id);
+        if (entry.Type != Level3OriginalType.Spiker ||
+            entry.State != Level3OriginalState.ActiveSpiker ||
+            GetCargoIdsForOriginal(id).Count != 0)
+            throw new InvalidOperationException(
+                $"Only an active Spiker original without cargo can convert to a Tanker.");
+
+        entry.Type = Level3OriginalType.Tanker;
+        entry.State = Level3OriginalState.ActiveTanker;
+        cargo.Add(CargoUnitId(id, 0), new CargoEntry(id, 0));
+        cargo.Add(CargoUnitId(id, 1), new CargoEntry(id, 1));
+        ValidateState();
     }
 
     public void ValidateRepresentation(IEnumerable<Level3Identity> represented)
@@ -549,7 +608,8 @@ public sealed class Level3WaveLedger
             Level3OriginalState.Escaped or Level3OriginalState.RimCleared;
 
     private static bool IsTerminal(Level3CargoState state) =>
-        state is Level3CargoState.Destroyed or Level3CargoState.RimCleared;
+        state is Level3CargoState.Destroyed or Level3CargoState.RimCleared or
+            Level3CargoState.Reconstructed;
 
     private static InvalidOperationException InvalidTransition(
         string identityType,

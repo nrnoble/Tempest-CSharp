@@ -36,6 +36,9 @@ public sealed class Level
     public int EnemiesRimCleared { get; private set; }
     public int Level3CargoReserveEggs =>
         UsesProductionLedger ? Level3Ledger!.CargoIdsInReentryReserve().Count : 0;
+    public int PendingGenericEnemyUnits => UsesProductionLedger
+        ? ReserveEggs + Level3CargoReserveEggs + eggs.Count
+        : ReserveEggs + eggs.Count;
     // Development-only tanker accounting counts reserve as queued original slots; normal (and
     // Spiker) accounting derives reserve from the configured supply.
     public int ReserveEggs => UsesProductionLedger
@@ -117,11 +120,11 @@ public sealed class Level
 
     // Life reconstruction retains this Level and restores unresolved units as fresh Eggs. Fresh
     // wave construction instead uses the configured initial Egg count in Reset.
-    public void ResetAfterDeath()
+    public void ResetAfterDeath(bool clearUnresolvedSpeciesSelections = false)
     {
         if (UsesProductionLedger)
         {
-            Level3Ledger!.RebuildAfterDeath();
+            Level3Ledger!.RebuildAfterDeath(clearUnresolvedSpeciesSelections);
             ReturnSurvivorsToReserve();
 
             for (int eggIndex = 0;
@@ -146,7 +149,9 @@ public sealed class Level
         spawnTimer = 0;
         hatchSelectionTimer = 0;
         EnemiesSpawned = UsesProductionLedger
-            ? EnemySupply - Level3Ledger!.OriginalIdsInReserve().Count
+            ? (Configuration.UsesLevel7RomWavePolicy
+                ? Level3Ledger!.OriginalCount
+                : EnemySupply) - Level3Ledger!.OriginalIdsInReserve().Count
             : EnemiesDestroyed + EnemiesRimCleared;
         nextSpawnLaneIndex = EnemiesSpawned % Configuration.SpawnLaneSequence.Count;
     }

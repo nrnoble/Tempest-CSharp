@@ -19,6 +19,12 @@ public enum FlipperPivotGeometry
     EndpointHinge
 }
 
+public enum BelowRimFlipperProgram
+{
+    Existing,
+    Level7ArcadeObserved
+}
+
 // REFERENCE VERIFIED: Incitti lv=0/1 values; exact gameplay fidelity remains unverified.
 public sealed record FlipperConfiguration(
     bool CanFlip,
@@ -62,6 +68,7 @@ public sealed record LevelConfiguration(
         4 => 71,
         5 => 68,
         6 => 65,
+        7 => 62,
         _ => throw new InvalidOperationException(
             $"No arcade Flipper shot holdoff is defined for displayed Level {DisplayedLevel}.")
     };
@@ -71,15 +78,23 @@ public sealed record LevelConfiguration(
         4 => 3,
         5 => 4,
         6 => 3,
+        7 => 3,
         _ => throw new InvalidOperationException(
             $"No arcade enemy-shot capacity is defined for displayed Level {DisplayedLevel}.")
     };
     public FlipperConfiguration Flipper { get; init; } = new(false, 2, 8, 21, 24);
     public bool FlipperCanFlip => Flipper.CanFlip;
     public FlipperPivotGeometry FlipperPivotMode { get; init; } = FlipperPivotGeometry.LegacyLaneTurn;
+    public BelowRimFlipperProgram BelowRimFlipperProgram { get; init; } =
+        global::Tempest.Game.Levels.BelowRimFlipperProgram.Existing;
+    public bool UsesLevel7RomWavePolicy { get; init; }
+    // Imported ROM handedness is not mapped conclusively; +1 is a reversible C# project choice.
+    public int ProgrammedFlipperInitialDirection { get; init; } = 1;
     public float? StartingSpikeHeight { get; init; }
     // The exit state transitions after the counter exceeds this value.
     public int AvoidSpikesWaitThreshold { get; init; } = 150;
+    // Conservative C# height cutoff; the ROM's along coordinate does not map exactly to this scale.
+    public const float Level7DeepCargoMaximumHeight = 370;
 
     public static LevelConfiguration Level1 { get; } = new(
         ProgressionIndex: 0,
@@ -246,5 +261,37 @@ public sealed record LevelConfiguration(
         FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
         StartingSpikeHeight = 60,
         AvoidSpikesWaitThreshold = 70
+    };
+
+    // ROM-backed supply/composition and $24 routing; direction and 60-Hz cadence remain
+    // project approximations despite completed perceptual gameplay acceptance.
+    public static LevelConfiguration Level7Production { get; } = new(
+        ProgressionIndex: 6,
+        DisplayedLevel: 7,
+        BoardIndex: 6,
+        PaletteIndex: 0,
+        Definition: LevelLoader.LoadLevel7Clover(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: 20,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(Enumerable.Range(0, 16).ToArray()),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.AvoidSpikes,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersTankersAndSpikers)
+    {
+        Flipper = new(true, 2, 9, 0, 23),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        BelowRimFlipperProgram = BelowRimFlipperProgram.Level7ArcadeObserved,
+        UsesLevel7RomWavePolicy = true,
+        ProgrammedFlipperInitialDirection = 1,
+        StartingSpikeHeight = 60,
+        AvoidSpikesWaitThreshold = 30
     };
 }

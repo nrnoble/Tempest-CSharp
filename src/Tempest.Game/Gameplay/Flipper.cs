@@ -11,16 +11,33 @@ public enum FlipperState
     Flipping
 }
 
+internal enum ProgrammedFlipperRouteStep
+{
+    Disabled,
+    LeadIn,
+    Start,
+    Turning,
+    CompletionBoundary,
+    RimHandoff
+}
+
 /// <summary>
 /// Flipper state machine (Climbing -> Pausing -> Flipping -> Pausing ...). Its arcade shot delay
 /// is advanced by TempestGame's separate firing phase, independently of movement state.
 /// Ordinary Level 2-test canflip retains its below-rim direction; rim pursuit latches the first
-/// selected direction.
+/// selected direction. Level 7's arcade-observed 2-3-2-2-2 route is a separate,
+/// configuration-opt-in path and leaves that accepted rim policy intact.
 /// The entity never touches game state: lethal contact is reported through
 /// <see cref="CompletedIntoPlayer"/> and consumed by TempestGame after player-shot collision.
 /// </summary>
 public sealed class Flipper : Enemy
 {
+    private static readonly int[] Level7ObservedFlipCounts = [2, 3, 2, 2, 2];
+
+    private int programmedPhaseIndex;
+    private int programmedFlipsRemaining;
+    private ProgrammedFlipperRouteStep programmedRouteStep;
+
     public Flipper(int edge = 0, float height = 0)
     {
         EdgeIndex = edge;
@@ -51,10 +68,25 @@ public sealed class Flipper : Enemy
     public int OriginalSlotId { get; private set; } = -1;
     public int CargoUnitId { get; private set; } = -1;
     public bool IsTankerCargo => CargoUnitId >= 0;
+    internal int ProgrammedFlipsRemaining => programmedFlipsRemaining;
+    internal ProgrammedFlipperRouteStep ProgrammedRouteStep => programmedRouteStep;
 
     public void Update(Level level, int playerEdge, Func<int, int, int>? randomInclusive = null)
     {
         FlipperConfiguration tuning = level.Configuration.Flipper;
+        if (programmedRouteStep == ProgrammedFlipperRouteStep.Disabled &&
+            !IsTankerCargo &&
+            level.Configuration.BelowRimFlipperProgram ==
+                BelowRimFlipperProgram.Level7ArcadeObserved)
+            InitializeProgrammedRoute(level.Configuration.ProgrammedFlipperInitialDirection);
+
+        if (programmedRouteStep is not
+            (ProgrammedFlipperRouteStep.Disabled or ProgrammedFlipperRouteStep.RimHandoff))
+        {
+            UpdateProgrammedRoute(level, playerEdge, tuning);
+            return;
+        }
+
         bool canFlip = tuning.CanFlip && !IsTankerCargo;
         switch (State)
         {
@@ -110,7 +142,8 @@ public sealed class Flipper : Enemy
     // Cargo is born in its mandatory release pivot at Tanker height. Its below-rim direction
     // remains fixed; rim pivots resume player pursuit.
     public static Flipper CreateTankerCargo(
-        Level level, TankerCargoSpawn cargo, int cargoUnitId)
+        Level level, TankerCargoSpawn cargo, int cargoUnitId,
+        bool useLevel7ProgrammedRoute = false)
     {
         Flipper flipper = new(cargo.SourceLane, cargo.Height)
         {
@@ -124,14 +157,20 @@ public sealed class Flipper : Enemy
             cargo.SourceLane, cargo.DestinationLane, cargo.Direction);
         flipper.ActiveTransition = transition;
         flipper.TotalTurnAngle = transition.SweepMagnitudeDegrees;
+        if (useLevel7ProgrammedRoute)
+            flipper.InitializeProgrammedCargoRoute(cargo.Direction);
         return flipper;
     }
 
     // Ordinary climbing Flipper used when cargo re-enters through a fresh Egg after a life loss.
-    public static Flipper CreateFreshTankerCargo(int edge, int cargoUnitId) => new(edge, 0)
+    public static Flipper CreateFreshTankerCargo(
+        int edge, int cargoUnitId, int? programmedDirection = null)
     {
-        CargoUnitId = cargoUnitId
-    };
+        Flipper flipper = new(edge, 0) { CargoUnitId = cargoUnitId };
+        if (programmedDirection is int direction)
+            flipper.InitializeProgrammedRoute(direction);
+        return flipper;
+    }
 
     internal void SetOriginalSlotId(int originalSlotId) => OriginalSlotId = originalSlotId;
 
@@ -178,6 +217,137 @@ public sealed class Flipper : Enemy
         State = FlipperState.Pausing;
         PauseTicks = pauseTicks;
         TurnAngle = 0;
+    }
+
+    private void InitializeProgrammedRoute(int initialDirection)
+    {
+        if (initialDirection is not (-1 or 1))
+            throw new ArgumentOutOfRangeException(nameof(initialDirection));
+
+        programmedPhaseIndex = 0;
+        programmedFlipsRemaining = Level7ObservedFlipCounts[programmedPhaseIndex];
+        Direction = initialDirection;
+        programmedRouteStep = ProgrammedFlipperRouteStep.LeadIn;
+    }
+
+    private void InitializeProgrammedCargoRoute(int initialDirection)
+    {
+        InitializeProgrammedRoute(initialDirection);
+        // The release pivot is the cargo's first completed outward lane change.
+        programmedRouteStep = ProgrammedFlipperRouteStep.Turning;
+    }
+
+    private void UpdateProgrammedRoute(
+        Level level, int playerEdge, FlipperConfiguration tuning)
+    {
+        switch (programmedRouteStep)
+        {
+            case ProgrammedFlipperRouteStep.LeadIn:
+                AdvanceProgrammedAlong(level, playerEdge, tuning);
+                break;
+
+            case ProgrammedFlipperRouteStep.Start:
+                if (Height >= Level.Depth)
+                    HandOffToRim(tuning);
+                else
+                    BeginProgrammedPivot(level);
+                break;
+
+            case ProgrammedFlipperRouteStep.Turning:
+                ContinueProgrammedPivot(level, playerEdge, tuning);
+                break;
+
+            case ProgrammedFlipperRouteStep.CompletionBoundary:
+                AdvanceProgrammedRouteBoundary(level, playerEdge, tuning);
+                break;
+
+            default:
+                throw new InvalidOperationException(
+                    $"Unsupported programmed Flipper route step {programmedRouteStep}.");
+        }
+    }
+
+    private void AdvanceProgrammedAlong(
+        Level level, int playerEdge, FlipperConfiguration tuning)
+    {
+        bool startedBelowRim = Height < Level.Depth;
+        Height = MathF.Min(Level.Depth, Height + tuning.ClimbSpeed);
+        if (startedBelowRim && Height >= Level.Depth && EdgeIndex == playerEdge)
+            CompletedIntoPlayer = true;
+        if (Height >= Level.Depth)
+            HandOffToRim(tuning);
+        else
+            programmedRouteStep = ProgrammedFlipperRouteStep.Start;
+    }
+
+    private void BeginProgrammedPivot(Level level)
+    {
+        SourceEdge = EdgeIndex;
+        DestinationEdge = Direction > 0
+            ? level.PreviousEdge(EdgeIndex)
+            : level.NextEdge(EdgeIndex);
+        ActiveTransition = level.CalculateDirectedLaneTransition(
+            SourceEdge, DestinationEdge, Direction);
+        TotalTurnAngle = ActiveTransition.Value.SweepMagnitudeDegrees;
+        TurnAngle = 0;
+        State = FlipperState.Flipping;
+        programmedRouteStep = ProgrammedFlipperRouteStep.Turning;
+    }
+
+    private void ContinueProgrammedPivot(
+        Level level, int playerEdge, FlipperConfiguration tuning)
+    {
+        TurnAngle += tuning.TurnSpeedDegrees;
+        Height = MathF.Min(Level.Depth, Height + tuning.ClimbSpeed);
+        if (TurnAngle < TotalTurnAngle)
+            return;
+
+        EdgeIndex = DestinationEdge;
+        SourceEdge = EdgeIndex;
+        DestinationEdge = EdgeIndex;
+        ActiveTransition = null;
+        TurnAngle = 0;
+        TotalTurnAngle = 0;
+        PauseTicks = 0;
+        State = FlipperState.Climbing;
+        if (Height >= Level.Depth && EdgeIndex == playerEdge)
+            CompletedIntoPlayer = true;
+
+        if (Height >= Level.Depth)
+            HandOffToRim(tuning);
+        else
+            programmedRouteStep = ProgrammedFlipperRouteStep.CompletionBoundary;
+    }
+
+    private void AdvanceProgrammedRouteBoundary(
+        Level level, int playerEdge, FlipperConfiguration tuning)
+    {
+        programmedFlipsRemaining--;
+        if (programmedFlipsRemaining > 0)
+        {
+            BeginProgrammedPivot(level);
+            return;
+        }
+
+        Direction = -Direction;
+        programmedPhaseIndex = (programmedPhaseIndex + 1) % Level7ObservedFlipCounts.Length;
+        programmedFlipsRemaining = Level7ObservedFlipCounts[programmedPhaseIndex];
+        if (programmedPhaseIndex != 0)
+        {
+            BeginProgrammedPivot(level);
+            return;
+        }
+
+        // Neal's arcade observation is a repeating 2-3-2-2-2 route; keep its route state
+        // per Flipper and retain the established lead-in only at the five-block boundary.
+        programmedRouteStep = ProgrammedFlipperRouteStep.LeadIn;
+        AdvanceProgrammedAlong(level, playerEdge, tuning);
+    }
+
+    private void HandOffToRim(FlipperConfiguration tuning)
+    {
+        programmedRouteStep = ProgrammedFlipperRouteStep.RimHandoff;
+        BeginPause(tuning.RimPauseTicks);
     }
 
     // +1 pivots toward PreviousEdge. Below-rim canflip/cargo retain their route direction;

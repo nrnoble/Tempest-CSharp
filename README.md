@@ -69,18 +69,17 @@ Flipper-only normal composition. `LevelConfiguration.Level2Square` is the
 single production Level 2 object and also powers the direct development
 launch. `Level` remains the mutable per-wave runtime.
 
-Normal play progresses from Level 1 to Level 2 and then to the existing
-`LevelConfiguration.Level3Mixed` after each successful standard exit. Wave
-clear and exit delay do not commit progression; score and current lives carry
-unchanged across both transitions. Fresh-level initialization gives Level 3
-the same accepted production mixed-wave setup used by direct development
-access, including two Super Zapper charges and a cleared flash. The Level 3
-configuration remains terminal; pressing R there starts a new Level 1
-campaign with reset score and configured starting lives. Game Over in a
-normal campaign also restarts at Level 1. Neal manually accepted the visible
-natural Level 1 -> Level 2 -> Level 3 progression, Level 3 entry/gameplay, and
-terminal/restart behavior in normal campaign play. This accepts the current
-C# progression and makes no new arcade-behavior claim. Natural progression now
+Normal play progresses through production Levels 1-7 only after each
+successful standard or Avoid Spikes exit completes its travel. Wave clear and
+exit delay do not commit progression; score and current lives carry unchanged.
+Fresh-level initialization installs the incoming production wave, restores two
+Super Zapper charges, clears its flash, and starts the interactive approach.
+Level 7 is terminal by **PROJECT DECISION**: pressing R there starts a fresh
+Level 1 campaign with reset score and configured starting lives. Game Over in
+a normal campaign also restarts at Level 1. Neal manually accepted the
+corrected Level 7 gameplay. This is acceptance of the visible C# gameplay, not
+a claim of exact arcade emulation. The natural Level 6 -> 7 handoff is covered
+by automated progression tests. Natural progression
 enters an interactive approach state for each incoming production level. Neal
 manually accepted the current approach presentation in normal campaign play:
 no ExitZoom handoff discontinuity, projection flash, wrong board, Blaster jump
@@ -304,7 +303,7 @@ graphically included in this diagnostic.
 The diagnostic is terminal and R replays it; Game Over restart stays on the
 same board. It conflicts with other scenario-selection flags and composes
 with `--lives` and the existing optional `--enemy-bullets-test`. Normal play
-progresses through Level 1 to terminal Level 6. Production
+progresses through Level 1 to terminal Level 7. Production
 Tanker mixed-wave access is provided separately below; the diagnostic remains
 Flipper-only. Level 1/2 wave policy and
 progression remain unchanged, but C1.5 changed directed enemy pivot
@@ -368,8 +367,7 @@ Later Spike-bearing levels may use a standard exit without this warning. Neal
 recalls recycled Levels 17 and 18 without Spikes, so Spike presence must remain
 explicit per level rather than inferred from a permanent
 `displayedLevel >= 4` rule. Neal recalls Level 8 as an open, V-shaped board;
-neither it nor later levels or open-rim gameplay is implemented. Level 7 and
-beyond are not implemented here.
+Level 8, later levels and open-rim gameplay remain unimplemented.
 
 Neal manually accepted the natural Level 1 -> Level 2 -> Level 3 -> Level 4
 campaign, late-wave Spiker behavior, and overall Level 4 feel. Level 4 -> 5
@@ -605,12 +603,12 @@ until arcade footage establishes its geometry and timing.
 ## Super Zapper
 
 The source-derived Super Zapper works in normal Level 1, natural Levels 2
-through 6, and every existing development wave. Space or the right mouse button
+through 7, and every existing development wave. Space or the right mouse button
 activates it on a press edge. Each fresh Level setup provides two charges; ordinary life
 loss preserves the remaining charge. Natural Level 1-to-2 progression restores
 two charges and clears flash state through fresh-wave initialization; Level
-2-to-3, 3-to-4, 4-to-5, and 5-to-6 use the same boundary. Normal Game Over and
-terminal Level 6 R start a new campaign. Fresh Level 3 and Level 4 charge states are project
+2-to-3, 3-to-4, 4-to-5, 5-to-6, and 6-to-7 use the same boundary. Normal Game Over and
+terminal Level 7 R start a new campaign. Fresh Level 3 and Level 4 charge states are project
 decisions, not a new manual arcade observation. Development replay keeps its
 established fresh-charge behavior. The first use assigns
 delays 4, 6, 8, ... to accepted enemies in source insertion order. The second
@@ -749,9 +747,9 @@ literal Incitti picker equivalence or new arcade verification. Level 6 uses a
 The existing successful-exit boundary installs a fresh Level 6 wave and
 ledger, carries score and lives, restores two Super Zapper charges, clears
 stale runtime targets, and begins the interactive approach. Exiting Level 5
-uses the existing mixed-color starfield. Level 6 completion is terminal as a
-temporary **PROJECT DECISION**; the reference continues to Level 7 clover, but
-Level 7 is not implemented.
+uses the existing mixed-color starfield. At this earlier implementation
+checkpoint, Level 6 was temporarily terminal; Level 7 production progression
+below supersedes that boundary.
 
 Direct Level 6 access is **DEVELOPMENT ONLY** and uses the same production
 configuration and Flipper firing phase without enabling campaign progression:
@@ -761,15 +759,97 @@ dotnet run --project src\Tempest.Game -- --level6-test --lives 10
 ```
 
 The direct test replays Level 6 on completion and restarts Level 6 after Game
-Over. Natural terminal Level 6 restarts a fresh Level 1 campaign. The focused
+Over. At that checkpoint, natural terminal Level 6 restarted a fresh Level 1
+campaign; current natural Level 6 progression enters Level 7. The focused
 Level 6/progression/exit suites passed 86 tests; the final solution run passed
 all 719 tests, and the solution build succeeded with zero warnings or errors.
 **LEVEL 6 MANUAL ACCEPTANCE: PASS (2026-11-04).** Neal played Level 6 multiple
 times, found no gameplay issues, and accepted it as the next production
-campaign milestone. Levels 1-6 are now the accepted production campaign
-foundation; Level 7 remains unimplemented. This accepts the C# gameplay, not
+campaign milestone. At that checkpoint, Levels 1-6 were the accepted production
+campaign foundation and Level 7 was unimplemented; the production Level 7
+section below supersedes that status. This accepts the C# gameplay, not
 arcade verification of exact timing, random composition, Spiker speed, firing
 constants, internal accounting, or other hidden mechanics.
+
+## Production Level 7 clover
+
+Natural Level 6 completion installs Level 7 only after its successful Avoid
+Spikes exit travel. The immutable production configuration uses Original
+Arcade board 6: progression/display/board/palette 6/7/6/0, closed 16-lane
+geometry, center Y 310, offset -10, depth 400, ready position 50, player lane
+7 at 0.5, 20 original obligations (four initial Eggs and 16 reserve), and 16
+height-60 starting Spikes. The source-ordered vertices are:
+
+```text
+(-160,160), (-179,44), (-89,0), (-179,-44), (-160,-160),
+(-44,-179), (0,-89), (44,-179), (160,-160), (179,-44),
+(89,0), (179,44), (160,160), (44,179), (0,89), (-44,179)
+```
+
+The ROM-backed supply of 20 intentionally takes precedence over Incitti's
+conflicting 25-original formula. Level 7's ordinary bottom-entry picker is
+ROM-shaped and Level-7-only: ordinary Flippers have a zero minimum and cannot
+be selected; Tankers use a 1/2 minimum/maximum and Spikers a 2/4
+minimum/maximum, with six active enemy slots. Tankers carry Flippers and
+consume one generic pending unit; their two children are accounted separately
+when released. Pulsars and Fuseballs remain excluded. Flipper firing uses
+successful-shot holdoff 62 and active-shot capacity 3. Avoid Spikes threshold
+30 means 31 avoidance updates, followed by the unchanged 21-update pretravel.
+Levels 4/5 retain 151 updates and Level 6 retains 71.
+
+**ARCADE VERIFIED:** Neal observed that individual Flippers do not enter
+Level 7 from the bottom, Tankers do and release Flippers, and the visible
+below-rim lane-change sequence is `2-3-2-2-2`. These observations were
+manually confirmed during final acceptance and supersede the earlier
+implementation interpretation of a repeating two/three route.
+The ROM's `$24` movement program is separately **ROM-BACKED** as
+2/reverse/3/reverse; the direct arcade observation takes precedence for this
+Level 7 correction. C# applies the observed five-block sequence with
+per-Flipper route state and reversals at block boundaries. The fixed initial
+physical direction `+1`, the route's repeat boundary, and numeric 60-Hz
+cadence (9-degree turn and 2-height climb increments) are **PROJECT
+APPROXIMATIONS**, not arcade-verified timing or handedness. Existing rim
+pursuit remains separate and unchanged.
+
+**ROM-BACKED:** Level 7 death reconstruction combines unresolved active and
+pending quantities into generic supply; it does not restore species or
+movement state. A one-unit selection starts as a Spiker. When a Spiker reaches
+the no-pending conversion point, the same unit can become a Flipper-carrying
+Tanker at the bottom, with no extra wave unit. In C#, unresolved species are
+cleared in the Level 7 ledger, released cargo units become generic re-entry
+records, and Tanker cargo remains two distinct children outside the carrier's
+pending-unit decrement. The C# conversion occurs at the existing Spiker
+return-to-bottom boundary; mapping ROM along-coordinate `$f2`/`$f0` to that
+height-zero transition is a **PROJECT APPROXIMATION**, not literal ROM timing.
+Natural/near-rim cargo keeps its existing path; deep player-shot Level 7 cargo
+uses the scoped programmed route and `Height <= 370` remains a named
+**PROJECT APPROXIMATION** for the ROM coordinate threshold.
+
+The safe Level 6 -> 7 boundary carries score/lives, creates a fresh ledger,
+Spikes, enemies and two Super Zapper charges, clears stale state, and uses the
+accepted mixed-color approach with rim movement but no firing or Zapper use.
+Level 7 is terminal by **PROJECT DECISION**; natural restart starts Level 1,
+while direct diagnostic replay remains Level 7. Level 8 is not implemented.
+`--level7-test` is **DEVELOPMENT ONLY** and uses the production configuration,
+movement, cargo policy, firing and normal gameplay systems; it is isolated
+from natural progression and composes with `--lives`.
+
+Automated validation for the arcade correction passed 37 focused Level 7/firing
+tests, 190 focused Level 1-7 and shared-seam regression tests, and all 743
+solution tests. `dotnet build TempestCSharp.slnx` succeeded with zero
+warnings/errors, and `git diff --check` passed. **LEVEL 7 MANUAL ACCEPTANCE:
+PASS.** Neal, an experienced original Tempest arcade player, judged the
+gameplay extremely difficult to distinguish from the arcade. This is a
+perceptual acceptance judgment, not cycle-exact equivalence. The exact
+one-enemy death/re-entry visual case was not manually reproduced and remains
+non-blocking; its ROM-backed behavior and automated tests are separate
+evidence. Levels 1-6 were not intentionally retuned. No Level 8, reference,
+recording, video/frame or audio implementation change was made.
+
+```powershell
+dotnet run --project src\Tempest.Game -- --level7-test --lives 10
+dotnet run --project src\Tempest.Game -- --lives 10
+```
 
 Sound-effect volume balance remains a separate, non-blocking deferred issue
 across the current game. Neal specifically identified the enemy-destruction/

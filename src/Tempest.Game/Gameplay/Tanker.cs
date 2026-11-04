@@ -124,6 +124,16 @@ public sealed class Tanker : Enemy
     // A shot hits only from below the Tanker's current height; there is no upper window.
     public bool IsHitBy(Shot shot) => shot.EdgeIndex == EdgeIndex && shot.Height < Height;
 
+    public bool UsesLevel7ProgrammedCargo(
+        LevelConfiguration configuration, TankerReleaseKind releaseKind)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        return configuration.BelowRimFlipperProgram ==
+                BelowRimFlipperProgram.Level7ArcadeObserved &&
+            releaseKind == TankerReleaseKind.PlayerShotDestruction &&
+            Height <= LevelConfiguration.Level7DeepCargoMaximumHeight;
+    }
+
     public override bool TryZap(int delay) => AcceptZap(delay);
 
     public bool HitsPlayer(Player player) => false;

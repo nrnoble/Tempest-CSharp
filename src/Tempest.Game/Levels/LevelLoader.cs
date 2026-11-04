@@ -57,4 +57,13 @@ public static class LevelLoader
 			new(68, -72), new(102, 0), new(137, 72), new(171, 145),
 			new(116, 145), new(54, 145), new(0, 145), new(-54, 145)
 		}), "Level 6 - triangle");
+
+	public static LevelDefinition LoadLevel7Clover() => new(true, 310, -10,
+		Array.AsReadOnly(new Vector2[]
+		{
+			new(-160, 160), new(-179, 44), new(-89, 0), new(-179, -44),
+			new(-160, -160), new(-44, -179), new(0, -89), new(44, -179),
+			new(160, -160), new(179, -44), new(89, 0), new(179, 44),
+			new(160, 160), new(44, 179), new(0, 89), new(-44, 179)
+		}), "Level 7 - clover");
 }

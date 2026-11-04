@@ -125,21 +125,106 @@ record the uncertainty rather than guessing.
   equivalence. The Level 6 avoid threshold is configured as 70 for exactly 71
   updates; Level 4 and 5 retain their 151-update waits. `--level6-test` is
   DEVELOPMENT ONLY, uses the exact production configuration and Flipper
-  firing phase, and remains isolated/replayable. Successful Level 6 completion
-  is temporarily terminal, with natural restart returning to a fresh Level 1
-  campaign. The reference proceeds to Level 7 clover; that level remains
-  unimplemented. Focused validation passed 86 tests; `dotnet test
+  firing phase, and remains isolated/replayable. At that implementation
+  checkpoint, successful Level 6 completion was temporarily terminal, with
+  natural restart returning to a fresh Level 1 campaign. The Level 7
+  implementation below supersedes that boundary. Focused validation passed 86 tests; `dotnet test
   TempestCSharp.slnx` passed all 719 tests, and `dotnet build
   TempestCSharp.slnx` succeeded with zero warnings/errors. These tests are
   evidence of C# behavior only and do not upgrade these findings to ARCADE
   VERIFIED.
 - **MANUALLY ACCEPTED (Level 6; 2026-11-04)** — Neal played Level 6 multiple
   times with no gameplay issues observed and accepted it as the next production
-  campaign milestone. **LEVEL 6 MANUAL ACCEPTANCE: PASS.** Levels 1-6 are now
-  the accepted production campaign foundation; Level 7 remains unimplemented.
+  campaign milestone. **LEVEL 6 MANUAL ACCEPTANCE: PASS.** Levels 1-6 are the
+  manually accepted production foundation; Level 7 acceptance is recorded below.
   This acceptance does not establish exact arcade timing, random composition,
   Spiker speed, firing constants, internal accounting, or other hidden
   mechanics as ARCADE VERIFIED. Existing evidence classifications remain.
+- **REFERENCE VERIFIED (Level 7 Incitti board findings)** — The Original Arcade
+  campaign's displayed Level 7 is the closed clover on board 6, palette 0,
+  with 16 vertices/lanes, center Y 310, offset -10, depth 400, ready position
+  50, and player reference lane 7. The source-ordered coordinates are
+  `(-160,160), (-179,44), (-89,0), (-179,-44), (-160,-160), (-44,-179),
+  (0,-89), (44,-179), (160,-160), (179,-44), (89,0), (179,44), (160,160),
+  (44,179), (0,89), (-44,179)`.
+- **ROM-BACKED (Level 7 source tables)** — The ROM table has 20 base wave
+  obligations before difficulty adjustment and selects Flippers, Tankers, and
+  Spikers; Pulsars and Fuseballs are excluded. The C# production choice uses
+  the table value 20 (four initial Eggs, 16 reserve), rather than Incitti's
+  conflicting 25-original formula. The ROM movement program is `$24`, which
+  traces as two completed adjacent flips, reverse, three, reverse, repeat,
+  with a lead-in at cycle start and no generic 20-tick lane pause. The ROM
+  firing values are holdoff 62 and three shot slots. Avoid Spikes threshold 30
+  means 31 updates, then the separate 21-update pretravel. These are source
+  findings, not new arcade observations; see
+  `Reference/arcade/Tempest Rom Source code.md` and the Original Arcade level set.
+- **ARCADE VERIFIED (scoped direct observation)** — Neal observed deep
+  player-shot Level 7 Tanker cargo siblings moving away in opposite
+  directions for two lane changes, reversing, then traveling at least three
+  more lane changes before another apparent reversal or rim arrival. This
+  records only the described cargo behavior; it does not establish exact
+  timing, height threshold, ordinary-Flipper initial handedness, or numeric
+  cadence.
+- **ARCADE VERIFIED (Level 7 corrections)** — Neal directly observed that
+  ordinary individual Flippers do not enter displayed Level 7 from the
+  bottom, Tankers enter and release Flippers, and the visible below-rim lane
+  changes follow `2-3-2-2-2`. The movement sequence supersedes the earlier
+  interpretation of a repeating two/three route for visible Level 7 behavior.
+  It does not revise accepted Levels 1-6 or establish numeric movement timing.
+- **ROM-BACKED (Level 7 supply and re-entry)** — The ROM table has Flipper
+  minimum/maximum 0/5, Tanker 1/2, Spiker 2/4, and a six-active-enemy cap.
+  The normal Level 7 picker cannot select an ordinary Flipper because its
+  selection paths require a nonzero species minimum. A Tanker consumes one
+  generic pending unit; its two Flipper children are allocated separately.
+  Death combines unresolved active-below-rim, at-rim, and already-pending
+  quantities into generic pending supply and does not restore prior species,
+  cargo association, or movement program. A literal one-unit reconstruction
+  selects a Spiker; when the no-pending condition is reached, the ROM can
+  convert that same Spiker slot into a Flipper-carrying Tanker at the bottom.
+  These are ROM traces, not observations of hidden arcade counters.
+- **PROJECT DECISION (Level 7 implementation)** —
+  Natural Level 6 progression commits to fresh Level 7 only after safe Spike
+  exit travel. It carries score/lives, starts a new 20-original ledger and
+  16 height-60 Spikes, restores two Zapper charges, clears stale state, and
+  uses the accepted mixed-color approach. Level 7 is terminal; natural
+  restart starts a fresh Level 1 campaign, while `--level7-test` remains an
+  isolated, production-configured diagnostic that replays Level 7 and
+  composes with `--lives`. The Level 7 route implements the arcade-observed
+  repeating `2-3-2-2-2` blocks with per-Flipper counters and a reversal at
+  each block boundary. Its repeat boundary, fixed initial direction `+1`,
+  9-degree turn/2-height cadence and zero below-rim lane pause are C# project
+  approximations, not arcade-verified timing or handedness. Ordinary bottom
+  Flippers are excluded by the Level 7 picker; Tanker cargo Flippers remain.
+  Existing 1-6 movement and selection remain on their accepted paths.
+  Tankers remain straight-lane climbers. Only deep player-shot Level 7 cargo
+  opts into the scoped route with opposite initial directions;
+  near-rim/natural cargo retains the accepted path. C# height `<=370` is a
+  named approximation for the ROM's along-coordinate threshold, not an exact
+  conversion. On Level 7 death, unresolved original selection is cleared and
+  released cargo is transferred to generic re-entry records; the C# identity
+  ledger remains for accounting. The final-pending Spiker conversion preserves
+  its identity and adds only latent Tanker cargo. Using the existing Spiker
+  return-to-height-zero boundary as the ROM `$f2`/`$f0` conversion point is a
+  project approximation. Fresh Eggs recreate route state rather than restoring
+  runtime phase. Level 8 remains unimplemented by scope. Automated tests are C#
+  behavior evidence only: 37 focused Level 7/firing tests, 190 focused Level
+  1-7/shared-seam regression tests, and all 743 solution tests passed. The
+  solution build succeeded with zero warnings/errors and `git diff --check`
+  passed. Neal's manual acceptance is recorded separately below.
+- **MANUALLY ACCEPTED (Level 7; 2026-11-04)** — Neal's final gameplay
+  comparison passed. He manually verified that individual Flippers do not
+  enter from the bottom, Tankers enter and release Flippers normally, and
+  below-rim Flippers follow the visible `2-3-2-2-2` lane-change pattern.
+  As a highly experienced original Tempest arcade player, Neal judged the
+  corrected Level 7 gameplay extremely difficult to distinguish from the
+  original arcade. This is a perceptual/manual acceptance judgment, not a
+  claim of cycle-exact or mathematically identical emulation. The specific
+  one-enemy death/re-entry visual case was **NOT MANUALLY REPRODUCED**; Neal
+  considers it non-blocking, not an observable gameplay problem, and may try
+  again later. Its underlying one-unit reconstruction and final-pending
+  behavior retain separate ROM-backed and automated-test evidence. Level 7
+  is accepted despite this unobserved visual corner case. Cadence, handedness,
+  repeat-boundary and coordinate mappings remain documented C# approximations.
 - **REFERENCE VERIFIED (D1 source findings)** — Displayed Level 4 is internal
   source index 3, board 3 ("binoculars"), palette group 0, with a closed
   16-lane board, center Y 380, offset -65, 17 original enemy obligations,
@@ -950,6 +1035,7 @@ These controls are test conveniences, not arcade level-selection or composition:
 | `--level3-test` | Direct graphical access to the existing production-shaped mixed Level 3 configuration; terminal replay without enabling natural progression. Production Tanker bullets are visible without `--enemy-bullets-test`; the natural progression Flipper firing phase is not enabled by this diagnostic alone. |
 | `--level4-test` | Direct access to the isolated Level 4 production candidate: binoculars board, 17 original obligations, randomized Flipper/Tanker/Spiker eligibility, persistent starting Spikes, and spike-avoid exit with its configured Avoid Spikes warning; terminal replay without natural progression. Visible behavior manually accepted; no claim of general arcade fidelity. |
 | `--level6-test` | Direct access to the production Level 6 triangle, 22-unit Flipper/Tanker/Spiker wave, starting Spikes, Level 6 Avoid Spikes timing, and production Flipper firing; terminal replay without natural progression. DEVELOPMENT ONLY; Level 6 C# gameplay manually accepted, not a claim of general arcade fidelity. |
+| `--level7-test` | Direct access to the production Level 7 clover, ROM-backed 20-original Flipper/Tanker/Spiker wave, starting Spikes, `2-3-2-2-2` ordinary and programmed deep-cargo Flipper routes, production firing, and Level 7 Avoid Spikes timing; isolated terminal replay, composes with `--lives`. DEVELOPMENT ONLY; Level 7 gameplay manually accepted, not a claim of general arcade fidelity. |
 | `--spiker-test` | Replaces the normal wave with a Spiker/Flipper test wave and height-60 spikes on every lane. |
 | `--tanker-test` | Replaces the normal wave with one controlled Tanker plus ordinary Flipper slots and cargo. |
 | `--fuseball-test` | Direct-hatches the ten-unit supply as Fuseballs, with source-derived late-wave hurry-up. |
@@ -1014,8 +1100,9 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   presentation/timing, Egg pacing, normal enemy-bullet frequency, Spiker and
   Tanker arcade eligibility/composition, and exit visuals need direct arcade
   comparison where they matter.
-- **PROJECT DECISION** — The temporary terminal after Level 6 and authentic
-  later-wave composition, open-tube rendering, bonus rules, broader
+- **PROJECT DECISION** — The former temporary terminal after Level 6 was
+  superseded by the accepted Level 7 production boundary. Authentic
+  post-Level-7 composition, open-tube rendering, bonus rules, broader
   enemy/cargo combinations, and source-specific death effects remain out of
   scope or deferred. Natural Level 1-to-Level 2-to-Level 3 progression has
   passed manual acceptance of visible C# behavior. Neal also manually accepted
@@ -1025,9 +1112,10 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   boundary. Together with the prior acceptance reconciliation, the implemented
   Level 1-5 production campaign completed manual acceptance in the recreation.
   Neal also played Level 6 multiple times and accepted it with no gameplay
-  issues observed. Levels 1-6 are now the accepted production campaign
-  foundation. The reference's continuation to Level 7 clover does not authorize
-  Level 7 implementation in this milestone. This does not establish hidden
+  issues observed. Levels 1-6 are the manually accepted production foundation;
+  the later Level 7 implementation extends natural progression, with Neal's
+  Level 7 manual acceptance was pending at that earlier checkpoint and was
+  completed later as recorded above. This does not establish hidden
   implementation details or general arcade fidelity; remaining uncertainties
   are recorded above. Audio fidelity remains a long-term roadmap item; the
   accepted C# audio system is documented separately.
