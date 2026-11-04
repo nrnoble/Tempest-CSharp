@@ -33,4 +33,19 @@ public sealed class InputDiagnosticTests
         Assert.True(DebugController.HasConflictingScenarios(
             ["--gameplay-playback", "--level2-test"]));
     }
+
+    [Fact]
+    public void LevelFourGameplayPlaybackSelectsAnExclusiveSeededScenario()
+    {
+        Assert.False(DebugController.UseLevel4GameplayPlayback([]));
+        Assert.False(DebugController.UseLevel4GameplayPlayback(["--GAMEPLAY-PLAYBACK-LEVEL4"]));
+        Assert.True(DebugController.UseLevel4GameplayPlayback(["--gameplay-playback-level4"]));
+        Assert.False(DebugController.HasConflictingScenarios(["--gameplay-playback-level4"]));
+        Assert.True(DebugController.HasConflictingScenarios(
+            ["--gameplay-playback-level4", "--gameplay-playback"]));
+        Assert.True(DebugController.HasConflictingScenarios(
+            ["--gameplay-playback-level4", "--level4-test"]));
+        Assert.False(DebugController.HasConflictingScenarios(
+            ["--gameplay-playback-level4", "--lives", "10", "--enemy-bullets-test"]));
+    }
 }

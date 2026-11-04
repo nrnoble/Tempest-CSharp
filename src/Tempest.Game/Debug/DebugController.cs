@@ -9,9 +9,11 @@ using Tempest.Game.Gameplay;
 /// square/canflip run; --level3-geometry-test selects a non-production plus-board geometry
 /// diagnostic. Both are terminal and do not enable progression. Scenario flags are mutually
 /// exclusive; --enemy-bullets-test (opt-in Flipper firing) and --lives (starting-life override)
-/// compose with any scenario or normal play. --level3-test directly selects the production-shaped
+/// compose with any scenario or normal play. --gameplay-playback selects a seeded Level 1 script;
+/// --gameplay-playback-level4 selects the same script on the production Level 4 configuration.
+/// --level3-test directly selects the production-shaped
 /// mixed Level 3 wave and remains terminal; --level3-geometry-test remains Flipper-only.
-/// --gameplay-playback runs a short seeded input sequence then returns to live input.
+/// Both playback commands return to live input when their short seeded sequence ends.
 /// --input-diagnostic instead opens a standalone development-only input window with no gameplay.
 /// </summary>
 public sealed class DebugController
@@ -21,6 +23,9 @@ public sealed class DebugController
 
 	public static bool UseGameplayPlayback(IEnumerable<string> arguments) =>
 		arguments.Contains("--gameplay-playback", StringComparer.Ordinal);
+
+	public static bool UseLevel4GameplayPlayback(IEnumerable<string> arguments) =>
+		arguments.Contains("--gameplay-playback-level4", StringComparer.Ordinal);
 
 	public static bool UseSpikerWave(IEnumerable<string> arguments) =>
 		arguments.Contains("--spiker-test", StringComparer.Ordinal);
@@ -55,6 +60,7 @@ public sealed class DebugController
 
 	public static bool HasConflictingScenarios(IEnumerable<string> arguments) =>
 		(UseGameplayPlayback(arguments) ? 1 : 0) +
+		(UseLevel4GameplayPlayback(arguments) ? 1 : 0) +
 		(UseLevel2Test(arguments) ? 1 : 0) + (UseLevel3Test(arguments) ? 1 : 0) +
 		(UseLevel4Test(arguments) ? 1 : 0) +
 		(UseLevel3GeometryTest(arguments) ? 1 : 0) +

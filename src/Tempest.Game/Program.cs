@@ -2,8 +2,9 @@
 // Raylib window, input and rendering together; all gameplay simulation belongs in TempestGame so
 // it stays headless-testable. Keep it that way — logic added here is invisible to the test suite.
 //
-// Development command-line modes (see DebugController): --gameplay-playback runs a seeded input
-// sequence; --level2-test, --level3-test and --level4-test select direct production configurations;
+// Development command-line modes (see DebugController): --gameplay-playback runs a seeded Level 1
+// input sequence; --gameplay-playback-level4 runs it on the production Level 4 configuration;
+// --level2-test, --level3-test and --level4-test select direct production configurations;
 // --level3-geometry-test selects plus-board geometry only; --spiker-test, --tanker-test,
 // --fuseball-test and --pulsar-test select isolated enemy waves. These scenarios are mutually
 // exclusive; --enemy-bullets-test and --lives compose with any.
@@ -13,10 +14,11 @@ using Tempest.Game;
 using Tempest.Game.Rendering;
 using Tempest.Game.Systems;
 using Tempest.Game.Debug;
+using Tempest.Game.Levels;
 
 if (DebugController.HasConflictingScenarios(args))
 {
-    Console.Error.WriteLine("--gameplay-playback, --level2-test, --level3-test, --level4-test, --level3-geometry-test, --tanker-test, --spiker-test, --fuseball-test and --pulsar-test are mutually exclusive.");
+    Console.Error.WriteLine("--gameplay-playback, --gameplay-playback-level4, --level2-test, --level3-test, --level4-test, --level3-geometry-test, --tanker-test, --spiker-test, --fuseball-test and --pulsar-test are mutually exclusive.");
     return 2;
 }
 
@@ -33,9 +35,14 @@ bool level4Test = DebugController.UseLevel4Test(args);
 bool level3GeometryTest = DebugController.UseLevel3GeometryTest(args);
 PlayerInputReplay? playback = DebugController.UseGameplayPlayback(args)
     ? GameplayPlayback.CreateDemo()
+    : DebugController.UseLevel4GameplayPlayback(args)
+        ? GameplayPlayback.CreateDemo(LevelConfiguration.Level4Candidate)
     : null;
+bool level4Playback = playback is not null &&
+    ReferenceEquals(playback.StartingConfiguration, LevelConfiguration.Level4Candidate);
 Raylib.InitWindow(VectorRenderer.ScreenWidth, VectorRenderer.ScreenHeight,
-    playback is not null ? "Tempest C# - Deterministic Gameplay Playback" :
+    playback is not null
+        ? $"Tempest C# - Deterministic Gameplay Playback - Level {playback.StartingConfiguration.DisplayedLevel}" :
     level2Test ? "Tempest C# - Development Level 2 Square Test" :
     level3Test ? "Tempest C# - Development Level 3 Mixed Wave Test" :
     level4Test ? "Tempest C# - Development Level 4 Production Candidate" :
@@ -61,7 +68,7 @@ try
         level2Test: level2Test,
         level3Test: level3Test,
         level3GeometryTest: level3GeometryTest,
-        level4Test: level4Test,
+        level4Test: level4Test || level4Playback,
         audioEvents: audio);
     InputSystem input = new();
     VectorRenderer renderer = new(game);
@@ -70,7 +77,7 @@ try
 
     while (!input.QuitRequested())
     {
-        bool replaying = playback is not null && simulationTick < playback.DurationTicks;
+        bool replaying = playback is not null && playback.IsActiveAt(simulationTick);
         // Death and ordinary exit delay stay frozen. Actual exit travel polls movement input;
         // the simulation retains the separate ordinary/Spike firing gates.
         if (game.GameOver || game.LevelComplete)

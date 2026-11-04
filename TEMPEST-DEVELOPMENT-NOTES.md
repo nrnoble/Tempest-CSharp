@@ -1849,14 +1849,28 @@ produce matching gameplay state in headless tests, including during a bounded
 240-tick playback. This guarantees repeatability for the same runtime and
 random implementation, not cross-runtime replay compatibility.
 
-The small `PlayerInputReplay` representation stores a random seed, duration,
-and tick-indexed input/restart frames; omitted ticks mean neutral input.
-`--gameplay-playback` runs one seeded Level 1 demonstration through the normal
-simulation and renderer, then returns control to live input. It includes
-keyboard-style movement, fire, and Super Zapper input. This is a scripted
-playback seam, not a recorder or serialized replay format. It does not record
-the initial scenario/configuration or random-generator state, and it does not
-provide an AI player or a complete attract screen.
+The small `PlayerInputReplay` representation stores the starting
+`LevelConfiguration`, random seed, duration, and tick-indexed input/restart
+frames; omitted ticks mean neutral input. `--gameplay-playback` runs the seeded
+Level 1 demonstration. `--gameplay-playback-level4` selects the existing
+production `LevelConfiguration.Level4Candidate` and runs the same scripted
+movement, fire, and Super Zapper inputs there. Both use the normal `TempestGame`
+initialization, fixed-step simulation, and renderer; the Level 4 option reuses
+the established isolated Level 4 startup path and does not simulate campaign
+progression. Level 4 adds the production mixed enemy wave and starting Spike
+layout, making its direct inspection useful without playing through Levels
+1-3. When the 240-tick script ends, live input resumes.
+
+Scenario-selectable playback is useful for focused visual checks of meaningful
+gameplay and later-level behavior without manually completing earlier levels.
+Headless unit/integration and campaign tests remain the routine automated
+regression path; visible playback is selective manual verification, not a
+replacement for those tests. Normal manual gameplay remains the final
+arcade-fidelity and playability authority. The playback is still a scripted
+seam, not a recorder or serialized replay format. Only the Level 1 and Level 4
+production configurations are selectable from the command line; arbitrary
+scenario setup, serialized random-generator state, recorded-player replay, AI
+play, and a complete attract screen remain unsupported.
 
 The four validation layers remain complementary: unit/integration tests
 protect precise mechanics; headless gameplay and campaign soak tests rapidly
@@ -1873,9 +1887,41 @@ manual project acceptance of the visible demonstration, not arcade/reference
 verification. Playback does not make every automated test visible or replace
 headless regression or manual gameplay acceptance.
 
-Future arcade-style attract mode may reuse deterministic recorded-player
-playback infrastructure, but recording and attract mode remain future work.
-Any such work must not replace headless regression or normal manual acceptance.
+**Completed playback checkpoints:** commit `3723c45` established seeded,
+tick-indexed Level 1 playback with live-input handoff. This checkpoint builds
+on that foundation and adds selectable Level 4 playback using the existing
+production configuration and direct initialization path. Level 1 and Level 4
+are now the two supported visible deterministic playback scenarios.
+
+Neal manually accepted the Level 4 playback on 2026-11-03. He verified that it
+opens directly on Level 4 without playing Levels 1-3; shows the expected Level
+4 board, mixed wave, and Spikes; moves and fires the Blaster autonomously; and
+activates Super Zapper normally. The sequence looked like ordinary production
+gameplay. After roughly four seconds, autonomous input stopped and spinner
+and button control resumed normally. No obvious Level 4 regression, crash, or
+malformed startup was observed. This is manual project acceptance of the
+scenario-selectable playback infrastructure, not arcade/reference
+verification of the scripted sequence.
+
+The next deterministic-playback checkpoint is to investigate
+scenario-appropriate scripted input profiles. The current Level 1 and Level 4
+options reuse the same input profile; the next step should give selected
+scenarios inputs that meaningfully exercise the gameplay being observed,
+rather than only proving generic movement, fire, and Super Zapper input there.
+Do not implement that work as part of this checkpoint or prematurely expand it
+into arbitrary scenario setup.
+
+Headless automated tests remain the routine efficient regression path. Visible
+playback remains selective manual verification when watching behavior adds
+useful confidence, and normal manual gameplay remains the final authority for
+arcade fidelity and playability.
+
+Longer-term deferred work includes arbitrary scenario setup where genuinely
+useful, recorded-player replay, replay-file persistence if later justified,
+and eventual arcade-style attract mode using deterministic recorded-player
+playback if feasible. Do not treat these as the next checkpoint. None should
+replace headless regression or normal manual acceptance, and playback
+infrastructure must not be described as arcade verification.
 
 Focused D1 tests cover configuration/ordered points, all 32 directed
 transitions, finite tube/entity projections, lane highlighting, Spiker

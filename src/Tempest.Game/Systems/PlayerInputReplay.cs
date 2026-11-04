@@ -1,3 +1,5 @@
+using Tempest.Game.Levels;
+
 namespace Tempest.Game.Systems;
 
 public readonly record struct PlayerInputFrame(
@@ -9,9 +11,11 @@ public sealed class PlayerInputReplay
 
 	public int RandomSeed { get; }
 	public int DurationTicks { get; }
+	public LevelConfiguration StartingConfiguration { get; }
 
 	public PlayerInputReplay(
-		int randomSeed, int durationTicks, IEnumerable<PlayerInputFrame> frames)
+		int randomSeed, int durationTicks, IEnumerable<PlayerInputFrame> frames,
+		LevelConfiguration? startingConfiguration = null)
 	{
 		ArgumentNullException.ThrowIfNull(frames);
 		if (randomSeed < 0)
@@ -19,6 +23,7 @@ public sealed class PlayerInputReplay
 		if (durationTicks < 0)
 			throw new ArgumentOutOfRangeException(nameof(durationTicks));
 
+		StartingConfiguration = startingConfiguration ?? LevelConfiguration.Level1;
 		Dictionary<int, PlayerInputFrame> indexedFrames = [];
 		foreach (PlayerInputFrame frame in frames)
 		{
@@ -33,6 +38,14 @@ public sealed class PlayerInputReplay
 		RandomSeed = randomSeed;
 		DurationTicks = durationTicks;
 		this.frames = indexedFrames;
+	}
+
+	public bool IsActiveAt(int simulationTick)
+	{
+		if (simulationTick < 0)
+			throw new ArgumentOutOfRangeException(nameof(simulationTick));
+
+		return simulationTick < DurationTicks;
 	}
 
 	public PlayerInputFrame GetFrame(int simulationTick)

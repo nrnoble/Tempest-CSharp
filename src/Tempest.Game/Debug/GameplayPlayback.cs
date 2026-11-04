@@ -1,3 +1,4 @@
+using Tempest.Game.Levels;
 using Tempest.Game.Systems;
 
 namespace Tempest.Game.Debug;
@@ -7,7 +8,8 @@ public static class GameplayPlayback
 	private const int DemoRandomSeed = 1981;
 	private const int DemoDurationTicks = 240;
 
-	public static PlayerInputReplay CreateDemo()
+	public static PlayerInputReplay CreateDemo(
+		LevelConfiguration? startingConfiguration = null)
 	{
 		List<PlayerInputFrame> frames = [];
 		for (int tick = 0; tick < DemoDurationTicks; tick++)
@@ -25,6 +27,7 @@ public static class GameplayPlayback
 				frames.Add(new PlayerInputFrame(tick, playerInput));
 		}
 
-		return new PlayerInputReplay(DemoRandomSeed, DemoDurationTicks, frames);
+		return new PlayerInputReplay(DemoRandomSeed, DemoDurationTicks, frames,
+			startingConfiguration);
 	}
 }

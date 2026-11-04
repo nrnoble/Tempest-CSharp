@@ -1,4 +1,5 @@
 using Tempest.Game.Debug;
+using Tempest.Game.Levels;
 using Tempest.Game.Systems;
 using Xunit;
 
@@ -19,10 +20,15 @@ public sealed class GameplayPlaybackTests
 
         Assert.Equal(4225, replay.RandomSeed);
         Assert.Equal(4, replay.DurationTicks);
+        Assert.Same(LevelConfiguration.Level1, replay.StartingConfiguration);
+        Assert.True(replay.IsActiveAt(0));
+        Assert.True(replay.IsActiveAt(3));
+        Assert.False(replay.IsActiveAt(4));
         Assert.Equal(new PlayerInputFrame(0, default), replay.GetFrame(0));
         Assert.Equal(new PlayerInputFrame(1, movement), replay.GetFrame(1));
         Assert.Equal(new PlayerInputFrame(2, default), replay.GetFrame(2));
         Assert.Equal(new PlayerInputFrame(3, default, RestartPressed: true), replay.GetFrame(3));
+        Assert.Throws<ArgumentOutOfRangeException>(() => replay.IsActiveAt(-1));
         Assert.Throws<ArgumentOutOfRangeException>(() => replay.GetFrame(4));
     }
 
@@ -32,6 +38,10 @@ public sealed class GameplayPlaybackTests
         PlayerInputReplay replay = GameplayPlayback.CreateDemo();
         TempestGame first = new(random: new Random(replay.RandomSeed));
         TempestGame second = new(random: new Random(replay.RandomSeed));
+
+        Assert.Same(LevelConfiguration.Level1, replay.StartingConfiguration);
+        Assert.Same(replay.StartingConfiguration, first.CurrentLevel.Configuration);
+        Assert.True(first.NaturalProgressionEnabled);
 
         for (int tick = 0; tick < replay.DurationTicks; tick++)
         {
@@ -43,6 +53,37 @@ public sealed class GameplayPlaybackTests
             if ((tick + 1) % 30 == 0)
                 AssertEquivalentGameplayState(first, second);
         }
+    }
+
+    [Fact]
+    public void SeededVisibleDemoSelectsAndReproducesTheLevelFourProductionConfiguration()
+    {
+        PlayerInputReplay replay = GameplayPlayback.CreateDemo(LevelConfiguration.Level4Candidate);
+        TempestGame first = new(level4Test: true, random: new Random(replay.RandomSeed));
+        TempestGame second = new(level4Test: true, random: new Random(replay.RandomSeed));
+        float initialPlayerPosition = first.Player.EdgePosition;
+        bool sawPlayerShot = false;
+
+        Assert.Same(LevelConfiguration.Level4Candidate, replay.StartingConfiguration);
+        Assert.Same(replay.StartingConfiguration, first.CurrentLevel.Configuration);
+        Assert.Equal(4, first.CurrentLevel.Configuration.DisplayedLevel);
+        Assert.False(first.NaturalProgressionEnabled);
+        Assert.Equal(16, first.Spikes.Count);
+        Assert.All(first.Spikes, spike => Assert.Equal(60, spike.Height));
+
+        for (int tick = 0; tick < replay.DurationTicks; tick++)
+        {
+            PlayerInputFrame frame = replay.GetFrame(tick);
+            first.RunOneStep(frame.Input, frame.RestartPressed);
+            second.RunOneStep(frame.Input, frame.RestartPressed);
+            sawPlayerShot |= first.Shots.Count > 0;
+
+            if ((tick + 1) % 30 == 0)
+                AssertEquivalentGameplayState(first, second);
+        }
+
+        Assert.NotEqual(initialPlayerPosition, first.Player.EdgePosition);
+        Assert.True(sawPlayerShot);
     }
 
     private static void AssertEquivalentGameplayState(TempestGame first, TempestGame second)
