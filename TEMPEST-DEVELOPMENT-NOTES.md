@@ -1829,12 +1829,53 @@ later-level content, palette cycling, open-tube support, or score rollover.
 
 The eventual recreation should include an arcade-style attract mode in which
 the game plays itself. Prefer deterministic replay of recorded real player
-input over an AI-controlled player. The existing fixed-step simulation and
-input-injection architecture appears promising, but implementation must wait
-for a dedicated determinism audit covering all randomness and simulation
-state. If reliable, the same replay facility may also support reproducible
-regression tests and debugging. This is long-term design only; no recording,
-playback, input abstraction, replay, or random-seed redesign is included here.
+input over an AI-controlled player. A determinism audit found that
+`TempestGame.RunOneStep` advances exactly one simulation update per call and
+contains no wall-clock reads. `Program` calls it once per rendered frame and
+asks Raylib to target 60 FPS; there is no elapsed-time accumulator, so a slow
+render frame slows the simulation rather than catching up with extra updates.
+`VectorRenderer.Draw` reads game state and does not advance gameplay.
+`InputSystem.ReadPlayer` maps Ctrl/left mouse to held fire, mouse delta to
+spinner movement, arrow keys and the left gamepad axis to lane movement, and
+Space/right-mouse press to Super Zapper. R/P restart is passed separately;
+headless tests already call the same `RunOneStep(PlayerInput, ...)` seam.
+
+The game accepts a `Random` instance; all gameplay random draws in
+`TempestGame` and its `Level` instances use that injected source. A standalone
+`Level` uses `Random.Shared` only when no random callback is supplied. Equal
+initial game configuration, equal seeded `Random`, and identical
+`PlayerInput`/restart values on each simulation tick have been proven to
+produce matching gameplay state in headless tests, including during a bounded
+240-tick playback. This guarantees repeatability for the same runtime and
+random implementation, not cross-runtime replay compatibility.
+
+The small `PlayerInputReplay` representation stores a random seed, duration,
+and tick-indexed input/restart frames; omitted ticks mean neutral input.
+`--gameplay-playback` runs one seeded Level 1 demonstration through the normal
+simulation and renderer, then returns control to live input. It includes
+keyboard-style movement, fire, and Super Zapper input. This is a scripted
+playback seam, not a recorder or serialized replay format. It does not record
+the initial scenario/configuration or random-generator state, and it does not
+provide an AI player or a complete attract screen.
+
+The four validation layers remain complementary: unit/integration tests
+protect precise mechanics; headless gameplay and campaign soak tests rapidly
+cover game-state regressions and remain the normal efficient automated path;
+visible playback is used selectively when watching a scenario materially
+improves manual verification; and normal manual gameplay remains the final
+authority for arcade fidelity, rendering/audio, responsiveness and playability.
+
+Neal manually accepted the `--gameplay-playback` demonstration on 2026-11-03:
+the Blaster moved and fired autonomously, the Super Zapper operated normally,
+the sequence looked like ordinary gameplay rather than a test visualization,
+and live spinner/button control resumed normally when playback ended. This is
+manual project acceptance of the visible demonstration, not arcade/reference
+verification. Playback does not make every automated test visible or replace
+headless regression or manual gameplay acceptance.
+
+Future arcade-style attract mode may reuse deterministic recorded-player
+playback infrastructure, but recording and attract mode remain future work.
+Any such work must not replace headless regression or normal manual acceptance.
 
 Focused D1 tests cover configuration/ordered points, all 32 directed
 transitions, finite tube/entity projections, lane highlighting, Spiker

@@ -23,4 +23,14 @@ public sealed class InputDiagnosticTests
         Assert.True(DebugController.HasConflictingScenarios(
             ["--input-diagnostic", "--level2-test", "--level3-geometry-test"]));
     }
+
+    [Fact]
+    public void GameplayPlaybackIsOptInAndExclusiveWithOtherScenarios()
+    {
+        Assert.False(DebugController.UseGameplayPlayback([]));
+        Assert.True(DebugController.UseGameplayPlayback(["--gameplay-playback"]));
+        Assert.False(DebugController.HasConflictingScenarios(["--gameplay-playback"]));
+        Assert.True(DebugController.HasConflictingScenarios(
+            ["--gameplay-playback", "--level2-test"]));
+    }
 }

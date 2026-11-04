@@ -11,12 +11,16 @@ using Tempest.Game.Gameplay;
 /// exclusive; --enemy-bullets-test (opt-in Flipper firing) and --lives (starting-life override)
 /// compose with any scenario or normal play. --level3-test directly selects the production-shaped
 /// mixed Level 3 wave and remains terminal; --level3-geometry-test remains Flipper-only.
+/// --gameplay-playback runs a short seeded input sequence then returns to live input.
 /// --input-diagnostic instead opens a standalone development-only input window with no gameplay.
 /// </summary>
 public sealed class DebugController
 {
 	public static bool UseInputDiagnostic(IEnumerable<string> arguments) =>
 		arguments.Contains("--input-diagnostic", StringComparer.Ordinal);
+
+	public static bool UseGameplayPlayback(IEnumerable<string> arguments) =>
+		arguments.Contains("--gameplay-playback", StringComparer.Ordinal);
 
 	public static bool UseSpikerWave(IEnumerable<string> arguments) =>
 		arguments.Contains("--spiker-test", StringComparer.Ordinal);
@@ -50,6 +54,7 @@ public sealed class DebugController
 		arguments.Contains("--pulsar-test", StringComparer.Ordinal);
 
 	public static bool HasConflictingScenarios(IEnumerable<string> arguments) =>
+		(UseGameplayPlayback(arguments) ? 1 : 0) +
 		(UseLevel2Test(arguments) ? 1 : 0) + (UseLevel3Test(arguments) ? 1 : 0) +
 		(UseLevel4Test(arguments) ? 1 : 0) +
 		(UseLevel3GeometryTest(arguments) ? 1 : 0) +
