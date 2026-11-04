@@ -79,14 +79,32 @@ record the uncertainty rather than guessing.
   Spikers; Pulsars and Fuseballs are excluded. This is the fifth row of
   `Reference/incitti/levelsets/levelset1.txt`; the separate custom
   `levelset5.txt` is not the Original Arcade campaign.
-- **PROJECT DECISION (Level 5 implementation; manual acceptance pending)** —
+- **PROJECT DECISION (Level 5 implementation; visible behavior manually accepted)** —
   Natural Level 4 installs this configuration only after the successful
   Avoid Spikes exit; score/lives carry and fresh-level state follow the
   existing setup path. The transition remains blue because star colors use
   the exited level. Level 5 completion remains terminal with no Level 6.
   Automated tests protect the configuration, ledger reconstruction, handoff,
-  fresh Super Zapper, and terminal boundary. This does not claim manual or
-  visual acceptance of Level 5.
+  fresh Super Zapper, and terminal boundary. Neal completed manual acceptance
+  through natural production progression:
+  - **Level 4 -> 5:** Level 4 completed normally, with normal avoid/shoot
+    Spikes exit behavior. The blue-star transition, upcoming cross-shaped
+    Level 5 tube, `SUPERZAPPER RECHARGE` message, and spinner-controlled
+    Blaster during approach appeared normal; arrival was seamless.
+  - **Level 5 startup/gameplay:** The HUD, cross-shaped board, carried score
+    and remaining lives, and starting Spikes were correct. Flippers, Tankers
+    and released cargo, and Spikers behaved normally. Pulsars and Fuseballs
+    did not appear. Two fresh Super Zapper charges were available at startup,
+    and Super Zapper behavior appeared normal.
+  - **Level 5 completion:** Neal finished the wave normally and reached the
+    existing terminal behavior without Level 6 beginning. No crash, bad
+    transition, observed accounting problem, malformed board, or other
+    obvious regression occurred.
+  Together with the previously reconciled manual validation, this completes
+  manual acceptance of the implemented production campaign through Level 5
+  in the recreation. The accepted Level 1-5 foundation is the baseline for
+  the next milestone; Level 6 remains unimplemented. These observations do
+  not establish arcade equivalence, hidden accounting, or exact timing.
 - **REFERENCE VERIFIED (D1 source findings)** — Displayed Level 4 is internal
   source index 3, board 3 ("binoculars"), palette group 0, with a closed
   16-lane board, center Y 380, offset -65, 17 original enemy obligations,
@@ -966,8 +984,11 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   scope or deferred. Natural Level 1-to-Level 2-to-Level 3 progression has
   passed manual acceptance of visible C# behavior. Neal also manually accepted
   the natural Level 3 -> Level 4 handoff and Level 4 campaign, including the
-  corrected firing boundary. The Level 4 -> 5 implementation still awaits
-  manual acceptance. This does not establish hidden
+  corrected firing boundary. Neal has now manually accepted natural Level
+  4 -> 5, Level 5 startup/gameplay, and completion into the existing terminal
+  boundary. Together with the prior acceptance reconciliation, the implemented
+  Level 1-5 production campaign has completed manual acceptance in the
+  recreation; Level 6 remains unimplemented. This does not establish hidden
   implementation details or general arcade fidelity; remaining uncertainties
   are recorded above. Audio fidelity remains a long-term roadmap item; the
   accepted C# audio system is documented separately.
@@ -988,7 +1009,8 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   enemy-start timing or exact firing enablement.
 - **PROJECT DECISION (implementation; combined presentation manually accepted)** —
   Natural production progression enters an explicit approach state after the
-  successful exit commit for Level 1 -> 2, Level 2 -> 3, and Level 3 -> 4. The incoming
+  successful exit commit for Level 1 -> 2, Level 2 -> 3, Level 3 -> 4, and
+  Level 4 -> 5. The incoming
   configuration and fresh wave are installed at approach start, but gameplay
   simulation is frozen until arrival. Spinner, keyboard and left-stick (with a project 0.15 normalized dead zone)
   movement remain enabled; fire and Super Zapper are suppressed. Rendering
@@ -1013,8 +1035,11 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   timing and exact arrival projection, not subjective fidelity. Neal manually
   accepted the combined presentation and requested it be retained. The
   Level 4 -> 5 approach remains blue because colors follow the exited level.
-  The new Level 5 progression has automated coverage but awaits manual
-  gameplay acceptance.
+  Neal has now manually accepted the Level 4 -> 5 approach through natural
+  production progression: blue stars, the upcoming cross-shaped tube, recharge
+  message, spinner-controlled Blaster, and seamless arrival all appeared normal.
+  This accepts the recreation's presentation without establishing new arcade
+  evidence or measured timing.
 
 ## 12. Behavior-validation history
 

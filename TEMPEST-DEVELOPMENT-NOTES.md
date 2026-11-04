@@ -1759,8 +1759,35 @@ terminal Level 5 boundary.
 **AUTOMATED TESTED:** exact configuration, production-ledger reconstruction,
 Level 4 -> 5 handoff/state carry/recharge/star color, and Level 5 terminal
 completion.
-Manual Level 4 -> 5 and Level 5 gameplay acceptance remains pending; no
-visual/arcade acceptance is claimed.
+
+### Final natural-progression manual acceptance
+
+**MANUALLY ACCEPTED — C# recreation:** Neal completed the remaining acceptance
+run through natural production progression:
+
+- **Level 4 -> 5 transition:** Level 4 completed normally; avoiding/shooting
+  Spikes during exit worked normally. The blue-star transition, upcoming
+  cross-shaped Level 5 tube, `SUPERZAPPER RECHARGE` message, and
+  spinner-controlled Blaster during approach appeared normal. Arrival into
+  Level 5 was seamless.
+- **Level 5 startup/gameplay:** The HUD, cross-shaped board, carried score and
+  remaining lives, and starting Spikes were correct. Flippers, Tankers and
+  released cargo, and Spikers behaved normally; Pulsars and Fuseballs did not
+  appear. Level 5 began with two fresh Super Zapper charges, and Super Zapper
+  behavior appeared normal.
+- **Level 5 completion:** Neal finished the wave normally and reached the
+  existing terminal behavior; Level 6 did not begin. No crash, bad transition,
+  observed accounting problem, malformed board, or other obvious regression
+  occurred.
+
+The prior reconciliation established that earlier or later manual validation
+covered the remaining original acceptance requirements. Natural production
+progression through Levels 1-5 is now manually accepted, including the Level
+4 -> 5 transition, Level 5 startup/gameplay, and Level 5 completion into the
+existing terminal boundary. This accepted Level 1-5 production foundation is
+the baseline for the next development milestone. Level 6 remains unimplemented
+at this checkpoint. These observations accept the recreation; they do not
+establish new arcade evidence, hidden accounting, or exact timing.
 
 The accepted render-only player-death retraction timing and Blaster animation
 were not changed. Level 4 uses palette-0 lane highlighting and the shared
