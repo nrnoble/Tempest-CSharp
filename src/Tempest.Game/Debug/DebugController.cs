@@ -2,6 +2,14 @@ namespace Tempest.Game.Debug;
 using System.Globalization;
 using Tempest.Game.Gameplay;
 
+public enum GameplayFileMode
+{
+	Record,
+	Playback
+}
+
+public sealed record GameplayFileCommand(GameplayFileMode Mode, string Path);
+
 /// <summary>
 /// Parses the development/testing command-line switches. These are controlled engineering tools
 /// for exercising one mechanic in isolation; they are not the finished arcade level-selection or
@@ -18,6 +26,54 @@ using Tempest.Game.Gameplay;
 /// </summary>
 public sealed class DebugController
 {
+	public static bool TryParseGameplayFileCommand(
+		IReadOnlyList<string> arguments,
+		out GameplayFileCommand? command,
+		out string? error)
+	{
+		command = null;
+		error = null;
+		int optionIndex = -1;
+		GameplayFileMode mode = default;
+
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			GameplayFileMode? foundMode = arguments[index] switch
+			{
+				"--record-gameplay" => GameplayFileMode.Record,
+				"--playback-file" => GameplayFileMode.Playback,
+				_ => null
+			};
+			if (foundMode is null)
+				continue;
+			if (optionIndex >= 0)
+			{
+				error = "Recording and file playback are mutually exclusive and may be specified only once.";
+				return false;
+			}
+
+			optionIndex = index;
+			mode = foundMode.Value;
+		}
+
+		if (optionIndex < 0)
+			return true;
+		if (optionIndex != 0 || arguments.Count > 2)
+		{
+			error = "Use exactly one gameplay file mode followed by its path; these modes cannot be combined with other options.";
+			return false;
+		}
+		if (arguments.Count < 2 || string.IsNullOrWhiteSpace(arguments[1]) ||
+			arguments[1].StartsWith("--", StringComparison.Ordinal))
+		{
+			error = $"The {arguments[0]} option requires an explicit file path.";
+			return false;
+		}
+
+		command = new GameplayFileCommand(mode, arguments[1]);
+		return true;
+	}
+
 	public static bool UseInputDiagnostic(IEnumerable<string> arguments) =>
 		arguments.Contains("--input-diagnostic", StringComparer.Ordinal);
 

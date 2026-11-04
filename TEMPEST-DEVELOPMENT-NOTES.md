@@ -2176,3 +2176,75 @@ Manual launch commands:
 dotnet run --project src/Tempest.Game
 dotnet run --project src/Tempest.Game -- --pulsar-test --lives 10
 ```
+
+### Recorded-input round-trip playback (accepted and frozen)
+
+This section supersedes the earlier note that replay-file persistence remained
+deferred. Neal has completed manual visual acceptance of the record/replay
+round trip; the recorded-input playback implementation is now frozen as accepted.
+
+The new recording mode captures the effective `PlayerInput` and separate restart
+input supplied to each `TempestGame.RunOneStep` call, in simulation-tick order.
+The current main loop advances once per rendered frame at its 60 FPS target and
+has no catch-up accumulator; a slow render frame slows simulation rather than
+creating additional ticks. Recording therefore adds exactly one input frame for
+each simulation call, including neutral input during frozen gameplay states.
+Normal close saves the completed file using a same-directory temporary file and
+a non-overwriting move. Forced termination does not preserve a partial session.
+
+The human-readable JSON format identifier is `tempest-gameplay-input`, current
+format version `1`. It stores the deterministic random seed, starting scenario
+identifier (`level1`), exact simulation-tick duration, and one ordered entry for
+each tick. Each entry contains all `PlayerInput` fields and the separately
+sampled restart control. The file stores only starting metadata and player
+inputs: evolving enemies, player position, score, collisions, Spikes, level
+transitions, and random outcomes remain the responsibility of the production
+simulation. Loading rejects malformed data, unsupported identifiers/versions
+or scenarios, and incomplete or non-contiguous frame sequences.
+
+File recording currently starts only from a new ordinary Level 1 game using
+default starting lives. It does not capture an already-running game or support
+arbitrary scenarios. Run the following separately from the repository root:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --record-gameplay Temp\GameplayRecordings\manual-roundtrip.json
+dotnet run --project src\Tempest.Game -- --playback-file Temp\GameplayRecordings\manual-roundtrip.json
+Get-Content Temp\GameplayRecordings\manual-roundtrip.json
+Remove-Item Temp\GameplayRecordings\manual-roundtrip.json
+```
+
+The recording command refuses an existing destination; close the game normally
+to save and see the tick count. The playback command validates and loads the
+file before opening gameplay, runs the normal simulation with its recorded seed,
+then returns to live controls at the exact recorded boundary. User recordings
+belong under the already-ignored `Temp/` directory; do not commit them. Curated,
+tracked long-term playback assets would need a separate location and review.
+
+Repeatability is expected only with the same compatible game implementation,
+.NET runtime/random behavior, starting configuration, default initialization,
+and per-tick inputs. This is not a cross-version or cross-runtime compatibility
+promise. It does not provide state snapshots, migration, or protection against
+changes to simulation logic. Automated headless round-trip tests are
+infrastructure evidence, not visual acceptance. Manual comparison remains the
+way to assess recognizable movement, firing, Super Zapper timing, enemy behavior
+and the playback-to-live-control handoff.
+
+Neal successfully recorded normal manual production Level 1 gameplay. Live
+spinner/button controls behaved normally while recording, the playback file was
+successfully created on normal exit, and starting a separate run from that file
+reproduced the recorded gameplay visually. Neal judged the complete round trip
+"100% perfect", 100% correct, and exactly what he wanted.
+
+Recorded playback supports observation-focused manual validation: Neal can
+concentrate entirely on watching gameplay behavior for problems without
+simultaneously controlling the Blaster. Normal manual gameplay remains equally
+important for validating controls, responsiveness, gameplay feel, difficulty,
+and arcade fidelity from the player's perspective. These are complementary
+validation methods, not substitutes for one another.
+
+**Recorded-input playback is frozen as accepted. No further replay development
+is currently needed.** Attract mode, idle detection, replay playlists, replay
+UI/browser or selection UI, replay editing, additional recording features,
+automated visual assertions, replay compatibility or migration infrastructure,
+curated long-term playback assets, and other replay enhancements remain
+deferred until there is a concrete future need.
