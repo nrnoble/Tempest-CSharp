@@ -28,6 +28,16 @@ Code comments:
 - Keep comments concise. Do not comment on straightforward code or merely restate obvious assignments, simple loops, ordinary conditions, self-explanatory method names, or clear syntax. Preserve useful comments unless behavior changes; update affected comments when it does.
 - Comments must distinguish established arcade behavior, behavior derived from Incitti, development-only behavior, and approximations needing arcade comparison.
 
+AI prompts and reports:
+- For substantial development, investigation, analysis, debugging, or milestone work performed by VS Code Copilot, preserve both the user-provided prompt and the resulting AI report as durable project records.
+- Save substantial prompts under `AI-Logs/Prompts/`.
+- Save corresponding reports under `AI-Logs/Reports/`.
+- Use descriptive, date-prefixed filenames that make related prompts and reports easy to associate, for example `2026-11-03-level5-implementation-prompt.md` and `2026-11-03-level5-implementation-report.md`.
+- Preserve the complete substantive user-provided task in the prompt record, including its scope, constraints, validation requirements, manual-acceptance requirements, and completion token. Do not include VS Code-generated reminders, tagged-file metadata, attachment metadata, or other automatically appended agent context merely because it followed the user prompt.
+- The report should concisely record what was investigated or implemented, files changed, important design or evidence findings, validation performed and results, unresolved issues, limitations, and any manual validation still required from Neal.
+- AI reports are historical development records, not authoritative evidence of arcade behavior. `TEMPEST-DEVELOPMENT-NOTES.md` and `TEMPEST-BEHAVIOR-SPEC.md` remain the durable project records for accepted development decisions and behavior/evidence classifications.
+- Keep logging proportional. Routine one-line questions, simple command lookups, trivial read-only checks, and minor conversational follow-ups do not require dedicated prompt/report files unless explicitly requested.
+
 Process:
 - VS Code Copilot must not launch the interactive Tempest game for manual acceptance. After automated validation, stop and provide the exact launch command: `dotnet run --project src\Tempest.Game -- --lives 10`. Neal will launch and test it; he often walks away while agent prompts run because completion time is unpredictable.
 - Future automated gameplay verification using deterministic, recorded or synthetic controller/input events is desirable for regression testing, but supplements rather than replaces Neal's manual gameplay acceptance.
