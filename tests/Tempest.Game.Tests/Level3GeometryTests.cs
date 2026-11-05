@@ -243,7 +243,9 @@ public sealed class Level3GeometryTests
         Assert.Equal(0, flipper.DestinationEdge);
         Assert.Equal(270, flipper.TotalTurnAngle);
 
-        for (int tick = 0; tick < 34; tick++)
+        int rimTurnTicks = (int)Math.Ceiling(
+            flipper.TotalTurnAngle / level.RimTurnSpeedDegrees);
+        for (int tick = 0; tick < rimTurnTicks; tick++)
             flipper.Update(level, playerEdge: 7);
         Assert.Equal(FlipperState.Pausing, flipper.State);
         Assert.Equal(0, flipper.EdgeIndex);
@@ -264,7 +266,9 @@ public sealed class Level3GeometryTests
         Assert.Equal(0, flipper.DestinationEdge);
         Assert.Equal(270, flipper.TotalTurnAngle);
 
-        for (int tick = 0; tick < 34; tick++)
+        int rimTurnTicks = (int)Math.Ceiling(
+            flipper.TotalTurnAngle / level.RimTurnSpeedDegrees);
+        for (int tick = 0; tick < rimTurnTicks; tick++)
             flipper.Update(level, playerEdge: 15);
 
         Assert.Equal(0, flipper.EdgeIndex);

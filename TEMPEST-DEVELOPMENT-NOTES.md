@@ -235,7 +235,7 @@ For Level 1:
 - Level 1 Flippers do not perform mid-tube lane flipping.
 - On reaching the player rim, they pause and then pivot between adjacent rim segments while pursuing the player.
 - Rim pause is currently 24 update ticks.
-- Pivot speed is currently 8 degrees per update.
+- The accepted normal rim-turn rate is 2.5 times each level's configured Flipper turn rate: Level 1 is 20 degrees per update, while Levels 6-7 are 22.5. The former configured rates still govern below-rim turning.
 - Destroying a Flipper awards 150 points.
 
 ### Critical Arcade Rim-Collision Rule
@@ -2462,3 +2462,39 @@ behavior retain separate ROM-backed and automated-test evidence. Do not
 describe this visual case as manually verified or leave overall acceptance
 pending because of it. See the evidence distinctions and source findings in
 `TEMPEST-BEHAVIOR-SPEC.md`. No audio or reference implementation was changed.
+
+## 2.5-calibrated rim pursuit acceptance (2026-11-05)
+
+**MANUAL ACCEPTANCE: PASS for implemented Levels 1-7.** Neal manually tested
+the normal calibrated rim pursuit across all seven implemented levels and
+reported that they feel right. The faster rim movement materially addresses
+the initial problem: it is no longer extremely easy to camp in one rim lane
+and single-tap or hold Fire to destroy nearly every Flipper after rim arrival.
+Chasing rim Flippers create meaningful pressure; spinner movement, awareness
+and shot timing matter again. Temporary stationary defense and careful shots
+remain useful, and no regression was observed across Levels 1-7.
+
+The accepted normal C# rim-turn rate is the former per-level configured rate
+multiplied by **2.5**. This is a **PROJECT DECISION / MANUAL CALIBRATION**:
+Neal's direct arcade comparison establishes the chosen value, not a literal
+Atari ROM multiplier. The ROM-backed evidence is limited to separate
+top-of-tube Flipper processing and level-derived top acceleration.
+
+`--rim-speed <multiplier>` remains a development diagnostic around the
+accepted normal rate. Omitting the option and `--rim-speed 1` are identical;
+`--rim-speed 0.4` approximately reproduces the former C# rim rate. Other
+positive finite values remain diagnostic multipliers. No special faster
+adjacent-lane "pounce" branch was found in the bounded trace of the master ROM
+source's rim-pursuit flow. This is not proof about untraced code elsewhere;
+geometry, directed angle, contact timing or perception may explain the
+impression.
+
+Neal rejected the earlier player-shot/Flipper contact-ordering experiment:
+it produced no useful perceptual improvement and made shot timing/feel seem
+subtly wrong. That experiment is not accepted behavior; preserve the baseline
+shot/contact order. Open-tube pursuit remains a future-level qualification,
+not covered by Levels 1-7 acceptance. Rim pause, below-rim movement (including
+Level 7's accepted `2-3-2-2-2` route), firing, shots and Super Zapper strategy
+remain unchanged. Historical analysis is preserved in
+`AI-Logs/Reports/2026-11-04-level1-stationary-rim-combat-comparison-report.md`;
+do not treat that analysis harness as production regression authority.

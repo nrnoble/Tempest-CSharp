@@ -5032,7 +5032,8 @@ public sealed class SimulationTests
             flipper.Update(game.CurrentLevel, game.Player.EdgeIndex);
         while (flipper.State == FlipperState.Pausing)
             flipper.Update(game.CurrentLevel, game.Player.EdgeIndex);
-        while (flipper.TurnAngle < flipper.TotalTurnAngle - 8)
+        while (flipper.TurnAngle < flipper.TotalTurnAngle -
+            game.CurrentLevel.RimTurnSpeedDegrees)
             flipper.Update(game.CurrentLevel, game.Player.EdgeIndex);
 
         // Keep the explicit lethal-pivot route isolated from earlier all-rim exit ticks.
@@ -5060,7 +5061,8 @@ public sealed class SimulationTests
             flipper.Update(game.CurrentLevel, game.Player.EdgeIndex);
         while (flipper.State == FlipperState.Pausing)
             flipper.Update(game.CurrentLevel, game.Player.EdgeIndex);
-        while (flipper.TurnAngle < flipper.TotalTurnAngle - 8)
+        while (flipper.TurnAngle < flipper.TotalTurnAngle -
+            game.CurrentLevel.RimTurnSpeedDegrees)
             flipper.Update(game.CurrentLevel, game.Player.EdgeIndex);
         Assert.Equal(FlipperState.Flipping, flipper.State);
         Assert.Equal(game.Player.EdgeIndex, flipper.DestinationEdge);
@@ -5398,8 +5400,8 @@ public sealed class SimulationTests
         Assert.Equal(7, flipper.DestinationEdge);
 
         int visibleTicks = 0;
-        int expectedVisibleTicks = (int)MathF.Ceiling(
-            flipper.TotalTurnAngle / level.Configuration.Flipper.TurnSpeedDegrees);
+        int expectedVisibleTicks = (int)Math.Ceiling(
+            flipper.TotalTurnAngle / level.RimTurnSpeedDegrees);
         while (!flipper.CompletedIntoPlayer)
         {
             Assert.True(flipper.IsHitBy(new Shot { EdgeIndex = 6, Height = 394 }));
@@ -5422,8 +5424,8 @@ public sealed class SimulationTests
         Assert.Equal(flipper.DestinationEdge, game.Player.EdgeIndex);
         Assert.Equal(0, game.DeathTicks);
         game.RunOneStep(new PlayerInput(false, 80, false, false));
-        int pivotTicks = (int)MathF.Ceiling(
-            flipper.TotalTurnAngle / game.CurrentLevel.Configuration.Flipper.TurnSpeedDegrees);
+        int pivotTicks = (int)Math.Ceiling(
+            flipper.TotalTurnAngle / game.CurrentLevel.RimTurnSpeedDegrees);
         for (int tick = 0; flipper.State == FlipperState.Flipping && tick < pivotTicks; tick++)
             game.RunOneStep();
         Assert.Equal(0, game.DeathTicks);
@@ -5959,9 +5961,9 @@ public sealed class SimulationTests
         => PreparePivotWithStartingLives(Player.DefaultStartingLives);
 
     private static int GetFlipperPivotTicks(TempestGame game, Flipper? flipper = null) =>
-        (int)MathF.Ceiling(
+        (int)Math.Ceiling(
             (flipper ?? game.Flippers[0]).TotalTurnAngle /
-            game.CurrentLevel.Configuration.Flipper.TurnSpeedDegrees);
+            game.CurrentLevel.RimTurnSpeedDegrees);
 
     private static TempestGame PreparePivotWithStartingLives(int startingLives)
     {

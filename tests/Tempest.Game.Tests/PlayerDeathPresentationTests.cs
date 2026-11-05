@@ -226,8 +226,8 @@ public sealed class PlayerDeathPresentationTests
         Assert.Equal(FlipperState.Pausing, game.Flippers[0].State);
         Step(game, 24);
         Assert.Equal(FlipperState.Flipping, game.Flippers[0].State);
-        int pivotTicks = (int)MathF.Ceiling(game.Flippers[0].TotalTurnAngle /
-            game.CurrentLevel.Configuration.Flipper.TurnSpeedDegrees);
+        int pivotTicks = (int)Math.Ceiling(game.Flippers[0].TotalTurnAngle /
+            game.CurrentLevel.RimTurnSpeedDegrees);
         game.CurrentLevel.CreateSpike(0, 60);
         Step(game, pivotTicks);
         Assert.Equal(LevelState.PlayerDying, game.State);

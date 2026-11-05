@@ -399,7 +399,8 @@ public sealed class Level2SquareTests
         const int source = 1;
         const int destination = 0;
         Flipper flipper = BeginRimPivot(game.CurrentLevel, source, destination);
-        int turnTicks = (int)MathF.Ceiling(flipper.TotalTurnAngle / 8);
+        int turnTicks = (int)Math.Ceiling(
+            flipper.TotalTurnAngle / game.CurrentLevel.RimTurnSpeedDegrees);
 
         for (int tick = 0; tick < turnTicks; tick++)
             flipper.Update(game.CurrentLevel, destination);
@@ -428,7 +429,8 @@ public sealed class Level2SquareTests
         TempestGame game = new(level2Test: true);
         Flipper flipper = BeginRimPivot(game.CurrentLevel, source, destination);
         VectorRenderer renderer = new(game);
-        int turnTicks = flipper.TotalTurnAngle >= 180 ? 11 : 10;
+        int turnTicks = (int)Math.Ceiling(
+            flipper.TotalTurnAngle / game.CurrentLevel.RimTurnSpeedDegrees) - 1;
 
         for (int tick = 0; tick < turnTicks; tick++)
             flipper.Update(game.CurrentLevel, destination);
@@ -537,7 +539,8 @@ public sealed class Level2SquareTests
         game.Player.Move(destination - game.Player.EdgeIndex, 16);
         while (flipper.State == FlipperState.Pausing)
             flipper.Update(game.CurrentLevel, destination);
-        int turnTicks = (int)MathF.Ceiling(flipper.TotalTurnAngle / 8);
+        int turnTicks = (int)Math.Ceiling(
+            flipper.TotalTurnAngle / game.CurrentLevel.RimTurnSpeedDegrees);
         for (int tick = 0; tick < turnTicks - 1; tick++)
             flipper.Update(game.CurrentLevel, destination);
         Assert.False(flipper.CompletedIntoPlayer);

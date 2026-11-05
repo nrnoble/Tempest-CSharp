@@ -701,6 +701,51 @@ record the uncertainty rather than guessing.
   route, then uses the Flipper rim-pursuit latch after arrival. Cargo's initial
   release direction and later player-pursuit direction are distinct state.
 
+### Rim pursuit speed calibration and manual acceptance (2026-11-05)
+
+**ARCADE/MANUAL ACCEPTED:** Neal manually tested the normal 2.5-calibrated
+rim-pursuit behavior across implemented Levels 1-7 and reported that the
+levels feel right. The calibration materially corrects the original
+stationary-defense problem: camping in one rim lane and single-tapping or
+holding Fire no longer makes it extremely easy to destroy nearly every
+Flipper after rim arrival. Chasing Flippers create meaningful pressure, so
+normal spinner movement, awareness and shot timing matter again. Temporary
+stationary defense and careful shooting remain useful, and Neal observed no
+regression across Levels 1-7. This is perceptual manual acceptance of the
+implemented behavior, not proof of hidden arcade internals.
+
+- **PROJECT DECISION / MANUAL CALIBRATION** — The accepted normal C# rim
+  angular rate is 2.5 times each level's former configured Flipper turn rate.
+  Neal's direct arcade comparison is the authority for choosing 2.5. It is
+  not a literal multiplier established by the Atari ROM.
+- **ROM-BACKED** — Atari has distinct top-of-tube Flipper processing and
+  level-derived top acceleration. This evidence supports a distinct,
+  accelerated rim phase but does not establish the C# 2.5 calibration.
+- **DEVELOPMENT DIAGNOSTIC** — `--rim-speed <multiplier>` remains available
+  around the accepted normal rate. Omitting it and specifying `--rim-speed 1`
+  produce identical accepted behavior. `--rim-speed 0.4` approximately
+  reproduces the former pre-calibration C# rim rate; other positive finite
+  values remain diagnostic multipliers.
+- **BOUNDED ROM FINDING** — The traced master-ROM rim-pursuit flow contains no
+  explicit one-lane-from-player speed, acceleration, delay, or top-turn-factor
+  branch and no special faster adjacent-lane pounce state. The ordinary
+  top-rim movement continues until contact in the inspected flow. This bounded
+  result does not prove that no such behavior exists elsewhere; geometry,
+  directed-pivot angle, contact timing or perception could explain the
+  reported pounce.
+- **REJECTED EXPERIMENT** — Neal's A/B test found no useful perceptual benefit
+  from the player-shot/Flipper contact-ordering experiment and found its shot
+  timing/feel subtly wrong. Do not treat that experiment as accepted behavior
+  or restore it. The accepted production ordering remains the behavior from
+  baseline `3bebf42cbe9514846ab32bf4c8a12bcfdb048da7`.
+
+The acceptance covers the implemented closed-rim Levels 1-7 only. Open-tube
+endpoints on future levels may require different pursuit behavior; do not
+extrapolate the closed-rim pursuit rule to them. Rim pause, below-rim movement
+(including Level 7's accepted `2-3-2-2-2` route), Flipper and Blaster firing,
+player shots, Super Zapper strategy, and all other gameplay behavior remain
+unchanged by this calibration.
+
 ## 4. Enemy bullets
 
 - **ARCADE/MANUAL ACCEPTED (production Flipper firing)** — Neal observed that

@@ -16,7 +16,8 @@ public sealed record GameplayFileCommand(GameplayFileMode Mode, string Path);
 /// progression system. No flags = normal Level 1. --level2-test selects an isolated square Level 2
 /// square/canflip run; --level3-geometry-test selects a non-production plus-board geometry
 /// diagnostic. Both are terminal and do not enable progression. Scenario flags are mutually
-/// exclusive; --enemy-bullets-test (opt-in Flipper firing) and --lives (starting-life override)
+/// exclusive; --enemy-bullets-test (opt-in Flipper firing), --lives (starting-life override) and
+/// --rim-speed (development-only Flipper rim-turn multiplier relative to the calibrated base)
 /// compose with any scenario or normal play. --gameplay-playback selects a seeded Level 1 profile;
 /// --gameplay-playback-level4 selects a distinct profile on the production Level 4 configuration.
 /// --level3-test directly selects the production-shaped
@@ -28,6 +29,47 @@ public sealed record GameplayFileCommand(GameplayFileMode Mode, string Path);
 /// </summary>
 public sealed class DebugController
 {
+	public static bool TryParseRimSpeedMultiplier(
+		IReadOnlyList<string> arguments,
+		out double multiplier,
+		out string? error)
+	{
+		multiplier = 1.0;
+		error = null;
+		int optionIndex = -1;
+
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index] != "--rim-speed")
+				continue;
+			if (optionIndex >= 0)
+			{
+				error = "--rim-speed may be specified only once.";
+				return false;
+			}
+			optionIndex = index;
+		}
+
+		if (optionIndex < 0)
+			return true;
+		if (optionIndex + 1 >= arguments.Count ||
+			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
+		{
+			error = "--rim-speed requires a positive finite numeric value.";
+			return false;
+		}
+		if (!double.TryParse(arguments[optionIndex + 1], NumberStyles.Float,
+			CultureInfo.InvariantCulture, out double parsed) ||
+			!double.IsFinite(parsed) || parsed <= 0)
+		{
+			error = "--rim-speed requires a positive finite numeric value.";
+			return false;
+		}
+
+		multiplier = parsed;
+		return true;
+	}
+
 	public static bool TryParseGameplayFileCommand(
 		IReadOnlyList<string> arguments,
 		out GameplayFileCommand? command,

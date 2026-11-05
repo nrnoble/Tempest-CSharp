@@ -59,6 +59,7 @@ public sealed class TempestGame
     private readonly Dictionary<int, int> level7DeepCargoDirections = [];
     private readonly Random random;
     private readonly int startingLives;
+    private readonly double rimSpeedMultiplier;
     private readonly IAudioEvents audioEvents;
     // New-game restarts target the original selection even after natural progression changes the active Level.
     private readonly LevelConfiguration launchConfiguration;
@@ -174,8 +175,11 @@ public sealed class TempestGame
         bool level2Test = false, bool level3GeometryTest = false,
         LevelConfiguration? startingConfiguration = null, bool level3Test = false,
         bool level4Test = false, IAudioEvents? audioEvents = null, bool level6Test = false,
-        bool level7Test = false)
+        bool level7Test = false, double rimSpeedMultiplier = 1.0)
     {
+        if (!double.IsFinite(rimSpeedMultiplier) || rimSpeedMultiplier <= 0)
+            throw new ArgumentOutOfRangeException(nameof(rimSpeedMultiplier),
+                "The rim-speed multiplier must be a positive finite value.");
         if ((level2Test ? 1 : 0) + (level3Test ? 1 : 0) +
             (level4Test ? 1 : 0) + (level6Test ? 1 : 0) + (level7Test ? 1 : 0) +
             (level3GeometryTest ? 1 : 0) +
@@ -188,6 +192,7 @@ public sealed class TempestGame
 
         this.random = random ?? Random.Shared;
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
+        this.rimSpeedMultiplier = rimSpeedMultiplier;
         this.audioEvents = audioEvents ?? SilentAudioEvents.Instance;
         this.launchConfiguration = startingConfiguration ?? (level2Test
             ? LevelConfiguration.Level2Square
@@ -225,11 +230,12 @@ public sealed class TempestGame
         LevelConfiguration startingConfiguration,
         Random? random = null,
         int startingLives = Player.DefaultStartingLives,
-        IAudioEvents? audioEvents = null)
+        IAudioEvents? audioEvents = null,
+        double rimSpeedMultiplier = 1.0)
         : this(spikerDevelopmentWave: false, random: random, startingLives: startingLives,
             startingConfiguration: startingConfiguration ??
                 throw new ArgumentNullException(nameof(startingConfiguration)),
-            audioEvents: audioEvents)
+            audioEvents: audioEvents, rimSpeedMultiplier: rimSpeedMultiplier)
     {
     }
 
@@ -377,7 +383,7 @@ public sealed class TempestGame
 
         developmentCollisionOrder.Clear();
         currentLevel = new Level(configuration, spikerDevelopmentWave, tankerTest,
-            NextRandomInclusive);
+            NextRandomInclusive, rimSpeedMultiplier);
         currentLevel.SpikeCreated += OnSpikeCreated;
         developmentCollisionOrder.AddRange(currentLevel.Spikes);
         CurrentLevel.State = beginApproach ? LevelState.Approach : LevelState.Playing;

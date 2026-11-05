@@ -219,11 +219,13 @@ public sealed class Level2CanFlipTests
         flipper.Update(level, 0, UnexpectedRandom);
         Assert.Equal(MathF.Min(400, height + 3), flipper.Height);
         Assert.Equal(0, flipper.DestinationEdge);
-        for (int tick = 0; tick < 23; tick++)
+        int pivotTicks = 0;
+        while (flipper.State == FlipperState.Flipping)
         {
             Assert.False(flipper.CompletedIntoPlayer);
             flipper.Update(level, 0, UnexpectedRandom);
             Assert.InRange(flipper.Height, 0, 400);
+            Assert.True(++pivotTicks < 100);
         }
         Assert.Equal(400, flipper.Height);
         Assert.True(flipper.CompletedIntoPlayer);
@@ -313,8 +315,8 @@ public sealed class Level2CanFlipTests
         Assert.Equal(1, calls);
         Assert.Equal(direction, flipper.Direction);
         Assert.Equal(destination, flipper.DestinationEdge);
-        int ticks = (int)MathF.Ceiling(
-            flipper.TotalTurnAngle / level.Configuration.Flipper.TurnSpeedDegrees);
+        int ticks = (int)Math.Ceiling(
+            flipper.TotalTurnAngle / level.RimTurnSpeedDegrees);
         for (int tick = 0; tick < ticks; tick++)
         {
             flipper.Update(level, 8, UnexpectedRandom);
@@ -522,9 +524,7 @@ public sealed class Level2CanFlipTests
 
     private static void FinishPivot(Flipper flipper, Level level, int playerEdge)
     {
-        int ticks = (int)MathF.Ceiling(
-            flipper.TotalTurnAngle / level.Configuration.Flipper.TurnSpeedDegrees);
-        for (int tick = 0; tick < ticks; tick++)
+        for (int tick = 0; tick < 1000 && flipper.State == FlipperState.Flipping; tick++)
             flipper.Update(level, playerEdge, UnexpectedRandom);
         Assert.Equal(FlipperState.Pausing, flipper.State);
     }
@@ -550,8 +550,8 @@ public sealed class Level2CanFlipTests
         for (int tick = 0; tick < pause; tick++)
             flipper.Update(game.CurrentLevel, destination);
         Assert.Equal(FlipperState.Flipping, flipper.State);
-        int ticks = (int)MathF.Ceiling(
-            flipper.TotalTurnAngle / game.CurrentLevel.Configuration.Flipper.TurnSpeedDegrees);
+        int ticks = (int)Math.Ceiling(
+            flipper.TotalTurnAngle / game.CurrentLevel.RimTurnSpeedDegrees);
         for (int tick = 0; tick < ticks - 1; tick++)
             flipper.Update(game.CurrentLevel, destination);
         Assert.False(flipper.CompletedIntoPlayer);

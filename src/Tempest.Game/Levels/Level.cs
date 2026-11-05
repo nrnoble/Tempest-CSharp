@@ -17,6 +17,7 @@ public sealed class Level
     // Depth is the rim; heights run from 0 (far end) up to Depth (near the player).
     public const float Depth = 400f;
     public const float Position = 50;
+    public const double RimTurnSpeedCalibrationMultiplier = 2.5;
     public static int EnemyTotal => LevelConfiguration.Level1.EnemySupply;
     private readonly List<Egg> eggs = [];
     private readonly List<Spike> spikes = [];
@@ -28,6 +29,10 @@ public sealed class Level
     private int nextSpawnLaneIndex;
 
     public LevelConfiguration Configuration { get; }
+    public double RimTurnSpeedMultiplier { get; }
+    public double RimTurnSpeedDegrees =>
+        Configuration.Flipper.TurnSpeedDegrees *
+        RimTurnSpeedCalibrationMultiplier * RimTurnSpeedMultiplier;
     public LevelDefinition Definition => Configuration.Definition;
     public int EnemySupply => Configuration.EnemySupply;
     public int PlayableLaneCount => Configuration.PlayableLaneCount;
@@ -71,10 +76,15 @@ public sealed class Level
 
     public Level(LevelConfiguration configuration, bool spikerDevelopmentWave = false,
         bool tankerDevelopmentWave = false,
-        Func<int, int, int>? randomInclusive = null)
+        Func<int, int, int>? randomInclusive = null,
+        double rimTurnSpeedMultiplier = 1.0)
     {
         ArgumentNullException.ThrowIfNull(configuration);
+        if (!double.IsFinite(rimTurnSpeedMultiplier) || rimTurnSpeedMultiplier <= 0)
+            throw new ArgumentOutOfRangeException(nameof(rimTurnSpeedMultiplier),
+                "The rim-speed multiplier must be a positive finite value.");
         Configuration = configuration;
+        RimTurnSpeedMultiplier = rimTurnSpeedMultiplier;
         SpikerDevelopmentWave = spikerDevelopmentWave;
         TankerDevelopmentWave = tankerDevelopmentWave;
         nextRandomInclusive = randomInclusive ?? NextSharedRandomInclusive;

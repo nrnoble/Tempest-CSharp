@@ -243,7 +243,9 @@ public sealed class DirectedRotationInvestigationTests
         Assert.Equal(1, flipper.Direction);
         Assert.Equal(15, flipper.DestinationEdge);
         Assert.Equal(referenceAngle, flipper.TotalTurnAngle, 3);
-        for (int tick = 0; tick < 19; tick++)
+        int turnTicks = (int)Math.Ceiling(
+            flipper.TotalTurnAngle / level.RimTurnSpeedDegrees);
+        for (int tick = 0; tick < turnTicks - 1; tick++)
             flipper.Update(level, playerEdge: 14);
         Assert.Equal(FlipperState.Flipping, flipper.State);
         flipper.Update(level, playerEdge: 14);

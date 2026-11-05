@@ -124,7 +124,7 @@ public sealed class Flipper : Enemy
                 break;
 
             case FlipperState.Flipping:
-                TurnAngle += tuning.TurnSpeedDegrees;
+                AdvanceTurnAngle(level, tuning);
                 if (Height < Level.Depth)
                 {
                     Height += tuning.ClimbSpeed;
@@ -297,7 +297,7 @@ public sealed class Flipper : Enemy
     private void ContinueProgrammedPivot(
         Level level, int playerEdge, FlipperConfiguration tuning)
     {
-        TurnAngle += tuning.TurnSpeedDegrees;
+        AdvanceTurnAngle(level, tuning);
         Height = MathF.Min(Level.Depth, Height + tuning.ClimbSpeed);
         if (TurnAngle < TotalTurnAngle)
             return;
@@ -317,6 +317,24 @@ public sealed class Flipper : Enemy
             HandOffToRim(tuning);
         else
             programmedRouteStep = ProgrammedFlipperRouteStep.CompletionBoundary;
+    }
+
+    private void AdvanceTurnAngle(Level level, FlipperConfiguration tuning)
+    {
+        if (Height < Level.Depth ||
+            programmedRouteStep is not
+                (ProgrammedFlipperRouteStep.Disabled or ProgrammedFlipperRouteStep.RimHandoff))
+        {
+            TurnAngle += tuning.TurnSpeedDegrees;
+            return;
+        }
+
+        // Clamp the final step so even huge finite diagnostic rates cannot overflow pivot geometry.
+        double rimTurnSpeed = level.RimTurnSpeedDegrees;
+        double remainingTurn = TotalTurnAngle - TurnAngle;
+        TurnAngle = rimTurnSpeed >= remainingTurn
+            ? TotalTurnAngle
+            : TurnAngle + (float)rimTurnSpeed;
     }
 
     private void AdvanceProgrammedRouteBoundary(

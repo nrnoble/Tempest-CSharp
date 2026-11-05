@@ -18,6 +18,13 @@ using Tempest.Game.Systems;
 using Tempest.Game.Debug;
 using Tempest.Game.Levels;
 
+if (!DebugController.TryParseRimSpeedMultiplier(args,
+    out double rimSpeedMultiplier, out string? rimSpeedError))
+{
+    Console.Error.WriteLine(rimSpeedError);
+    return 2;
+}
+
 if (!DebugController.TryParseGameplayFileCommand(args,
     out GameplayFileCommand? gameplayFileCommand, out string? commandLineError))
 {
@@ -115,7 +122,8 @@ try
         level4Test: level4Test || level4Playback,
         audioEvents: audio,
         level6Test: level6Test,
-        level7Test: level7Test);
+        level7Test: level7Test,
+        rimSpeedMultiplier: rimSpeedMultiplier);
     InputSystem input = new();
     VectorRenderer renderer = new(game);
     int activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
