@@ -828,9 +828,32 @@ on earlier countdown updates, while expiry resolves and skips behavior on that
 visit. Flipper/Pulsar award 150/200, Spiker awards 50 without changing its
 persistent spike, and Fuseball uses expiry-height `KillScore` plus its existing
 score popup. Enemy bullets continue their existing movement/collision rules.
-The source-derived alternating blue/Tanker-magenta tube flash uses
-`(displayCounter / 2) % 4 > 1`; the display counter advances during death even
-though enemy timers and movement remain frozen.
+The former blue/Tanker-magenta whole-web flash was a project presentation, not
+an Atari-ROM-derived color rule.
+
+**MANUAL ACCEPTANCE: PASS.** Neal manually tested the corrected Super Zapper
+visual presentation and reports that it is very good. No further visual or
+gameplay changes are needed; treat this presentation as accepted project
+behavior.
+
+**ROM-BACKED:** While `zap_running` is positive, unoccupied longitudinal rails
+use `phase = timectr & 7`, `index = phase == 7 ? 1 : phase`, yielding the
+repeating slot sequence `0,1,2,3,4,5,6,1`. The phase is the free-running global
+time counter, not activation-relative; activation does not restart it, so the
+first visible slot depends on the current counter phase. Pulsar lane handling
+has precedence, occupied Blaster boundaries remain slot 1 (yellow), and the
+active Super Zapper slot is used otherwise. Near/far circumferential rim
+connections retain normal slot 6; player and enemies retain their ordinary
+colors. Normal rail selection returns when the presentation is inactive. Both
+successful Super Zapper presentations use the same color-selection rule.
+
+**PROJECT TRANSLATIONS:** C# maps slots 0-6 to existing white, palette-0
+Blaster yellow, green, red, cyan, magenta and blue. The available ROM listing
+omits the packed palette bytes at `$c1fd` as `.chunk 8`; exact Atari RGB values
+remain UNKNOWN, and these mappings are not literal ROM-derived RGB values.
+The existing 60-display-step presentation envelope and all Super Zapper
+gameplay semantics remain unchanged. The global display phase continues during
+death even though enemy timers and movement remain frozen.
 
 Tanker zap expiry resolves the original slot as destroyed for 200, then
 converts its two latent units into distinct unresolved cargo IDs. Each child

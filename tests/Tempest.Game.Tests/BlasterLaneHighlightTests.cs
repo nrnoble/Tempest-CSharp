@@ -13,6 +13,11 @@ namespace Tempest.Game.Tests;
 public sealed class BlasterLaneHighlightTests
 {
     private static readonly Color BlasterLaneColor = new(255, 255, 0, 255);
+    private static readonly Color[] ZapRailColors =
+    [
+        Color.White, BlasterLaneColor, new(0, 255, 0, 255), Color.Red,
+        new(0, 255, 255, 255), new(255, 0, 255, 255), Color.Blue
+    ];
 
     [Theory]
     [InlineData(0)]
@@ -147,28 +152,46 @@ public sealed class BlasterLaneHighlightTests
         int lane = game.Player.EdgeIndex;
         Assert.True(game.SuperZapper.TryActivate([], lane, 16, continuous: true));
 
-        List<(Vector2 Start, Vector2 End, Color Color)> flashLines = CaptureTube(renderer);
-        AssertLaneRails(game, flashLines, lane, BlasterLaneColor);
-        Assert.Equal(new Color(255, 0, 255, 255), flashLines[0].Color);
+        for (int phase = 0; phase < 8; phase++)
+        {
+            List<(Vector2 Start, Vector2 End, Color Color)> flashLines = CaptureTube(renderer);
+            AssertLaneRails(game, flashLines, lane, BlasterLaneColor);
+            Assert.Equal(ZapRailColors[phase == 7 ? 1 : phase], flashLines[0].Color);
+            Assert.All(flashLines.Skip(16), line => Assert.Equal(Color.Blue, line.Color));
+            game.SuperZapper.AdvanceDisplayStep();
+        }
 
         TempestGame pulsarGame = HatchPulsarAndStartPulse();
         VectorRenderer pulsarRenderer = new(pulsarGame);
         Pulsar pulsar = Assert.Single(pulsarGame.Pulsars, candidate =>
             Pulsar.IsLanePulsing(candidate.Height, pulsarGame.Pulsing));
         pulsarGame.Player.ResetPosition(pulsar.EdgeIndex, 0.5f);
-        List<(Vector2 Start, Vector2 End, Color Color)> tubeLines = CaptureTube(pulsarRenderer);
-        AssertLaneRails(pulsarGame, tubeLines, pulsar.EdgeIndex, BlasterLaneColor);
+        List<(Vector2 Start, Vector2 End, Color Color)> normalPulsars = [];
+        pulsarRenderer.DrawPulsars(
+            (start, end, color) => normalPulsars.Add((start, end, color)));
+        Assert.NotEmpty(normalPulsars);
+        Assert.True(pulsarGame.SuperZapper.TryActivate([], pulsar.EdgeIndex, 16, continuous: true));
+        for (int phase = 0; phase < 8; phase++)
+        {
+            List<(Vector2 Start, Vector2 End, Color Color)> tubeLines = CaptureTube(pulsarRenderer);
+            AssertLaneRails(pulsarGame, tubeLines, pulsar.EdgeIndex, BlasterLaneColor);
 
-        List<(Vector2 Start, Vector2 End, Color Color)> overlays = [];
-        pulsarRenderer.DrawPulsingLaneBoundaries(
-            (start, end, color) => overlays.Add((start, end, color)));
-        Assert.Equal(2, overlays.Count);
-        Assert.All(overlays, line => Assert.Equal(new Color(0, 255, 255, 255), line.Color));
-        Assert.Contains((tubeLines[pulsar.EdgeIndex].Start, tubeLines[pulsar.EdgeIndex].End,
-            new Color(0, 255, 255, 255)), overlays);
-        int nextBoundary = pulsarGame.CurrentLevel.NextEdge(pulsar.EdgeIndex);
-        Assert.Contains((tubeLines[nextBoundary].Start, tubeLines[nextBoundary].End,
-            new Color(0, 255, 255, 255)), overlays);
+            List<(Vector2 Start, Vector2 End, Color Color)> overlays = [];
+            pulsarRenderer.DrawPulsingLaneBoundaries(
+                (start, end, color) => overlays.Add((start, end, color)));
+            Assert.Equal(2, overlays.Count);
+            Assert.All(overlays, line => Assert.Equal(new Color(0, 255, 255, 255), line.Color));
+            Assert.Contains((tubeLines[pulsar.EdgeIndex].Start, tubeLines[pulsar.EdgeIndex].End,
+                new Color(0, 255, 255, 255)), overlays);
+            int nextBoundary = pulsarGame.CurrentLevel.NextEdge(pulsar.EdgeIndex);
+            Assert.Contains((tubeLines[nextBoundary].Start, tubeLines[nextBoundary].End,
+                new Color(0, 255, 255, 255)), overlays);
+            List<(Vector2 Start, Vector2 End, Color Color)> activePulsars = [];
+            pulsarRenderer.DrawPulsars(
+                (start, end, color) => activePulsars.Add((start, end, color)));
+            Assert.Equal(normalPulsars, activePulsars);
+            pulsarGame.SuperZapper.AdvanceDisplayStep();
+        }
     }
 
     private static TempestGame EnterNextLevelApproach()
@@ -219,9 +242,7 @@ public sealed class BlasterLaneHighlightTests
         Assert.Equal(color, lines[nextBoundary].Color);
         for (int vertex = 0; vertex < game.CurrentLevel.Definition.Points.Count; vertex++)
             if (vertex != lane && vertex != nextBoundary)
-                Assert.Equal(game.SuperZapper.UsesAlternateFlashColor
-                    ? new Color(255, 0, 255, 255)
-                    : Color.Blue, lines[vertex].Color);
+                Assert.Equal(ZapRailColors[game.SuperZapper.TubeColorIndex], lines[vertex].Color);
     }
 
     private static void AssertLaneRailsForPoints(

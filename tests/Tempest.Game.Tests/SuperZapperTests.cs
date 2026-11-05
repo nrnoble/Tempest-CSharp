@@ -75,19 +75,74 @@ public sealed class SuperZapperTests
     }
 
     [Fact]
-    public void FlashColorUsesTheLiteralDisplayCounterPhaseFormula()
+    public void FlashColorUsesFreeRunningRomSequenceAndRestoresAfterExpiry()
     {
+        int[] sequence = [0, 1, 2, 3, 4, 5, 6, 1];
         SuperZapperSystem zapper = new();
-        zapper.TryActivate([], 0, 16, continuous: true);
-        Assert.True(zapper.UsesAlternateFlashColor);
-
-        zapper.AdvanceDisplayStep();
-        Assert.False(zapper.UsesAlternateFlashColor);
-        for (int tick = 0; tick < 3; tick++)
+        for (int tick = 0; tick < 6; tick++)
+        {
             zapper.AdvanceDisplayStep();
-        Assert.False(zapper.UsesAlternateFlashColor);
-        zapper.AdvanceDisplayStep();
-        Assert.True(zapper.UsesAlternateFlashColor);
+            Assert.Equal(6, zapper.TubeColorIndex);
+        }
+        zapper.TryActivate([], 0, 16, continuous: true);
+        Assert.Equal(6, zapper.TubeColorIndex);
+
+        for (int tick = 1; tick <= SuperZapperSystem.FlashDurationTicks; tick++)
+        {
+            zapper.AdvanceDisplayStep();
+            Assert.Equal(tick < SuperZapperSystem.FlashDurationTicks
+                ? sequence[(6 + tick) % 8] : 6, zapper.TubeColorIndex);
+        }
+
+        for (int tick = 0; tick < 8; tick++)
+        {
+            zapper.AdvanceDisplayStep();
+            Assert.Equal(6, zapper.TubeColorIndex);
+        }
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    public void BothUsesShareTheColorRuleWithoutRestartingTheDisplayPhase(int startingPhase)
+    {
+        int[] sequence = [0, 1, 2, 3, 4, 5, 6, 1];
+        SuperZapperSystem zapper = new();
+        Flipper target = new(0, 10);
+        for (int tick = 0; tick < startingPhase; tick++)
+            zapper.AdvanceDisplayStep();
+        Assert.Equal(6, zapper.TubeColorIndex);
+
+        Assert.True(zapper.TryActivate([target], 0, 16, continuous: true));
+        for (int tick = 0; tick < 8; tick++)
+        {
+            Assert.Equal(sequence[(startingPhase + tick) % 8], zapper.TubeColorIndex);
+            zapper.AdvanceDisplayStep();
+        }
+        Assert.True(target.TryZap(9));
+        Assert.True(zapper.TryActivate([target], 0, 16, continuous: true));
+        Assert.Equal(4, target.PendingZapTicks);
+        Assert.Equal(0, zapper.ChargesRemaining);
+        Assert.Equal(60, zapper.FlashTicksRemaining);
+        for (int tick = 0; tick < 8; tick++)
+        {
+            Assert.Equal(sequence[(startingPhase + tick) % 8], zapper.TubeColorIndex);
+            zapper.AdvanceDisplayStep();
+        }
+        Assert.Equal(4, target.PendingZapTicks);
+        Assert.Equal(10, target.Height);
+        Assert.Equal(0, target.EdgeIndex);
+
+        zapper.Reset();
+        Assert.Equal(6, zapper.TubeColorIndex);
+        Assert.True(zapper.TryActivate([], 0, 16, continuous: true));
+        Assert.Equal(sequence[startingPhase], zapper.TubeColorIndex);
     }
 
     [Fact]
@@ -674,6 +729,11 @@ public sealed class SuperZapperTests
     [Fact]
     public void TubeFlashChangesOnlyColorAndExpiresAfterSixtyDisplaySteps()
     {
+        Color[] sequence =
+        [
+            Color.White, new(255, 255, 0, 255), new(0, 255, 0, 255), Color.Red,
+            new(0, 255, 255, 255), new(255, 0, 255, 255), Color.Blue, new(255, 255, 0, 255)
+        ];
         TempestGame game = new();
         VectorRenderer renderer = new(game);
         List<(System.Numerics.Vector2 Start, System.Numerics.Vector2 End, Color Color)> normal = [];
@@ -685,17 +745,25 @@ public sealed class SuperZapperTests
                 normal[index].Color);
 
         game.RunOneStep(new PlayerInput(false, 0, false, false, ZapPressed: true));
-        List<(System.Numerics.Vector2 Start, System.Numerics.Vector2 End, Color Color)> flash = [];
-        renderer.DrawTube((start, end, color) => flash.Add((start, end, color)));
-        Assert.Equal(normal.Count, flash.Count);
-        for (int index = 0; index < flash.Count; index++)
-            Assert.Equal(index < 16 && (index == 7 || index == 8)
-                ? new Color(255, 255, 0, 255)
-                : new Color(255, 0, 255, 255), flash[index].Color);
-        Assert.Equal(normal.Select(line => (line.Start, line.End)),
-            flash.Select(line => (line.Start, line.End)));
+        for (int elapsed = 0; elapsed < 60; elapsed++)
+        {
+            List<(System.Numerics.Vector2 Start, System.Numerics.Vector2 End, Color Color)> flash = [];
+            renderer.DrawTube((start, end, color) => flash.Add((start, end, color)));
+            Assert.Equal(normal.Count, flash.Count);
+            for (int index = 0; index < flash.Count; index++)
+            {
+                bool occupiedRail = index == 7 || index == 8;
+                Color expected = index >= 16 ? Color.Blue
+                    : occupiedRail ? new Color(255, 255, 0, 255)
+                    : sequence[(elapsed + 1) % 8];
+                Assert.Equal(expected, flash[index].Color);
+            }
+            Assert.Equal(normal.Select(line => (line.Start, line.End)),
+                flash.Select(line => (line.Start, line.End)));
+            if (elapsed < 59)
+                game.RunOneStep();
+        }
 
-        Step(game, 59);
         Assert.Equal(1, game.SuperZapper.FlashTicksRemaining);
         game.RunOneStep();
         Assert.Equal(0, game.SuperZapper.FlashTicksRemaining);

@@ -486,12 +486,28 @@ public sealed class VectorRenderer
 				$"No Blaster-lane color is configured for palette {game.CurrentLevel.Configuration.PaletteIndex}.")
 		};
 
+	private Color ResolveSuperZapperRailColor() =>
+		// Project RGB translations; the local ROM's $c1fd palette bytes are omitted.
+		game.SuperZapper.TubeColorIndex switch
+		{
+			0 => Color.White,
+			1 => ResolvePlayerLaneColor(),
+			2 => SpikerColor,
+			3 => Color.Red,
+			4 => PulsarColor,
+			5 => TankerColor,
+			6 => Color.Blue,
+			_ => throw new InvalidOperationException("Invalid Super Zapper rail color index.")
+		};
+
 	public void DrawTube(Action<Vector2, Vector2, Color> drawLine)
 	{
 		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
 		Vector2[] nearRim = new Vector2[points.Count];
 		Vector2[] farRim = new Vector2[points.Count];
-		Color tubeColor = game.SuperZapper.UsesAlternateFlashColor ? TankerColor : Color.Blue;
+		// Atari patches longitudinal rail colors, not the rim connections ($b44b, $c358).
+		Color tubeColor = Color.Blue;
+		Color railColor = ResolveSuperZapperRailColor();
 		int playerLane = game.Player.EdgeIndex;
 		int nextPlayerLaneBoundary = game.CurrentLevel.NextEdge(playerLane);
 		bool highlightPlayerLane = ShouldHighlightPlayerLane;
@@ -507,7 +523,7 @@ public sealed class VectorRenderer
 		{
 			bool playerLaneBoundary = highlightPlayerLane &&
 				(i == playerLane || i == nextPlayerLaneBoundary);
-			drawLine(nearRim[i], farRim[i], playerLaneBoundary ? playerLaneColor : tubeColor);
+			drawLine(nearRim[i], farRim[i], playerLaneBoundary ? playerLaneColor : railColor);
 		}
 
 		for (int i = 0; i < points.Count; i++)

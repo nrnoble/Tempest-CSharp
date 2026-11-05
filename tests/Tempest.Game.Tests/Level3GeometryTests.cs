@@ -398,9 +398,9 @@ public sealed class Level3GeometryTests
         int playerLane = game.Player.EdgeIndex;
         int nextPlayerLane = game.CurrentLevel.NextEdge(playerLane);
         for (int index = 0; index < flash.Count; index++)
-            Assert.Equal(index < 16 && (index == playerLane || index == nextPlayerLane)
+            Assert.Equal(index >= 16 ? Color.Blue : index == playerLane || index == nextPlayerLane
                 ? new Color(255, 255, 0, 255)
-                : new Color(255, 0, 255, 255), flash[index].Color);
+                : Color.White, flash[index].Color);
         Assert.Equal(1, game.SuperZapperChargesRemaining);
     }
 

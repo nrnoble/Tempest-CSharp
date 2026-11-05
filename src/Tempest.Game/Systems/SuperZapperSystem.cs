@@ -7,10 +7,14 @@ public sealed class SuperZapperSystem
     public const int InitialCharges = 2;
     public const int FlashDurationTicks = 60;
 
+    private int displayPhase;
+
     public int ChargesRemaining { get; private set; }
     public int FlashTicksRemaining { get; private set; }
-    public bool UsesAlternateFlashColor => FlashTicksRemaining > 0 &&
-        (FlashTicksRemaining / 2) % 4 > 1;
+    // Atari $b3d6-$b3e9: active rails cycle 0..6,1; inactive rails use slot 6.
+    public int TubeColorIndex => FlashTicksRemaining > 0
+        ? displayPhase == 7 ? 1 : displayPhase
+        : 6;
 
     public SuperZapperSystem() => Reset();
 
@@ -22,6 +26,7 @@ public sealed class SuperZapperSystem
 
     public void AdvanceDisplayStep()
     {
+        displayPhase = (displayPhase + 1) & 7;
         if (FlashTicksRemaining > 0)
             FlashTicksRemaining--;
     }

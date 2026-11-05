@@ -545,6 +545,30 @@ record the uncertainty rather than guessing.
   scenario validation confirms the visible broad all-rim result, not these
   hidden outcome categories or their accounting.
 
+#### Accepted color presentation (2026-11-05)
+
+- **MANUAL ACCEPTANCE: PASS** — Neal manually tested the corrected Super
+  Zapper visual presentation and reports that it is very good. No further
+  visual or gameplay changes are needed.
+- **ROM-BACKED** — While `zap_running` is positive, unoccupied longitudinal
+  rails use `phase = timectr & 7`, `index = phase == 7 ? 1 : phase`, producing
+  the repeating slot sequence `0,1,2,3,4,5,6,1`. This uses the free-running
+  global time-counter phase; activation does not restart the cycle, so the
+  first visible slot depends on the current phase. Pulsar lane handling wins
+  first, occupied Blaster boundaries remain slot 1, and other longitudinal
+  rails receive the active Super Zapper slot. Near/far circumferential rim
+  connections retain normal slot 6. Player and enemies retain their ordinary
+  colors, and normal rail colors return when the presentation becomes inactive.
+  Both successful Super Zapper presentations use this same color rule.
+- **PROJECT TRANSLATIONS** — C# maps slots 0-6 to existing white, palette-0
+  Blaster yellow, green, red, cyan, magenta and blue. The available ROM
+  listing omits the packed palette bytes at `$c1fd` as `.chunk 8`; exact Atari
+  RGB output remains UNKNOWN. These C# hues are project translations, not
+  literal ROM-derived RGB values.
+- **PROJECT DECISION** — The accepted C# presentation envelope and Super
+  Zapper gameplay semantics are unchanged; this is a visual-fidelity
+  correction only.
+
 ## 3. Flippers
 
 ### Entry and movement

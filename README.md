@@ -633,12 +633,20 @@ reconstructs each unresolved ID as a fresh Egg and discards its pending timer.
 Completion remains blocked until all original slots and materialized cargo
 resolve.
 
-The tube/web alternates its normal blue with the existing Tanker/magenta color
-for 60 display steps. It has no charge counter or icons. The reference-derived
-details are **REFERENCE VERIFIED** against Incitti's source only; they are not
-proof of Atari arcade behavior. The C# simulation uses the project's existing
-60-update death freeze, stable source-order collections, and deferred
-same-tick Tanker-child activation policy.
+**MANUAL ACCEPTANCE: PASS.** Neal manually tested the corrected Super Zapper
+visual presentation and reports that it is very good. The ROM-backed active
+color sequence is `0,1,2,3,4,5,6,1` on unoccupied longitudinal rails, selected
+from the free-running global `timectr & 7` phase rather than an activation-
+relative phase. Pulsar lane handling takes precedence; occupied Blaster
+boundaries remain yellow; near/far rim connections retain normal coloring;
+players and enemies retain their ordinary colors; and normal rail colors
+return when the presentation ends. Both successful uses share the same rule.
+
+The C# mappings (white, yellow, green, red, cyan, magenta, blue) are PROJECT
+TRANSLATIONS to existing colors, not proven Atari RGB values. The available
+ROM listing omits the packed palette bytes, so exact Atari RGB output remains
+UNKNOWN. The existing 60-display-step envelope and Super Zapper gameplay
+semantics are unchanged; no charge counter or icons are drawn.
 
 Historical Super Zapper checkpoint validation: 29 focused tests and 318 full
 suite tests passed; the build had no warnings or errors. Neal later manually

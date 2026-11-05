@@ -489,9 +489,9 @@ public sealed class Level2SquareTests
         Assert.Equal(normal.Select(line => (line.Start, line.End)),
             flash.Select(line => (line.Start, line.End)));
         for (int index = 0; index < flash.Count; index++)
-            Assert.Equal(index < 16 && (index == 7 || index == 8)
+            Assert.Equal(index >= 16 ? Color.Blue : index == 7 || index == 8
                 ? new Color(255, 255, 0, 255)
-                : new Color(255, 0, 255, 255), flash[index].Color);
+                : Color.White, flash[index].Color);
     }
 
     private static TempestGame CreateSingleUnresolvedFlipperGame(
