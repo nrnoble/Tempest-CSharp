@@ -339,10 +339,11 @@ public sealed class Level7ProductionTests
                      LevelConfiguration.Level2Square,
                      LevelConfiguration.Level3Mixed,
                      LevelConfiguration.Level4Candidate,
-                     LevelConfiguration.Level5Production,
                      LevelConfiguration.Level6Production
                  })
             Assert.Equal(BelowRimFlipperProgram.Existing, configuration.BelowRimFlipperProgram);
+        Assert.Equal(BelowRimFlipperProgram.Level5SpikeSensitive,
+            LevelConfiguration.Level5Production.BelowRimFlipperProgram);
 
         Assert.Equal(150, LevelConfiguration.Level4Candidate.AvoidSpikesWaitThreshold);
         Assert.Equal(150, LevelConfiguration.Level5Production.AvoidSpikesWaitThreshold);

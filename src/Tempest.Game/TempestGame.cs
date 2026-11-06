@@ -791,7 +791,10 @@ public sealed class TempestGame
             int? programmedDirection = level7DeepCargoDirections.TryGetValue(
                 egg.CargoUnitId, out int direction) ? direction : null;
             return Flipper.CreateFreshTankerCargo(
-                egg.EdgeIndex, egg.CargoUnitId, programmedDirection);
+                egg.EdgeIndex, egg.CargoUnitId, programmedDirection,
+                useLevel5SpikeSensitiveProgram:
+                    CurrentLevel.Configuration.BelowRimFlipperProgram ==
+                    BelowRimFlipperProgram.Level5SpikeSensitive);
         }
 
         int originalId = egg.OriginalSlotId;
@@ -886,7 +889,11 @@ public sealed class TempestGame
         if (egg.CargoUnitId >= 0)
         {
             // Released cargo returns as separate fresh Flipper entrants, not as a new Tanker.
-            return Flipper.CreateFreshTankerCargo(egg.EdgeIndex, egg.CargoUnitId);
+            return Flipper.CreateFreshTankerCargo(
+                egg.EdgeIndex, egg.CargoUnitId,
+                useLevel5SpikeSensitiveProgram:
+                    CurrentLevel.Configuration.BelowRimFlipperProgram ==
+                    BelowRimFlipperProgram.Level5SpikeSensitive);
         }
 
         if (egg.OriginalSlotId == CurrentLevel.TankerSlotId && unresolvedOriginalSlots.Contains(egg.OriginalSlotId))
@@ -1237,6 +1244,8 @@ public sealed class TempestGame
             CurrentLevel, firstSideDirection: 1, releaseKind);
         bool useLevel7ProgrammedRoute = tanker.UsesLevel7ProgrammedCargo(
             CurrentLevel.Configuration, releaseKind);
+        bool useLevel5SpikeSensitiveProgram = tanker.UsesLevel5SpikeSensitiveCargo(
+            CurrentLevel.Configuration, releaseKind);
 
         if (CurrentLevel.UsesProductionLedger)
         {
@@ -1272,7 +1281,7 @@ public sealed class TempestGame
                     level7DeepCargoDirections.Add(cargoId, result.Cargo[index].Direction);
                 Flipper child = Flipper.CreateTankerCargo(
                     CurrentLevel, result.Cargo[index], cargoId,
-                    useLevel7ProgrammedRoute);
+                    useLevel7ProgrammedRoute, useLevel5SpikeSensitiveProgram);
 
                 if (releaseKind == TankerReleaseKind.SuperZapperDestruction)
                     child.TryZap(8);

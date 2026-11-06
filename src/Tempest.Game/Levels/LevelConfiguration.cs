@@ -22,6 +22,8 @@ public enum FlipperPivotGeometry
 public enum BelowRimFlipperProgram
 {
     Existing,
+    // ROM Level 5 $53, translated using the live C# Spike and Flipper heights.
+    Level5SpikeSensitive,
     Level7ArcadeObserved
 }
 
@@ -232,6 +234,7 @@ public sealed record LevelConfiguration(
     {
         Flipper = new(true, 2, 8, 21, 24),
         FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        BelowRimFlipperProgram = BelowRimFlipperProgram.Level5SpikeSensitive,
         StartingSpikeHeight = 60
     };
 

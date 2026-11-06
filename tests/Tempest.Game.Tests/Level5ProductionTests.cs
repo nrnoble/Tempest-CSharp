@@ -2,6 +2,7 @@ using System.Numerics;
 using Tempest.Game;
 using Tempest.Game.Gameplay;
 using Tempest.Game.Levels;
+using Tempest.Game.Systems;
 using Xunit;
 
 namespace Tempest.Game.Tests;
@@ -53,6 +54,8 @@ public sealed class Level5ProductionTests
             configuration.NormalEnemyComposition);
         Assert.True(configuration.FlipperCanFlip);
         Assert.Equal(FlipperPivotGeometry.EndpointHinge, configuration.FlipperPivotMode);
+        Assert.Equal(BelowRimFlipperProgram.Level5SpikeSensitive,
+            configuration.BelowRimFlipperProgram);
         Assert.False(game.NaturalProgressionEnabled);
         Assert.Empty(game.Pulsars);
         Assert.Empty(game.Fuseballs);
@@ -131,5 +134,268 @@ public sealed class Level5ProductionTests
         Assert.Equal(16, level.ReserveEggs);
         Assert.Equal(spikes, game.Spikes);
         Assert.Equal(45, game.Spikes.Single(spike => spike.EdgeIndex == game.Player.EdgeIndex).Height);
+    }
+
+    [Fact]
+    public void OrdinaryFlipperKeepsClimbingBelowTheLiveSpikeTipWithoutRandomLockDecisions()
+    {
+        Level level = CreateSpikePolicyLevel();
+        Flipper flipper = new(edge: 0, height: 20);
+
+        for (int tick = 0; tick < 5; tick++)
+            flipper.Update(level, playerEdge: 2, ThrowOnRandom);
+
+        Assert.Equal(30, flipper.Height);
+        Assert.Equal(FlipperState.Climbing, flipper.State);
+        Assert.Equal(0, flipper.EdgeIndex);
+    }
+
+    [Theory]
+    [InlineData(58, 60)]
+    [InlineData(60, 62)]
+    public void EqualityAndAboveTheSpikeTipPermitTheNextLaneChange(
+        float initialHeight, float expectedHeight)
+    {
+        Level level = CreateSpikePolicyLevel();
+        Flipper flipper = new(edge: 0, height: initialHeight);
+
+        flipper.Update(level, playerEdge: 2, (_, _) => 0);
+
+        Assert.Equal(expectedHeight, flipper.Height);
+        Assert.Equal(FlipperState.Pausing, flipper.State);
+        Assert.Equal(0, flipper.PauseTicks);
+    }
+
+    [Fact]
+    public void ShortenedDestroyedAndLiveSpikesUseTheirCurrentTipHeight()
+    {
+        Level shortenedLevel = CreateSpikePolicyLevel();
+        shortenedLevel.Spikes.Single(spike => spike.EdgeIndex == 0).Height = 30;
+        Flipper shortened = new(edge: 0, height: 28);
+        shortened.Update(shortenedLevel, playerEdge: 2, (_, _) => 0);
+        Assert.Equal(FlipperState.Pausing, shortened.State);
+
+        Level liveLevel = CreateSpikePolicyLevel();
+        Spike liveSpike = liveLevel.Spikes.Single(spike => spike.EdgeIndex == 0);
+        Flipper live = new(edge: 0, height: 28);
+        live.Update(liveLevel, playerEdge: 2, ThrowOnRandom);
+        Assert.Equal(FlipperState.Climbing, live.State);
+        liveSpike.Height = 30;
+        live.Update(liveLevel, playerEdge: 2, (_, _) => 0);
+        Assert.Equal(FlipperState.Pausing, live.State);
+
+        Level destroyedLevel = CreateSpikePolicyLevel();
+        Spike destroyedSpike = destroyedLevel.Spikes.Single(spike => spike.EdgeIndex == 0);
+        destroyedLevel.RemoveSpike(destroyedSpike);
+        Flipper destroyed = new(edge: 0, height: 20);
+        destroyed.Update(destroyedLevel, playerEdge: 2, (_, _) => 0);
+        Assert.Equal(FlipperState.Pausing, destroyed.State);
+
+        Level depletedLevel = CreateSpikePolicyLevel();
+        depletedLevel.Spikes.Single(spike => spike.EdgeIndex == 0).Height = 0;
+        Flipper depleted = new(edge: 0, height: 20);
+        depleted.Update(depletedLevel, playerEdge: 2, (_, _) => 0);
+        Assert.Equal(FlipperState.Pausing, depleted.State);
+    }
+
+    [Fact]
+    public void EnteringASpikeLaneResumesClimbingBeforeTestingThatLanesLiveTip()
+    {
+        Level level = CreateSpikePolicyLevel();
+        foreach (Spike spike in level.Spikes.ToArray())
+        {
+            if (spike.EdgeIndex != 15)
+                level.RemoveSpike(spike);
+        }
+
+        Flipper flipper = new(edge: 0, height: 18);
+        flipper.Update(level, playerEdge: 14, (_, _) => 0);
+        Assert.Equal(FlipperState.Pausing, flipper.State);
+        flipper.Update(level, playerEdge: 14, (_, _) => 0);
+        Assert.Equal(15, flipper.DestinationEdge);
+        Assert.Equal(FlipperState.Flipping, flipper.State);
+
+        flipper.Update(level, playerEdge: 14, (_, _) => 0);
+        Assert.Equal(15, flipper.EdgeIndex);
+        Assert.Equal(FlipperState.Pausing, flipper.State);
+        float heightAfterFlip = flipper.Height;
+
+        flipper.Update(level, playerEdge: 14, (_, _) => 0);
+
+        Assert.True(flipper.Height > heightAfterFlip);
+        Assert.True(flipper.Height < level.Spikes.Single().Height);
+        Assert.Equal(FlipperState.Climbing, flipper.State);
+
+        for (int tick = 0; tick < 30 && flipper.State == FlipperState.Climbing; tick++)
+            flipper.Update(level, playerEdge: 14, (_, _) => 0);
+
+        Assert.True(flipper.Height >= level.Spikes.Single().Height);
+        Assert.Equal(FlipperState.Pausing, flipper.State);
+    }
+
+    [Fact]
+    public void LevelsFourAndSixKeepBelowRimFlippingAndLevelSevenKeepsItsAcceptedRoute()
+    {
+        foreach (LevelConfiguration configuration in new[]
+        {
+            LevelConfiguration.Level4Candidate,
+            LevelConfiguration.Level6Production
+        })
+        {
+            Level level = CreateSpikePolicyLevel(configuration);
+            Flipper flipper = new(edge: 0, height: 20);
+
+            flipper.Update(level, playerEdge: 2, (_, _) => 0);
+
+            Assert.Equal(FlipperState.Pausing, flipper.State);
+        }
+
+        Level levelSeven = CreateSpikePolicyLevel(LevelConfiguration.Level7Production);
+        Flipper levelSevenFlipper = new(edge: 0);
+        levelSevenFlipper.Update(levelSeven, playerEdge: 2, ThrowOnRandom);
+        levelSevenFlipper.Update(levelSeven, playerEdge: 2, ThrowOnRandom);
+
+        Assert.Equal(FlipperState.Flipping, levelSevenFlipper.State);
+        Assert.Equal(levelSeven.PreviousEdge(0), levelSevenFlipper.DestinationEdge);
+    }
+
+    [Fact]
+    public void NaturalTankerCargoStaysStraightButDeepPlayerShotCargoUsesTheSpikeGate()
+    {
+        Level level = CreateSpikePolicyLevel();
+        Tanker naturalTanker = new(edgeIndex: 8, originalSlotId: 0);
+        while (naturalTanker.UpdateForDevelopment() == TankerUpdateResult.Active)
+        {
+        }
+        TankerReleaseResult naturalRelease = naturalTanker.ReleaseFlipperCargo(
+            level, firstSideDirection: 1, TankerReleaseKind.Natural);
+        Assert.False(naturalTanker.UsesLevel5SpikeSensitiveCargo(
+            level.Configuration, naturalRelease.Kind));
+
+        Tanker deepTanker = new(edgeIndex: 8, originalSlotId: 1);
+        while (deepTanker.Height < 250)
+            deepTanker.UpdateForDevelopment();
+        TankerReleaseResult deepRelease = deepTanker.ReleaseFlipperCargo(
+            level, firstSideDirection: 1, TankerReleaseKind.PlayerShotDestruction);
+        Assert.True(deepTanker.UsesLevel5SpikeSensitiveCargo(
+            level.Configuration, deepRelease.Kind));
+
+        Tanker deepBoundary = new(edgeIndex: 8, originalSlotId: 2, climbSpeed: 360);
+        deepBoundary.UpdateForDevelopment();
+        Assert.Equal(LevelConfiguration.Level7DeepCargoMaximumHeight, deepBoundary.Height);
+        Assert.True(deepBoundary.UsesLevel5SpikeSensitiveCargo(
+            level.Configuration, TankerReleaseKind.PlayerShotDestruction));
+
+        Tanker nearRimShot = new(edgeIndex: 8, originalSlotId: 3, climbSpeed: 361);
+        nearRimShot.UpdateForDevelopment();
+        Assert.False(nearRimShot.UsesLevel5SpikeSensitiveCargo(
+            level.Configuration, TankerReleaseKind.PlayerShotDestruction));
+
+        TankerCargoSpawn deepSpawn = deepRelease.Cargo[0];
+        level.RemoveSpike(level.Spikes.Single(spike => spike.EdgeIndex == deepSpawn.DestinationLane));
+        Flipper deepCargo = Flipper.CreateTankerCargo(
+            level, deepSpawn, cargoUnitId: 0,
+            useLevel5SpikeSensitiveProgram: true);
+        deepCargo.Update(level, playerEdge: 2, ThrowOnRandom);
+        Assert.Equal(FlipperState.Pausing, deepCargo.State);
+        deepCargo.Update(level, playerEdge: 2, ThrowOnRandom);
+
+        Assert.Equal(FlipperState.Flipping, deepCargo.State);
+
+        Flipper naturalCargo = Flipper.CreateTankerCargo(
+            level, naturalRelease.Cargo[0], cargoUnitId: 1);
+        naturalCargo.Update(level, playerEdge: 2, ThrowOnRandom);
+        naturalCargo.Update(level, playerEdge: 2, ThrowOnRandom);
+        Assert.Equal(FlipperState.Pausing, naturalCargo.State);
+        Assert.Equal(naturalRelease.Cargo[0].DestinationLane, naturalCargo.EdgeIndex);
+
+        LevelConfiguration tankerConfiguration = LevelConfiguration.Level5Production with
+        {
+            EnemySupply = 4,
+            InitialActiveEggCount = 4,
+            Flipper = new(true, 2, 360, 0, 24)
+        };
+        TempestGame game = new(tankerConfiguration, random: new Level5TankerSelectionRandom());
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Tanker gameTanker = Assert.Single(game.Tankers);
+        while (gameTanker.Height < 250)
+            game.RunOneStep();
+
+        game.Player.ResetPosition(gameTanker.EdgeIndex, 0.5f);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot tankerShot = Assert.Single(game.Shots);
+        tankerShot.Height = gameTanker.Height - 1;
+        game.RunOneStep();
+        Flipper[] integratedCargo = game.Flippers
+            .Where(flipper => flipper.IsTankerCargo)
+            .OrderBy(flipper => flipper.CargoUnitId)
+            .ToArray();
+        Assert.Equal(2, integratedCargo.Length);
+        Assert.Equal(new[] { 1, -1 }, integratedCargo.Select(flipper => flipper.Direction));
+        game.CurrentLevel.RemoveSpike(game.Spikes.Single(
+            spike => spike.EdgeIndex == integratedCargo[0].DestinationEdge));
+
+        integratedCargo[0].Update(game.CurrentLevel, playerEdge: 2, ThrowOnRandom);
+        integratedCargo[0].Update(game.CurrentLevel, playerEdge: 2, ThrowOnRandom);
+
+        Assert.Equal(FlipperState.Flipping, integratedCargo[0].State);
+    }
+
+    [Fact]
+    public void FreshLevelFiveFlippersAfterDeathUseTheSpikePolicy()
+    {
+        LevelConfiguration configuration = LevelConfiguration.Level5Production with
+        {
+            EnemySupply = 4,
+            InitialActiveEggCount = 4
+        };
+        TempestGame game = new(configuration, random: new Level5FlipperSelectionRandom());
+        game.CurrentLevel.State = LevelState.PlayerDying;
+        game.RunOneStep();
+
+        Egg reentryEgg = game.Eggs[0];
+        MakeReady(reentryEgg, game.CurrentLevel);
+        game.RunOneStep();
+        Flipper reentryFlipper = Assert.Single(game.Flippers);
+        float initialHeight = reentryFlipper.Height;
+
+        reentryFlipper.Update(game.CurrentLevel, playerEdge: 2, ThrowOnRandom);
+
+        Assert.True(reentryFlipper.Height > initialHeight);
+        Assert.Equal(FlipperState.Climbing, reentryFlipper.State);
+    }
+
+    private static Level CreateSpikePolicyLevel(
+        LevelConfiguration? configuration = null)
+    {
+        LevelConfiguration selected = configuration ?? LevelConfiguration.Level5Production;
+        return new Level(selected with
+        {
+            Flipper = new(true, 2, 360, 0, 24)
+        });
+    }
+
+    private static int ThrowOnRandom(int minimum, int maximum) =>
+        throw new InvalidOperationException($"Unexpected random decision [{minimum}, {maximum}].");
+
+    private static void MakeReady(Egg egg, Level level)
+    {
+        egg.BeginApproach();
+        for (int tick = 0; tick < 100 && egg.State != EggState.ReadyToHatch; tick++)
+            egg.Update(level);
+        Assert.Equal(EggState.ReadyToHatch, egg.State);
+    }
+
+    private sealed class Level5FlipperSelectionRandom : Random
+    {
+        public override int Next(int minValue, int maxValue) =>
+            minValue == -6 && maxValue == 5 ? 1 : minValue;
+    }
+
+    private sealed class Level5TankerSelectionRandom : Random
+    {
+        public override int Next(int minValue, int maxValue) =>
+            minValue == -6 && maxValue == 5 ? 3 : minValue;
     }
 }

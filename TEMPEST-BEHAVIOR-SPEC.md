@@ -1520,3 +1520,53 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
   do not verify exact numeric rates, internal trigger ticks or latch timing,
   nor authentic wave composition (**DEVELOPMENT ONLY**). The later all-rim
   completion milestone superseded the former kill-all-only completion policy.
+
+## 13. Level 5 Spike-sensitive Flipper behavior (2026-11-06)
+
+**ROM-BACKED:** The checked-in arcade ROM selects movement program `$53` for
+displayed Level 5. `$53` moves the Flipper, then tests the live Spike height of
+its current lane. Opcode `$1c` treats zero Spike height as `$ff` and otherwise
+allows the flip when `spike_ht >= enemy_along`, including equality. A false
+predicate returns to the move-and-test loop; a true predicate starts the normal
+flip, with along movement during the turn. The newly occupied lane is tested
+after the completed flip and a subsequent along movement. There is no explicit
+lock state or random lock/unlock decision.
+
+**ARCADE OBSERVED / MANUALLY ACCEPTED:** Neal manually played production
+Level 5 after the `$53` correction and accepted the corrected behavior. Ordinary
+Flippers continue climbing below the relevant live Spike tip while the next
+below-rim lane change is suppressed; lane changing resumes once the live
+threshold permits it. The resulting Spike-lane-following behavior looks and
+feels acceptable against Neal's arcade expectation, with no blocking Level 5
+gameplay regression observed. This overall acceptance does not claim that Neal
+manually isolated every automated shortened-Spike, destroyed-Spike,
+Tanker-cargo-depth, or reconstruction edge case.
+
+**CURRENT C# / PROJECT TRANSLATION:** The former Level 5 generic `CanFlip`
+behavior did not consult Spike state. The implementation uses a narrow
+Level-configuration movement policy. C# `Flipper.Height` grows from 0 at the
+far end toward the 400-unit rim, and `Spike.Height` identifies the live tip in
+that coordinate model; after each climb step, a below-rim lane change is
+permitted when the current-lane Spike is absent/depleted or `Flipper.Height >=
+Spike.Height`. This is a C# coordinate translation, not a literal conversion of
+ROM bytes. Shortened Spikes therefore release the gate sooner, and live Spike
+state is read again rather than latched. Ordinary death/re-entry creates fresh
+Flippers using the active Level 5 policy, not an old movement-program phase.
+
+The policy is level-specific: Levels 4 (`$24`), 6 (`$0b`), and 7 (`$24`) do not
+inherit the Spike gate; Level 7's manually accepted `2-3-2-2-2` route remains
+separate. Natural/near-rim Tanker cargo retains straight-climb behavior
+corresponding to ROM `$07`; deep player-shot Level 5 cargo uses the Level 5
+policy. The C# `Height <= 370` cargo cutoff reuses the established project
+deep-cargo threshold and is an approximation of the ROM `$20` release-depth
+selection, not an exact coordinate conversion. Tanker sibling identity and
+direction ownership are unchanged.
+
+Automated tests protect below-tip climbing, equality/above-tip release,
+destroyed and shortened Spikes, live reevaluation, entry into a Spike lane,
+Level 4/6/7 isolation, Tanker release distinctions, re-entry and existing
+progression. These tests establish C# behavior only; the listed edge cases are
+not represented as individually observed manual checks.
+
+**MANUAL ACCEPTANCE: MANUALLY ACCEPTED.** The accepted gameplay correction
+remains Level-5-specific; preserve Levels 4, 6, and 7 as described above.

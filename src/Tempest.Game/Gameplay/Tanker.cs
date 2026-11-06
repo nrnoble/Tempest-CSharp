@@ -134,6 +134,17 @@ public sealed class Tanker : Enemy
             Height <= LevelConfiguration.Level7DeepCargoMaximumHeight;
     }
 
+    public bool UsesLevel5SpikeSensitiveCargo(
+        LevelConfiguration configuration, TankerReleaseKind releaseKind)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        // Reuse the established C# deep-cargo cutoff; it approximates the ROM split, not its byte scale.
+        return configuration.BelowRimFlipperProgram ==
+                BelowRimFlipperProgram.Level5SpikeSensitive &&
+            releaseKind == TankerReleaseKind.PlayerShotDestruction &&
+            Height <= LevelConfiguration.Level7DeepCargoMaximumHeight;
+    }
+
     public override bool TryZap(int delay) => AcceptZap(delay);
 
     public bool HitsPlayer(Player player) => false;

@@ -37,6 +37,7 @@ public sealed class Flipper : Enemy
     private int programmedPhaseIndex;
     private int programmedFlipsRemaining;
     private ProgrammedFlipperRouteStep programmedRouteStep;
+    private bool useLevel5SpikeSensitiveProgram;
 
     public Flipper(int edge = 0, float height = 0)
     {
@@ -87,29 +88,27 @@ public sealed class Flipper : Enemy
             return;
         }
 
-        bool canFlip = tuning.CanFlip && !IsTankerCargo;
+        bool canFlip = tuning.CanFlip && (!IsTankerCargo || useLevel5SpikeSensitiveProgram);
+        bool spikeGatedProgram = UsesLevel5SpikeSensitiveProgram(level);
         switch (State)
         {
             case FlipperState.Climbing:
-                bool startedBelowRim = Height < Level.Depth;
-                Height += tuning.ClimbSpeed;
-                if (Height >= Level.Depth)
-                {
-                    Height = Level.Depth;
-                    if (EdgeIndex == playerEdge)
-                        CompletedIntoPlayer = true;
-                    else
-                        BeginPause(tuning.RimPauseTicks);
-                }
-                if (canFlip && startedBelowRim)
-                    // Incitti's first canflip climb enters type 3 without assigning a pause.
-                    BeginPause(0);
-                if (canFlip && startedBelowRim)
-                    // The ROM selects this route during movement; the global shot phase runs later.
-                    Direction = level.FindReferenceShortestDirection(EdgeIndex, playerEdge, randomInclusive);
+                AdvanceClimb(level, playerEdge, tuning, canFlip, spikeGatedProgram,
+                    randomInclusive);
                 break;
 
             case FlipperState.Pausing:
+                if (spikeGatedProgram && Height < Level.Depth &&
+                    !CanStartSpikeGatedLaneChange(level))
+                {
+                    // $53 keeps moving after a flip; a false current-lane predicate is not a pause.
+                    State = FlipperState.Climbing;
+                    PauseTicks = 0;
+                    AdvanceClimb(level, playerEdge, tuning, canFlip, spikeGatedProgram,
+                        randomInclusive);
+                    break;
+                }
+
                 bool pausedBelowRim = Height < Level.Depth;
                 if ((IsTankerCargo || canFlip) && Height < Level.Depth)
                     Height = MathF.Min(Level.Depth, Height + 1);
@@ -143,7 +142,8 @@ public sealed class Flipper : Enemy
     // remains fixed; rim pivots resume player pursuit.
     public static Flipper CreateTankerCargo(
         Level level, TankerCargoSpawn cargo, int cargoUnitId,
-        bool useLevel7ProgrammedRoute = false)
+        bool useLevel7ProgrammedRoute = false,
+        bool useLevel5SpikeSensitiveProgram = false)
     {
         Flipper flipper = new(cargo.SourceLane, cargo.Height)
         {
@@ -151,7 +151,8 @@ public sealed class Flipper : Enemy
             DestinationEdge = cargo.DestinationLane,
             Direction = cargo.Direction,
             State = FlipperState.Flipping,
-            CargoUnitId = cargoUnitId
+            CargoUnitId = cargoUnitId,
+            useLevel5SpikeSensitiveProgram = useLevel5SpikeSensitiveProgram
         };
         DirectedLaneTransition transition = level.CalculateDirectedLaneTransition(
             cargo.SourceLane, cargo.DestinationLane, cargo.Direction);
@@ -164,9 +165,14 @@ public sealed class Flipper : Enemy
 
     // Ordinary climbing Flipper used when cargo re-enters through a fresh Egg after a life loss.
     public static Flipper CreateFreshTankerCargo(
-        int edge, int cargoUnitId, int? programmedDirection = null)
+        int edge, int cargoUnitId, int? programmedDirection = null,
+        bool useLevel5SpikeSensitiveProgram = false)
     {
-        Flipper flipper = new(edge, 0) { CargoUnitId = cargoUnitId };
+        Flipper flipper = new(edge, 0)
+        {
+            CargoUnitId = cargoUnitId,
+            useLevel5SpikeSensitiveProgram = useLevel5SpikeSensitiveProgram
+        };
         if (programmedDirection is int direction)
             flipper.InitializeProgrammedRoute(direction);
         return flipper;
@@ -217,6 +223,46 @@ public sealed class Flipper : Enemy
         State = FlipperState.Pausing;
         PauseTicks = pauseTicks;
         TurnAngle = 0;
+    }
+
+    private void AdvanceClimb(
+        Level level, int playerEdge, FlipperConfiguration tuning, bool canFlip,
+        bool spikeGatedProgram, Func<int, int, int>? randomInclusive)
+    {
+        bool startedBelowRim = Height < Level.Depth;
+        Height += tuning.ClimbSpeed;
+        if (Height >= Level.Depth)
+        {
+            Height = Level.Depth;
+            if (EdgeIndex == playerEdge)
+                CompletedIntoPlayer = true;
+            else
+                BeginPause(tuning.RimPauseTicks);
+        }
+
+        if (canFlip && startedBelowRim &&
+            (!spikeGatedProgram || CanStartSpikeGatedLaneChange(level)))
+        {
+            // ROM $53 moves first, then tests the live Spike at the new along-position.
+            // The existing C# route enters its pivot phase without assigning a lane pause.
+            BeginPause(0);
+            if (!IsTankerCargo)
+                Direction = level.FindReferenceShortestDirection(
+                    EdgeIndex, playerEdge, randomInclusive);
+        }
+    }
+
+    private bool UsesLevel5SpikeSensitiveProgram(Level level) =>
+        useLevel5SpikeSensitiveProgram ||
+        (!IsTankerCargo &&
+         level.Configuration.BelowRimFlipperProgram ==
+            BelowRimFlipperProgram.Level5SpikeSensitive);
+
+    private bool CanStartSpikeGatedLaneChange(Level level)
+    {
+        Spike? spike = level.Spikes.FirstOrDefault(candidate => candidate.EdgeIndex == EdgeIndex);
+        // C# height rises toward the rim; absent/depleted spikes impose no lane-change gate.
+        return spike is null || spike.IsDepleted || Height >= spike.Height;
     }
 
     private void InitializeProgrammedRoute(int initialDirection)

@@ -2669,3 +2669,43 @@ Level 7's accepted `2-3-2-2-2` route), firing, shots and Super Zapper strategy
 remain unchanged. Historical analysis is preserved in
 `AI-Logs/Reports/2026-11-04-level1-stationary-rim-combat-comparison-report.md`;
 do not treat that analysis harness as production regression authority.
+
+## Future production-level preimplementation workflow
+
+Before implementing each future production level, perform a bounded
+preimplementation ROM/arcade analysis of that level's geometry/topology,
+palette, enemy supply and eligibility, starting Spikes, Flipper movement
+program and Spike interaction, ordinary versus Tanker-cargo movement, Tanker
+and Spiker behavior, Pulsar/Fuseball behavior where applicable, firing and rim
+behavior, Super Zapper state, exit/Avoid-Spikes behavior, progression, and
+other explicit level-specific enemy mechanics. Use the checked-in arcade ROM as
+the ROM authority and distinguish ROM evidence, direct arcade observations,
+Incitti reference behavior, current C# behavior, and project translations.
+
+Proceed one level at a time:
+
+`analyze one level -> implement one level -> automated validation -> Neal
+manual arcade acceptance -> correct discrepancies -> document -> commit/push
+-> next level`
+
+This is a recommended development workflow, not gameplay behavior or a
+production code policy. It is intended to avoid filling gaps with generic
+assumptions and revisiting multiple levels after implementation.
+
+## Deferred infrastructure/control follow-ups
+
+The next separate infrastructure milestone should add generic direct-level
+launch for an implemented production level:
+
+`dotnet run --project src\Tempest.Game -- --level N --lives 10`
+
+The selected level must be initialized through the real production
+configuration/state path without duplicate test-only levels. It should retain
+appropriate fresh-game semantics, continue normally to the next implemented
+production level after a clear, and let Neal quit manually when testing is
+complete. This capability is planned, not implemented.
+
+The same separate milestone must remove `V` as a quit alias. A physical
+controller button emits ordinary keyboard `V`, so `V` must not quit the game;
+preserve normal Escape and window-close behavior. This control change is
+planned, not implemented.
