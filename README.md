@@ -145,12 +145,36 @@ Manual acceptance checklist:
 - **Restart/Start/Replay:** R or P, only at Game Over or Level Complete.
   Both invoke the same existing restart/replay behavior; neither starts a
   new game during active play, death or exit travel. Hold does not repeat.
-- **Quit:** Escape, V or window close; all use normal application shutdown.
+- **Quit:** Enter, Escape or window close; all use normal application shutdown.
 
-P and V are additive controller-friendly keyboard aliases, not arcade-verified
-gameplay rules. All previous controls remain available without the controller.
-The physical controller diagnostic confirmed ordinary Raylib key presses,
-including Space; no character-input workaround or new zap key was added.
+P remains an additive controller-friendly restart alias. Enter is the
+controller-friendly immediate quit alias; V intentionally has no production
+action because a physical controller button emits V. These are control
+conveniences, not arcade-verified gameplay rules. All other controls remain
+unchanged. Escape and window-close behavior are preserved. Enter lets Neal
+play and exit from the arcade controller without reaching for the keyboard.
+
+## Development-only direct production-level startup
+
+Use `--level N` to start a fresh game directly at any currently implemented
+production level. The current supported range is Levels 1–7:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --level 5 --lives 10
+```
+
+This selects the real production configuration and state, not a separate test
+level. It changes only the starting level: after a clear, ordinary campaign
+progression continues to the next implemented level. It is intended to make
+the level-by-level manual arcade testing workflow practical. `--lives` remains
+available in either argument order. The existing `--levelN-test` diagnostics
+remain separate, isolated scenarios.
+
+Neal manually accepted this development startup and the controller exit
+controls on 2026-11-06. During those sessions, the game also unexpectedly
+exited on multiple occasions and the console ended with
+`INFO: Window closed successfully`. This observation is unresolved,
+non-blocking, and deferred; no cause has been established.
 
 ## Development-only controller input diagnostic
 
@@ -190,10 +214,10 @@ focus and held keys during quiet/held intervals. Escape is still Raylib's
 default close key, so its press can close before a diagnostic event line.
 This log is evidence of what Raylib exposes, not raw USB/Windows messages or
 proof of the controller's input mechanism. Neal's physical test confirmed
-ordinary key events and led to the production P/V aliases above. This
-standalone diagnostic retains its original controls: V is logged, not used
-to quit, so its input can still be inspected. The two volcano Player 1/2
-buttons produced no observable Raylib event; further investigation is deferred.
+ordinary key events. The standalone diagnostic retains its original
+observations: V and Enter are logged, not used for production gameplay actions,
+so both physical inputs remain inspectable. The two volcano Player 1/2 buttons
+produced no observable Raylib event; further investigation is deferred.
 
 ## Level 2 square/canflip and direct development access
 

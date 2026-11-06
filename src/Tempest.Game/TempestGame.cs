@@ -184,16 +184,27 @@ public sealed class TempestGame
         bool level2Test = false, bool level3GeometryTest = false,
         LevelConfiguration? startingConfiguration = null, bool level3Test = false,
         bool level4Test = false, IAudioEvents? audioEvents = null, bool level6Test = false,
-        bool level7Test = false, double rimSpeedMultiplier = 1.0)
+        bool level7Test = false, double rimSpeedMultiplier = 1.0,
+        int? startingProductionLevel = null)
     {
         if (!double.IsFinite(rimSpeedMultiplier) || rimSpeedMultiplier <= 0)
             throw new ArgumentOutOfRangeException(nameof(rimSpeedMultiplier),
                 "The rim-speed multiplier must be a positive finite value.");
+        LevelConfiguration? directConfiguration = startingProductionLevel is int displayedLevel
+            ? LevelProgression.GetProductionLevel(displayedLevel)
+            : null;
+        if (startingProductionLevel is not null && directConfiguration is null)
+            throw new ArgumentOutOfRangeException(nameof(startingProductionLevel),
+                "The selected production level is not implemented.");
         if ((level2Test ? 1 : 0) + (level3Test ? 1 : 0) +
             (level4Test ? 1 : 0) + (level6Test ? 1 : 0) + (level7Test ? 1 : 0) +
             (level3GeometryTest ? 1 : 0) +
             (spikerDevelopmentWave ? 1 : 0) + (tankerTest ? 1 : 0) +
             (fuseballTest ? 1 : 0) + (pulsarTest ? 1 : 0) > 1 ||
+            startingProductionLevel is not null &&
+            (startingConfiguration is not null || level2Test || level3Test || level4Test ||
+             level3GeometryTest || level6Test || level7Test || spikerDevelopmentWave ||
+             tankerTest || fuseballTest || pulsarTest) ||
             startingConfiguration is not null &&
             (level2Test || level3Test || level4Test || level3GeometryTest || spikerDevelopmentWave ||
              level6Test || level7Test || tankerTest || fuseballTest || pulsarTest))
@@ -204,7 +215,7 @@ public sealed class TempestGame
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
         this.rimSpeedMultiplier = rimSpeedMultiplier;
         this.audioEvents = audioEvents ?? SilentAudioEvents.Instance;
-        this.launchConfiguration = startingConfiguration ?? (level2Test
+        this.launchConfiguration = directConfiguration ?? startingConfiguration ?? (level2Test
             ? LevelConfiguration.Level2Square
             : level3Test
                 ? LevelConfiguration.Level3Mixed
@@ -225,7 +236,10 @@ public sealed class TempestGame
         this.level6Test = level6Test;
         this.level7Test = level7Test;
         this.level3GeometryTest = level3GeometryTest;
-        naturalProgressionEnabled = startingConfiguration is null &&
+        // A generic direct start changes only the initial production configuration; it keeps the
+        // same onward campaign transitions as a level reached through ordinary play.
+        naturalProgressionEnabled = startingProductionLevel is not null ||
+            startingConfiguration is null &&
             !level2Test && !level3Test && !level4Test && !level6Test && !level7Test &&
             !spikerDevelopmentWave && !tankerTest &&
             !fuseballTest && !pulsarTest && !level3GeometryTest;
@@ -386,7 +400,9 @@ public sealed class TempestGame
     {
         Score.Reset();
         Player.Lives = startingLives;
-        InitializeFreshWave(launchConfiguration);
+        InitializeFreshWave(naturalProgressionEnabled
+            ? LevelConfiguration.Level1
+            : launchConfiguration);
     }
 
     // Fresh initialization installs a new Level; life reconstruction deliberately retains it.

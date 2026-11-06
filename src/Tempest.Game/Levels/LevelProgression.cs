@@ -2,6 +2,32 @@ namespace Tempest.Game.Levels;
 
 public static class LevelProgression
 {
+    // Keep direct-start validation tied to the same chain used by live campaign progression.
+    public static LevelConfiguration? GetProductionLevel(int displayedLevel)
+    {
+        if (displayedLevel < LevelConfiguration.Level1.DisplayedLevel)
+            return null;
+
+        LevelConfiguration current = LevelConfiguration.Level1;
+        while (current.DisplayedLevel < displayedLevel)
+        {
+            LevelConfiguration? next = GetNextProductionLevel(current);
+            if (next is null)
+                return null;
+            current = next;
+        }
+
+        return current.DisplayedLevel == displayedLevel ? current : null;
+    }
+
+    public static LevelConfiguration GetLastProductionLevel()
+    {
+        LevelConfiguration current = LevelConfiguration.Level1;
+        while (GetNextProductionLevel(current) is LevelConfiguration next)
+            current = next;
+        return current;
+    }
+
     public static LevelConfiguration? GetNextProductionLevel(LevelConfiguration current) =>
         ReferenceEquals(current, LevelConfiguration.Level1)
             ? LevelConfiguration.Level2Square

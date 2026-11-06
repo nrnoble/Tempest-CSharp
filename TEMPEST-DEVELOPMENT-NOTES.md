@@ -183,13 +183,25 @@ injection mechanism. Subsequent physical-controller gameplay testing passed
 for Space when available, resolving the earlier uncertainty for practical
 validation without attributing a cause to the earlier isolated failure.
 
-P is an additive R alias for the existing Game Over/Level Complete restart/
-replay request, using `IsKeyPressed` and the same state gates. V is an
-additive quit alias alongside Raylib's unchanged default Escape/window-close
-condition, exiting before the next simulation step through the existing
-cursor/window cleanup. Space/right mouse zap, Ctrl/left mouse Fire, spinner
-and keyboard arrows are unchanged. Z/X/C/Enter/Alt/Shift/1/5 have no new
-actions. These are control convenience decisions, not ARCADE VERIFIED rules.
+P remains an additive R alias for the existing Game Over/Level Complete
+restart/replay request, using `IsKeyPressed` and the same state gates.
+
+**Current production mapping (2026-11-06):** the physical controller button
+that emits ordinary V must not quit or acquire another gameplay action, so V
+is intentionally unmapped in production. Enter is the controller-friendly
+immediate quit alias. The main loop checks Enter before the next simulation
+step and uses the existing cursor/audio/window cleanup. Raylib's default
+Escape and window-close behavior remain unchanged. The standalone input
+diagnostic still reports both V and Enter key events without performing game
+actions. Neal manually accepted these controls on 2026-11-06: V no longer exits,
+Enter exits immediately without confirmation, Escape/window close remain
+available, and other controller mappings are unchanged. These are control
+convenience decisions, not ARCADE VERIFIED rules.
+
+Space/right mouse zap, Ctrl/left mouse Fire, spinner and keyboard arrows are
+unchanged. Z/X/C/Alt/Shift/1/5 have no new actions. The 2026-10-31 manual
+controller validation recorded P/V behavior before this remapping; the
+2026-11-06 acceptance covers the new Enter/V behavior.
 
 The small red Atari-style Player 1/Player 2 volcano buttons under Turbo Mode
 produced no observable Raylib diagnostic event. Their investigation, including
@@ -200,11 +212,11 @@ The standalone DEVELOPMENT ONLY diagnostic remains available and does not
 run during gameplay. Its readability and Neal's reported Tee-Object capture
 issue are non-blocking diagnostic usability concerns, not part of this change.
 Manual controller/input validation completed PASS on 2026-10-31 on both the
-ordinary keyboard and physical USB controller. Spinner, existing Fire,
-controller/keyboard Space, controller P in applicable restart/replay states,
-keyboard R, controller V and keyboard Escape worked normally. Existing
-controls were preserved and no obvious gameplay regression was observed.
-The additive P/V aliases are manually accepted.
+ordinary keyboard and physical USB controller, using the then-current P/V
+aliases. That historical validation predates the 2026-11-06 V removal and
+Enter quit mapping. Neal's 2026-11-06 manual acceptance covers the newly
+reported direct-start and exit-control behaviors; it is not additional
+acceptance of other controller controls.
 
 ### Deferred fidelity comparisons
 
@@ -2684,28 +2696,41 @@ Incitti reference behavior, current C# behavior, and project translations.
 
 Proceed one level at a time:
 
-`analyze one level -> implement one level -> automated validation -> Neal
-manual arcade acceptance -> correct discrepancies -> document -> commit/push
--> next level`
+`analyze one level -> implement one level -> automated validation ->
+direct-launch/manual arcade testing -> correct discrepancies -> manual
+acceptance -> document -> commit/push -> next level`
 
 This is a recommended development workflow, not gameplay behavior or a
 production code policy. It is intended to avoid filling gaps with generic
 assumptions and revisiting multiple levels after implementation.
 
-## Deferred infrastructure/control follow-ups
+## Direct production-level startup and controller exit (2026-11-06)
 
-The next separate infrastructure milestone should add generic direct-level
-launch for an implemented production level:
+The **DEVELOPMENT ONLY** `--level N` option starts fresh at an implemented
+production level, currently Levels 1–7. It selects the same production
+configuration and initialization path as campaign progression, with fresh
+score, lives from `--lives` (or the normal default), Super Zapper, wave and
+transition state. The option chooses only the starting level: ordinary
+production progression continues after a successful exit. It exists to make
+the agreed one-level-at-a-time manual arcade testing workflow practical;
+legacy `--levelN-test` selectors remain separate terminal diagnostics.
 
-`dotnet run --project src\Tempest.Game -- --level N --lives 10`
+The controller button that emits V makes it an unsafe quit alias, so V has no
+production action. Enter now requests immediate clean exit before another
+simulation step. Escape and window-close behavior remain unchanged. The
+development input diagnostic continues to report both physical key events.
+This lets Neal perform and exit manual gameplay tests from the arcade
+controller without reaching for the keyboard. Neal manually accepted both
+generic direct-level startup and Enter/V exit controls on 2026-11-06. The
+accepted range is production Levels 1–7; direct startup uses fresh-game state
+and continues ordinary progression.
 
-The selected level must be initialized through the real production
-configuration/state path without duplicate test-only levels. It should retain
-appropriate fresh-game semantics, continue normally to the next implemented
-production level after a clear, and let Neal quit manually when testing is
-complete. This capability is planned, not implemented.
-
-The same separate milestone must remove `V` as a quit alias. A physical
-controller button emits ordinary keyboard `V`, so `V` must not quit the game;
-preserve normal Escape and window-close behavior. This control change is
-planned, not implemented.
+**Observed / unresolved / non-blocking / deferred (2026-11-06):** During
+manual testing, the game unexpectedly exited on multiple occasions and the
+console ended with `INFO: Window closed successfully`. This message does not
+establish what initiated shutdown. Neal wondered whether a controller
+interaction might be involved and noted that other controller buttons emit
+ordinary keyboard Alt, Control, and Shift events; no such cause or combination
+is established. This was not investigated, no logging or mapping changes were
+made, and no input diagnostics were launched for it. If the exits continue or
+become disruptive, investigate later as a separate bounded input/exit task.

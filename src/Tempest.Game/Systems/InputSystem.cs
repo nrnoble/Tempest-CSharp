@@ -15,13 +15,13 @@ public sealed class InputSystem
 		Raylib.IsKeyPressed(KeyboardKey.R), Raylib.IsKeyPressed(KeyboardKey.P));
 
 	public bool QuitRequested() => IsQuitRequested(
-		Raylib.WindowShouldClose(), Raylib.IsKeyPressed(KeyboardKey.V));
+		Raylib.WindowShouldClose(), Raylib.IsKeyPressed(KeyboardKey.Enter));
 
 	public static bool IsRestartPressed(bool rPressed, bool pPressed) =>
 		rPressed || pPressed;
 
-	public static bool IsQuitRequested(bool windowShouldClose, bool vPressed) =>
-		windowShouldClose || vPressed;
+	public static bool IsQuitRequested(bool windowShouldClose, bool enterPressed) =>
+		windowShouldClose || enterPressed;
 
 	public static bool IsSuperZapperPressed(bool spacePressed, bool rightMousePressed) =>
 		spacePressed || rightMousePressed;

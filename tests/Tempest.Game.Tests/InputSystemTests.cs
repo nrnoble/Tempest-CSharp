@@ -23,9 +23,9 @@ public sealed class InputSystemTests
     [InlineData(true, false, true)]
     [InlineData(false, true, true)]
     [InlineData(true, true, true)]
-    public void QuitPreservesWindowCloseAndAddsVPress(bool close, bool v, bool expected)
+    public void QuitPreservesWindowCloseAndUsesEnterPress(bool close, bool enter, bool expected)
     {
-        Assert.Equal(expected, InputSystem.IsQuitRequested(close, v));
+        Assert.Equal(expected, InputSystem.IsQuitRequested(close, enter));
     }
 
     [Theory]

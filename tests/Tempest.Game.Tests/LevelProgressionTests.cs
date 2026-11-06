@@ -360,13 +360,19 @@ public sealed class LevelProgressionTests
         Assert.Equal(5, game.Player.Lives);
     }
 
-    [Fact]
-    public void NaturalLevel4AvoidSpikesExitInstallsLevel5AndStartsBlueStarApproach()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Level4AvoidSpikesExitInstallsLevel5FromNaturalOrDirectStart(bool directStart)
     {
-        TempestGame game = CreateNaturalLevel4();
+        TempestGame game = directStart
+            ? new TempestGame(startingProductionLevel: 4)
+            : CreateNaturalLevel4();
+        Assert.True(game.NaturalProgressionEnabled);
+        if (game.State == LevelState.Approach)
+            FinishApproach(game);
         game.Score.Add(88);
         game.Player.Lives = 2;
-        FinishApproach(game);
         Assert.True(game.SuperZapper.TryActivate([], game.Player.EdgeIndex, 16, continuous: true));
         Assert.True(game.SuperZapper.TryActivate([], game.Player.EdgeIndex, 16, continuous: true));
         Assert.Equal(0, game.SuperZapperChargesRemaining);
@@ -448,10 +454,15 @@ public sealed class LevelProgressionTests
         Assert.Same(incoming, game.CurrentLevel);
     }
 
-    [Fact]
-    public void NaturalLevel5AvoidSpikesExitInstallsFreshLevel6AndStartsMixedStarApproach()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Level5AvoidSpikesExitInstallsLevel6FromNaturalOrDirectStart(bool directStart)
     {
-        TempestGame game = CreateNaturalLevel5(startingLives: 5);
+        TempestGame game = directStart
+            ? new TempestGame(startingProductionLevel: 5, startingLives: 5)
+            : CreateNaturalLevel5(startingLives: 5);
+        Assert.True(game.NaturalProgressionEnabled);
         game.Score.Add(88);
         game.Player.Lives = 2;
         Assert.True(game.SuperZapper.TryActivate([], game.Player.EdgeIndex, 16, continuous: true));
@@ -551,10 +562,15 @@ public sealed class LevelProgressionTests
         Assert.Same(LevelConfiguration.Level5Production, game.CurrentLevel.Configuration);
     }
 
-    [Fact]
-    public void SuccessfulNaturalLevelSixSpikeExitInstallsFreshLevel7AtTheCommitBoundary()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SuccessfulLevelSixExitInstallsLevel7FromNaturalOrDirectStart(bool directStart)
     {
-        TempestGame game = CreateNaturalLevel6(startingLives: 5);
+        TempestGame game = directStart
+            ? new TempestGame(startingProductionLevel: 6, startingLives: 5)
+            : CreateNaturalLevel6(startingLives: 5);
+        Assert.True(game.NaturalProgressionEnabled);
         game.Score.Add(88);
         game.Player.Lives = 2;
         Assert.True(game.SuperZapper.TryActivate([], game.Player.EdgeIndex, 16, continuous: true));

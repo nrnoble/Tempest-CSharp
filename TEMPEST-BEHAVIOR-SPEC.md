@@ -1239,6 +1239,7 @@ These controls are test conveniences, not arcade level-selection or composition:
 
 | Option | Development behavior |
 |---|---|
+| `--level N` | **DEVELOPMENT ONLY:** fresh start at the real production level for a currently implemented displayed level (1–7). Uses normal production initialization and onward campaign progression; it is not a terminal diagnostic. |
 | `--level2-test` | Direct access to the shared closed 16-lane square, supply-12 Flipper-only canflip configuration; terminal development replay, no progression selection. |
 | `--level3-geometry-test` | Direct access to the Flipper-only Level 3 plus-board geometry diagnostic; separate from the mixed production-shaped wave. |
 | `--level3-test` | Direct graphical access to the existing production-shaped mixed Level 3 configuration; terminal replay without enabling natural progression. Production Tanker bullets are visible without `--enemy-bullets-test`; the natural progression Flipper firing phase is not enabled by this diagnostic alone. |
@@ -1251,6 +1252,26 @@ These controls are test conveniences, not arcade level-selection or composition:
 | `--pulsar-test` | Direct-hatches the ten-unit supply as Pulsars, with source-derived late-wave hurry-up. |
 | `--enemy-bullets-test` | Enables the development enemy-bullet behavior; combinations with Spiker or Tanker scenarios enable their corresponding source-backed firing paths. |
 | `--lives <n>` | Overrides the starting life count for longer development sessions. |
+
+`--level N` exists to support the one-level-at-a-time manual arcade testing
+workflow. It selects only the starting level; after a successful clear, normal
+campaign progression continues. The current supported range deliberately ends
+at production Level 7; no placeholder support for later levels is implied.
+Neal manually accepted this development-only startup on 2026-11-06. The
+controller exit convenience is also manually accepted: V has no production
+action, Enter/Return exits immediately without confirmation, and Escape/window
+close remain available; other controller mappings are unchanged. These are
+development controls, not arcade gameplay behavior.
+
+**Observed / unresolved / non-blocking / deferred (2026-11-06):** During
+manual testing, the game unexpectedly exited on multiple occasions and the
+console ended with `INFO: Window closed successfully`. The initiating event is
+unknown; the shutdown message does not establish a cause. A possible controller
+interaction is only a hypothesis. Neal noted ordinary Alt, Control, and Shift
+events from other controller buttons and wondered whether a combination could
+be relevant, but that is not established evidence. This observation was not
+investigated, and no logging, mapping changes, or input diagnostics were added
+for it.
 
 The Level 2 and enemy-specific wave options are mutually exclusive. Deterministic random
 seams, controlled selection, artificial wave composition, extra lives, and

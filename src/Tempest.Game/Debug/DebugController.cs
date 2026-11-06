@@ -1,6 +1,7 @@
 namespace Tempest.Game.Debug;
 using System.Globalization;
 using Tempest.Game.Gameplay;
+using Tempest.Game.Levels;
 
 public enum GameplayFileMode
 {
@@ -13,23 +14,62 @@ public sealed record GameplayFileCommand(GameplayFileMode Mode, string Path);
 /// <summary>
 /// Parses the development/testing command-line switches. These are controlled engineering tools
 /// for exercising one mechanic in isolation; they are not the finished arcade level-selection or
-/// progression system. No flags = normal Level 1. --level2-test selects an isolated square Level 2
-/// square/canflip run; --level3-geometry-test selects a non-production plus-board geometry
-/// diagnostic. Both are terminal and do not enable progression. Scenario flags are mutually
-/// exclusive; --enemy-bullets-test (opt-in Flipper firing), --lives (starting-life override) and
-/// --rim-speed (development-only Flipper rim-turn multiplier relative to the calibrated base)
-/// and --game-over-density (development-only child-speck count multiplier) compose with any
-/// scenario or normal play. --gameplay-playback selects a seeded Level 1 profile;
+/// progression system. No flags = normal Level 1. --level N starts a fresh production game at
+/// that level and continues normal campaign progression. Legacy --levelN-test selectors remain
+/// terminal diagnostics. Scenario flags are mutually exclusive; --enemy-bullets-test (opt-in
+/// Flipper firing), --lives (starting-life override), --rim-speed and --game-over-density compose
+/// with normal play. --gameplay-playback selects a seeded Level 1 profile;
 /// --gameplay-playback-level4 selects a distinct profile on the production Level 4 configuration.
-/// --level3-test directly selects the production-shaped
-/// mixed Level 3 wave and remains terminal; --level3-geometry-test remains Flipper-only.
-/// --level6-test directly selects the production Level 6 wave and firing phase, remaining terminal.
-/// --level7-test directly selects the production Level 7 wave, movement and firing, remaining terminal.
 /// Both playback commands return to live input when their seeded profile ends.
 /// --input-diagnostic instead opens a standalone development-only input window with no gameplay.
 /// </summary>
 public sealed class DebugController
 {
+	public static bool TryParseStartingLevel(
+		IReadOnlyList<string> arguments,
+		out int? startingLevel,
+		out string? error)
+	{
+		startingLevel = null;
+		error = null;
+		int optionIndex = -1;
+
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index] != "--level")
+				continue;
+			if (optionIndex >= 0)
+			{
+				error = "--level may be specified only once.";
+				return false;
+			}
+			optionIndex = index;
+		}
+
+		if (optionIndex < 0)
+			return true;
+
+		int highestLevel = LevelProgression.GetLastProductionLevel().DisplayedLevel;
+		string requirement =
+			$"--level requires an implemented production level from 1 through {highestLevel}.";
+		if (optionIndex + 1 >= arguments.Count ||
+			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
+		{
+			error = requirement;
+			return false;
+		}
+		if (!int.TryParse(arguments[optionIndex + 1], NumberStyles.Integer,
+			CultureInfo.InvariantCulture, out int parsed) ||
+			LevelProgression.GetProductionLevel(parsed) is null)
+		{
+			error = requirement;
+			return false;
+		}
+
+		startingLevel = parsed;
+		return true;
+	}
+
 	public static bool TryParseGameOverDensityMultiplier(
 		IReadOnlyList<string> arguments,
 		out double multiplier,
@@ -167,6 +207,9 @@ public sealed class DebugController
 	public static bool UseGameplayPlayback(IEnumerable<string> arguments) =>
 		arguments.Contains("--gameplay-playback", StringComparer.Ordinal);
 
+	public static bool UseDirectProductionLevelStart(IEnumerable<string> arguments) =>
+		arguments.Contains("--level", StringComparer.Ordinal);
+
 	public static bool UseLevel4GameplayPlayback(IEnumerable<string> arguments) =>
 		arguments.Contains("--gameplay-playback-level4", StringComparer.Ordinal);
 
@@ -212,6 +255,7 @@ public sealed class DebugController
 	public static bool HasConflictingScenarios(IEnumerable<string> arguments) =>
 		(UseGameplayPlayback(arguments) ? 1 : 0) +
 		(UseLevel4GameplayPlayback(arguments) ? 1 : 0) +
+		(UseDirectProductionLevelStart(arguments) ? 1 : 0) +
 		(UseLevel2Test(arguments) ? 1 : 0) + (UseLevel3Test(arguments) ? 1 : 0) +
 		(UseLevel4Test(arguments) ? 1 : 0) + (UseLevel6Test(arguments) ? 1 : 0) +
 		(UseLevel7Test(arguments) ? 1 : 0) +

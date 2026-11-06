@@ -2,8 +2,9 @@
 // Raylib window, input and rendering together; all gameplay simulation belongs in TempestGame so
 // it stays headless-testable. Keep it that way — logic added here is invisible to the test suite.
 //
-// Development command-line modes (see DebugController): --gameplay-playback runs the seeded Level 1
-// input profile; --gameplay-playback-level4 runs the distinct profile on production Level 4;
+// Development command-line modes (see DebugController): --level N starts a fresh production game
+// at N while retaining natural progression; --gameplay-playback runs the seeded Level 1 input
+// profile; --gameplay-playback-level4 runs the distinct profile on production Level 4;
 // --level2-test, --level3-test, --level4-test, --level6-test and --level7-test select direct production configurations;
 // --level3-geometry-test selects plus-board geometry only; --spiker-test, --tanker-test,
 // --fuseball-test and --pulsar-test select isolated enemy waves. These scenarios are mutually
@@ -40,9 +41,16 @@ if (!DebugController.TryParseGameplayFileCommand(args,
     return 2;
 }
 
+if (!DebugController.TryParseStartingLevel(args,
+    out int? startingProductionLevel, out string? startingLevelError))
+{
+    Console.Error.WriteLine(startingLevelError);
+    return 2;
+}
+
 if (DebugController.HasConflictingScenarios(args))
 {
-    Console.Error.WriteLine("--gameplay-playback, --gameplay-playback-level4, --level2-test, --level3-test, --level4-test, --level6-test, --level7-test, --level3-geometry-test, --tanker-test, --spiker-test, --fuseball-test and --pulsar-test are mutually exclusive.");
+    Console.Error.WriteLine("--level N, --gameplay-playback, --gameplay-playback-level4, --level2-test, --level3-test, --level4-test, --level6-test, --level7-test, --level3-geometry-test, --tanker-test, --spiker-test, --fuseball-test and --pulsar-test are mutually exclusive.");
     return 2;
 }
 
@@ -100,6 +108,8 @@ Raylib.InitWindow(VectorRenderer.ScreenWidth, VectorRenderer.ScreenHeight,
         ? "Tempest C# - Recording Level 1" :
     playback is not null
         ? $"Tempest C# - Deterministic Gameplay Playback - Level {playback.StartingConfiguration.DisplayedLevel}" :
+    startingProductionLevel is int selectedLevel
+        ? $"Tempest C# - Development Level {selectedLevel}" :
     level2Test ? "Tempest C# - Development Level 2 Square Test" :
     level3Test ? "Tempest C# - Development Level 3 Mixed Wave Test" :
     level4Test ? "Tempest C# - Development Level 4 Production Candidate" :
@@ -131,7 +141,8 @@ try
         audioEvents: audio,
         level6Test: level6Test,
         level7Test: level7Test,
-        rimSpeedMultiplier: rimSpeedMultiplier);
+        rimSpeedMultiplier: rimSpeedMultiplier,
+        startingProductionLevel: startingProductionLevel);
     InputSystem input = new();
     VectorRenderer renderer = new(game, gameOverDensityMultiplier);
     int activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
