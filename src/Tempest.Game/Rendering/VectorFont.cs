@@ -1,2 +1,77 @@
+using System.Numerics;
+
 namespace Tempest.Game.Rendering;
-public sealed class VectorFont { }
+
+public static class VectorFont
+{
+    private static readonly IReadOnlyDictionary<char, Vector2[][]> GameOverGlyphStrokes =
+        new Dictionary<char, Vector2[][]>
+        {
+            ['G'] =
+            [
+                [new(5, 1), new(4, 0), new(1, 0), new(0, 1), new(0, 6), new(1, 7), new(4, 7), new(5, 6), new(5, 4)],
+                [new(5, 4), new(3, 4)]
+            ],
+            ['A'] =
+            [
+                [new(0, 7), new(0, 1), new(1, 0), new(4, 0), new(5, 1), new(5, 7)],
+                [new(0, 4), new(5, 4)]
+            ],
+            ['M'] =
+            [
+                [new(0, 7), new(0, 0), new(2.5f, 3), new(5, 0), new(5, 7)]
+            ],
+            ['E'] =
+            [
+                [new(5, 0), new(0, 0), new(0, 7), new(5, 7)],
+                [new(0, 3.5f), new(4, 3.5f)]
+            ],
+            ['O'] =
+            [
+                [new(1, 0), new(4, 0), new(5, 1), new(5, 6), new(4, 7), new(1, 7), new(0, 6), new(0, 1), new(1, 0)]
+            ],
+            ['V'] =
+            [
+                [new(0, 0), new(2.5f, 7), new(5, 0)]
+            ],
+            ['R'] =
+            [
+                [new(0, 7), new(0, 0), new(4, 0), new(5, 1), new(5, 2), new(4, 3), new(0, 3)],
+                [new(3, 3), new(5, 7)]
+            ]
+        };
+
+    public static void DrawGameOver(
+        Vector2 center,
+        float scale,
+        Action<Vector2, Vector2> drawLine)
+    {
+        ArgumentNullException.ThrowIfNull(drawLine);
+        if (!float.IsFinite(scale) || scale <= 0)
+            throw new ArgumentOutOfRangeException(nameof(scale));
+
+        const string text = "GAME OVER";
+        float width = text.Sum(character => character == ' ' ? 4 : 6) - 1;
+        float x = center.X - width * scale / 2;
+        float y = center.Y - 7 * scale / 2;
+        foreach (char character in text)
+        {
+            if (GameOverGlyphStrokes.TryGetValue(character, out Vector2[][]? strokes))
+            {
+                foreach (Vector2[] stroke in strokes)
+                {
+                    for (int index = 1; index < stroke.Length; index++)
+                    {
+                        Vector2 start = new(x + stroke[index - 1].X * scale,
+                            y + stroke[index - 1].Y * scale);
+                        Vector2 end = new(x + stroke[index].X * scale,
+                            y + stroke[index].Y * scale);
+                        drawLine(start, end);
+                    }
+                }
+            }
+
+            x += (character == ' ' ? 4 : 6) * scale;
+        }
+    }
+}

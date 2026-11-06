@@ -4,6 +4,7 @@ using Tempest.Game;
 using Tempest.Game.Gameplay;
 using Tempest.Game.Levels;
 using Tempest.Game.Rendering;
+using Tempest.Game.Systems;
 using Xunit;
 
 namespace Tempest.Game.Tests;
@@ -135,26 +136,192 @@ public sealed class PlayerDeathPresentationTests
     }
 
     [Fact]
-    public void FinalLifeCompletesRetractionAtExistingGameOverBoundaryAndRestartResetsIt()
+    public void FinalLifeRunsVectorGameOverPresentationBeforeTerminalRestart()
     {
-        TempestGame game = PrepareDyingGame();
+        TempestGame game = PrepareDyingGame(new Random(1));
         game.Player.Lives = 1;
 
-        Step(game, TempestGame.PlayerDeathTicks);
+        Step(game, TempestGame.PlayerDeathTicks - 1);
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        Assert.Equal(1, game.Player.Lives);
+        game.RunOneStep();
 
-        Assert.True(game.GameOver);
+        Assert.Equal(LevelState.GameOverPresentation, game.State);
+        Assert.False(game.GameOver);
         Assert.Equal(0, game.Player.Lives);
         Assert.True(game.DeathPresentation.IsComplete);
         Assert.Equal(game.DeathPresentation.DurationTicks, game.DeathPresentation.ElapsedTicks);
         Assert.Equal(0, game.EnemyRetractionProgress);
+        Assert.True(game.GameOverMessageVisible);
+
+        VectorRenderer renderer = new(game);
+        List<(Vector2 Start, Vector2 End, Color Color)> tubeLines = [];
+        renderer.DrawTube((start, end, color) => tubeLines.Add((start, end, color)));
+        Assert.NotEmpty(tubeLines);
+        List<(Vector2 Start, Vector2 End, Color Color)> messageLines = [];
+        renderer.DrawGameOverMessage((start, end, color) =>
+            messageLines.Add((start, end, color)));
+        Assert.NotEmpty(messageLines);
+        Assert.All(messageLines, line => Assert.Equal(Color.White, line.Color));
+        AssertClose(new Vector2(DisplayConfiguration.LogicalWidth / 2f,
+            DisplayConfiguration.LogicalHeight / 2f),
+            BoundsCenter(messageLines.SelectMany(line => new[] { line.Start, line.End })));
+        Assert.Empty(CaptureGameOverVectors(renderer));
+
+        int edge = game.Player.EdgeIndex;
+        int score = game.Score.Score;
+        int lives = game.Player.Lives;
+        int remainingEnemies = game.CurrentLevel.RemainingEnemies;
+        int zapperCharges = game.SuperZapper.ChargesRemaining;
+        PlayerInput ignoredInput = new(true, 1, true, false, true);
+        game.RunOneStep(ignoredInput, restartPressed: true);
+        Assert.Equal(LevelState.GameOverPresentation, game.State);
+        Assert.Equal(edge, game.Player.EdgeIndex);
+        Assert.Equal(score, game.Score.Score);
+        Assert.Equal(lives, game.Player.Lives);
+        Assert.Equal(remainingEnemies, game.CurrentLevel.RemainingEnemies);
+        Assert.Equal(zapperCharges, game.SuperZapper.ChargesRemaining);
+
+        Step(game, 31);
+        Assert.False(game.GameOverMessageVisible);
+        Step(game, 32);
+        Assert.True(game.GameOverMessageVisible);
+        Step(game, TempestGame.GameOverTextDurationTicks - 64);
+
+        Assert.Equal(LevelState.GameOverAnimation, game.State);
+        Assert.False(game.GameOverMessageVisible);
+        Assert.True(game.GameOverEffect.IsStarted);
+        GameOverVectorAnimation firstBurst = game.GameOverEffect.Bursts[0];
+        Assert.Equal(GameOverVectorAnimation.InitialSpawnCounter, firstBurst.SpawnCounter);
+        List<(Vector2 Start, Vector2 End, Color Color)> hiddenMessageLines = [];
+        renderer.DrawGameOverMessage((start, end, color) =>
+            hiddenMessageLines.Add((start, end, color)));
+        Assert.Empty(hiddenMessageLines);
+        Assert.Empty(CaptureGameOverVectors(renderer));
+
+        game.RunOneStep(ignoredInput, restartPressed: true);
+
+        Assert.Equal(GameOverVectorAnimation.RecordCapacity, firstBurst.ActiveRecordCount);
+        Assert.All(firstBurst.Records, record =>
+        {
+            Assert.NotNull(record);
+            Assert.Equal(0x80, record.X);
+            Assert.Equal(0x80, record.Y);
+            Assert.Equal(0x80, record.Z);
+            Assert.InRange(record.VelocityX, -7, 7);
+            Assert.InRange(record.VelocityY, -7, 7);
+            Assert.InRange(record.VelocityZ, -7, 7);
+            Assert.Equal(0x1F, GameOverVectorRecord.GraphicId);
+            Assert.Equal(0x0C, GameOverVectorRecord.PaletteIndex);
+        });
+        List<(Vector2 Start, Vector2 End, Color Color)> vectorLines =
+            CaptureGameOverVectors(renderer);
+        GameOverVectorRecord[] activeRecords = game.GameOverEffect.Bursts
+            .Where(burst => burst.IsStarted)
+            .SelectMany(burst => burst.Records)
+            .Where(record => record is not null)
+            .Select(record => record!)
+            .ToArray();
+        Assert.Equal(activeRecords.Length * 4, vectorLines.Count);
+        Assert.Equal(7, vectorLines.Select(line => line.Color).Distinct().Count());
+        Color[] gameOverColors =
+        [
+            Color.White, Color.Yellow, new Color(0, 255, 0, 255), Color.Red,
+            new Color(0, 255, 255, 255), new Color(255, 0, 255, 255), Color.Blue
+        ];
+        for (int recordIndex = 0; recordIndex < activeRecords.Length; recordIndex++)
+        {
+            GameOverVectorRecord record = activeRecords[recordIndex];
+            var marks = vectorLines.Skip(recordIndex * 4).Take(4).ToArray();
+            Assert.All(marks, mark =>
+            {
+                Assert.Equal(gameOverColors[record.SpawnOrdinal % gameOverColors.Length], mark.Color);
+                Assert.Equal(2f, Vector2.Distance(mark.Start, mark.End));
+            });
+        }
+
+        Step(game, 62);
+        Assert.Equal(0, firstBurst.SpawnCounter);
+        Assert.False(game.GameOverEffect.IsComplete);
+        int createdAfterSpawnWindow = firstBurst.CreatedRecordCount;
+        game.RunOneStep(ignoredInput, restartPressed: true);
+        Assert.Equal(createdAfterSpawnWindow, firstBurst.CreatedRecordCount);
+        Assert.Equal(edge, game.Player.EdgeIndex);
+        Assert.Equal(score, game.Score.Score);
+        Assert.Equal(lives, game.Player.Lives);
+        Assert.Equal(remainingEnemies, game.CurrentLevel.RemainingEnemies);
+        Assert.Equal(zapperCharges, game.SuperZapper.ChargesRemaining);
+
+        StepUntilState(game, LevelState.GameOver, 300);
+        Assert.True(game.GameOver);
+        Assert.True(game.GameOverEffect.IsComplete);
+        Assert.Equal(0, game.Player.Lives);
 
         game.RunOneStep(restartPressed: true);
 
         Assert.False(game.GameOver);
+        Assert.Equal(LevelState.Playing, game.State);
         Assert.Equal(3, game.Player.Lives);
         Assert.False(game.DeathPresentation.IsComplete);
         Assert.Equal(0, game.DeathPresentation.ElapsedTicks);
         Assert.Equal(0, game.EnemyRetractionProgress);
+        Assert.False(game.GameOverEffect.IsStarted);
+    }
+
+    [Fact]
+    public void GameOverVectorAnimationStopsSpawningAndDrainsItsRecords()
+    {
+        static int AlwaysMaximum(int minimum, int maximum) => maximum;
+
+        GameOverVectorAnimation animation = new(AlwaysMaximum);
+        animation.Start();
+        animation.Advance();
+
+        Assert.Equal(GameOverVectorAnimation.RecordCapacity, animation.ActiveRecordCount);
+        Assert.Equal(GameOverVectorAnimation.RecordCapacity, animation.CreatedRecordCount);
+        Assert.Equal(GameOverVectorAnimation.InitialSpawnCounter - 1, animation.SpawnCounter);
+
+        GameOverVectorRecord first = animation.Records[0] ??
+            throw new InvalidOperationException("The vector animation did not create its first record.");
+        animation.Advance();
+        Assert.Equal((byte)0x87, first.X);
+        Assert.Equal((byte)0x87, first.Y);
+        Assert.Equal((byte)0x87, first.Z);
+
+        Step(animation, 61);
+        Assert.Equal(0, animation.SpawnCounter);
+        Assert.False(animation.IsComplete);
+        int recordsCreated = animation.CreatedRecordCount;
+        animation.Advance();
+        Assert.Equal(recordsCreated, animation.CreatedRecordCount);
+
+        Step(animation, 100);
+        Assert.True(animation.IsComplete);
+        Assert.Equal(0, animation.ActiveRecordCount);
+    }
+
+    [Fact]
+    public void GameOverVectorRecordsAreReproducibleFromASeededRandomSource()
+    {
+        Random firstRandom = new(23);
+        Random secondRandom = new(23);
+        GameOverVectorAnimation first = new((minimum, maximum) =>
+            firstRandom.Next(minimum, maximum + 1));
+        GameOverVectorAnimation second = new((minimum, maximum) =>
+            secondRandom.Next(minimum, maximum + 1));
+        first.Start();
+        second.Start();
+        first.Advance();
+        second.Advance();
+
+        Assert.Equal(first.Records.Select(RecordVelocity), second.Records.Select(RecordVelocity));
+
+        static (sbyte X, sbyte Y, sbyte Z) RecordVelocity(GameOverVectorRecord? record)
+        {
+            GameOverVectorRecord value = record ??
+                throw new InvalidOperationException("A seeded record was not created.");
+            return (value.VelocityX, value.VelocityY, value.VelocityZ);
+        }
     }
 
     [Theory]
@@ -210,9 +377,9 @@ public sealed class PlayerDeathPresentationTests
         }
     }
 
-    private static TempestGame PrepareDyingGame()
+    private static TempestGame PrepareDyingGame(Random? random = null)
     {
-        TempestGame game = new();
+        TempestGame game = new(random: random ?? new Random(1));
         Egg egg = game.Eggs[0];
         egg.BeginApproach();
         for (int tick = 0; tick < 80 && egg.State != EggState.ReadyToHatch; tick++)
@@ -282,6 +449,22 @@ public sealed class PlayerDeathPresentationTests
         return lines;
     }
 
+    private static List<(Vector2 Start, Vector2 End, Color Color)> CaptureGameOverVectors(
+        VectorRenderer renderer)
+    {
+        List<(Vector2 Start, Vector2 End, Color Color)> lines = [];
+        renderer.DrawGameOverAnimation((start, end, color) =>
+            lines.Add((start, end, color)));
+        return lines;
+    }
+
+    private static Vector2 BoundsCenter(IEnumerable<Vector2> points)
+    {
+        Vector2[] positions = points.ToArray();
+        return new Vector2((positions.Min(point => point.X) + positions.Max(point => point.X)) / 2,
+            (positions.Min(point => point.Y) + positions.Max(point => point.Y)) / 2);
+    }
+
     private static Vector2 GetPlayerDeathOrigin(TempestGame game, VectorRenderer renderer)
     {
         renderer.GetPlayerEdge(game.CurrentLevel.Definition.Points,
@@ -345,6 +528,18 @@ public sealed class PlayerDeathPresentationTests
     private static void Step(TempestGame game, int ticks)
     {
         for (int tick = 0; tick < ticks; tick++)
+            game.RunOneStep();
+    }
+
+    private static void Step(GameOverVectorAnimation animation, int ticks)
+    {
+        for (int tick = 0; tick < ticks; tick++)
+            animation.Advance();
+    }
+
+    private static void StepUntilState(TempestGame game, LevelState expectedState, int maximumTicks)
+    {
+        for (int tick = 0; tick < maximumTicks && game.State != expectedState; tick++)
             game.RunOneStep();
     }
 }

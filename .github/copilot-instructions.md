@@ -11,6 +11,7 @@ Goals:
 - Preserve frame/tick-based values from the reference until behavior has been validated.
 - Avoid speculative gameplay changes. If behavior is unclear, mark it TODO and compare with the BlitzMax reference before changing it.
 - Keep level/tube data data-driven.
+- Tempest visuals are vector-based: prefer established geometry, projection, line rendering, palette and animation systems over sprites, textures, bitmaps or generic particles. Distinguish ROM-backed behavior from project approximations.
 - Add debug/single-step facilities early.
 - Favor small classes and explicit state enums over global state.
 

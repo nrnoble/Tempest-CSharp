@@ -347,6 +347,7 @@ public sealed class LevelProgressionTests
         game.Player.Lives = 1;
         game.CurrentLevel.State = LevelState.PlayerDying;
         game.RunOneStep();
+        FinishGameOverPresentation(game);
         Assert.True(game.GameOver);
         Assert.Equal(0, game.Player.Lives);
         Assert.Equal(425, game.Score.Score);
@@ -1014,6 +1015,13 @@ public sealed class LevelProgressionTests
     {
         for (int tick = 0; tick < ticks; tick++)
             game.RunOneStep();
+    }
+
+    private static void FinishGameOverPresentation(TempestGame game)
+    {
+        for (int tick = 0; tick < 500 && !game.GameOver; tick++)
+            game.RunOneStep();
+        Assert.True(game.GameOver);
     }
 
     private static void FinishApproach(TempestGame game)

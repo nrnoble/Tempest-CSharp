@@ -645,6 +645,7 @@ public sealed class SimulationTests
         TempestGame game = HatchHurryUpWave(pulsar, startingLives: 1);
         BeginHurryUpDeath(game, HurryUpEnemies(game).First());
         Step(game, 60);
+        FinishGameOverPresentation(game);
         Assert.True(game.GameOver);
         Assert.True(game.HurryUp);
         game.RunOneStep(restartPressed: true);
@@ -3394,6 +3395,7 @@ public sealed class SimulationTests
         ForceFlipperPivotIntoPlayer(game, ordinary);
         game.RunOneStep();
         Step(game, 60);
+        FinishGameOverPresentation(game);
         Assert.True(game.GameOver);
         game.RunOneStep(restartPressed: true);
         Assert.False(game.GameOver);
@@ -3865,6 +3867,7 @@ public sealed class SimulationTests
         TempestGame game = PreparePivotWithStartingLives(10);
         game.Player.Lives = 1;
         Step(game, GetFlipperPivotTicks(game) + TempestGame.PlayerDeathTicks);
+        FinishGameOverPresentation(game);
         Assert.True(game.GameOver);
         Assert.Equal(0, game.Player.Lives);
         game.RunOneStep(restartPressed: true);
@@ -4425,11 +4428,36 @@ public sealed class SimulationTests
         Assert.Equal(LevelState.ReverseZoom, game.State);
         float depth = game.Player.Depth;
         Step(game, 46);
+        Assert.Equal(LevelState.ReverseZoom, game.State);
         Assert.Equal(depth, game.Player.Depth);
+        Assert.Equal(5, Projection.ZOffset);
+        Assert.Equal(1, game.Player.Lives);
         game.RunOneStep();
         Assert.Equal(400, game.Player.Depth);
+        Assert.Equal(5, Projection.ZOffset);
         Step(game, 13);
+        Assert.Equal(LevelState.GameOverPresentation, game.State);
+        Assert.False(game.GameOver);
+        Assert.Equal(0, game.DeathTicks);
+        Assert.Equal(0, game.Player.Lives);
+        Assert.Equal(70, Projection.K);
+        Assert.Equal(5, Projection.ZOffset);
+        Step(game, TempestGame.GameOverTextDurationTicks - 1);
+        Assert.Equal(LevelState.GameOverPresentation, game.State);
+        Assert.False(game.GameOverEffect.IsStarted);
+        game.RunOneStep();
+        Assert.Equal(LevelState.GameOverAnimation, game.State);
+        Assert.Equal(1, game.GameOverEffect.StartedBurstCount);
+        Step(game, GameOverVectorBurstSequence.BurstStartIntervalTicks *
+            (GameOverVectorBurstSequence.BurstCount - 1) + 1);
+        Assert.Equal(LevelState.GameOverAnimation, game.State);
+        Assert.Equal(GameOverVectorBurstSequence.BurstCount, game.GameOverEffect.StartedBurstCount);
+        Assert.False(game.GameOverEffect.IsComplete);
+        FinishGameOverPresentation(game);
         Assert.True(game.GameOver);
+        Assert.True(game.GameOverEffect.IsComplete);
+        Assert.All(game.GameOverEffect.Bursts, burst => Assert.True(burst.IsComplete));
+        Assert.Equal(0, game.GameOverEffect.ActiveRecordCount);
         Assert.Equal(0, game.Player.Lives);
         Step(game, 100);
         Assert.Equal(0, game.Player.Lives);
@@ -5495,6 +5523,7 @@ public sealed class SimulationTests
         game.Player.Lives = 1;
         game.Score.Add(150);
         Step(game, GetFlipperPivotTicks(game) + TempestGame.PlayerDeathTicks);
+        FinishGameOverPresentation(game);
         Assert.True(game.GameOver);
         Assert.Equal(0, game.Player.Lives);
         Assert.Empty(game.Flippers);
@@ -5992,6 +6021,13 @@ public sealed class SimulationTests
     {
         for (int tick = 0; tick < ticks; tick++)
             game.RunOneStep(input);
+    }
+
+    private static void FinishGameOverPresentation(TempestGame game)
+    {
+        for (int tick = 0; tick < 500 && !game.GameOver; tick++)
+            game.RunOneStep();
+        Assert.True(game.GameOver);
     }
 
     private static Level CreateTopologyLevel(bool continuous)

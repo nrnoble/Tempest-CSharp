@@ -27,8 +27,19 @@ public sealed class VectorRenderer
 	private static readonly Color SpikerColor = new(0, 255, 0, 255);
 	private static readonly Color TankerColor = new(255, 0, 255, 255);
 	private static readonly Color PulsarColor = new(0, 255, 255, 255);
+	// PROJECT TRANSLATION: use established Tempest colors; ROM palette $0C is not an RGB value.
+	private static readonly Color[] GameOverVectorColors =
+	[
+		Color.White, Color.Yellow, SpikerColor, Color.Red, PulsarColor, TankerColor, Color.Blue
+	];
+	private static readonly Color GameOverTextColor = Color.White;
 	private static readonly Color PaletteZeroBlasterLaneColor = new(255, 255, 0, 255);
 	private static readonly Color DeathOrangeColor = new(255, 80, 0, 255);
+	private const int GameOverVectorBaseSpecksPerParent = 2;
+	private const float GameOverVectorMarkLength = 2f;
+	// PROJECT APPROXIMATION: deterministic child specks stay compact around their ROM parent.
+	private const float GameOverVectorClusterRadius = 3f;
+	private const double GameOverVectorGoldenAngle = 2.39996322972865332;
 	private static readonly Color[] FuseballArmColors =
 	[
 		new(255, 255, 0, 255), new(0, 255, 0, 255), new(255, 0, 255, 255),
@@ -90,6 +101,7 @@ public sealed class VectorRenderer
 	};
 
 	private readonly TempestGame game;
+	private readonly double gameOverDensityMultiplier;
 	public IReadOnlyList<Egg> Eggs => game.Eggs;
 	public bool ShouldDrawEnemyBullets =>
 		game.NaturalProgressionEnabled || game.EnemyBulletsTest || game.CurrentLevel.UsesProductionLedger;
@@ -111,9 +123,13 @@ public sealed class VectorRenderer
 			? 20
 			: 20 * ((Level.Position + 5) / 70) / ((PlayerProjectedDepth + Projection.ZOffset) / Projection.K);
 
-	public VectorRenderer(TempestGame game)
+	public VectorRenderer(TempestGame game, double gameOverDensityMultiplier = 2.0)
 	{
+		if (!double.IsFinite(gameOverDensityMultiplier) || gameOverDensityMultiplier <= 0)
+			throw new ArgumentOutOfRangeException(nameof(gameOverDensityMultiplier),
+				"The Game Over density multiplier must be a positive finite value.");
 		this.game = game;
+		this.gameOverDensityMultiplier = gameOverDensityMultiplier;
 	}
 
 	private Vector2 ProjectApproachGeometry(Vector2 point, float depth) =>
@@ -126,6 +142,14 @@ public sealed class VectorRenderer
 		Raylib.BeginDrawing();
 		Raylib.ClearBackground(Color.Black);
 		Raylib.BeginMode2D(DisplayConfiguration.PresentationCamera);
+
+		if (game.State == LevelState.GameOverAnimation)
+		{
+			DrawGameOverAnimation((start, end, color) => Raylib.DrawLineV(start, end, color));
+			Raylib.EndMode2D();
+			Raylib.EndDrawing();
+			return;
+		}
 
 		DrawTransitionStars((position, color) => Raylib.DrawPixelV(position, color));
 		DrawTube((start, end, color) => Raylib.DrawLineV(start, end, color));
@@ -161,7 +185,8 @@ public sealed class VectorRenderer
 		DrawAvoidSpikesWarning((text, position, scale) =>
 			Raylib.DrawTextEx(Raylib.GetFontDefault(), text, position, scale * 7, scale, Color.White));
 
-		if (!game.GameOver)
+		if (!game.GameOver &&
+			game.State is not (LevelState.GameOverPresentation or LevelState.GameOverAnimation))
 		{
 			if (game.DeathTicks > 0)
 				DrawPlayerExplosion(game.CurrentLevel.Definition.Points,
@@ -170,10 +195,18 @@ public sealed class VectorRenderer
 				DrawPlayer(game.CurrentLevel.Definition.Points);
 		}
 
+		DrawGameOverMessage((start, end, color) => Raylib.DrawLineV(start, end, color));
+		DrawGameOverVectorRecords((start, end, color) => Raylib.DrawLineV(start, end, color));
 		DrawRechargeMessage(DrawCenteredText);
 		DrawHud();
 		Raylib.EndMode2D();
 		Raylib.EndDrawing();
+	}
+
+	public void DrawGameOverAnimation(Action<Vector2, Vector2, Color> drawLine)
+	{
+		ArgumentNullException.ThrowIfNull(drawLine);
+		DrawGameOverVectorRecords(drawLine);
 	}
 
 	private static int NextEdge(int edge, int edgeCount) => (edge + 1) % edgeCount;
@@ -331,6 +364,84 @@ public sealed class VectorRenderer
 			return;
 
 		drawText("Avoid Spikes", new Vector2(200, 260), 8);
+	}
+
+	public void DrawGameOverMessage(Action<Vector2, Vector2, Color> drawLine)
+	{
+		ArgumentNullException.ThrowIfNull(drawLine);
+		if (!game.GameOverMessageVisible)
+			return;
+
+		VectorFont.DrawGameOver(
+			new Vector2(DisplayConfiguration.LogicalWidth / 2f,
+				DisplayConfiguration.LogicalHeight / 2f),
+			4,
+			(start, end) => drawLine(start, end, GameOverTextColor));
+	}
+
+	public void DrawGameOverVectorRecords(Action<Vector2, Vector2, Color> drawLine)
+	{
+		ArgumentNullException.ThrowIfNull(drawLine);
+		if (game.State != LevelState.GameOverAnimation)
+			return;
+
+		foreach (GameOverVectorAnimation burst in game.GameOverEffect.Bursts)
+		{
+			foreach (GameOverVectorRecord? record in burst.Records)
+			{
+				if (record is null)
+					continue;
+
+				Color color = GameOverVectorColors[record.SpawnOrdinal % GameOverVectorColors.Length];
+				float depth = Level.Position + record.Z;
+				Vector2 center = Projection.Project(
+					(record.X - 0x80) * 1.5f,
+					(record.Y - 0x80) * 1.5f,
+					depth,
+					game.CurrentLevel.Definition.CenterY,
+					game.CurrentLevel.Definition.YOffset);
+
+				int markCount = GetDensityScaledSpeckCount(record.SpawnOrdinal);
+				for (int speck = 0; speck < markCount; speck++)
+				{
+					Vector2 markCenter = center + GetGameOverSpeckOffset(
+						burst.BurstIndex, record.SpawnOrdinal, speck);
+					drawLine(
+						markCenter - new Vector2(GameOverVectorMarkLength / 2, 0),
+						markCenter + new Vector2(GameOverVectorMarkLength / 2, 0),
+						color);
+				}
+			}
+		}
+	}
+
+	private int GetDensityScaledSpeckCount(int parentSpawnOrdinal)
+	{
+		double start = parentSpawnOrdinal * GameOverVectorBaseSpecksPerParent *
+			gameOverDensityMultiplier;
+		double end = (parentSpawnOrdinal + 1) * GameOverVectorBaseSpecksPerParent *
+			gameOverDensityMultiplier;
+		return checked((int)(Math.Floor(end) - Math.Floor(start)));
+	}
+
+	private static Vector2 GetGameOverSpeckOffset(
+		int burstIndex,
+		int parentSpawnOrdinal,
+		int childSpeckOrdinal)
+	{
+		int patternOrdinal = burstIndex * GameOverVectorAnimation.RecordCapacity +
+			parentSpawnOrdinal;
+		uint parentHash = unchecked((uint)patternOrdinal * 0x9E3779B9);
+		parentHash ^= parentHash >> 16;
+		parentHash *= 0x7FEB352D;
+		parentHash ^= parentHash >> 15;
+		double parentRotation = parentHash / (double)uint.MaxValue * Math.Tau;
+		double angle = parentRotation + childSpeckOrdinal * GameOverVectorGoldenAngle;
+		float radius = Math.Min(GameOverVectorClusterRadius,
+			0.85f * MathF.Sqrt(childSpeckOrdinal + 1));
+		return new Vector2(
+			MathF.Cos((float)angle) * radius,
+			MathF.Sin((float)angle) * radius);
 	}
 
 	public Vector2 ProjectTankerCenter(Tanker tanker) =>

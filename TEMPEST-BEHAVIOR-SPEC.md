@@ -28,6 +28,12 @@ reports help locate decisions and corrections but are not independent arcade
 evidence. When evidence is incomplete or conflicting, use the weaker label and
 record the uncertainty rather than guessing.
 
+Atari ROM statements in this document refer to the local master disassembly
+under `Reference/arcade`, including `Tempest Rom Source code.md`. Other Tempest
+disassemblies, especially console versions such as Atari 2600, are not
+interchangeable evidence for the arcade ROM. Do not consult alternate online
+disassemblies as evidence for arcade behavior.
+
 ## 2. Global gameplay behavior
 
 ### Player, firing, and score
@@ -337,7 +343,8 @@ record the uncertainty rather than guessing.
 - **PROJECT DECISION** — A new game starts with three lives unless a
   development override is supplied. A lethal event starts the recreation's
   60-update death interval; one life is deducted when that interval ends.
-  Losing the final life enters Game Over.
+  Losing the final life now enters the accepted Game Over presentation
+  below before the existing terminal Game Over state.
 - **PROJECT DECISION** — During ordinary life reconstruction, active unresolved
   enemies are discarded and re-enter as fresh Eggs. Previously destroyed
   enemies remain destroyed, score is retained, and old enemy positions/state
@@ -386,9 +393,142 @@ record the uncertainty rather than guessing.
   geometry, timing, or scale constants to arcade-verified facts.
 - **MANUALLY ACCEPTED** — Neal accepted the visible C# enemy retraction on
   Levels 1-3, including fixed Spike persistence and final-life Game
-  Over/restart behavior. This confirms the visible result and pacing within
-  his remembered approximate two-second maximum; it does not make the C#
+  Over terminal/restart behavior at that earlier checkpoint. The accepted
+  presentation below is recorded separately; neither acceptance makes the C#
   one-second duration or linear interpolation arcade-verified.
+
+### Game Over presentation (manual acceptance: good enough for now)
+
+- **ROM-BACKED** — The local master disassembly's shared presentation selects
+  centered vector text `GAME OVER`, scale 1, palette index 5; selection depends
+  on play-state condition and `timectr & $20`. It defines no independent
+  Game-Over-only duration. State `$24` is a high-score explosion reached only
+  on the qualifying score route, not an unconditional post-Game-Over state.
+  It iterates 16 indexed records, seeds each from `$80` coordinates, assigns
+  POKEY-derived movement values in the signed 0-7 range. Its bounded
+  coordinates use `$10`/`$F0` limits, and it stops spawning
+  when `$010E` counts down from `$20` on alternating `timectr` values (32
+  decrements over 64 ticks). Existing records continue moving until the
+  active-record marker drains to zero, then the state hands off to `$12`.
+  The pending-vector renderer uses palette index `$0C`; graphic ID `$1F`
+  selects a 16-entry template with two nonzero subrecord values, `$47` and
+  `$4A`. This supports multiple vector elements per parent record, but these
+  values do not establish the literal displayed geometry.
+- **ARCADE OBSERVED (99 sequential frames)** — The ordered filenames
+  `Fireworks_frame_0001.png` through `Fireworks_frame_0099.png` show a bright
+  central point developing into an asymmetric, changing cloud of many
+  point-like marks. The cluster spreads into uneven rays/fans and small
+  groupings; multiple groups coexist while new marks appear and older ones
+  disperse. The broad extent grows and redistributes through the middle frames,
+  then thins to sparse colored remnants in the final frames. White/blue,
+  cyan, green, yellow, red/orange and magenta/violet hues visibly coexist.
+  These are visual categories, not measured Atari RGB values. People, phone,
+  hands, clothing, room, bezel, glass reflections, glare and photographic
+  artifacts were excluded from the interpretation.
+- **ARCADE OBSERVED (clean MAME sample and direct arcade comparison)** — A
+  chronological sample of the 103 files under `Videos/Fireworks-MAME`
+  (including frames 0003, 0012, 0020, 0025, 0050, 0075, 0090 and 0103) shows
+  the tiny multicolor marks against an otherwise empty black display while
+  active. It materially supports, and does not contradict, the prior 99-frame
+  structure analysis. Neal directly observes that the tube and GAME OVER
+  presentation disappear immediately before this effect and remain absent
+  during it. The clean sample also supports the assessment that the marks
+  should remain tiny but be more prominent in the C# rendering.
+- **ARCADE OBSERVED / MANUAL COMPARISON** — The celebration is associated with
+  qualifying for the leaderboard/high-score path.
+- **MANUAL ACCEPTANCE: GOOD ENOUGH FOR NOW** — Neal considers the GAME OVER
+  text excellent and Tempest-like; no glyph or font tuning is wanted. Tube
+  suppression before the celebration is correct, and during the celebration
+  only the isolated effect appears against black. The accepted sequence is
+  final one-player death, GAME OVER over the tube, isolated celebration on
+  black, all burst records draining, terminal Game Over, then R starting a
+  fresh Level 1 game. The earlier single-burst result was too sparse. The
+  current presentation is sufficiently close for this project stage; further
+  visual tuning is deferred.
+- **CURRENT C# BEHAVIOR** — After the existing 60-update final-life death
+  presentation, the simulation enters `GameOverPresentation`, then
+  `GameOverAnimation`, and finally the existing terminal `GameOver` state.
+  Gameplay objects are cleared/returned to reserve before the sequence;
+  presentation updates do not advance combat, score, lives or wave progression.
+  `GameOverPresentation` retains the existing tube and accepted GAME OVER text.
+  `GameOverAnimation` clears to the normal black background and emits only the
+  vector effect; the tube, web, player, entities, projectiles, explosions, HUD
+  and gameplay messages are not rendered. The existing R restart remains
+  enabled only in the terminal state. Each active ROM-informed record renders
+  as a compact cluster of short vector specks instead of a four-edge diamond.
+- **PROJECT DECISION / APPROXIMATION** — The C# sequence is deliberately
+  unconditional after every final one-player death, despite the ROM's
+  high-score qualification because the recreation does not implement the
+  leaderboard/front-end system. The text holds for 120 simulation ticks and
+  preserves a `$20`-bit blink cycle using a local phase. Temporary records
+  retain the 16-slot capacity, `$80` initial coordinates, graphic ID `$1F`,
+  signed movement range, alternating spawn-counter countdown, bounds and
+  drain-before-completion structure. ROM coordinates are projected through
+  the existing renderer. Each record is translated to a deterministic compact
+  two-dimensional cluster of tiny vector specks; child positions do not follow
+  the parent's velocity. The renderer-side `--game-over-density` multiplier
+  changes child-speck count only: 1 is the nominal two-speck baseline and 0.5
+  emits one speck per parent. The accepted default 2 emits four specks per
+  parent; fractional values distribute integer counts deterministically across
+  parent spawn ordinals. Child offsets use a
+  stable parent rotation and golden-angle sequence, with a 3-logical-pixel
+  maximum radius. Existing 2.0-logical-pixel line length and deterministic
+  cycle through white, yellow, green, red, cyan, magenta and blue vector colors
+  are unchanged. Density 2 is **MANUALLY CALIBRATED / PROJECT DECISION**, not
+  ROM-derived. The `--game-over-density <positive finite multiplier>` option
+  remains a development-only diagnostic; it is not shown in gameplay or
+  persisted. Explicit 2 matches the default, and values such as 0.5, 1, and 4
+  remain available for future investigation. Shape and color cycle are
+  **ARCADE-OBSERVED / PROJECT TRANSLATIONS**, not decoded `$47/$4A` geometry or
+  ROM palette assignments; additional cluster children represent unresolved
+  visible structure, not extra ROM simulation records. Exact Atari RGB values
+  remain unknown. The rare case where both bounded velocities are zero is
+  given a one-unit motion so the presentation cannot hang. The frame sequence
+  has no established frame rate, so C# duration remains a tick-based
+  approximation; the ROM's alternating spawn counter is preserved.
+- **ARCADE OBSERVED / MANUAL COMPARISON** — Neal identifies approximately four
+  distinct burst patterns in rapid succession. Each later pattern appears to
+  begin around halfway through the preceding pattern's evolution; the patterns
+  overlap, differ rather than simply repeat, and their overlap contributes
+  substantially to perceived richness. With this presentation, density 2
+  gives the best overall brightness/richness; 0.5 was preferred for individual
+  specks before the overlapping bursts were introduced.
+- **ROM-BACKED LIMIT** — State `$24` has one 16-slot record loop, a 64-tick
+  spawn window from `$010E`, and reuses empty slots as records leave bounds.
+  Each parent selects graphic `$1F`, whose template has two nonzero values
+  (`$47` and `$4A`). The inspected code does not establish four record groups,
+  four staggered onsets, a records-per-burst count, or four origins.
+  Randomized record initialization and later slot reuse can produce
+  successive activity, but do not prove Neal's observed four-event grouping.
+- **ARCADE OBSERVED (targeted clean MAME sample)** — Frames 0001, 0003-0008,
+  0012, 0020, 0025, 0032, 0050, 0075, 0090 and 0103 were sampled
+  chronologically, with adjacent early frames used to distinguish onset. The
+  sampled marks develop from a central region and spread asymmetrically; they
+  do not confidently establish four separate screen origins or a four-group
+  mapping. No exhaustive frame-by-frame analysis was repeated.
+- **ARCADE OBSERVED / PROJECT TRANSLATION (four-burst model)** — The C# effect runs
+  four independent instances of the ROM-informed 16-parent animation. Their
+  start offsets are 0, 32, 64 and 96 simulation ticks. The ROM-inspired
+  alternating counter gives each instance a 64-tick spawn window, so a new
+  instance starts halfway through the preceding instance's spawn phase while
+  its records continue moving and draining. Each instance retains its own
+  16-slot capacity, movement bounds, randomized signed velocities, spawn/drain
+  lifecycle and deterministic seeded behavior. All use the same central
+  `$80` starting coordinates; no unsupported per-burst origin offsets are
+  added. The seeded random stream and a stable burst-index variation in the
+  compact speck arrangement produce distinct procedural patterns without
+  preset pictures or fixed per-burst colors. Density remains a per-burst
+  child-speck multiplier, and the 2.0-logical-pixel mark geometry is unchanged.
+  The observed grouping is translated into a project schedule; the four
+  instances, exact timing and pattern variation are project choices, not ROM
+  findings. Neal manually accepts the current presentation as good enough for
+  now; exact fidelity may be revisited later.
+- **UNKNOWN / PENDING** — Exact vector paths behind `$47/$4A`, literal RGB
+  values and color assignment, whether apparent short trails are geometry or
+  display/camera persistence, and timing in real seconds remain unresolved.
+  The final supplied frame still contains sparse marks, so it does not prove
+  the complete arcade end state. The accepted C# presentation is not a claim of
+  exact vector, color, or real-time fidelity.
 
 ### Eggs and Level 1 wave accounting
 

@@ -240,6 +240,8 @@ public sealed class ExitLaneControlTests
 
         Step(game, TempestGame.PlayerDeathTicks);
 
+        Assert.Equal(LevelState.GameOverPresentation, game.State);
+        Step(game, 500);
         Assert.True(game.GameOver);
         Assert.Same(LevelConfiguration.Level6Production, game.CurrentLevel.Configuration);
         Assert.False(game.NaturalProgressionEnabled);

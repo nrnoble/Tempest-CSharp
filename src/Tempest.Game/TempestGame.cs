@@ -22,6 +22,9 @@ public sealed class TempestGame
     public const double SimulationStepSeconds = 1.0 / 60.0;
     // Length of the death sequence in simulation updates; a life is deducted on the last one.
     public const int PlayerDeathTicks = 60;
+    // PROJECT APPROXIMATION: ROM shares this message with attract/credit prompts and sets no
+    // Game Over-only hold duration for the simplified one-player flow.
+    public const int GameOverTextDurationTicks = 120;
     private const float PlayerSpeed = 0.05f;
     private const float SpinnerSensitivity = 0.0125f;
     private const int MaximumShots = 10;
@@ -80,11 +83,17 @@ public sealed class TempestGame
     private int nextCargoUnitId;
     private int shotTimer = 4;
     private int exitDelayTicks;
+    private int gameOverPresentationElapsedTicks;
+    private int gameOverDisplayTimeCounter;
 
     public Player Player { get; }
     public Level CurrentLevel => currentLevel ??
         throw new InvalidOperationException("The current Level has not been initialized.");
     public PlayerDeathPresentation DeathPresentation { get; } = new(PlayerDeathTicks);
+    public GameOverVectorBurstSequence GameOverEffect { get; }
+    public int GameOverPresentationElapsedTicks => gameOverPresentationElapsedTicks;
+    public bool GameOverMessageVisible => State == LevelState.GameOverPresentation &&
+        (gameOverDisplayTimeCounter & 0x20) != 0;
     // The model controls rendering only; logical enemies stay frozen for existing reconstruction.
     public float EnemyRetractionProgress => State == LevelState.PlayerDying
         ? DeathPresentation.EnemyRetractionProgress
@@ -191,6 +200,7 @@ public sealed class TempestGame
             throw new ArgumentException("Level 2, Level 3 mixed, Level 4 candidate, Level 6 production, Level 7 production, Level 3 geometry, Tanker, Spiker, Fuseball and Pulsar development scenarios cannot be combined.");
 
         this.random = random ?? Random.Shared;
+        GameOverEffect = new GameOverVectorBurstSequence(NextRandomInclusive);
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
         this.rimSpeedMultiplier = rimSpeedMultiplier;
         this.audioEvents = audioEvents ?? SilentAudioEvents.Instance;
@@ -258,6 +268,14 @@ public sealed class TempestGame
         {
             if (restartPressed)
                 ResetGame();
+        }
+        else if (State == LevelState.GameOverPresentation)
+        {
+            UpdateGameOverPresentation();
+        }
+        else if (State == LevelState.GameOverAnimation)
+        {
+            UpdateGameOverAnimation();
         }
         else if (LevelComplete)
         {
@@ -394,6 +412,9 @@ public sealed class TempestGame
         RestoreProjection();
         DeathTicks = 0;
         DeathPresentation.Reset();
+        gameOverPresentationElapsedTicks = 0;
+        gameOverDisplayTimeCounter = 0;
+        GameOverEffect.Reset();
         HurryUp = false;
         SuperZapper.Reset();
         ResetPlayerPosition();
@@ -524,25 +545,52 @@ public sealed class TempestGame
         Player.Lives--;
         if (Player.Lives <= 0)
         {
-            // Game Over clears the field; unlike an ordinary life loss nothing re-enters until restart,
-            // which goes through ResetGame (score and lives reset).
-            CurrentLevel.State = LevelState.GameOver;
-            shots.Clear();
-            enemyBullets.Clear();
-            flippers.Clear();
-            shotReleasedCargoPendingActivation.Clear();
-            spikers.Clear();
-            tankers.Clear();
-            fuseballs.Clear();
-            pulsars.Clear();
-            fuseballScorePopups.Clear();
-            developmentCollisionOrder.RemoveAll(target => target is not Spike);
-            if (!tankerTest)
-                CurrentLevel.ReturnSurvivorsToReserve();
+            BeginGameOverPresentation();
             return;
         }
 
         ResetAfterDeath();
+    }
+
+    private void BeginGameOverPresentation()
+    {
+        // ROM's post-game flow is reduced to a display and vector interlude before the existing
+        // terminal R-to-restart state; neither phase resumes combat or score accounting.
+        RestoreProjection();
+        CurrentLevel.State = LevelState.GameOverPresentation;
+        gameOverPresentationElapsedTicks = 0;
+        gameOverDisplayTimeCounter = 0x20;
+        GameOverEffect.Reset();
+        shots.Clear();
+        enemyBullets.Clear();
+        flippers.Clear();
+        shotReleasedCargoPendingActivation.Clear();
+        spikers.Clear();
+        tankers.Clear();
+        fuseballs.Clear();
+        pulsars.Clear();
+        fuseballScorePopups.Clear();
+        developmentCollisionOrder.RemoveAll(target => target is not Spike);
+        if (!tankerTest)
+            CurrentLevel.ReturnSurvivorsToReserve();
+    }
+
+    private void UpdateGameOverPresentation()
+    {
+        gameOverPresentationElapsedTicks++;
+        gameOverDisplayTimeCounter = (gameOverDisplayTimeCounter + 1) & 0xFF;
+        if (gameOverPresentationElapsedTicks < GameOverTextDurationTicks)
+            return;
+
+        GameOverEffect.Start();
+        CurrentLevel.State = LevelState.GameOverAnimation;
+    }
+
+    private void UpdateGameOverAnimation()
+    {
+        GameOverEffect.Advance();
+        if (GameOverEffect.IsComplete)
+            CurrentLevel.State = LevelState.GameOver;
     }
 
     private void KillPlayer()
@@ -1909,8 +1957,7 @@ public sealed class TempestGame
             Player.Lives--;
             if (Player.Lives <= 0)
             {
-                CurrentLevel.State = LevelState.GameOver;
-                RestoreProjection();
+                BeginGameOverPresentation();
                 return;
             }
         }

@@ -7,8 +7,9 @@
 // --level2-test, --level3-test, --level4-test, --level6-test and --level7-test select direct production configurations;
 // --level3-geometry-test selects plus-board geometry only; --spiker-test, --tanker-test,
 // --fuseball-test and --pulsar-test select isolated enemy waves. These scenarios are mutually
-// exclusive; --enemy-bullets-test and --lives compose with existing scenarios. --record-gameplay
-// and --playback-file are standalone Level 1 modes.
+// exclusive; --enemy-bullets-test, --lives and --game-over-density compose with existing
+// scenarios. --game-over-density only changes the procedural visible speck count, not mark size;
+// --record-gameplay and --playback-file are standalone Level 1 modes.
 // Normal play progresses Level 1 through terminal Level 7.
 using System.Text.Json;
 using Raylib_cs;
@@ -22,6 +23,13 @@ if (!DebugController.TryParseRimSpeedMultiplier(args,
     out double rimSpeedMultiplier, out string? rimSpeedError))
 {
     Console.Error.WriteLine(rimSpeedError);
+    return 2;
+}
+
+if (!DebugController.TryParseGameOverDensityMultiplier(args,
+    out double gameOverDensityMultiplier, out string? gameOverDensityError))
+{
+    Console.Error.WriteLine(gameOverDensityError);
     return 2;
 }
 
@@ -125,7 +133,7 @@ try
         level7Test: level7Test,
         rimSpeedMultiplier: rimSpeedMultiplier);
     InputSystem input = new();
-    VectorRenderer renderer = new(game);
+    VectorRenderer renderer = new(game, gameOverDensityMultiplier);
     int activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
     int simulationTick = 0;
     bool playbackCompletionReported = false;

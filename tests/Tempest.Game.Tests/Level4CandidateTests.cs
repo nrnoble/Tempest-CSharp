@@ -978,7 +978,7 @@ public sealed class Level4CandidateTests
         Assert.Equal(LevelState.ReverseZoom, game.State);
         Assert.Contains(lethalSpike, game.Spikes);
 
-        for (int tick = 0; tick < 100 && !game.GameOver; tick++)
+        for (int tick = 0; tick < 600 && !game.GameOver; tick++)
             game.RunOneStep();
 
         Assert.True(game.GameOver);

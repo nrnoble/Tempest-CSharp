@@ -18,7 +18,8 @@ public sealed record GameplayFileCommand(GameplayFileMode Mode, string Path);
 /// diagnostic. Both are terminal and do not enable progression. Scenario flags are mutually
 /// exclusive; --enemy-bullets-test (opt-in Flipper firing), --lives (starting-life override) and
 /// --rim-speed (development-only Flipper rim-turn multiplier relative to the calibrated base)
-/// compose with any scenario or normal play. --gameplay-playback selects a seeded Level 1 profile;
+/// and --game-over-density (development-only child-speck count multiplier) compose with any
+/// scenario or normal play. --gameplay-playback selects a seeded Level 1 profile;
 /// --gameplay-playback-level4 selects a distinct profile on the production Level 4 configuration.
 /// --level3-test directly selects the production-shaped
 /// mixed Level 3 wave and remains terminal; --level3-geometry-test remains Flipper-only.
@@ -29,6 +30,48 @@ public sealed record GameplayFileCommand(GameplayFileMode Mode, string Path);
 /// </summary>
 public sealed class DebugController
 {
+	public static bool TryParseGameOverDensityMultiplier(
+		IReadOnlyList<string> arguments,
+		out double multiplier,
+		out string? error)
+	{
+		// This is Neal's accepted manual calibration for the current four-burst translation.
+		multiplier = 2.0;
+		error = null;
+		int optionIndex = -1;
+
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index] != "--game-over-density")
+				continue;
+			if (optionIndex >= 0)
+			{
+				error = "--game-over-density may be specified only once.";
+				return false;
+			}
+			optionIndex = index;
+		}
+
+		if (optionIndex < 0)
+			return true;
+		if (optionIndex + 1 >= arguments.Count ||
+			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
+		{
+			error = "--game-over-density requires a positive finite numeric value.";
+			return false;
+		}
+		if (!double.TryParse(arguments[optionIndex + 1], NumberStyles.Float,
+			CultureInfo.InvariantCulture, out double parsed) ||
+			!double.IsFinite(parsed) || parsed <= 0)
+		{
+			error = "--game-over-density requires a positive finite numeric value.";
+			return false;
+		}
+
+		multiplier = parsed;
+		return true;
+	}
+
 	public static bool TryParseRimSpeedMultiplier(
 		IReadOnlyList<string> arguments,
 		out double multiplier,
