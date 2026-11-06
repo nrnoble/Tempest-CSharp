@@ -1,3 +1,4 @@
+using Tempest.Game.Debug;
 using Tempest.Game.Levels;
 
 namespace Tempest.Game.Systems;
@@ -6,23 +7,17 @@ public sealed class PlayerInputRecorder
 {
 	private readonly List<PlayerInputFrame> frames = [];
 
-	public int RandomSeed { get; }
+	public GameplayStartupConfiguration StartupConfiguration { get; }
+	public int RandomSeed => StartupConfiguration.RandomSeed;
 	public LevelConfiguration StartingConfiguration { get; }
 	public int DurationTicks => frames.Count;
 	public IReadOnlyList<PlayerInputFrame> Frames => frames.AsReadOnly();
 
-	public PlayerInputRecorder(int randomSeed, LevelConfiguration startingConfiguration)
+	public PlayerInputRecorder(GameplayStartupConfiguration startupConfiguration)
 	{
-		ArgumentNullException.ThrowIfNull(startingConfiguration);
-		if (randomSeed < 0)
-			throw new ArgumentOutOfRangeException(nameof(randomSeed));
-		if (!ReferenceEquals(startingConfiguration, LevelConfiguration.Level1))
-			throw new ArgumentException(
-				"Gameplay recording currently supports a new Level 1 run only.",
-				nameof(startingConfiguration));
-
-		RandomSeed = randomSeed;
-		StartingConfiguration = startingConfiguration;
+		StartupConfiguration = startupConfiguration ??
+			throw new ArgumentNullException(nameof(startupConfiguration));
+		StartingConfiguration = startupConfiguration.ResolveStartingConfiguration();
 	}
 
 	public void CaptureTick(int simulationTick, PlayerInput input, bool restartPressed = false)

@@ -1252,6 +1252,8 @@ These controls are test conveniences, not arcade level-selection or composition:
 | `--pulsar-test` | Direct-hatches the ten-unit supply as Pulsars, with source-derived late-wave hurry-up. |
 | `--enemy-bullets-test` | Enables the development enemy-bullet behavior; combinations with Spiker or Tanker scenarios enable their corresponding source-backed firing paths. |
 | `--lives <n>` | Overrides the starting life count for longer development sessions. |
+| `--record-gameplay <file>` | Records effective per-tick input for ordinary production gameplay; new files use strict format version 2 and can include `--level`, `--lives`, and `--rim-speed`. |
+| `--playback-file <file>` | Restores production startup identity and seed from a version-1 or version-2 recording; rejects simulation overrides. |
 
 `--level N` exists to support the one-level-at-a-time manual arcade testing
 workflow. It selects only the starting level; after a successful clear, normal
@@ -1271,7 +1273,8 @@ interaction is only a hypothesis. Neal noted ordinary Alt, Control, and Shift
 events from other controller buttons and wondered whether a combination could
 be relevant, but that is not established evidence. This observation was not
 investigated, and no logging, mapping changes, or input diagnostics were added
-for it.
+for it. No level or trigger was isolated in this earlier entry; whether it is
+related to the separate Level 5 post-death report below is unknown.
 
 The Level 2 and enemy-specific wave options are mutually exclusive. Deterministic random
 seams, controlled selection, artificial wave composition, extra lives, and
@@ -1288,6 +1291,81 @@ Passing a simulation test establishes a C# invariant, not arcade fidelity.
 - **DEVELOPMENT ONLY** — Neal manually checked that the isolated Pulsar
   scenario does not spawn unrelated enemy types. This validates the test
   scenario's isolation, not authentic arcade wave composition.
+
+### Recorded production gameplay files
+
+The original Level 1 record/playback round trip is manually accepted and its
+input semantics remain protected: one effective input frame, including
+neutral and restart values, is captured for every `RunOneStep`; playback uses
+the normal seeded production simulation, preserves tick order, and returns to
+live controls exactly when recorded input ends. New recordings can start at an
+implemented production Level 1–7 and store the effective starting level,
+lives, rim-speed multiplier and initial seed. The level resolves through the
+same production catalog used by `--level N`; special test/scenario modes
+remain incompatible.
+
+Version 2 retains the `tempest-gameplay-input` identifier and the version-1
+seed, duration, frame and input/restart fields. It adds
+`StartingDisplayedLevel`, `StartingLives`, and `RimSpeedMultiplier`, and
+retains `StartingScenario` with the version-2 value `production`. Strict
+unknown-member handling and complete required-field validation remain in
+force. Version 1 stays readable with its original schema and means Level 1,
+3 lives, rim speed 1.0, and its original seed/frames; version-1 files are not
+rewritten. Older builds are not required to read version 2.
+
+The file command grammar is `--record-gameplay <file>` or
+`--playback-file <file>`, followed by compatible options. Recording permits
+`--level N`, `--lives N`, `--rim-speed N`, and `--game-over-density N` in any
+order. Playback accepts only renderer-only `--game-over-density N`; it rejects
+`--level`, `--lives`, `--rim-speed`, and special scenarios before opening the
+game. Density affects Game Over rendering only and is not part of recording
+identity. Defaults are Level 1, 3 lives and rim speed 1.0 plus a generated
+nonnegative seed.
+
+The recorded configuration and seed are applied before startup consumes
+gameplay randomness. Direct Level 5 uses the accepted production geometry,
+starting Spikes, `$53` behavior and ordinary progression to Level 6; the
+recording does not create a terminal scenario. The existing campaign
+full-game restart remains a fresh Level 1 restart with the effective starting
+lives restored and rim speed retained. Save behavior is unchanged: normal
+window close only, temporary sibling file, non-overwriting move. Generated
+files belong under ignored `Temp/` and are disposable unless deliberately
+preserved.
+
+**RECORD / PLAYBACK VERSION 2: MANUALLY ACCEPTED.** Neal tested a direct
+production Level 5 recording and separate playback. He verified Level 5
+startup, 10 lives, Blaster movement/firing, Super Zapper use, deaths if any
+occurred, Level 5 enemy/Spike behavior, correct Level 6 progression if reached
+in the recording, and normal live-input handoff when recorded input ended. He
+reported no problems. This is manual acceptance of the C# behavior, not new
+arcade evidence. Malformed-file cases and every automated edge case were not
+manually verified.
+
+Playback speed, pause, single-step/frame-step, automatic looping, playback
+start/end frame, true seeking, snapshots, observation overlays, deterministic
+state signatures, a dedicated headless playback runner, playlist/browser UI,
+and attract-mode integration remain deferred.
+
+### Separate deferred high-priority investigation: Level 5 post-death exit
+
+**OBSERVED / SEVERE / REPRODUCIBLE / LEVEL-5-SPECIFIC SO FAR / ROOT CAUSE
+UNKNOWN.** Neal reports that ordinary campaign play continues from Level 5
+into Level 6 when the Blaster survives. If the Blaster is destroyed on Level
+5, the normal death/re-entry sequence appears to complete, then the
+application exits unexpectedly within a few seconds. This occurs with or
+without keyboard/controller input after re-entry. Deaths on Levels 1–4 have
+not reproduced the behavior merely because play later reaches Level 5; other
+tested levels have not reproduced it so far. The observation came from normal
+campaign play without record/playback or diagnostic startup options. The
+console ends with `INFO: Window closed successfully`; no crash exception or
+other console error has been observed.
+
+The shutdown message does not identify the initiating event. There is no
+established cause in input handling, death/re-entry, or recording/playback.
+This defect is separate from the accepted recording/playback v2 evidence,
+was not investigated or fixed during this closeout, and is the next
+high-priority investigation after the accepted checkpoint is committed and
+pushed.
 
 ## 11. Known uncertainties and deferred behavior
 

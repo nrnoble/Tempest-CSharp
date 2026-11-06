@@ -2490,19 +2490,20 @@ each simulation call, including neutral input during frozen gameplay states.
 Normal close saves the completed file using a same-directory temporary file and
 a non-overwriting move. Forced termination does not preserve a partial session.
 
-The human-readable JSON format identifier is `tempest-gameplay-input`, current
-format version `1`. It stores the deterministic random seed, starting scenario
-identifier (`level1`), exact simulation-tick duration, and one ordered entry for
-each tick. Each entry contains all `PlayerInput` fields and the separately
-sampled restart control. The file stores only starting metadata and player
-inputs: evolving enemies, player position, score, collisions, Spikes, level
+The originally accepted human-readable JSON schema used format version `1`.
+It stores the deterministic random seed, starting scenario identifier
+(`level1`), exact simulation-tick duration, and one ordered entry for each
+tick. Each entry contains all `PlayerInput` fields and the separately sampled
+restart control. The file stores only starting metadata and player inputs:
+evolving enemies, player position, score, collisions, Spikes, level
 transitions, and random outcomes remain the responsibility of the production
 simulation. Loading rejects malformed data, unsupported identifiers/versions
 or scenarios, and incomplete or non-contiguous frame sequences.
 
-File recording currently starts only from a new ordinary Level 1 game using
-default starting lives. It does not capture an already-running game or support
-arbitrary scenarios. Run the following separately from the repository root:
+At that original acceptance point, file recording started only from a new
+ordinary Level 1 game using default starting lives. It did not capture an
+already-running game or support arbitrary scenarios. The commands used for the
+accepted manual round trip were:
 
 ```powershell
 dotnet run --project src\Tempest.Game -- --record-gameplay Temp\GameplayRecordings\manual-roundtrip.json
@@ -2540,12 +2541,106 @@ important for validating controls, responsiveness, gameplay feel, difficulty,
 and arcade fidelity from the player's perspective. These are complementary
 validation methods, not substitutes for one another.
 
-**Recorded-input playback is frozen as accepted. No further replay development
-is currently needed.** Attract mode, idle detection, replay playlists, replay
-UI/browser or selection UI, replay editing, additional recording features,
-automated visual assertions, replay compatibility or migration infrastructure,
-curated long-term playback assets, and other replay enhancements remain
-deferred until there is a concrete future need.
+The original Level 1 input/frame mechanics remain frozen as accepted.
+Attract mode, idle detection, replay playlists, replay UI/browser or selection
+UI, replay editing, automated visual assertions, replay compatibility or
+migration infrastructure, curated long-term playback assets, and other
+advanced replay features remain deferred until there is a concrete future need.
+
+## Self-describing production recording format v2 (manually accepted)
+
+The file-recording extension preserves the manually accepted Level 1
+record/playback baseline and gives new production recordings a canonical
+`GameplayStartupConfiguration`: starting displayed production level,
+effective starting lives, rim-speed multiplier, and random seed. The level is
+resolved through the same `LevelProgression` production catalog used by
+`--level N`; the serialized file does not contain `LevelConfiguration` data.
+Only implemented production Levels 1–7 are accepted today.
+
+New JSON retains the `tempest-gameplay-input` format identifier and uses
+version 2 with these startup fields: `StartingDisplayedLevel`,
+`StartingLives`, and `RimSpeedMultiplier`. It also retains `Format`,
+`Version`, `RandomSeed`, `DurationTicks`, `Frames`, and the version-1
+`StartingScenario` member, whose version-2 value is the stable category
+`production`. Each frame retains `SimulationTick`, `RestartPressed`, and the
+complete input fields `Fire`, `MouseDeltaX`, `Left`, `Right`, `ZapPressed`,
+and `ControllerAxis`. Unknown JSON members remain rejected. Version 1 is
+read using its original strict schema and defaults to Level 1, 3 lives and
+rim speed 1.0; its seed and frames are unchanged. Version 2 is not expected to
+be readable by older builds.
+
+The supported file-command grammar starts with a transport flag and filename,
+then permits compatible options in any order:
+
+```text
+--record-gameplay <file> [--level N] [--lives N] [--rim-speed N] [--game-over-density N]
+--playback-file <file> [--game-over-density N]
+```
+
+Recording defaults resolve to Level 1, 3 lives and rim speed 1.0 before the
+generated nonnegative seed is selected. Duplicate, missing, malformed,
+unsupported-level and unknown arguments fail before window startup.
+Special development scenarios are incompatible with file recording and
+playback. Playback rejects explicit `--level`, `--lives` and `--rim-speed`
+overrides even when they match the file; the recording is authoritative for
+all simulation identity. The positive finite `--game-over-density` multiplier
+is renderer-only, composes with either file mode, and is intentionally not
+serialized.
+
+The startup configuration and seeded `Random` are applied before
+`TempestGame` constructs the Game Over sequence or production wave, so initial
+random consumption remains in the same order as the recording. The same
+normal production initializer handles direct Levels 1–7, including Level 5
+geometry, Spikes, `$53` Flipper policy and onward Level 5-to-6 progression.
+The accepted input contract is unchanged: one effective frame per
+`RunOneStep`, including neutral/restart frames; no tick renumbering; recorded
+input ends at its original duration and live input resumes immediately after.
+The existing full-game restart policy is also retained: a production campaign
+restart begins at Level 1 and restores configured starting lives while
+retaining the rim-speed multiplier.
+
+User recordings remain disposable files under ignored `Temp/` and are not
+committed. File writing remains at normal window close, uses a temporary
+sibling, and refuses to overwrite an existing destination. No playback
+controls, snapshots, seek/loop behavior, overlays, signatures, or headless
+runner are part of this milestone.
+
+Automated format/parser/startup and deterministic replay tests cover the
+version-2 implementation. **RECORD / PLAYBACK VERSION 2: MANUALLY ACCEPTED.**
+Neal manually tested a direct production Level 5 recording and separate
+playback. Playback restored production Level 5 and 10 lives; reproduced
+Blaster movement and firing, Super Zapper use, deaths if any occurred, and
+Level 5 enemy/Spike behavior; progressed to Level 6 correctly if the recording
+reached that point; and returned to live control normally when recorded input
+ended. Neal found no problems. This is acceptance of the C# implementation,
+not new arcade evidence. Malformed-file cases and every automated edge case
+were not manually verified.
+
+Playback speed, pause, single-step/frame-step, automatic looping, playback
+start/end frame, true seeking, snapshots, observation overlays, deterministic
+state signatures, a dedicated headless playback runner, playlist/browser UI,
+and attract-mode integration remain deferred.
+
+### Separate deferred defect: Level 5 post-death unexpected exit
+
+**OBSERVED / SEVERE / REPRODUCIBLE / LEVEL-5-SPECIFIC SO FAR / ROOT CAUSE
+UNKNOWN.** In ordinary campaign play without recording/playback or diagnostic
+startup options, Level 5 proceeds normally into Level 6 if the Blaster is not
+destroyed. If the Blaster is destroyed on Level 5, the ordinary death/re-entry
+sequence appears to complete, then the game unexpectedly exits within a few
+seconds. It can happen with no keyboard or controller input after re-entry and
+also when either is used. Deaths on Levels 1–4 have not reproduced it merely
+by later reaching Level 5; other tested levels have not reproduced it so far.
+The console ends with `INFO: Window closed successfully`; no crash exception
+or other console error has been observed. That shutdown message does not
+identify the initiating event, and no input source or death/re-entry code is
+established as the cause.
+
+This is a separate, pre-existing issue, not part of recording/playback v2 and
+not evidence that recording/playback caused the exit. It was not investigated,
+logged, or fixed during this closeout. Keep it separate from the accepted
+recording/playback checkpoint; investigate it as the next high-priority task
+after that checkpoint is committed and pushed.
 
 ## Production Level 7 clover (manual acceptance passed)
 
@@ -2734,3 +2829,5 @@ ordinary keyboard Alt, Control, and Shift events; no such cause or combination
 is established. This was not investigated, no logging or mapping changes were
 made, and no input diagnostics were launched for it. If the exits continue or
 become disruptive, investigate later as a separate bounded input/exit task.
+No level or trigger was isolated in this earlier entry; whether it is related
+to the separate Level 5 post-death report below is unknown.

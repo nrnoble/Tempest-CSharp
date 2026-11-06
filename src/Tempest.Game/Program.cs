@@ -10,7 +10,8 @@
 // --fuseball-test and --pulsar-test select isolated enemy waves. These scenarios are mutually
 // exclusive; --enemy-bullets-test, --lives and --game-over-density compose with existing
 // scenarios. --game-over-density only changes the procedural visible speck count, not mark size;
-// --record-gameplay and --playback-file are standalone Level 1 modes.
+// File recordings use --record-gameplay <file> followed by optional production startup options;
+// file playback restores simulation startup identity from its file and permits density only.
 // Normal play progresses Level 1 through terminal Level 7.
 using System.Text.Json;
 using Raylib_cs;
@@ -19,6 +20,7 @@ using Tempest.Game.Rendering;
 using Tempest.Game.Systems;
 using Tempest.Game.Debug;
 using Tempest.Game.Levels;
+using Tempest.Game.Gameplay;
 
 if (!DebugController.TryParseRimSpeedMultiplier(args,
     out double rimSpeedMultiplier, out string? rimSpeedError))
@@ -70,6 +72,7 @@ bool level3GeometryTest = DebugController.UseLevel3GeometryTest(args);
 bool level4Playback = DebugController.UseLevel4GameplayPlayback(args);
 PlayerInputReplay? playback = null;
 PlayerInputRecorder? recording = null;
+GameplayStartupConfiguration? gameplayStartupConfiguration = null;
 string? recordingPath = null;
 try
 {
@@ -77,13 +80,23 @@ try
     {
         recordingPath = GameplayRecordingFile.PrepareOutputPath(gameplayFileCommand.Path);
         int randomSeed = Random.Shared.Next();
-        recording = new PlayerInputRecorder(randomSeed, LevelConfiguration.Level1);
-        Console.WriteLine($"Gameplay recording active: {recordingPath} (seed {randomSeed}). Close the window normally to save.");
+        gameplayStartupConfiguration = new GameplayStartupConfiguration(
+            gameplayFileCommand.StartingDisplayedLevel ?? LevelConfiguration.Level1.DisplayedLevel,
+            gameplayFileCommand.StartingLives ?? Player.DefaultStartingLives,
+            gameplayFileCommand.RimSpeedMultiplier ?? 1.0,
+            randomSeed);
+        recording = new PlayerInputRecorder(gameplayStartupConfiguration);
+        Console.WriteLine(
+            $"Gameplay recording active: {recordingPath} (Level {gameplayStartupConfiguration.StartingDisplayedLevel}, " +
+            $"{gameplayStartupConfiguration.StartingLives} lives, rim speed {gameplayStartupConfiguration.RimSpeedMultiplier}, " +
+            $"seed {randomSeed}). Close the window normally to save.");
     }
     else if (gameplayFileCommand is { Mode: GameplayFileMode.Playback })
     {
         string playbackPath = Path.GetFullPath(gameplayFileCommand.Path);
-        playback = GameplayRecordingFile.Load(playbackPath);
+        GameplayRecording file = GameplayRecordingFile.LoadRecording(playbackPath);
+        gameplayStartupConfiguration = file.StartupConfiguration;
+        playback = file.Replay;
         Console.WriteLine($"Gameplay file playback active: {playbackPath}");
     }
     else
@@ -102,10 +115,11 @@ catch (Exception exception) when (exception is IOException or UnauthorizedAccess
     return 2;
 }
 
-int? deterministicSeed = playback?.RandomSeed ?? recording?.RandomSeed;
+int? deterministicSeed = gameplayStartupConfiguration?.RandomSeed ??
+    playback?.RandomSeed ?? recording?.RandomSeed;
 Raylib.InitWindow(VectorRenderer.ScreenWidth, VectorRenderer.ScreenHeight,
     recording is not null
-        ? "Tempest C# - Recording Level 1" :
+        ? $"Tempest C# - Recording Level {recording.StartupConfiguration.StartingDisplayedLevel}" :
     playback is not null
         ? $"Tempest C# - Deterministic Gameplay Playback - Level {playback.StartingConfiguration.DisplayedLevel}" :
     startingProductionLevel is int selectedLevel
@@ -127,22 +141,24 @@ try
         throw new InvalidOperationException("Raylib could not initialize the audio device.");
 
     using AudioSystem audio = new();
-    TempestGame game = new(DebugController.UseSpikerWave(args),
-        random: deterministicSeed is int seed ? new Random(seed) : null,
-        startingLives: DebugController.GetStartingLives(args),
-        enemyBulletsTest: DebugController.UseEnemyBulletsTest(args),
-        tankerTest: DebugController.UseTankerTest(args),
-        fuseballTest: DebugController.UseFuseballTest(args),
-        pulsarTest: DebugController.UsePulsarTest(args),
-        level2Test: level2Test,
-        level3Test: level3Test,
-        level3GeometryTest: level3GeometryTest,
-        level4Test: level4Test || level4Playback,
-        audioEvents: audio,
-        level6Test: level6Test,
-        level7Test: level7Test,
-        rimSpeedMultiplier: rimSpeedMultiplier,
-        startingProductionLevel: startingProductionLevel);
+    TempestGame game = gameplayStartupConfiguration is not null
+        ? new TempestGame(gameplayStartupConfiguration, audioEvents: audio)
+        : new TempestGame(DebugController.UseSpikerWave(args),
+            random: deterministicSeed is int seed ? new Random(seed) : null,
+            startingLives: DebugController.GetStartingLives(args),
+            enemyBulletsTest: DebugController.UseEnemyBulletsTest(args),
+            tankerTest: DebugController.UseTankerTest(args),
+            fuseballTest: DebugController.UseFuseballTest(args),
+            pulsarTest: DebugController.UsePulsarTest(args),
+            level2Test: level2Test,
+            level3Test: level3Test,
+            level3GeometryTest: level3GeometryTest,
+            level4Test: level4Test || level4Playback,
+            audioEvents: audio,
+            level6Test: level6Test,
+            level7Test: level7Test,
+            rimSpeedMultiplier: rimSpeedMultiplier,
+            startingProductionLevel: startingProductionLevel);
     InputSystem input = new();
     VectorRenderer renderer = new(game, gameOverDensityMultiplier);
     int activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;

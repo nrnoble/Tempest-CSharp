@@ -174,7 +174,61 @@ Neal manually accepted this development startup and the controller exit
 controls on 2026-11-06. During those sessions, the game also unexpectedly
 exited on multiple occasions and the console ended with
 `INFO: Window closed successfully`. This observation is unresolved,
-non-blocking, and deferred; no cause has been established.
+non-blocking, and deferred; no cause has been established. It did not isolate
+a level or trigger, and no relationship to the separate Level 5-specific
+observation below has been established.
+
+## Development-only recorded gameplay
+
+Record a normal production game to an ignored, disposable path and replay it
+later:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --record-gameplay Temp\GameplayRecordings\level1.json
+dotnet run --project src\Tempest.Game -- --playback-file Temp\GameplayRecordings\level1.json
+dotnet run --project src\Tempest.Game -- --record-gameplay Temp\GameplayRecordings\level5.json --level 5 --lives 10
+dotnet run --project src\Tempest.Game -- --playback-file Temp\GameplayRecordings\level5.json
+dotnet run --project src\Tempest.Game -- --record-gameplay Temp\GameplayRecordings\level5-fast-rim.json --level 5 --lives 10 --rim-speed 2.5
+```
+
+The recording file stores its production starting level, effective lives,
+rim-speed multiplier, random seed and one effective input/restart frame per
+simulation tick. Playback restores those simulation values and uses the same
+production initialization path as a normal or `--level N` start. Recording
+options may follow the mode/path in any order; duplicate, malformed, unknown
+or special-scenario options are rejected. Playback does not accept
+`--level`, `--lives`, `--rim-speed` or special-scenario overrides. The
+renderer-only `--game-over-density N` may be supplied to either mode and is not
+stored in the recording.
+
+New files use format version 2. Existing version-1 files remain readable as
+Level 1, 3 lives and rim speed 1.0, with their recorded seed and inputs. Files
+are saved only on normal window close and existing output files are never
+overwritten. Keep generated recordings under ignored `Temp/`; do not commit
+them unless deliberately curated and reviewed.
+
+**RECORD / PLAYBACK VERSION 2: MANUALLY ACCEPTED.** Neal manually tested a
+direct production Level 5 recording and separate playback. Playback restored
+Level 5 and 10 lives and reproduced Blaster movement/firing, Super Zapper use,
+any recorded deaths, and Level 5 enemy/Spike behavior. Progression to Level 6
+was verified if reached in the recording, and live control resumed normally
+when recorded input ended. Neal reported no problems. This accepts the C#
+record/playback behavior; it is not additional evidence of arcade internals.
+Version-1 files retain their established Level 1, 3-life, rim-speed-1.0
+startup and are not rewritten.
+
+### Separate deferred Level 5 exit defect
+
+Neal also observed a severe, reproducible-so-far defect in ordinary campaign
+play: after the Blaster is destroyed on Level 5 and re-entry appears to
+complete, the game exits unexpectedly within a few seconds, with or without
+further keyboard/controller input. Level 5 proceeds normally when the Blaster
+survives; deaths on Levels 1–4 have not reproduced it. The console ends with
+`INFO: Window closed successfully`, with no observed crash exception or other
+console error. The root cause is unknown. This reproduces without
+record/playback and is unrelated to the accepted v2 milestone; it was not
+investigated or fixed during closeout and remains the next high-priority
+investigation after the accepted checkpoint is pushed.
 
 ## Development-only controller input diagnostic
 

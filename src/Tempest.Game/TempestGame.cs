@@ -2,6 +2,7 @@ using Tempest.Game.Gameplay;
 using Tempest.Game.Levels;
 using Tempest.Game.Systems;
 using Tempest.Game.Rendering;
+using Tempest.Game.Debug;
 
 namespace Tempest.Game;
 
@@ -261,6 +262,24 @@ public sealed class TempestGame
                 throw new ArgumentNullException(nameof(startingConfiguration)),
             audioEvents: audioEvents, rimSpeedMultiplier: rimSpeedMultiplier)
     {
+    }
+
+    public TempestGame(GameplayStartupConfiguration startupConfiguration,
+        IAudioEvents? audioEvents = null)
+        : this(random: CreateStartupRandom(startupConfiguration),
+            startingLives: startupConfiguration.StartingLives,
+            audioEvents: audioEvents,
+            rimSpeedMultiplier: startupConfiguration.RimSpeedMultiplier,
+            startingProductionLevel: startupConfiguration.StartingDisplayedLevel)
+    {
+    }
+
+    private static Random CreateStartupRandom(
+        GameplayStartupConfiguration startupConfiguration)
+    {
+        ArgumentNullException.ThrowIfNull(startupConfiguration);
+        // The shared seeded stream must exist before startup construction consumes any game RNG.
+        return new Random(startupConfiguration.RandomSeed);
     }
 
     public void RunOneStep(PlayerInput input = default, bool restartPressed = false)
