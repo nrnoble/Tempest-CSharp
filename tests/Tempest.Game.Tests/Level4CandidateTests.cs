@@ -62,21 +62,31 @@ public sealed class Level4CandidateTests
     {
         TempestGame game = new(level4Test: true, random: new MinimumRandom());
         VectorRenderer renderer = new(game);
-        List<(string Text, Vector2 Position, float Scale)> warnings = [];
-        void CaptureWarning(string text, Vector2 position, float scale) =>
-            warnings.Add((text, position, scale));
+        List<(Vector2 Start, Vector2 End, Color Color)> warnings = [];
+        void CaptureWarning(Vector2 start, Vector2 end, Color color) =>
+            warnings.Add((start, end, color));
 
         game.CurrentLevel.State = LevelState.AvoidSpikes;
         Assert.True(game.ShouldShowAvoidSpikesWarning);
         renderer.DrawAvoidSpikesWarning(CaptureWarning);
-        Assert.Equal(("Avoid Spikes", new Vector2(200, 260), 8),
-            Assert.Single(warnings));
+        List<(Vector2 Start, Vector2 End, Color Color)> expectedWarning = [];
+        VectorFont.DrawCenteredText(
+            "AVOID SPIKES",
+            new Vector2(400, 288),
+            8,
+            (start, end) => expectedWarning.Add((start, end, Color.White)));
+        Assert.Equal(expectedWarning, warnings);
+        Assert.All(warnings, line => Assert.Equal(Color.White, line.Color));
+        Assert.Equal(new Vector2(400, 288),
+            BoundsCenter(warnings.SelectMany(line => new[] { line.Start, line.End })));
+        Assert.Equal(56f, BoundsSize(warnings.SelectMany(line =>
+            new[] { line.Start, line.End })).Y);
 
         warnings.Clear();
         game.CurrentLevel.State = LevelState.ExitDelay;
         Assert.True(game.ShouldShowAvoidSpikesWarning);
         renderer.DrawAvoidSpikesWarning(CaptureWarning);
-        Assert.Single(warnings);
+        Assert.Equal(expectedWarning, warnings);
 
         foreach (LevelState state in new[]
         {
@@ -104,6 +114,22 @@ public sealed class Level4CandidateTests
         futureGame.CurrentLevel.State = LevelState.AvoidSpikes;
         Assert.Equal(16, futureGame.Spikes.Count);
         Assert.False(futureGame.ShouldShowAvoidSpikesWarning);
+    }
+
+    private static Vector2 BoundsCenter(IEnumerable<Vector2> points)
+    {
+        Vector2[] values = points.ToArray();
+        return new Vector2(
+            (values.Min(point => point.X) + values.Max(point => point.X)) / 2,
+            (values.Min(point => point.Y) + values.Max(point => point.Y)) / 2);
+    }
+
+    private static Vector2 BoundsSize(IEnumerable<Vector2> points)
+    {
+        Vector2[] values = points.ToArray();
+        return new Vector2(
+            values.Max(point => point.X) - values.Min(point => point.X),
+            values.Max(point => point.Y) - values.Min(point => point.Y));
     }
 
     [Fact]

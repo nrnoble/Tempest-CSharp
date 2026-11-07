@@ -33,6 +33,10 @@ public sealed class VectorRenderer
 		Color.White, Color.Yellow, SpikerColor, Color.Red, PulsarColor, TankerColor, Color.Blue
 	];
 	private static readonly Color GameOverTextColor = Color.White;
+	private static readonly Color AvoidSpikesWarningColor = Color.White;
+	// Preserve the former text center and 56-pixel height (seven vector units at scale 8).
+	private static readonly Vector2 AvoidSpikesWarningCenter = new(400, 288);
+	private const float AvoidSpikesWarningScale = 8;
 	private static readonly Color PaletteZeroBlasterLaneColor = new(255, 255, 0, 255);
 	private static readonly Color DeathOrangeColor = new(255, 80, 0, 255);
 	private const int GameOverVectorBaseSpecksPerParent = 2;
@@ -182,8 +186,7 @@ public sealed class VectorRenderer
 			DrawFuseballScorePopups((text, position, scale) =>
 				Raylib.DrawTextEx(Raylib.GetFontDefault(), text, position, scale * 7, scale, Color.White));
 
-		DrawAvoidSpikesWarning((text, position, scale) =>
-			Raylib.DrawTextEx(Raylib.GetFontDefault(), text, position, scale * 7, scale, Color.White));
+		DrawAvoidSpikesWarning((start, end, color) => Raylib.DrawLineV(start, end, color));
 
 		if (!game.GameOver &&
 			game.State is not (LevelState.GameOverPresentation or LevelState.GameOverAnimation))
@@ -357,13 +360,17 @@ public sealed class VectorRenderer
 		}
 	}
 
-	public void DrawAvoidSpikesWarning(Action<string, Vector2, float> drawText)
+	public void DrawAvoidSpikesWarning(Action<Vector2, Vector2, Color> drawLine)
 	{
-		ArgumentNullException.ThrowIfNull(drawText);
+		ArgumentNullException.ThrowIfNull(drawLine);
 		if (!game.ShouldShowAvoidSpikesWarning)
 			return;
 
-		drawText("Avoid Spikes", new Vector2(200, 260), 8);
+		VectorFont.DrawCenteredText(
+			"AVOID SPIKES",
+			AvoidSpikesWarningCenter,
+			AvoidSpikesWarningScale,
+			(start, end) => drawLine(start, end, AvoidSpikesWarningColor));
 	}
 
 	public void DrawGameOverMessage(Action<Vector2, Vector2, Color> drawLine)

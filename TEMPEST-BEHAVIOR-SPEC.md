@@ -244,6 +244,18 @@ disassemblies as evidence for arcade behavior.
   Spikes” warning stays visible through the controllable AvoidSpikes and
   pretravel ExitDelay states; it hides when ExitZoom begins, and during death,
   retry, and terminal states.
+  **AVOID SPIKES VECTOR TEXT: MANUALLY ACCEPTED.** The previous Raylib default
+  font/title-case warning is now uppercase `AVOID SPIKES`, rendered by the
+  shared C# `VectorFont` pathway used by GAME OVER. Neal visually tested the
+  presentation on all currently implemented Spike levels and reports,
+  "Looks perfect." Its approximately 56-logical-pixel height, center at
+  `(400,288)`, white color, warning timing, and tube-exit presentation are
+  preserved. GAME OVER remains visually unchanged. The original arcade
+  presentation's uppercase in-game lettering is **ARCADE OBSERVED**; using the
+  shared C# vector font for future arcade-style messages is a **PROJECT
+  PRESENTATION DECISION**. This rule does not globally convert the HUD,
+  score/lives, diagnostics, development labels, approach/recharge text, or
+  other accepted presentation.
   The verified current natural progression has no Spikes on Levels 1-3; Level
   4 is its first normal Spike level, and many later levels also contain them.
   Neal recalls recycled Levels 17 and 18 without Spikes. A future Spike-bearing

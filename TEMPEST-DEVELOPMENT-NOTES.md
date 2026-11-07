@@ -1980,6 +1980,23 @@ Spikes do not block enemy-supply resolution. The prominent **Avoid Spikes**
 warning remains visible through the configured AvoidSpikes and controllable
 pretravel ExitDelay states, then hides when ExitZoom begins. It is also hidden
 for death, retry, and terminal completion.
+**AVOID SPIKES VECTOR TEXT: MANUALLY ACCEPTED.** The old Raylib default-font,
+title-case warning now reads uppercase `AVOID SPIKES` through the shared C#
+`VectorFont` pathway used by GAME OVER. Neal visually tested it on all
+currently implemented Spike levels and reports, "Looks perfect." The
+approximately 56-logical-pixel height, center at `(400,288)`, white color,
+warning timing, and tube-exit presentation are preserved. GAME OVER remains
+visually unchanged.
+
+The original arcade Tempest presentation strictly uses uppercase lettering
+for in-game text; this convention is **ARCADE OBSERVED** and uppercase lettering
+is part of the game's visual style. New arcade-style in-game messages should
+use uppercase lettering and should normally use the shared Tempest vector-text
+system when appropriate. That shared C# rendering rule is a **PROJECT
+PRESENTATION DECISION**, not a claim about a newly discovered arcade renderer.
+This guideline applies only as future messages are created: it does not
+authorize converting the HUD, score/lives, diagnostics, development labels,
+approach/recharge text, or any other existing accepted presentation.
 Neal manually accepted the late-wave Spiker behavior and overall Level 4 feel.
 Later focused exit validation split: post-death Spike shooting passed, while
 sustained firing could erase an initially long Spike and exit safely. That
