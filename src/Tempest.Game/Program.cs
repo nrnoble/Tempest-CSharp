@@ -181,19 +181,19 @@ try
             playbackCompletionReported = true;
         }
 
-        // Death and ordinary exit delay stay frozen. Actual exit travel polls movement input;
-        // the simulation retains the separate ordinary/Spike firing gates.
         PlayerInput effectiveInput = default;
         bool effectiveRestartPressed = false;
-        if (game.GameOver || game.LevelComplete)
-            effectiveRestartPressed = replaying
-                ? playback!.GetFrame(simulationTick).RestartPressed
-                : input.RestartPressed();
+        if (replaying)
+        {
+            (effectiveInput, effectiveRestartPressed) =
+                GameplayPlaybackSession.ApplyPlaybackInputGates(
+                    game, playback!.GetFrame(simulationTick));
+        }
+        else if (game.GameOver || game.LevelComplete)
+            effectiveRestartPressed = input.RestartPressed();
         else if (game.DeathTicks == 0 &&
             (!game.IsExiting || game.ExitMovementInputEnabled))
-            effectiveInput = replaying
-                ? playback!.GetFrame(simulationTick).Input
-                : input.ReadPlayer();
+            effectiveInput = input.ReadPlayer();
 
         game.RunOneStep(effectiveInput, effectiveRestartPressed);
         recording?.CaptureTick(simulationTick, effectiveInput, effectiveRestartPressed);

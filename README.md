@@ -207,6 +207,40 @@ are saved only on normal window close and existing output files are never
 overwritten. Keep generated recordings under ignored `Temp/`; do not commit
 them unless deliberately curated and reviewed.
 
+### Shared deterministic playback session (Phase 1 — automated acceptance passed)
+
+**SHARED DETERMINISTIC PLAYBACK SESSION PHASE 1: AUTOMATED ACCEPTANCE PASSED.**
+Manual visual acceptance was not required: visible playback remains in
+`Program.cs`, no visible controls or rendering changes were introduced, and
+this milestone provides a Raylib-independent execution/diagnostic seam.
+
+`GameplayPlaybackSession` is the reusable, Raylib-independent execution seam
+for a validated recording. Boundary 0 is the restored startup state before
+frame 0; each `StepForward` consumes one frame and calls the production
+`TempestGame.RunOneStep` once, so consuming frame N produces boundary N+1.
+`RunToBoundary(N)` uses those same steps and accepts only boundaries from 0
+through the recording duration. Its immutable `GameplayStateSummary` reports
+recording/startup metadata and a bounded set of current game values, including
+stably ordered Flipper identity, movement and pivot diagnostics.
+
+The visible loop shares the session's playback input gates, but still owns its
+current cursor, rendering and live-input handoff; visible playback has not yet
+been migrated to the session. Pause/resume, forward/backward controls, rewind,
+fast-forward, snapshots and a headless command-line mode are not implemented.
+Future debugger controls are separate from recorded `PlayerInput`: Space will
+toggle pause/resume, Right Arrow will step forward, Left Arrow will reconstruct
+the preceding boundary deterministically, and fast-forward/rewind may follow.
+A later headless CLI is intended to let VS Code Copilot run a v1/v2 recording
+to a boundary and inspect the same summary without Raylib.
+
+The staged roadmap is Phase 2 (migrate visible file playback, add Space
+pause/resume and Right Arrow single-step, then obtain Neal's visual acceptance);
+Phase 3A (headless runner/CLI, boundary execution, structured state and
+checkpoints); Phase 3B (Left Arrow and replay-from-start backward reconstruction
+with performance measurement). Playback speed/fast-forward, continuous rewind,
+bookmarks/loops and snapshots remain later or deferred; add snapshots only if
+replay-from-start proves measurably inadequate.
+
 **RECORD / PLAYBACK VERSION 2: MANUALLY ACCEPTED.** Neal manually tested a
 direct production Level 5 recording and separate playback. Playback restored
 Level 5 and 10 lives and reproduced Blaster movement/firing, Super Zapper use,

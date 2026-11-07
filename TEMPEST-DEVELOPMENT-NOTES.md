@@ -2638,6 +2638,45 @@ start/end frame, true seeking, snapshots, observation overlays, deterministic
 state signatures, a dedicated headless playback runner, playlist/browser UI,
 and attract-mode integration remain deferred.
 
+### Shared deterministic playback session — Phase 1 automated acceptance passed
+
+**SHARED DETERMINISTIC PLAYBACK SESSION PHASE 1: AUTOMATED ACCEPTANCE PASSED.**
+Manual visual acceptance was not required because visible playback was not
+migrated, no visible controls or rendering behavior changed, and the milestone
+only adds the Raylib-independent shared playback and diagnostic seam.
+
+`GameplayPlaybackSession` owns a validated production startup configuration,
+the normal `TempestGame`, the replay source/cursor and deterministic forward
+execution. Boundary 0 is the restored startup before recorded frame 0;
+consuming frame N calls `RunOneStep` once and produces boundary N+1. The
+session's `RunToBoundary(N)` advances only through those same single steps,
+rejects out-of-range and earlier targets, and reports completion at the exact
+recording duration without consuming an extra frame.
+
+`GameplayStateSummary` is an immutable, bounded copy of playback/startup
+metadata, selected live game values and Flipper diagnostics. Flippers are
+ordered by cargo/original identity, lane, height, movement state, direction,
+pivot endpoints and angle, not their incidental collection order. The
+session uses the existing silent audio adapter by default and has no Raylib
+dependency. Program's file/profile playback path and the session share the
+accepted state-specific recorded-input/restart gates; Program still owns the
+visible cursor, drawing and live-input handoff until a later migration.
+
+This accepted implementation is not arcade behavior evidence. No backward
+step/reconstruction, rewind, fast-forward, snapshot, visible pause/step
+controls or headless CLI exists yet. Future controls remain separate from
+gameplay input: Space pause/resume, Right Arrow forward step and Left Arrow
+deterministic reconstruction of the prior boundary.
+
+**Roadmap:** Phase 2 migrates visible file playback onto this session, adds
+Space pause/resume and Right Arrow one-tick stepping, then obtains Neal's
+visual/manual acceptance. Phase 3A adds a reusable headless runner and thin
+VS Code Copilot CLI for running to a boundary and returning structured state,
+assertions and checkpoints. Phase 3B adds Left Arrow/backward reconstruction
+by replay-from-start and benchmarks its cost. Later speed/fast-forward,
+continuous rewind, bookmarks/loops and state comparisons may follow; snapshots
+remain deferred unless replay-from-start is measurably inadequate.
+
 ### Level 5 post-death invalid-direction fix (manually accepted)
 
 **NEAL-OBSERVED / PRODUCTION-LIFECYCLE-REPRODUCED / C# ROOT CAUSE PROVEN /

@@ -151,6 +151,37 @@ public sealed class GameplayRecordingTests
 	}
 
 	[Theory]
+	[InlineData(1, 1, 3, 1.0, 1981)]
+	[InlineData(2, 5, 10, 2.5, 9127)]
+	public void SharedPlaybackSessionPreservesVersionedStartupAndFrameSemantics(
+		int version, int startingLevel, int startingLives, double rimSpeed, int seed)
+	{
+		WithTemporaryDirectory(directory =>
+		{
+			string path = Path.Combine(directory, $"version{version}.json");
+			File.WriteAllText(path, CreateJson(version: version, randomSeed: seed,
+				startingDisplayedLevel: startingLevel, startingLives: startingLives,
+				rimSpeedMultiplier: rimSpeed));
+			GameplayRecording recording = GameplayRecordingFile.LoadRecording(path);
+			GameplayPlaybackSession session = new(
+				recording.StartupConfiguration, recording.Replay);
+			TempestGame expected = new(recording.StartupConfiguration);
+			PlayerInputFrame frame = recording.Replay.GetFrame(0);
+			expected.RunOneStep(frame.Input, frame.RestartPressed);
+
+			Assert.Equal(startingLevel, session.GetStateSummary().StartingDisplayedLevel);
+			Assert.Equal(startingLives, session.GetStateSummary().StartingLives);
+			Assert.Equal(rimSpeed, session.GetStateSummary().StartingRimSpeedMultiplier);
+			Assert.Equal(seed, session.GetStateSummary().RandomSeed);
+			Assert.Equal(new PlayerInputFrame(0,
+				new PlayerInput(true, 1.25f, true, false, true, -0.75f), true), frame);
+			Assert.True(session.StepForward());
+			AssertEquivalentGameplayState(expected, session.Game);
+			Assert.Equal(1, session.GetStateSummary().Boundary);
+		});
+	}
+
+	[Theory]
 	[InlineData(1)]
 	[InlineData(2)]
 	public void UnknownMembersRemainRejectedForBothRecordingVersions(int version)
