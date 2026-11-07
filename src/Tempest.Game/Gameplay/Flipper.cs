@@ -166,7 +166,7 @@ public sealed class Flipper : Enemy
     // Ordinary climbing Flipper used when cargo re-enters through a fresh Egg after a life loss.
     public static Flipper CreateFreshTankerCargo(
         int edge, int cargoUnitId, int? programmedDirection = null,
-        bool useLevel5SpikeSensitiveProgram = false)
+        bool useLevel5SpikeSensitiveProgram = false, int? initialDirection = null)
     {
         Flipper flipper = new(edge, 0)
         {
@@ -175,6 +175,13 @@ public sealed class Flipper : Enemy
         };
         if (programmedDirection is int direction)
             flipper.InitializeProgrammedRoute(direction);
+        else if (initialDirection is int freshDirection)
+        {
+            if (freshDirection is not (-1 or 1))
+                throw new ArgumentOutOfRangeException(nameof(initialDirection));
+
+            flipper.Direction = freshDirection;
+        }
         return flipper;
     }
 
@@ -428,6 +435,10 @@ public sealed class Flipper : Enemy
         }
         else if (!IsTankerCargo && !canFlip)
             Direction = level.FindShortestDirection(EdgeIndex, playerEdge);
+
+        if (Direction is not (-1 or 1))
+            throw new InvalidOperationException(
+                $"A Flipper must have direction -1 or 1 before beginning a pivot; got {Direction}.");
 
         SourceEdge = EdgeIndex;
         DestinationEdge = Direction > 0

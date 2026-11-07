@@ -2621,26 +2621,44 @@ start/end frame, true seeking, snapshots, observation overlays, deterministic
 state signatures, a dedicated headless playback runner, playlist/browser UI,
 and attract-mode integration remain deferred.
 
-### Separate deferred defect: Level 5 post-death unexpected exit
+### Level 5 post-death invalid-direction fix (manually accepted)
 
-**OBSERVED / SEVERE / REPRODUCIBLE / LEVEL-5-SPECIFIC SO FAR / ROOT CAUSE
-UNKNOWN.** In ordinary campaign play without recording/playback or diagnostic
-startup options, Level 5 proceeds normally into Level 6 if the Blaster is not
-destroyed. If the Blaster is destroyed on Level 5, the ordinary death/re-entry
-sequence appears to complete, then the game unexpectedly exits within a few
-seconds. It can happen with no keyboard or controller input after re-entry and
-also when either is used. Deaths on Levels 1–4 have not reproduced it merely
-by later reaching Level 5; other tested levels have not reproduced it so far.
-The console ends with `INFO: Window closed successfully`; no crash exception
-or other console error has been observed. That shutdown message does not
-identify the initiating event, and no input source or death/re-entry code is
-established as the cause.
+**NEAL-OBSERVED / PRODUCTION-LIFECYCLE-REPRODUCED / C# ROOT CAUSE PROVEN /
+FIX IMPLEMENTED / MANUALLY ACCEPTED.** Neal's failure trace identified an
+unhandled `ArgumentOutOfRangeException("direction")` from
+`Flipper.BeginPivot()` through `Level.CalculateDirectedLaneTransition()`;
+the abnormal CLR result was `-532462766`. The production-realistic regression
+used Level 5 Tanker cargo release, cargo/Blaster collision, death and
+re-entry. Death discarded runtime entities while preserving unresolved cargo
+identity in the ledger. The identity returned as a fresh Egg, and
+`CreateFreshTankerCargo` reconstructed it with the default `Direction == 0`.
+Level 5's `$53` Spike-sensitive policy could then begin a below-rim pivot
+before assigning a direction. The strict geometry validation correctly threw.
 
-This is a separate, pre-existing issue, not part of recording/playback v2 and
-not evidence that recording/playback caused the exit. It was not investigated,
-logged, or fixed during this closeout. Keep it separate from the accepted
-recording/playback checkpoint; investigate it as the next high-priority task
-after that checkpoint is committed and pushed.
+The proven C# defect was missing direction initialization for reconstructed
+Level 5 cargo. `$53` exposed the invariant gap; it was not proven incorrect,
+disabled or weakened. The accepted fix assigns reconstructed cargo a valid
+reference-shortest direction toward the player and makes `BeginPivot` enforce
+the `{-1, +1}` direction invariant before building a transition. The strict
+geometry guard, existing Level 7 programmed-direction restoration, and Level 5
+Spike gate, threshold, climbing behavior and timing remain unchanged. This is
+a C# lifecycle finding, not new arcade evidence.
+
+Neal extensively tested Level 5, repeatedly exercised the former crash
+sequence without recurrence, and verified death/re-entry, ordinary gameplay
+and Level 5-to-6 progression. No obvious Flipper, Spike, Tanker or cargo
+regression was observed. He also manually tested all other currently
+implemented production levels without an unexpected exit or obvious neighboring
+regression. Several recordings and separate playbacks reproduced gameplay
+correctly. A supplied Level 5 playback completed after 7,260 simulation ticks,
+reported live controls resumed, and later exited with
+`Exit reason: WindowShouldClose`; no exception occurred and Raylib cleanup
+completed normally. The normal-exit diagnostic remains low-noise and does not
+alter exit selection. Gameplay exceptions remain visible through the ordinary
+uncaught .NET path. Neal accepted the fix; manual testing does not claim to
+isolate every automated cargo identity or direction edge case. Automated
+results are recorded in
+`AI-Logs/Reports/2026-11-06-level5-post-death-invalid-direction-acceptance-closeout-report.md`.
 
 ## Production Level 7 clover (manual acceptance passed)
 

@@ -29,6 +29,17 @@ public sealed class InputSystemTests
     }
 
     [Theory]
+    [InlineData(false, false, null)]
+    [InlineData(true, false, QuitReason.WindowShouldClose)]
+    [InlineData(false, true, QuitReason.Enter)]
+    [InlineData(true, true, QuitReason.WindowShouldClose)]
+    public void QuitReasonIdentifiesTheExistingExitSignal(
+        bool close, bool enter, QuitReason? expected)
+    {
+        Assert.Equal(expected, InputSystem.GetQuitReason(close, enter));
+    }
+
+    [Theory]
     [InlineData(LevelState.GameOver)]
     [InlineData(LevelState.Complete)]
     public void PAliasAndRUseIdenticalExistingRestartOrReplay(LevelState state)

@@ -825,11 +825,17 @@ public sealed class TempestGame
             ledger.MarkCargoActive(egg.CargoUnitId);
             int? programmedDirection = level7DeepCargoDirections.TryGetValue(
                 egg.CargoUnitId, out int direction) ? direction : null;
+            bool useLevel5SpikeSensitiveProgram =
+                CurrentLevel.Configuration.BelowRimFlipperProgram ==
+                BelowRimFlipperProgram.Level5SpikeSensitive;
+            // Re-entry cargo can pivot below the rim before rim pursuit assigns its direction.
+            int? initialDirection = useLevel5SpikeSensitiveProgram
+                ? CurrentLevel.FindReferenceShortestDirection(
+                    egg.EdgeIndex, Player.EdgeIndex, NextRandomInclusive)
+                : null;
             return Flipper.CreateFreshTankerCargo(
                 egg.EdgeIndex, egg.CargoUnitId, programmedDirection,
-                useLevel5SpikeSensitiveProgram:
-                    CurrentLevel.Configuration.BelowRimFlipperProgram ==
-                    BelowRimFlipperProgram.Level5SpikeSensitive);
+                useLevel5SpikeSensitiveProgram, initialDirection);
         }
 
         int originalId = egg.OriginalSlotId;

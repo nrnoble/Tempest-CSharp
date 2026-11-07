@@ -366,6 +366,80 @@ public sealed class Level5ProductionTests
         Assert.Equal(FlipperState.Climbing, reentryFlipper.State);
     }
 
+    [Fact]
+    public void FreshLevelFiveNoInputDeathsAndReentriesRemainStable()
+    {
+        LevelConfiguration configuration = LevelConfiguration.Level5Production with
+        {
+            EnemySupply = 4,
+            InitialActiveEggCount = 4
+        };
+        TempestGame game = new(configuration, random: new Level5FlipperSelectionRandom(),
+            startingLives: 10);
+
+        for (int death = 0; death < 2; death++)
+        {
+            game.CurrentLevel.State = LevelState.PlayerDying;
+            game.RunOneStep();
+            Assert.Equal(LevelState.Playing, game.State);
+
+            for (int tick = 0; tick < 200; tick++)
+                game.RunOneStep();
+
+            Assert.NotEqual(LevelState.GameOver, game.State);
+        }
+    }
+
+    [Fact]
+    public void ReconstructedLevelFiveTankerCargoHasDirectionBeforeSpikeGatedPivot()
+    {
+        LevelConfiguration configuration = LevelConfiguration.Level5Production with
+        {
+            EnemySupply = 4,
+            InitialActiveEggCount = 4
+        };
+        TempestGame game = new(configuration, random: new Level5TankerSelectionRandom());
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+        game.RunOneStep();
+        Tanker tanker = Assert.Single(game.Tankers);
+        int tankerTicks = 0;
+        while (tanker.Height < 250 && tankerTicks++ < 2000)
+            game.RunOneStep();
+
+        Assert.InRange(tanker.Height, 250, LevelConfiguration.Level7DeepCargoMaximumHeight);
+        game.Player.ResetPosition(tanker.EdgeIndex, 0.5f);
+        game.RunOneStep(new PlayerInput(true, 0, false, false));
+        Shot tankerShot = Assert.Single(game.Shots);
+        tankerShot.Height = tanker.Height - 1;
+        game.RunOneStep();
+        Flipper releasedCargo = Assert.IsType<Flipper>(game.Flippers.First(
+            flipper => flipper.IsTankerCargo));
+        Assert.InRange(tanker.Height, 250, LevelConfiguration.Level7DeepCargoMaximumHeight);
+
+        ForceFlipperIntoPlayer(game, releasedCargo);
+        game.RunOneStep();
+        Assert.Equal(LevelState.PlayerDying, game.State);
+        for (int tick = 0; tick < TempestGame.PlayerDeathTicks; tick++)
+            game.RunOneStep();
+
+        Assert.Equal(LevelState.Playing, game.State);
+        Egg cargoEgg = Assert.Single(game.Eggs,
+            egg => egg.CargoUnitId == releasedCargo.CargoUnitId);
+        MakeReady(cargoEgg, game.CurrentLevel);
+        game.RunOneStep();
+        Flipper reconstructedCargo = Assert.Single(game.Flippers,
+            flipper => flipper.CargoUnitId == releasedCargo.CargoUnitId);
+
+        Assert.Contains(reconstructedCargo.Direction, new[] { -1, 1 });
+        int reconstructedTicks = 0;
+        while (reconstructedCargo.State != FlipperState.Flipping &&
+            reconstructedTicks++ < 2000)
+            game.RunOneStep();
+
+        Assert.Equal(FlipperState.Flipping, reconstructedCargo.State);
+        Assert.Contains(reconstructedCargo.Direction, new[] { -1, 1 });
+    }
+
     private static Level CreateSpikePolicyLevel(
         LevelConfiguration? configuration = null)
     {
@@ -385,6 +459,20 @@ public sealed class Level5ProductionTests
         for (int tick = 0; tick < 100 && egg.State != EggState.ReadyToHatch; tick++)
             egg.Update(level);
         Assert.Equal(EggState.ReadyToHatch, egg.State);
+    }
+
+    private static void ForceFlipperIntoPlayer(TempestGame game, Flipper flipper)
+    {
+        int ticks = 0;
+        while (!flipper.CompletedIntoPlayer && ticks++ < 2000)
+        {
+            if (flipper.State == FlipperState.Flipping)
+                game.Player.Move(flipper.DestinationEdge - game.Player.EdgeIndex,
+                    game.CurrentLevel.PlayableLaneCount);
+            flipper.Update(game.CurrentLevel, game.Player.EdgeIndex, ThrowOnRandom);
+        }
+
+        Assert.True(flipper.CompletedIntoPlayer);
     }
 
     private sealed class Level5FlipperSelectionRandom : Random

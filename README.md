@@ -217,18 +217,32 @@ record/playback behavior; it is not additional evidence of arcade internals.
 Version-1 files retain their established Level 1, 3-life, rim-speed-1.0
 startup and are not rewritten.
 
-### Separate deferred Level 5 exit defect
+### Level 5 post-death invalid-direction fix (manually accepted)
 
-Neal also observed a severe, reproducible-so-far defect in ordinary campaign
-play: after the Blaster is destroyed on Level 5 and re-entry appears to
-complete, the game exits unexpectedly within a few seconds, with or without
-further keyboard/controller input. Level 5 proceeds normally when the Blaster
-survives; deaths on Levels 1–4 have not reproduced it. The console ends with
-`INFO: Window closed successfully`, with no observed crash exception or other
-console error. The root cause is unknown. This reproduces without
-record/playback and is unrelated to the accepted v2 milestone; it was not
-investigated or fixed during closeout and remains the next high-priority
-investigation after the accepted checkpoint is pushed.
+Neal's failure trace identified an unhandled
+`ArgumentOutOfRangeException("direction")` from `Flipper.BeginPivot()` into
+`Level.CalculateDirectedLaneTransition()`. A production-realistic regression
+reproduced it after a Tanker released cargo, a cargo Flipper caused death, and
+unresolved cargo returned through a fresh Egg after re-entry. The reconstructed
+Flipper had the default `Direction == 0`; Level 5's `$53` Spike-sensitive
+policy could begin its below-rim pivot before assigning a direction.
+
+Fresh Level 5 cargo now receives a valid reference-shortest direction when it
+is reconstructed, and `BeginPivot()` rejects any invalid direction before
+building a lane transition. The strict geometry guard remains in place; `$53`,
+its Spike gate and timing are unchanged. Neal extensively tested Level 5,
+repeated the former failure sequence without recurrence, verified death/re-entry,
+ordinary gameplay and Level 5-to-6 progression, and observed no obvious Flipper,
+Spike, Tanker or cargo regression. All other currently implemented production
+levels were also manually tested without an unexpected exit or obvious
+neighboring-level regression. Recording and playback were retested; a supplied
+Level 5 playback completed after 7,260 simulation ticks, resumed live controls,
+and later exited with `Exit reason: WindowShouldClose`, without an exception.
+Neal accepted the correction. Manual testing does not claim to isolate every
+automated cargo identity or direction edge case. This is a C# state-initialization
+defect and fix, not new evidence of arcade behavior; the normal-exit diagnostic
+and ordinary uncaught-exception visibility remain intact. See the paired
+AI report for validation results.
 
 ## Development-only controller input diagnostic
 

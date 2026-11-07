@@ -6,6 +6,12 @@ public readonly record struct PlayerInput(
 	bool Fire, float MouseDeltaX, bool Left, bool Right, bool ZapPressed = false,
 	float ControllerAxis = 0);
 
+public enum QuitReason
+{
+	WindowShouldClose,
+	Enter
+}
+
 public sealed class InputSystem
 {
 	// Avoid drift from a centered left stick; keyboard and spinner movement are unchanged.
@@ -14,14 +20,24 @@ public sealed class InputSystem
 	public bool RestartPressed() => IsRestartPressed(
 		Raylib.IsKeyPressed(KeyboardKey.R), Raylib.IsKeyPressed(KeyboardKey.P));
 
-	public bool QuitRequested() => IsQuitRequested(
-		Raylib.WindowShouldClose(), Raylib.IsKeyPressed(KeyboardKey.Enter));
+	public QuitReason? ReadQuitReason()
+	{
+		// Preserve the original short-circuit order: don't poll Enter after Raylib requests close.
+		if (Raylib.WindowShouldClose())
+			return QuitReason.WindowShouldClose;
+
+		return Raylib.IsKeyPressed(KeyboardKey.Enter) ? QuitReason.Enter : null;
+	}
 
 	public static bool IsRestartPressed(bool rPressed, bool pPressed) =>
 		rPressed || pPressed;
 
+	public static QuitReason? GetQuitReason(bool windowShouldClose, bool enterPressed) =>
+		windowShouldClose ? QuitReason.WindowShouldClose :
+		enterPressed ? QuitReason.Enter : null;
+
 	public static bool IsQuitRequested(bool windowShouldClose, bool enterPressed) =>
-		windowShouldClose || enterPressed;
+		GetQuitReason(windowShouldClose, enterPressed) is not null;
 
 	public static bool IsSuperZapperPressed(bool spacePressed, bool rightMousePressed) =>
 		spacePressed || rightMousePressed;

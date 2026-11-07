@@ -1346,26 +1346,43 @@ start/end frame, true seeking, snapshots, observation overlays, deterministic
 state signatures, a dedicated headless playback runner, playlist/browser UI,
 and attract-mode integration remain deferred.
 
-### Separate deferred high-priority investigation: Level 5 post-death exit
+### Level 5 post-death invalid-direction fix (manually accepted)
 
-**OBSERVED / SEVERE / REPRODUCIBLE / LEVEL-5-SPECIFIC SO FAR / ROOT CAUSE
-UNKNOWN.** Neal reports that ordinary campaign play continues from Level 5
-into Level 6 when the Blaster survives. If the Blaster is destroyed on Level
-5, the normal death/re-entry sequence appears to complete, then the
-application exits unexpectedly within a few seconds. This occurs with or
-without keyboard/controller input after re-entry. Deaths on Levels 1–4 have
-not reproduced the behavior merely because play later reaches Level 5; other
-tested levels have not reproduced it so far. The observation came from normal
-campaign play without record/playback or diagnostic startup options. The
-console ends with `INFO: Window closed successfully`; no crash exception or
-other console error has been observed.
+**NEAL-OBSERVED / PRODUCTION-LIFECYCLE-REPRODUCED / C# ROOT CAUSE PROVEN /
+FIX IMPLEMENTED / MANUALLY ACCEPTED.** The original unhandled
+`ArgumentOutOfRangeException("direction")` passed from `Flipper.BeginPivot()`
+to `Level.CalculateDirectedLaneTransition()`. The production-realistic
+regression established this sufficient lifecycle: a Level 5 Tanker released
+two cargo Flippers; one remained unresolved when its collision killed the
+Blaster; death/re-entry cleared runtime entities but retained cargo identity;
+that identity returned through a fresh Egg; and `CreateFreshTankerCargo`
+reconstructed a Flipper whose default `Direction == 0` later reached a
+Spike-gated below-rim pivot. The geometry guard correctly rejected the invalid
+direction.
 
-The shutdown message does not identify the initiating event. There is no
-established cause in input handling, death/re-entry, or recording/playback.
-This defect is separate from the accepted recording/playback v2 evidence,
-was not investigated or fixed during this closeout, and is the next
-high-priority investigation after the accepted checkpoint is committed and
-pushed.
+The `$53` Spike-sensitive policy exposed the missing initialization invariant;
+it was not shown to be incorrect. The accepted correction gives reconstructed
+Level 5 cargo a valid reference-shortest direction toward the player and
+validates the direction domain at `BeginPivot` before constructing a directed
+transition. The strict geometry guard remains unchanged. The `$53` gate,
+threshold, climbing behavior and timing are unchanged; existing Level 7
+programmed-direction restoration remains unchanged. This is a C# lifecycle
+defect and correction, not new arcade evidence.
+
+Neal extensively tested production Level 5, repeatedly exercised the former
+failure sequence, and verified stable death/re-entry, normal gameplay and
+Level 5-to-6 progression without an obvious Flipper, Spike, Tanker or cargo
+regression. All other currently implemented production levels were manually
+tested without an unexpected exit or obvious neighboring-level regression.
+Several recordings and playbacks were retested. One supplied Level 5 playback
+completed after 7,260 simulation ticks, reported live controls resumed, and
+later exited with `Exit reason: WindowShouldClose`; no exception occurred and
+Raylib cleanup completed normally. The normal-exit diagnostic remains
+nonintrusive, and gameplay exceptions remain uncaught and visible. Neal
+accepted the correction; manual testing does not claim to isolate every
+automated cargo identity or direction edge case. Automated validation and
+remaining limitations are recorded in
+`AI-Logs/Reports/2026-11-06-level5-post-death-invalid-direction-acceptance-closeout-report.md`.
 
 ## 11. Known uncertainties and deferred behavior
 

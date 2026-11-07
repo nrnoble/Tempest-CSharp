@@ -165,8 +165,15 @@ try
     int simulationTick = 0;
     bool playbackCompletionReported = false;
 
-    while (!input.QuitRequested())
+    while (true)
     {
+        QuitReason? quitReason = input.ReadQuitReason();
+        if (quitReason is not null)
+        {
+            Console.WriteLine($"Exit reason: {quitReason}");
+            break;
+        }
+
         bool replaying = playback is not null && playback.IsActiveAt(simulationTick);
         if (playback is not null && !replaying && !playbackCompletionReported)
         {
