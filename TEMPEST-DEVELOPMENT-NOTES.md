@@ -2701,10 +2701,71 @@ These are C# playback/debugger decisions, not arcade behavior evidence.
 Recording v1/v2 schemas and production simulation are unchanged. Intended
 Phase 3B controls are Left tap = -1, Left hold = repeated -1, Shift+Left = -5,
 and Shift+Left hold = repeated -5; backward behavior remains unimplemented
-until deterministic reconstruction exists. Phase 3A remains the headless
-runner/CLI; Phase 3B remains replay-from-start backward reconstruction with
-measured performance. Rewind, speed controls, seeking, snapshots, bookmarks,
-loops and state comparisons remain deferred unless separately justified.
+until deterministic reconstruction exists. Rewind, speed controls, seeking,
+snapshots, bookmarks, loops and state comparisons remain deferred unless
+separately justified.
+
+### Headless recorded-playback analysis — Phase 3A manually accepted
+
+**HEADLESS RECORDED-PLAYBACK RUNNER PHASE 3A: MANUALLY ACCEPTED.** Neal
+tested real recordings under ignored `Temp\GameplayRecordings\`; they remain
+disposable development files and were not committed. For
+`testlevel5-3.json`, a request for boundary 4820 reached exactly 4820/7260,
+leaving 2,440 frames with `RequestedBoundaryReached`. Completion reached
+7,260/7,260 with zero remaining frames and `RecordingCompleted`, ending in
+Level 7 Complete with score 21,805 and 8 lives. Boundary 999,999 was rejected
+with exit code 5 and the valid range 0 through 7,260.
+
+`level1.json` completed at 797/797 in Level 2 Approach with score 1,725 and
+20 lives. `levels1-7.json` completed at 12,761/12,761 in Level 7 Complete
+with score 39,545 and 15 lives. Neal reports the real 12,761-tick recording
+completed without perceptible delay in ordinary development use. No formal
+timing instrumentation or benchmark was used or is needed.
+
+`HeadlessGameplayPlaybackRunner` accepts a validated recording or recording
+path and delegates every tick to `GameplayPlaybackSession`, the same
+production session used by visible file playback. Boundary 0 is restored
+startup before frame 0; after D recorded frames the state is at boundary D.
+Run-to-boundary stops exactly at N, rejects negative/over-duration targets
+and does not consume frame N. Run-to-completion executes all recorded frames,
+even through Game Over, Level Complete, death or another non-Playing state.
+The runner has neither live-input polling nor visible live-input handoff.
+Its optional in-process observer receives immutable summaries at boundary 0
+and after each sequential step; it cannot access mutable game entities.
+
+The thin development CLI dispatches before Raylib window, audio-device,
+input, renderer and frame-pacing setup. It uses `SilentAudioEvents`, runs
+sequentially without real-time delays, and reads recordings without modifying
+them. Human-readable output is the default. `--json` emits a stable explicit
+camel-cased diagnostic DTO with requested/achieved boundary, duration,
+remaining frames, completion reason, selected copied gameplay state and
+stably ordered Flipper details. Exit codes are 0 for success, 2 for invalid
+command, 3 for recording load/validation failure, 4 for simulation exception,
+and 5 for an out-of-range boundary. Simulation exceptions are printed with
+type, message, stack and inner-exception details.
+
+Example diagnostics:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --headless-playback <recording-file>
+dotnet run --project src\Tempest.Game -- --headless-playback <recording-file> --boundary 4820 --json
+```
+
+For Copilot investigation, compare fresh JSON summaries at N-1, N and N+1,
+then add a focused typed regression test for any confirmed change. The CLI
+does not implement an assertion language or first-divergence comparison.
+Recording v1 compatibility (Level 1, three lives, rim speed 1.0), v2 startup
+metadata, and recording schemas remain unchanged. Accepted Phase 2 controls
+remain Space pause/resume, Right +1, Shift+Right +5, and inert Left/Shift+Left.
+The runner is read-only and provides VS Code Copilot a project-owned
+boundary/state interface for the same recording Neal can scrub visually;
+comparisons of nearby fresh runs can guide focused regression tests. Phase 3B
+backward visual scrubbing is next, using replay-from-start reconstruction;
+snapshots remain deferred unless practical tests show latency is
+unacceptable. A Blaster-hit enemy still disappears immediately in C#, while
+Neal observes a brief small explosion in the arcade; that separate
+visual-fidelity issue remains deferred. These are accepted C# tool and
+workflow decisions, not arcade behavior evidence.
 
 **NEAL-OBSERVED / DEFERRED VISUAL-FIDELITY GAP:** A Blaster-hit enemy
 currently disappears immediately in the C# game. Neal observes that the

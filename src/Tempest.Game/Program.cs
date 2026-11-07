@@ -23,6 +23,10 @@ using Tempest.Game.Debug;
 using Tempest.Game.Levels;
 using Tempest.Game.Gameplay;
 
+// Keep deterministic file analysis ahead of every Raylib window, input, audio and pacing setup.
+if (HeadlessGameplayPlaybackCli.IsRequested(args))
+    return HeadlessGameplayPlaybackCli.Run(args, Console.Out, Console.Error);
+
 if (!DebugController.TryParseRimSpeedMultiplier(args,
     out double rimSpeedMultiplier, out string? rimSpeedError))
 {

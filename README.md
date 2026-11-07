@@ -273,6 +273,62 @@ record/playback behavior; it is not additional evidence of arcade internals.
 Version-1 files retain their established Level 1, 3-life, rim-speed-1.0
 startup and are not rewritten.
 
+### Headless recorded-playback diagnostics (Phase 3A — manually accepted)
+
+**HEADLESS RECORDED-PLAYBACK RUNNER PHASE 3A: MANUALLY ACCEPTED.** Neal
+tested the runner with real recordings under the ignored
+`Temp\GameplayRecordings\` directory. A request for boundary 4820 of the
+7,260-tick `testlevel5-3.json` recording reached exactly 4820, leaving 2,440
+frames with `RequestedBoundaryReached`; running it to completion reached
+7,260/7,260 with zero remaining frames and `RecordingCompleted`. Its final
+state was Level 7 Complete, score 21,805 and 8 lives. Boundary 999,999 was
+rejected with exit code 5 and the valid range `0 through 7260`.
+
+The 797-tick `level1.json` recording completed at 797/797, ending in Level 2
+Approach with score 1,725 and 20 lives. The 12,761-tick `levels1-7.json`
+recording completed at 12,761/12,761, ending in Level 7 Complete with score
+39,545 and 15 lives. Neal observed no perceptible delay in ordinary use; no
+formal timing measurement or benchmark was made or is required.
+
+`HeadlessGameplayPlaybackRunner` is the reusable in-process analysis API. It
+loads a validated v1/v2 recording or accepts a validated `GameplayRecording`,
+then delegates every recorded frame to the same `GameplayPlaybackSession`
+used by visible playback. Boundary 0 is startup before frame 0; after D frames
+the runner is at boundary D. Targets outside `0..DurationTicks` are rejected,
+not clamped. Completion runs every recorded frame even through Game Over,
+Level Complete, death or other non-Playing states. There is no live-input
+handoff.
+
+The development-only CLI runs before Raylib window, audio-device, input,
+renderer or frame-pacing initialization. It uses `SilentAudioEvents`, performs
+sequential simulation without real-time delays, and reads the recording
+without changing it. It reports either concise text or an explicit,
+camel-cased JSON diagnostic schema containing boundary/completion metadata,
+selected immutable game-state values and stably ordered Flipper details.
+Failures use nonzero exit codes: 2 invalid command, 3 recording load/validation,
+4 simulation exception (full exception details), and 5 out-of-range boundary.
+
+```powershell
+dotnet run --project src\Tempest.Game -- --headless-playback <recording-file>
+dotnet run --project src\Tempest.Game -- --headless-playback <recording-file> --boundary 4820 --json
+```
+
+For investigation, run separate deterministic commands for boundaries N-1,
+N and N+1; compare the JSON `stateSummary` values around the first
+suspected change and add a focused typed regression test when warranted.
+In-process callers may use the optional boundary observer to collect immutable
+summaries; there is no assertion language or first-divergence command.
+VS Code Copilot can use fresh runs at N-1/N/N+1 to inspect the same recording
+Neal scrubs visually, then add a focused typed regression test for confirmed
+behavior. Recording v1/v2 compatibility, schemas and accepted Phase 2
+controls (Space pause/resume, Right +1, Shift+Right +5, and inert Left
+controls) are unchanged. Playback remains read-only; generated recordings
+were not staged. Phase 3B backward visual scrubbing is next, initially by
+deterministic replay from startup. Snapshots remain deferred unless testing
+shows reconstruction latency is unacceptable. The observed immediate
+disappearance of a Blaster-hit enemy, versus the arcade's brief small
+explosion, remains a separate deferred visual-fidelity issue.
+
 ### Level 5 post-death invalid-direction fix (manually accepted)
 
 Neal's failure trace identified an unhandled
