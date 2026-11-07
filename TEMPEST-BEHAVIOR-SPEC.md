@@ -1395,14 +1395,47 @@ groups stop cleanly at the final boundary without consuming a nonexistent
 frame. While running, Right events add no steps; ordinary playback still
 advances one recorded frame per loop iteration.
 
-Left and Shift+Left have no Phase 2 playback action and remain inert. The
-intended Phase 3B mapping is Left tap = -1, Left hold = repeated -1,
-Shift+Left = -5, and Shift+Left hold = repeated -5, after deterministic
-backward reconstruction exists. Navigation commands are separate from
-`PlayerInput`, never captured in a recording, and do not move the Blaster or
-activate Super Zapper. Each forward tick still executes the ordinary
-production session step with that frame's normal gates and audio. Five-step
-groups stop at the recording duration without consuming a nonexistent frame.
+**REVERSE RECORDED-PLAYBACK SCRUBBING PHASE 3B: MANUALLY ACCEPTED.** Neal
+tested the real 12,761-tick Levels 1–7 recording and reports, "This is
+perfect. It does everything I need it to do." The complete editing-style
+workflow is hold Left/Right to scrub, release near an event, tap an arrow for
+one-tick inspection, and hold Shift with an arrow for faster five-tick groups;
+Space remains pause/resume. Native keyboard-repeat timing is unchanged.
+
+While paused, Left tap/repeat reconstructs -1 boundary and Shift+Left
+tap/repeat reconstructs -5 ticks, clamped at zero. Right/Shift+Right perform
+their established +1/+5 sequential forward steps. The protected round trips
+are N -> Left -> N-1 -> Right -> N and N -> Shift+Left -> N-5 ->
+Shift+Right -> N. The final boundary remains rewindable while the paused
+playback debugger owns the recording.
+
+Reconstruction restores recorded startup in a fresh session, silently replays
+ordinary frames from boundary zero through the exact target, and publishes
+that session only after success. It does not reverse game operations.
+Intermediate ticks are not rendered, the existing window stays open, and the
+paused overlay shows the reconstructed boundary. Historical audio is
+suppressed; the visible audio sink is restored for subsequent forward steps,
+including after repeated reconstruction. Debugger controls are not
+`PlayerInput`, are not serialized, and do not change the Blaster or recording.
+Live-input handoff remains one-way: after resume, arrows control movement and
+Space activates Super Zapper; unrecorded live play cannot be rewound.
+
+Neal confirms reverse scrubbing remains responsive late in the real recording.
+Snapshots are not currently needed; replay-from-start remains the accepted
+design, with no benchmark claim. Recording v1/v2, metadata, frame format,
+strict validation and read-only semantics are unchanged, as are Phase 3A's
+`--headless-playback`, `--boundary` and `--json` semantics. This is accepted
+C# debugger behavior, not new arcade behavior evidence.
+
+The next small milestone is paused-playback screenshot capture, not
+implemented here. Investigate Print Screen first; if unsuitable, choose a
+simple development-only key such as F12 rather than a global Windows hook.
+Capture only the rendered game window/content as a PNG under an
+ignored/disposable location such as `Temp\Screenshots\`, include the playback
+boundary in its filename, and do not advance simulation or recording cursor.
+The separate enemy-destruction visual remains deferred: the C# Blaster-hit
+enemy disappears immediately, while Neal observes a brief small arcade
+explosion.
 
 Pause keeps the window responsive and redraws the current game state while
 simulation, recording cursor, tick-based presentation and simulation audio
@@ -1474,14 +1507,15 @@ For Copilot-assisted inspection, invoke separate fresh runs at N-1, N and
 N+1, compare their structured summaries, then write a focused typed regression
 for a confirmed behavioral change. Recording v1 remains Level 1, three lives
 and rim speed 1.0; v2 retains its explicit startup metadata. Neither recording
-schema nor accepted Phase 2 Space pause/resume, Right +1, Shift+Right +5 and
-inert Left controls changed. Headless playback is read-only. The accepted CLI
+schema nor accepted Space pause/resume, Right +1 or Shift+Right +5 changed.
+Headless playback is read-only. The accepted CLI
 provides VS Code Copilot a project-owned way to inspect exact boundaries and
 bounded state from the same recordings Neal can scrub visually; nearby fresh
 runs can inform focused regression tests. Phase 3B backward visual scrubbing
-is next, using deterministic reconstruction from boundary 0. Snapshots remain
-deferred until practical Phase 3B testing demonstrates unacceptable
-reconstruction latency. The existing immediate disappearance of a Blaster-hit
+is manually accepted using deterministic reconstruction from boundary 0;
+Neal confirmed responsiveness on the real 12,761-tick recording, so snapshots
+are not currently needed. The next small milestone is paused-playback
+screenshot capture. The existing immediate disappearance of a Blaster-hit
 enemy, compared with the arcade's brief small explosion, remains a separate
 deferred visual-fidelity issue. This is acceptance of C# development tooling,
 not new arcade behavior evidence.

@@ -11,8 +11,8 @@
 // exclusive; --enemy-bullets-test, --lives and --game-over-density compose with existing
 // scenarios. --game-over-density only changes the procedural visible speck count, not mark size;
 // File recordings use --record-gameplay <file> followed by optional production startup options;
-// file playback restores startup identity, pauses with Space and steps with Right Arrow while
-// paused; debugger controls stay outside PlayerInput and the recording.
+// file playback restores startup identity, pauses with Space, steps with Right, and reconstructs
+// backward with Left while paused; debugger controls stay outside PlayerInput and the recording.
 // Normal play progresses Level 1 through terminal Level 7.
 using System.Text.Json;
 using Raylib_cs;
@@ -202,6 +202,11 @@ try
         if (visiblePlaybackController is { IsActive: true } playbackController)
         {
             simulationTick += playbackController.ProcessControls(input.ReadPlaybackControls());
+            if (!ReferenceEquals(game, playbackController.Session.Game))
+            {
+                game = playbackController.Session.Game;
+                renderer.SetGame(game);
+            }
             playbackControlsHandled = true;
         }
 

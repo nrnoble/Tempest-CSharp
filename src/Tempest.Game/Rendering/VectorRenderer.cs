@@ -104,7 +104,7 @@ public sealed class VectorRenderer
 		{ 0,0, 1,-11, 3,-8, 5,-14, 3,-17, 6,-24 }
 	};
 
-	private readonly TempestGame game;
+	private TempestGame game;
 	private readonly double gameOverDensityMultiplier;
 	public IReadOnlyList<Egg> Eggs => game.Eggs;
 	public bool ShouldDrawEnemyBullets =>
@@ -129,12 +129,16 @@ public sealed class VectorRenderer
 
 	public VectorRenderer(TempestGame game, double gameOverDensityMultiplier = 2.0)
 	{
+		ArgumentNullException.ThrowIfNull(game);
 		if (!double.IsFinite(gameOverDensityMultiplier) || gameOverDensityMultiplier <= 0)
 			throw new ArgumentOutOfRangeException(nameof(gameOverDensityMultiplier),
 				"The Game Over density multiplier must be a positive finite value.");
 		this.game = game;
 		this.gameOverDensityMultiplier = gameOverDensityMultiplier;
 	}
+
+	public void SetGame(TempestGame game) =>
+		this.game = game ?? throw new ArgumentNullException(nameof(game));
 
 	private Vector2 ProjectApproachGeometry(Vector2 point, float depth) =>
 		Projection.Project(point.X, point.Y, depth + ApproachDepthOffset,

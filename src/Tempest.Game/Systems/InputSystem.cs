@@ -7,7 +7,8 @@ public readonly record struct PlayerInput(
 	float ControllerAxis = 0);
 
 public readonly record struct PlaybackControlInput(
-	bool PauseTogglePressed, bool ForwardNavigationPressed, bool ShiftDown);
+	bool PauseTogglePressed, bool ForwardNavigationPressed, bool ShiftDown,
+	bool BackwardNavigationPressed = false);
 
 public enum QuitReason
 {
@@ -31,12 +32,16 @@ public sealed class InputSystem
 			Raylib.IsKeyPressed(KeyboardKey.Right),
 			Raylib.IsKeyPressedRepeat(KeyboardKey.Right),
 			Raylib.IsKeyDown(KeyboardKey.LeftShift) ||
-				Raylib.IsKeyDown(KeyboardKey.RightShift));
+				Raylib.IsKeyDown(KeyboardKey.RightShift),
+			Raylib.IsKeyPressed(KeyboardKey.Left),
+			Raylib.IsKeyPressedRepeat(KeyboardKey.Left));
 	}
 
 	public static PlaybackControlInput CreatePlaybackControlInput(
-		bool spacePressed, bool rightArrowPressed, bool rightArrowRepeated, bool shiftDown) =>
-		new(spacePressed, rightArrowPressed || rightArrowRepeated, shiftDown);
+		bool spacePressed, bool rightArrowPressed, bool rightArrowRepeated, bool shiftDown,
+		bool leftArrowPressed = false, bool leftArrowRepeated = false) =>
+		new(spacePressed, rightArrowPressed || rightArrowRepeated, shiftDown,
+			leftArrowPressed || leftArrowRepeated);
 
 	public QuitReason? ReadQuitReason()
 	{

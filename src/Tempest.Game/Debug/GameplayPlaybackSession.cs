@@ -9,6 +9,7 @@ namespace Tempest.Game.Debug;
 public sealed class GameplayPlaybackSession
 {
 	private readonly PlayerInputReplay replay;
+	private IAudioEvents audioEvents;
 
 	public GameplayStartupConfiguration StartupConfiguration { get; }
 	public TempestGame Game { get; }
@@ -35,7 +36,8 @@ public sealed class GameplayPlaybackSession
 			throw new ArgumentException(
 				"The replay production level must match its startup configuration.", nameof(replay));
 
-		Game = new TempestGame(startupConfiguration, audioEvents);
+		this.audioEvents = audioEvents ?? SilentAudioEvents.Instance;
+		Game = new TempestGame(startupConfiguration, this.audioEvents);
 	}
 
 	public bool StepForward()
@@ -67,6 +69,25 @@ public sealed class GameplayPlaybackSession
 		}
 
 		return GetStateSummary();
+	}
+
+	/// <summary>
+	/// Restores recorded startup and deterministically replays to a boundary without emitting
+	/// historical audio; the returned session resumes through this session's visible audio sink.
+	/// </summary>
+	public GameplayPlaybackSession ReconstructToBoundary(int targetBoundary)
+	{
+		if (targetBoundary < 0 || targetBoundary > RecordingDurationTicks)
+			throw new ArgumentOutOfRangeException(nameof(targetBoundary),
+				$"The target boundary must be between 0 and {RecordingDurationTicks}.");
+
+		GameplayPlaybackSession reconstructed = new(
+			StartupConfiguration, replay, SilentAudioEvents.Instance);
+		reconstructed.RunToBoundary(targetBoundary);
+		// Retain the visible sink on the replacement session for subsequent reconstructions.
+		reconstructed.audioEvents = audioEvents;
+		reconstructed.Game.SetAudioEvents(audioEvents);
+		return reconstructed;
 	}
 
 	public GameplayStateSummary GetStateSummary() =>

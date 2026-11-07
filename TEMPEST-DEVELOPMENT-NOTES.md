@@ -2677,7 +2677,7 @@ while Shift remains held executes another five-step group. At the end,
 navigation stops at the final boundary without consuming a nonexistent frame.
 While running, Right events do not add steps: each outer iteration still
 advances one ordinary recorded frame. No held-key polling or per-render-frame
-stepping is used. Left and Shift+Left remain inert in Phase 2.
+stepping is used.
 
 Debugger commands are separate from `PlayerInput` and are never recorded.
 They do not activate Super Zapper or move the Blaster. Every forward tick
@@ -2698,12 +2698,54 @@ and Space resuming the live-input path on the next outer iteration, restoring
 ordinary gameplay mappings.
 
 These are C# playback/debugger decisions, not arcade behavior evidence.
-Recording v1/v2 schemas and production simulation are unchanged. Intended
-Phase 3B controls are Left tap = -1, Left hold = repeated -1, Shift+Left = -5,
-and Shift+Left hold = repeated -5; backward behavior remains unimplemented
-until deterministic reconstruction exists. Rewind, speed controls, seeking,
-snapshots, bookmarks, loops and state comparisons remain deferred unless
-separately justified.
+Recording v1/v2 schemas and production simulation are unchanged.
+
+### Phase 3B backward scrubbing — manually accepted
+
+**REVERSE RECORDED-PLAYBACK SCRUBBING PHASE 3B: MANUALLY ACCEPTED.** Neal
+tested the real 12,761-tick `Temp\GameplayRecordings\levels1-7.json` and
+reports, "This is perfect. It does everything I need it to do." He especially
+values holding Shift for faster navigation. The accepted editing-style
+workflow is to hold Left or Right to scrub, release near an event, tap an
+arrow for exact one-tick inspection, and hold Shift with an arrow for repeated
+five-tick groups. Space remains pause/resume; native repeat timing is not
+retuned.
+
+While paused, Left tap/repeat requests -1 boundary and Shift+Left tap/repeat
+requests -5 ticks, clamped at zero. Right and Shift+Right retain +1 and +5
+ordinary sequential simulation ticks. The tested round trips are
+N -> Left -> N-1 -> Right -> N and
+N -> Shift+Left -> N-5 -> Shift+Right -> N. The paused debugger can rewind
+from the final recorded boundary without forcing live-input handoff.
+
+Backward navigation constructs a fresh session from recorded startup, silently
+replays ordinary frames from boundary zero to the exact target, then replaces
+the active visible session. It does not reverse simulation operations.
+Intermediate ticks are not rendered; the existing window remains open and
+the paused overlay follows the reconstructed state. Historical audio is
+suppressed and the visible audio provider is retained for later steps,
+including after repeated reconstruction. Debugger controls remain outside
+`PlayerInput` and do not modify recording contents. Live-input handoff remains
+one-way; after resume, Left/Right are live movement, Space is Super Zapper,
+and unrecorded play cannot be rewound.
+
+Neal confirms replay-from-start remains responsive while scrubbing late in
+the recording, so snapshots are not currently needed. No formal benchmark was
+performed or claimed; snapshots remain deferred absent a demonstrated need.
+Recording v1/v2, metadata, frame format, strict validation and read-only
+playback are unchanged, as are Phase 3A's `--headless-playback`, `--boundary`
+and `--json` semantics. This is accepted C# debugger behavior, not arcade
+behavior evidence.
+
+The next small milestone is paused-playback screenshot capture, not
+implemented here: investigate Print Screen first, falling back to a
+development-only key such as F12 if unsuitable; capture only the rendered
+game window/content to an ignored/disposable PNG location such as
+`Temp\Screenshots\`; include the playback boundary in the filename; and do
+not advance simulation or recording cursor. Do not add a Windows global
+keyboard hook. The enemy-destruction visual remains separate and deferred:
+the C# Blaster-hit enemy disappears immediately, while Neal observes a brief
+small arcade explosion.
 
 ### Headless recorded-playback analysis — Phase 3A manually accepted
 
@@ -2755,17 +2797,18 @@ For Copilot investigation, compare fresh JSON summaries at N-1, N and N+1,
 then add a focused typed regression test for any confirmed change. The CLI
 does not implement an assertion language or first-divergence comparison.
 Recording v1 compatibility (Level 1, three lives, rim speed 1.0), v2 startup
-metadata, and recording schemas remain unchanged. Accepted Phase 2 controls
-remain Space pause/resume, Right +1, Shift+Right +5, and inert Left/Shift+Left.
-The runner is read-only and provides VS Code Copilot a project-owned
-boundary/state interface for the same recording Neal can scrub visually;
-comparisons of nearby fresh runs can guide focused regression tests. Phase 3B
-backward visual scrubbing is next, using replay-from-start reconstruction;
-snapshots remain deferred unless practical tests show latency is
-unacceptable. A Blaster-hit enemy still disappears immediately in C#, while
-Neal observes a brief small explosion in the arcade; that separate
-visual-fidelity issue remains deferred. These are accepted C# tool and
-workflow decisions, not arcade behavior evidence.
+metadata, and recording schemas remain unchanged. Accepted playback controls
+include Space pause/resume, Right +1, Shift+Right +5, Left -1 and Shift+Left
+-5 while paused. The runner is read-only and provides VS Code Copilot a
+project-owned boundary/state interface for the same recording Neal can scrub
+visually; comparisons of nearby fresh runs can guide focused regression tests.
+Phase 3B backward visual scrubbing is manually accepted using replay-from-start
+reconstruction; Neal confirmed responsiveness on the real 12,761-tick
+recording, so snapshots are not currently needed. Paused-playback screenshot
+capture is the next small milestone. A Blaster-hit enemy still disappears
+immediately in C#, while Neal observes a brief small explosion in the arcade;
+that separate visual-fidelity issue remains deferred. These are accepted C#
+tool and workflow decisions, not arcade behavior evidence.
 
 **NEAL-OBSERVED / DEFERRED VISUAL-FIDELITY GAP:** A Blaster-hit enemy
 currently disappears immediately in the C# game. Neal observes that the

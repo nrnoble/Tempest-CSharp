@@ -244,24 +244,64 @@ Shift+Right advances five sequential ordinary simulation ticks, and each
 native repeat event while Shift is held starts another five-tick group.
 Groups stop at the recording duration without consuming a nonexistent frame.
 Running playback still advances one ordinary recorded frame per loop
-iteration, ignoring additional Right navigation. Left and Shift+Left remain
-inert and reserved for Phase 3B backward reconstruction. Debugger controls
-remain outside `PlayerInput` and recording files. Each forward tick executes
-the ordinary production simulation and audio behavior. Pausing keeps the
-window responsive and redraws the same game state without advancing
-simulation, cursor, tick-based presentation or simulation audio; existing
-voices may finish naturally. The accepted uppercase `PAUSED  boundary /
-duration` status reflects the current boundary.
+iteration, ignoring additional Right navigation. Debugger controls remain
+outside `PlayerInput` and recording files. Each forward tick executes the
+ordinary production simulation and audio behavior. Pausing keeps the window
+responsive and redraws the same game state without advancing simulation,
+cursor, tick-based presentation or simulation audio; existing voices may
+finish naturally. The accepted uppercase `PAUSED  boundary / duration`
+status reflects the current boundary.
 
 Completion is reported once. If a paused step reaches the final boundary, that
 state remains visible and paused; further Right input does nothing there.
 Space resumes to the existing live-input path on the following outer
 iteration, restoring ordinary controls such as Space for Super Zapper and
 Left/Right movement. Recording v1/v2 schemas and gameplay behavior are
-unchanged. Phase 3A is the headless runner/CLI; Phase 3B is deterministic
-replay-from-start backward reconstruction (Left tap/hold = -1, Shift+Left
-tap/hold = -5) with performance measurement. Rewind, speed controls, seeking
-and snapshots remain deferred.
+unchanged.
+
+### Recorded-playback backward scrubbing — Phase 3B manually accepted
+
+**REVERSE RECORDED-PLAYBACK SCRUBBING PHASE 3B: MANUALLY ACCEPTED.** Neal
+tested the real 12,761-tick `levels1-7.json` recording and reports, "This is
+perfect. It does everything I need it to do." He especially values holding
+Shift for faster navigation. The accepted editing-style workflow is to hold
+Left or Right to scrub, release near an event, tap an arrow for exact
+one-tick inspection, and hold Shift with an arrow for repeated five-tick
+groups; Space remains pause/resume. Native keyboard-repeat timing is unchanged.
+
+While paused, Left tap/repeat reconstructs -1 boundary and Shift+Left
+tap/repeat reconstructs -5 ticks, clamped at boundary zero. Right tap/repeat
+continues +1 ordinary tick and Shift+Right tap/repeat continues +5 sequential
+ordinary ticks. The accepted round trips are N -> Left -> N-1 -> Right -> N
+and N -> Shift+Left -> N-5 -> Shift+Right -> N. At the final recorded
+boundary, the paused debugger remains in control and can still rewind.
+
+Backward navigation creates a fresh session from recorded startup, replays
+ordinary recorded frames from boundary zero to the exact target, then replaces
+the visible session. It does not reverse simulation operations. Reconstruction
+uses silent audio, renders no intermediate ticks, and displays only the target
+state in the existing Raylib window; the paused boundary/duration overlay
+follows that state. Normal audio resumes for visible forward steps, including
+after repeated reconstructions. Debugger controls remain outside `PlayerInput`
+and do not alter recording contents. Recording v1/v2, metadata, frames,
+strict validation, read-only playback and the Phase 3A
+`--headless-playback`, `--boundary` and `--json` semantics are unchanged.
+
+Neal confirms replay-from-start remains responsive while scrubbing the long
+recording, so snapshots are not currently needed. No benchmark was run or is
+claimed; snapshots remain deferred unless a demonstrated future need arises.
+Phase 3B does not change the one-way live-input handoff: after resume into
+unrecorded play, arrows return to movement and Space to Super Zapper, and live
+gameplay cannot be rewound.
+
+The next small milestone is paused-playback screenshot capture, not part of
+this implementation. Investigate Print Screen first; if unsuitable, use a
+simple development-only key such as F12, without global Windows hooks. Capture
+only the rendered game window/content to an ignored/disposable PNG location
+such as `Temp\Screenshots\`, include the playback boundary in the filename,
+and do not advance simulation or recording position. The separate
+Blaster-hit enemy explosion remains deferred; Neal observes a brief arcade
+explosion while the current C# enemy disappears immediately.
 
 **RECORD / PLAYBACK VERSION 2: MANUALLY ACCEPTED.** Neal manually tested a
 direct production Level 5 recording and separate playback. Playback restored
@@ -321,11 +361,12 @@ summaries; there is no assertion language or first-divergence command.
 VS Code Copilot can use fresh runs at N-1/N/N+1 to inspect the same recording
 Neal scrubs visually, then add a focused typed regression test for confirmed
 behavior. Recording v1/v2 compatibility, schemas and accepted Phase 2
-controls (Space pause/resume, Right +1, Shift+Right +5, and inert Left
-controls) are unchanged. Playback remains read-only; generated recordings
-were not staged. Phase 3B backward visual scrubbing is next, initially by
-deterministic replay from startup. Snapshots remain deferred unless testing
-shows reconstruction latency is unacceptable. The observed immediate
+controls (Space pause/resume, Right +1 and Shift+Right +5) are unchanged.
+Playback remains read-only; generated recordings were not staged. Phase 3B
+backward visual scrubbing is manually accepted, using deterministic
+replay-from-start reconstruction; snapshots remain deferred because Neal
+accepted its responsiveness on the real long recording. Paused-playback
+screenshot capture is the next small milestone. The observed immediate
 disappearance of a Blaster-hit enemy, versus the arcade's brief small
 explosion, remains a separate deferred visual-fidelity issue.
 

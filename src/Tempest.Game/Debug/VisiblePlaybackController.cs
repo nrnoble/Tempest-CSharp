@@ -6,7 +6,7 @@ public sealed class VisiblePlaybackController
 {
 	private bool completionReported;
 
-	public GameplayPlaybackSession Session { get; }
+	public GameplayPlaybackSession Session { get; private set; }
 	public bool IsPaused { get; private set; }
 	// A paused final boundary remains under debugger control until Neal resumes to live input.
 	public bool IsActive => !Session.IsRecordingComplete || IsPaused;
@@ -29,6 +29,20 @@ public sealed class VisiblePlaybackController
 
 		if (!IsPaused)
 			return Session.StepForward() ? 1 : 0;
+
+		if (controls.BackwardNavigationPressed)
+		{
+			int requestedBackwardSteps = controls.ShiftDown ? 5 : 1;
+			int targetBoundary = Math.Max(0,
+				Session.CurrentBoundary - requestedBackwardSteps);
+			int boundaryDelta = targetBoundary - Session.CurrentBoundary;
+			if (boundaryDelta == 0)
+				return 0;
+
+			// Publish only a fully reconstructed session; exceptions leave the visible state intact.
+			Session = Session.ReconstructToBoundary(targetBoundary);
+			return boundaryDelta;
+		}
 
 		if (!controls.ForwardNavigationPressed)
 			return 0;

@@ -132,6 +132,8 @@ public sealed class GameplayPlaybackSessionTests
 
 		Assert.Throws<ArgumentOutOfRangeException>(() => session.RunToBoundary(-1));
 		Assert.Throws<ArgumentOutOfRangeException>(() => session.RunToBoundary(3));
+		Assert.Throws<ArgumentOutOfRangeException>(() => session.ReconstructToBoundary(-1));
+		Assert.Throws<ArgumentOutOfRangeException>(() => session.ReconstructToBoundary(3));
 		Assert.True(session.StepForward());
 		Assert.Throws<InvalidOperationException>(() => session.RunToBoundary(0));
 		Assert.Equal(1, session.CurrentBoundary);

@@ -35,6 +35,40 @@ public sealed class HeadlessGameplayPlaybackTests
 			});
 	}
 
+	[Theory]
+	[InlineData(1, 1, 3, 1.0, 1981)]
+	[InlineData(2, 5, 10, 2.5, 9127)]
+	public void VisibleBackwardReconstructionPreservesVersionedStartupAndRecordingFile(
+		int version, int level, int lives, double rimSpeed, int seed)
+	{
+		WithRecordingFile(CreateRecordingJson(version, 8, level, lives, rimSpeed, seed),
+			path =>
+			{
+				byte[] originalFile = File.ReadAllBytes(path);
+				GameplayRecording recording = GameplayRecordingFile.LoadRecording(path);
+				VisiblePlaybackController controller = new(new GameplayPlaybackSession(
+					recording.StartupConfiguration, recording.Replay));
+				controller.Session.RunToBoundary(7);
+				controller.ProcessControls(new PlaybackControlInput(true, false, false));
+
+				Assert.Equal(-1, controller.ProcessControls(new PlaybackControlInput(
+					PauseTogglePressed: false,
+					ForwardNavigationPressed: false,
+					ShiftDown: false,
+					BackwardNavigationPressed: true)));
+				GameplayPlaybackSession expected = CreateSession(recording);
+				GameplayStateSummary expectedSummary = expected.RunToBoundary(6);
+				GameplayStateSummary actualSummary = controller.Session.GetStateSummary();
+
+				AssertEquivalentSummary(expectedSummary, actualSummary);
+				Assert.Equal(level, actualSummary.StartingDisplayedLevel);
+				Assert.Equal(lives, actualSummary.StartingLives);
+				Assert.Equal(rimSpeed, actualSummary.StartingRimSpeedMultiplier);
+				Assert.Equal(seed, actualSummary.RandomSeed);
+				Assert.Equal(originalFile, File.ReadAllBytes(path));
+			});
+	}
+
 	[Fact]
 	public void BoundaryZeroConsumesNoFrameAndBoundaryOneConsumesOnlyFrameZero()
 	{

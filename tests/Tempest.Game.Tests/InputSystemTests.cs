@@ -57,6 +57,29 @@ public sealed class InputSystemTests
     }
 
     [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, true)]
+    public void LeftPressAndRepeatEventsMapToOneBackwardNavigationAction(
+        bool leftArrowPressed, bool leftArrowRepeated, bool expectedNavigation)
+    {
+        PlaybackControlInput controls =
+            InputSystem.CreatePlaybackControlInput(
+                spacePressed: false,
+                rightArrowPressed: false,
+                rightArrowRepeated: false,
+                shiftDown: true,
+                leftArrowPressed,
+                leftArrowRepeated);
+
+        Assert.False(controls.PauseTogglePressed);
+        Assert.False(controls.ForwardNavigationPressed);
+        Assert.Equal(expectedNavigation, controls.BackwardNavigationPressed);
+        Assert.True(controls.ShiftDown);
+    }
+
+    [Theory]
     [InlineData(LevelState.GameOver)]
     [InlineData(LevelState.Complete)]
     public void PAliasAndRUseIdenticalExistingRestartOrReplay(LevelState state)

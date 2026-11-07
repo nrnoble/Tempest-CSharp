@@ -64,7 +64,7 @@ public sealed class TempestGame
     private readonly Random random;
     private readonly int startingLives;
     private readonly double rimSpeedMultiplier;
-    private readonly IAudioEvents audioEvents;
+    private IAudioEvents audioEvents;
     // New-game restarts target the original selection even after natural progression changes the active Level.
     private readonly LevelConfiguration launchConfiguration;
     // Development scenarios stay terminal even when their runtime uses the Level 1 configuration identity.
@@ -273,6 +273,10 @@ public sealed class TempestGame
             startingProductionLevel: startupConfiguration.StartingDisplayedLevel)
     {
     }
+
+    internal void SetAudioEvents(IAudioEvents audioEvents) =>
+        this.audioEvents = audioEvents ??
+            throw new ArgumentNullException(nameof(audioEvents));
 
     private static Random CreateStartupRandom(
         GameplayStartupConfiguration startupConfiguration)
