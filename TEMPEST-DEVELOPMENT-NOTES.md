@@ -2737,15 +2737,74 @@ playback are unchanged, as are Phase 3A's `--headless-playback`, `--boundary`
 and `--json` semantics. This is accepted C# debugger behavior, not arcade
 behavior evidence.
 
-The next small milestone is paused-playback screenshot capture, not
-implemented here: investigate Print Screen first, falling back to a
-development-only key such as F12 if unsuitable; capture only the rendered
-game window/content to an ignored/disposable PNG location such as
-`Temp\Screenshots\`; include the playback boundary in the filename; and do
-not advance simulation or recording cursor. Do not add a Windows global
-keyboard hook. The enemy-destruction visual remains separate and deferred:
-the C# Blaster-hit enemy disappears immediately, while Neal observes a brief
-small arcade explosion.
+### Paused playback screenshot capture — manually accepted (2026-11-07)
+
+**PAUSED-PLAYBACK SCREENSHOT/PLAYBACK MILESTONE: MANUALLY ACCEPTED.**
+On 2026-11-07, Neal confirmed screenshots save correctly under
+`C:\Users\nrnob\source\repos\Tempest\UserData\Screenshots\` and Ctrl+Shift+S
+captures only while visible file playback is paused. Pause/resume, forward
+stepping and reverse stepping work as designed. He manually inspected the
+saved screenshots and confirmed valid gameplay captures at the selected
+playback boundaries. This is final acceptance of the C# development-tooling
+milestone, a **PROJECT DECISION**, not ROM-backed or new arcade behavior
+evidence. The earlier path-correction manual-retest gate is now satisfied.
+
+Investigation of the installed Raylib-cs 8.1.0 package confirms it bundles
+native Raylib 6.0. `Raylib.TakeScreenshot(string)` is available, but neither
+the binding nor the native runtime API exposes a screenshot-key setter or
+runtime disable switch. Raylib 6.0 `rcore.c` handles `KEY_F12` by writing
+`screenshot%03i.png` in the process working directory. Native F12 remains
+active and cannot be disabled through supported configuration; rebuilding/
+replacing Raylib and platform-specific hooks/interception are out of scope.
+Neal's diagnostic of the prior physical screenshot attempt observed exactly
+one logical F12 event, no F11 event, no Tempest capture request/destination,
+and a new native `screenshot000.png`. The earlier F11 separation assumption
+was wrong; the project-owned path had not fired.
+
+Tempest now uses Ctrl+Shift+S while paused visible file playback. Either
+Control and either Shift key work; S is press-edge based. The project has no
+conflicting S or Ctrl+Shift+S mapping. Ctrl is otherwise fire during live play, but
+paused file playback does not read `PlayerInput`. F12 remains Raylib-owned and
+is not a Tempest command. The opt-in `--screenshot-key-diagnostic` samples
+Control/Shift state and S/F12 press edges for one 18-frame window after the
+first S or F12 press, then reports once: chord observations, request,
+Raylib-relative path, expected full destination, file existence/length, and
+new or overwritten generic screenshot files. It does not log unrelated keys.
+
+Neal's pre-correction diagnostic proved Ctrl+Shift+S was detected, F12 was
+false, a project capture request was created, and no generic native screenshot
+appeared. The project file was absent because the absolute Windows path handed
+to Raylib 6 was mangled by prepending the process working directory. The
+correction retains the full .NET path for directory creation, collision-safe
+reservation, output verification and success reporting, but passes Raylib a
+forward-slash relative path. Errors report both the Raylib path and expected
+full path.
+
+The current development data root is the process working directory, not
+`AppContext.BaseDirectory` (the application binary root). From the repository
+root, screenshots go beside `Temp\` to `UserData\Screenshots\`; no
+`bin\Debug\net9.0\UserData` is used. Root-level `UserData/` is ignored. The
+first accepted capture creates `UserData\Screenshots`; startup creates no
+directory, and screenshot capture does not create
+`UserData\GameplayRecordings`. A future packaged standalone build can provide
+its own suitable application data root; packaged-root detection is out of
+scope.
+
+Bare recording filenames now resolve coherently under development-root
+`UserData\GameplayRecordings\`; explicit relative paths such as
+`Temp\GameplayRecordings\...` and absolute paths retain their semantics.
+Existing recordings are not moved or rewritten. Recording format, startup
+metadata, gameplay/playback behavior, and the established capture order
+(gameplay and PAUSED overlay, capture callback, then drawing completion) are
+unchanged. Ctrl+Shift+S remains paused visible file playback only, separate
+from `PlayerInput`, and does not advance simulation, boundary, cursor or RNG.
+The corrected path and screenshot/playback workflow are now manually accepted.
+Collision-safe repeat suffixes and capture isolation remain covered by
+automated tests; Neal's final acceptance confirms saved image validity and
+the selected playback boundaries.
+
+The separate Blaster-hit enemy explosion remains deferred; Neal observes a
+brief arcade explosion while the current C# enemy disappears immediately.
 
 ### Headless recorded-playback analysis — Phase 3A manually accepted
 
@@ -2805,8 +2864,9 @@ visually; comparisons of nearby fresh runs can guide focused regression tests.
 Phase 3B backward visual scrubbing is manually accepted using replay-from-start
 reconstruction; Neal confirmed responsiveness on the real 12,761-tick
 recording, so snapshots are not currently needed. Paused-playback screenshot
-capture is the next small milestone. A Blaster-hit enemy still disappears
-immediately in C#, while Neal observes a brief small explosion in the arcade;
+capture and its corrected UserData output are manually accepted as of
+2026-11-07, including pause/resume and forward/reverse stepping. A Blaster-hit
+enemy still disappears immediately in C#, while Neal observes a brief small explosion in the arcade;
 that separate visual-fidelity issue remains deferred. These are accepted C#
 tool and workflow decisions, not arcade behavior evidence.
 

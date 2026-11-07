@@ -204,8 +204,14 @@ stored in the recording.
 New files use format version 2. Existing version-1 files remain readable as
 Level 1, 3 lives and rim speed 1.0, with their recorded seed and inputs. Files
 are saved only on normal window close and existing output files are never
-overwritten. Keep generated recordings under ignored `Temp/`; do not commit
-them unless deliberately curated and reviewed.
+overwritten. Bare filenames resolve under
+`<development root>\UserData\GameplayRecordings\` for recording, visible
+playback and headless playback. Explicit relative paths such as
+`Temp\GameplayRecordings\level1.json` remain relative to the process working
+directory, and absolute paths remain unchanged. Keep disposable development
+recordings under ignored `Temp\`; existing files are not moved or rewritten.
+The development root is the process working directory. A future packaged
+standalone build can provide its own application data root beside its binaries.
 
 ### Shared deterministic playback session and visible controls (Phase 2 — manually accepted)
 
@@ -294,14 +300,78 @@ Phase 3B does not change the one-way live-input handoff: after resume into
 unrecorded play, arrows return to movement and Space to Super Zapper, and live
 gameplay cannot be rewound.
 
-The next small milestone is paused-playback screenshot capture, not part of
-this implementation. Investigate Print Screen first; if unsuitable, use a
-simple development-only key such as F12, without global Windows hooks. Capture
-only the rendered game window/content to an ignored/disposable PNG location
-such as `Temp\Screenshots\`, include the playback boundary in the filename,
-and do not advance simulation or recording position. The separate
-Blaster-hit enemy explosion remains deferred; Neal observes a brief arcade
-explosion while the current C# enemy disappears immediately.
+### Paused recorded-playback screenshots (manually accepted)
+
+**PAUSED-PLAYBACK SCREENSHOT/PLAYBACK MILESTONE: MANUALLY ACCEPTED (2026-11-07).**
+During visible file playback only, while paused, **Ctrl+Shift+S** requests one
+Tempest-owned capture. Either left/right Control and left/right Shift are
+accepted; S uses a press edge. Raylib-cs 8.1 `TakeScreenshot(string)` runs
+after drawing the PAUSED boundary/duration overlay and before `EndDrawing`
+presents the frame. Neal confirmed correct saves under repository-root
+`UserData\Screenshots\`, capture only during paused visible file playback,
+working pause/resume and forward/reverse stepping, and valid saved gameplay
+images at the selected playback boundaries. This is accepted C# development
+tooling, not ROM-backed behavior or new arcade fidelity evidence.
+
+The installed Raylib-cs 8.1.0 package uses native Raylib 6.0. Its `rcore.c`
+hardcodes F12 to write `screenshotNNN.png` in the process working directory.
+Raylib-cs exposes no supported runtime switch to disable that behavior, so F12
+remains native and is not a Tempest command. Neal's diagnostic established
+that the prior physical screenshot attempt produced exactly one logical F12
+event, no F11 event, no Tempest capture request, and native
+`screenshot000.png`. The earlier F11/F9 key assumptions were therefore
+discarded.
+
+The Ctrl+Shift+S chord avoids relying on the function-key mapping. The project
+has no conflicting S or Ctrl+Shift+S command; although Ctrl normally fires during live play,
+the paused file-playback path does not read `PlayerInput`. No global keyboard
+hooks or OS interception are used.
+
+For one bounded chord/output check, add `--screenshot-key-diagnostic` to the
+visible playback command. After the first S or F12 press edge, it samples
+Control, Shift, S and F12 for 18 frames, reports once, compares native
+`screenshotNNN.png` files with the diagnostic-start baseline (including
+overwrites), and reports the request, Raylib-relative path, expected full
+destination, project-file existence and length. It does not log unrelated keys
+or run continuously. The no-flag default remains quiet. Run:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --playback-file Temp\GameplayRecordings\levels1-7.json --screenshot-key-diagnostic
+```
+
+The screenshot destination is `<development root>\UserData\Screenshots\`,
+where the current development root is the process working directory. When
+launched from the repository root, this creates `UserData\Screenshots\`
+beside `Temp\`, not beneath `bin\Debug\net9.0\`. The directories are created
+only on the first accepted capture; a screenshot does not create
+`UserData\GameplayRecordings\`. .NET uses the absolute path for directory
+creation, unique-name reservation, and output verification. Raylib receives
+only a forward-slash relative path such as
+`UserData/Screenshots/playback-level-2-boundary-000988.png`; Raylib 6 mangles
+an absolute Windows path by prefixing the process working directory. The
+development root is deliberately distinct from `AppContext.BaseDirectory`,
+which remains the application binary root. Packaging can later provide an
+appropriate application data root for a standalone build. The root-level
+`UserData/` rule in `.gitignore` excludes generated screenshots and user data.
+Directories are created only when the relevant output is requested, and
+current build output directories are already ignored by Git.
+
+The pre-correction diagnostic proved Ctrl+Shift+S is detected (Control and
+Shift observed, one S press edge), F12 was false, a project capture request was
+created, and no generic native screenshot appeared. The screenshot then failed
+because the absolute Windows destination passed to Raylib was mangled. The
+corrected handoff now passes Raylib a relative path while .NET verifies the
+full path. Neal's final manual acceptance confirms successful boundary-aware
+PNGs under repository-root `UserData\Screenshots\` and valid saved images at
+the selected boundaries. Collision-safe repeat suffixes remain covered by
+automated tests. The project capture is active only for paused visible
+file playback, remains outside `PlayerInput`, and does not move simulation,
+cursor or RNG state. Running playback, live gameplay and headless playback do
+not request captures. Capture failures report both paths without resuming or
+advancing playback. No recording format or gameplay/playback semantics changed.
+
+The separate Blaster-hit enemy explosion remains deferred; Neal observes a
+brief arcade explosion while the current C# enemy disappears immediately.
 
 **RECORD / PLAYBACK VERSION 2: MANUALLY ACCEPTED.** Neal manually tested a
 direct production Level 5 recording and separate playback. Playback restored
@@ -366,9 +436,10 @@ Playback remains read-only; generated recordings were not staged. Phase 3B
 backward visual scrubbing is manually accepted, using deterministic
 replay-from-start reconstruction; snapshots remain deferred because Neal
 accepted its responsiveness on the real long recording. Paused-playback
-screenshot capture is the next small milestone. The observed immediate
-disappearance of a Blaster-hit enemy, versus the arcade's brief small
-explosion, remains a separate deferred visual-fidelity issue.
+screenshot capture and its corrected UserData output are manually accepted
+as of 2026-11-07, including pause/resume and forward/reverse stepping. The
+observed immediate disappearance of a Blaster-hit enemy, versus the arcade's brief
+small explosion, remains a separate deferred visual-fidelity issue.
 
 ### Level 5 post-death invalid-direction fix (manually accepted)
 

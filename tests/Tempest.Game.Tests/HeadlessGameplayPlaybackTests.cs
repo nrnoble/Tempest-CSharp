@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Tempest.Game;
 using Tempest.Game.Debug;
 using Tempest.Game.Levels;
 using Tempest.Game.Systems;
@@ -207,6 +208,38 @@ public sealed class HeadlessGameplayPlaybackTests
 			Assert.Contains("achieved boundary: 1/3", boundaryOutput);
 			Assert.Empty(boundaryError);
 		});
+	}
+
+	[Fact]
+	public void CliResolvesBareRecordingNameUnderApplicationUserData()
+	{
+		string applicationRoot = Path.Combine(Path.GetTempPath(),
+			$"tempest-headless-userdata-tests-{Guid.NewGuid():N}");
+		ApplicationPaths paths = new(applicationRoot);
+
+		try
+		{
+			Directory.CreateDirectory(paths.GameplayRecordingsDirectory);
+			File.WriteAllText(
+				Path.Combine(paths.GameplayRecordingsDirectory, "recording.json"),
+				CreateRecordingJson(2, durationTicks: 1, startingLevel: 5,
+					startingLives: 10, rimSpeed: 1.0, seed: 9127));
+
+			using StringWriter standardOutput = new();
+			using StringWriter standardError = new();
+			int exitCode = HeadlessGameplayPlaybackCli.Run(
+				["--headless-playback", "recording.json"],
+				standardOutput, standardError, paths);
+
+			Assert.Equal(HeadlessGameplayPlaybackCli.SuccessExitCode, exitCode);
+			Assert.Contains("achieved boundary: 1/1", standardOutput.ToString());
+			Assert.Empty(standardError.ToString());
+		}
+		finally
+		{
+			if (Directory.Exists(applicationRoot))
+				Directory.Delete(applicationRoot, recursive: true);
+		}
 	}
 
 	[Fact]

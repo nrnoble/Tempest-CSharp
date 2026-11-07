@@ -66,6 +66,20 @@ public sealed class InputDiagnosticTests
             "Temp\\GameplayRecordings\\session.json"), playbackCommand);
         Assert.Null(playbackError);
 
+        Assert.True(DebugController.TryParseGameplayFileCommand(
+            ["--playback-file", "Temp\\GameplayRecordings\\session.json",
+                "--screenshot-key-diagnostic"],
+            out GameplayFileCommand? diagnosticCommand, out string? diagnosticError));
+        Assert.True(diagnosticCommand!.ScreenshotKeyDiagnostic);
+        Assert.Null(diagnosticError);
+        Assert.False(DebugController.TryParseGameplayFileCommand(
+            ["--playback-file", "session.json", "--screenshot-key-diagnostic",
+                "--screenshot-key-diagnostic"], out _, out _));
+        Assert.False(DebugController.TryParseGameplayFileCommand(
+            ["--record-gameplay", "session.json", "--screenshot-key-diagnostic"],
+            out _, out string? recordDiagnosticError));
+        Assert.Contains("only with --playback-file", recordDiagnosticError);
+
         Assert.False(DebugController.TryParseGameplayFileCommand(
             ["--record-gameplay"], out _, out string? missingPathError));
         Assert.Contains("requires an explicit file path", missingPathError);

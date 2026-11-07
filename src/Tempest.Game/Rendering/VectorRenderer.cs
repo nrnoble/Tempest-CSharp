@@ -145,7 +145,9 @@ public sealed class VectorRenderer
 			game.CurrentLevel.Definition.CenterY,
 			game.CurrentLevel.Definition.YOffset + ApproachVerticalOffset);
 
-	public void Draw(PlaybackOverlayStatus? playbackStatus = null)
+	public void Draw(
+		PlaybackOverlayStatus? playbackStatus = null,
+		Action? beforeEndDrawing = null)
 	{
 		Raylib.BeginDrawing();
 		Raylib.ClearBackground(Color.Black);
@@ -158,6 +160,7 @@ public sealed class VectorRenderer
 				DrawPlaybackPausedStatus(status.Boundary, status.DurationTicks,
 					(start, end) => Raylib.DrawLineV(start, end, Color.White));
 			Raylib.EndMode2D();
+			beforeEndDrawing?.Invoke();
 			Raylib.EndDrawing();
 			return;
 		}
@@ -213,6 +216,8 @@ public sealed class VectorRenderer
 			DrawPlaybackPausedStatus(pausedStatus.Boundary, pausedStatus.DurationTicks,
 				(start, end) => Raylib.DrawLineV(start, end, Color.White));
 		Raylib.EndMode2D();
+		// Raylib reads the completed back buffer here; EndDrawing swaps it for presentation.
+		beforeEndDrawing?.Invoke();
 		Raylib.EndDrawing();
 	}
 

@@ -80,7 +80,8 @@ public static class HeadlessGameplayPlaybackCli
 	public static int Run(
 		IReadOnlyList<string> arguments,
 		TextWriter standardOutput,
-		TextWriter standardError)
+		TextWriter standardError,
+		ApplicationPaths? applicationPaths = null)
 	{
 		ArgumentNullException.ThrowIfNull(arguments);
 		ArgumentNullException.ThrowIfNull(standardOutput);
@@ -96,7 +97,9 @@ public static class HeadlessGameplayPlaybackCli
 		GameplayRecording recording;
 		try
 		{
-			recording = GameplayRecordingFile.LoadRecording(recordingPath!);
+			string resolvedPath = (applicationPaths ?? ApplicationPaths.Current)
+				.ResolveGameplayRecordingPath(recordingPath!);
+			recording = GameplayRecordingFile.LoadRecording(resolvedPath);
 		}
 		catch (Exception exception) when (IsRecordingLoadFailure(exception))
 		{

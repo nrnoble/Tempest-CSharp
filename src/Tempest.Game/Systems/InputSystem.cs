@@ -10,6 +10,18 @@ public readonly record struct PlaybackControlInput(
 	bool PauseTogglePressed, bool ForwardNavigationPressed, bool ShiftDown,
 	bool BackwardNavigationPressed = false);
 
+public readonly record struct PlaybackScreenshotInput(
+	bool LeftControlDown,
+	bool RightControlDown,
+	bool LeftShiftDown,
+	bool RightShiftDown,
+	bool SPressed)
+{
+	public bool ControlDown => LeftControlDown || RightControlDown;
+	public bool ShiftDown => LeftShiftDown || RightShiftDown;
+	public bool IsScreenshotCommand => ControlDown && ShiftDown && SPressed;
+}
+
 public enum QuitReason
 {
 	WindowShouldClose,
@@ -36,6 +48,14 @@ public sealed class InputSystem
 			Raylib.IsKeyPressed(KeyboardKey.Left),
 			Raylib.IsKeyPressedRepeat(KeyboardKey.Left));
 	}
+
+	public PlaybackScreenshotInput ReadPlaybackScreenshotInput() =>
+		new(
+			Raylib.IsKeyDown(KeyboardKey.LeftControl),
+			Raylib.IsKeyDown(KeyboardKey.RightControl),
+			Raylib.IsKeyDown(KeyboardKey.LeftShift),
+			Raylib.IsKeyDown(KeyboardKey.RightShift),
+			(bool)Raylib.IsKeyPressed(KeyboardKey.S));
 
 	public static PlaybackControlInput CreatePlaybackControlInput(
 		bool spacePressed, bool rightArrowPressed, bool rightArrowRepeated, bool shiftDown,

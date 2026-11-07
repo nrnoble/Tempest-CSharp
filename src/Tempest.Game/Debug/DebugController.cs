@@ -11,7 +11,8 @@ public enum GameplayFileMode
 
 public sealed record GameplayFileCommand(
 	GameplayFileMode Mode, string Path, int? StartingDisplayedLevel = null,
-	int? StartingLives = null, double? RimSpeedMultiplier = null);
+	int? StartingLives = null, double? RimSpeedMultiplier = null,
+	bool ScreenshotKeyDiagnostic = false);
 
 /// <summary>
 /// Parses the development/testing command-line switches. These are controlled engineering tools
@@ -205,6 +206,7 @@ public sealed class DebugController
 		int? startingLives = null;
 		double? rimSpeedMultiplier = null;
 		bool densitySeen = false;
+		bool screenshotKeyDiagnostic = false;
 		for (int index = 2; index < arguments.Count; index++)
 		{
 			string option = arguments[index];
@@ -284,12 +286,28 @@ public sealed class DebugController
 				continue;
 			}
 
+			if (option == "--screenshot-key-diagnostic")
+			{
+				if (mode != GameplayFileMode.Playback)
+				{
+					error = "--screenshot-key-diagnostic is available only with --playback-file.";
+					return false;
+				}
+				if (screenshotKeyDiagnostic)
+				{
+					error = "--screenshot-key-diagnostic may be specified only once.";
+					return false;
+				}
+				screenshotKeyDiagnostic = true;
+				continue;
+			}
+
 			error = $"Unknown gameplay file option or argument '{option}'.";
 			return false;
 		}
 
 		command = new GameplayFileCommand(mode, arguments[1], startingLevel,
-			startingLives, rimSpeedMultiplier);
+			startingLives, rimSpeedMultiplier, screenshotKeyDiagnostic);
 		return true;
 	}
 

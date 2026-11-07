@@ -84,7 +84,8 @@ try
 {
     if (gameplayFileCommand is { Mode: GameplayFileMode.Record })
     {
-        recordingPath = GameplayRecordingFile.PrepareOutputPath(gameplayFileCommand.Path);
+        recordingPath = GameplayRecordingFile.PrepareOutputPath(
+            ApplicationPaths.Current.ResolveGameplayRecordingPath(gameplayFileCommand.Path));
         int randomSeed = Random.Shared.Next();
         gameplayStartupConfiguration = new GameplayStartupConfiguration(
             gameplayFileCommand.StartingDisplayedLevel ?? LevelConfiguration.Level1.DisplayedLevel,
@@ -99,7 +100,8 @@ try
     }
     else if (gameplayFileCommand is { Mode: GameplayFileMode.Playback })
     {
-        string playbackPath = Path.GetFullPath(gameplayFileCommand.Path);
+        string playbackPath = Path.GetFullPath(
+            ApplicationPaths.Current.ResolveGameplayRecordingPath(gameplayFileCommand.Path));
         GameplayRecording file = GameplayRecordingFile.LoadRecording(playbackPath);
         gameplayStartupConfiguration = file.StartupConfiguration;
         playback = file.Replay;
@@ -185,6 +187,13 @@ try
                 startingProductionLevel: startingProductionLevel));
     InputSystem input = new();
     VectorRenderer renderer = new(game, gameOverDensityMultiplier);
+    PlaybackScreenshotCapture screenshotCapture = new(
+        ApplicationPaths.Current, Raylib.TakeScreenshot, Console.Out, Console.Error);
+    PlaybackScreenshotKeyDiagnostic? screenshotKeyDiagnostic =
+        gameplayFileCommand is { ScreenshotKeyDiagnostic: true }
+            ? new PlaybackScreenshotKeyDiagnostic(
+                Directory.GetCurrentDirectory(), Console.Out)
+            : null;
     int activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
     int simulationTick = 0;
     bool playbackCompletionReported = false;
@@ -266,7 +275,44 @@ try
                     pausedPlayback.Session.CurrentBoundary,
                     pausedPlayback.Session.RecordingDurationTicks)
                 : null;
-        renderer.Draw(overlayStatus);
+        Action? screenshotCaptureAfterRender = null;
+        if (gameplayFileCommand is { Mode: GameplayFileMode.Playback } &&
+            visiblePlaybackController is { IsActive: true, IsPaused: true } pausedFilePlayback)
+        {
+            PlaybackScreenshotInput screenshotInput = input.ReadPlaybackScreenshotInput();
+            bool f12Pressed = screenshotKeyDiagnostic is not null &&
+                (bool)Raylib.IsKeyPressed(KeyboardKey.F12);
+            screenshotKeyDiagnostic?.Observe(
+                screenshotInput.ControlDown,
+                screenshotInput.ShiftDown,
+                screenshotInput.SPressed,
+                f12Pressed);
+            bool captureRequested = PlaybackScreenshotCapture.IsCaptureRequested(
+                filePlaybackActive: true, playbackPaused: true, screenshotInput);
+            if (captureRequested)
+            {
+                screenshotCaptureAfterRender = () =>
+                {
+                    screenshotCapture.TryCapture(
+                        filePlaybackActive: true,
+                        playbackPaused: true,
+                        input: screenshotInput,
+                        game.CurrentLevel.Configuration.DisplayedLevel,
+                        pausedFilePlayback.Session.CurrentBoundary);
+                    if (screenshotKeyDiagnostic is not null)
+                    {
+                        string? requestedPath = screenshotCapture.LastRequestedPath;
+                        screenshotKeyDiagnostic.RecordProjectCapture(
+                            screenshotCapture.LastRaylibPath,
+                            requestedPath,
+                            requestedPath is not null && File.Exists(requestedPath),
+                            screenshotCapture.LastFileLength);
+                    }
+                };
+            }
+        }
+
+        renderer.Draw(overlayStatus, screenshotCaptureAfterRender);
     }
 
     if (recording is not null)
