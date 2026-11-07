@@ -49,6 +49,25 @@ public sealed class VectorFontTests
         Assert.Equal(new Vector2(204, 28), BoundsSize(points));
     }
 
+    [Fact]
+    public void PlaybackStatusDigitsAndSlashUseDeterministicVectorGlyphs()
+    {
+        const string text = "PAUSED  4820 / 7260";
+        Vector2 center = new(400, 570);
+        List<(Vector2 Start, Vector2 End)> first = [];
+        List<(Vector2 Start, Vector2 End)> second = [];
+
+        VectorFont.DrawCenteredText(text, center, 2,
+            (start, end) => first.Add((start, end)));
+        VectorFont.DrawCenteredText(text, center, 2,
+            (start, end) => second.Add((start, end)));
+
+        Assert.NotEmpty(first);
+        Assert.Equal(first, second);
+        Assert.Equal(center, BoundsCenter(
+            first.SelectMany(line => new[] { line.Start, line.End })));
+    }
+
     private static Vector2 BoundsCenter(IEnumerable<Vector2> points)
     {
         Vector2[] values = points.ToArray();

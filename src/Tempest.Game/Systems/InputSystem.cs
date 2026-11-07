@@ -6,6 +6,9 @@ public readonly record struct PlayerInput(
 	bool Fire, float MouseDeltaX, bool Left, bool Right, bool ZapPressed = false,
 	float ControllerAxis = 0);
 
+public readonly record struct PlaybackControlInput(
+	bool PauseTogglePressed, bool ForwardNavigationPressed, bool ShiftDown);
+
 public enum QuitReason
 {
 	WindowShouldClose,
@@ -19,6 +22,21 @@ public sealed class InputSystem
 
 	public bool RestartPressed() => IsRestartPressed(
 		Raylib.IsKeyPressed(KeyboardKey.R), Raylib.IsKeyPressed(KeyboardKey.P));
+
+	public PlaybackControlInput ReadPlaybackControls()
+	{
+		// Native repeat events are one navigation request, not held-key polling.
+		return CreatePlaybackControlInput(
+			Raylib.IsKeyPressed(KeyboardKey.Space),
+			Raylib.IsKeyPressed(KeyboardKey.Right),
+			Raylib.IsKeyPressedRepeat(KeyboardKey.Right),
+			Raylib.IsKeyDown(KeyboardKey.LeftShift) ||
+				Raylib.IsKeyDown(KeyboardKey.RightShift));
+	}
+
+	public static PlaybackControlInput CreatePlaybackControlInput(
+		bool spacePressed, bool rightArrowPressed, bool rightArrowRepeated, bool shiftDown) =>
+		new(spacePressed, rightArrowPressed || rightArrowRepeated, shiftDown);
 
 	public QuitReason? ReadQuitReason()
 	{

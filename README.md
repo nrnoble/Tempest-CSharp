@@ -207,12 +207,10 @@ are saved only on normal window close and existing output files are never
 overwritten. Keep generated recordings under ignored `Temp/`; do not commit
 them unless deliberately curated and reviewed.
 
-### Shared deterministic playback session (Phase 1 — automated acceptance passed)
+### Shared deterministic playback session and visible controls (Phase 2 — manually accepted)
 
-**SHARED DETERMINISTIC PLAYBACK SESSION PHASE 1: AUTOMATED ACCEPTANCE PASSED.**
-Manual visual acceptance was not required: visible playback remains in
-`Program.cs`, no visible controls or rendering changes were introduced, and
-this milestone provides a Raylib-independent execution/diagnostic seam.
+**PHASE 1 AUTOMATED ACCEPTANCE PASSED. VISIBLE RECORDED-PLAYBACK CONTROLS
+PHASE 2: MANUALLY ACCEPTED.**
 
 `GameplayPlaybackSession` is the reusable, Raylib-independent execution seam
 for a validated recording. Boundary 0 is the restored startup state before
@@ -223,23 +221,47 @@ through the recording duration. Its immutable `GameplayStateSummary` reports
 recording/startup metadata and a bounded set of current game values, including
 stably ordered Flipper identity, movement and pivot diagnostics.
 
-The visible loop shares the session's playback input gates, but still owns its
-current cursor, rendering and live-input handoff; visible playback has not yet
-been migrated to the session. Pause/resume, forward/backward controls, rewind,
-fast-forward, snapshots and a headless command-line mode are not implemented.
-Future debugger controls are separate from recorded `PlayerInput`: Space will
-toggle pause/resume, Right Arrow will step forward, Left Arrow will reconstruct
-the preceding boundary deterministically, and fast-forward/rewind may follow.
-A later headless CLI is intended to let VS Code Copilot run a v1/v2 recording
-to a boundary and inspect the same summary without Raylib.
+Visible `--playback-file` execution now uses the shared session for its
+recording cursor, boundary, frame selection, playback gates, `RunOneStep` call
+and completion state. The visible playback controller owns only pause state,
+forward-step commands and one-time completion reporting; Raylib polling,
+rendering, window/audio lifecycle and live-input handoff remain in `Program.cs`.
+The compatible built-in `--gameplay-playback` Level 1 profile uses the same
+session. The Level 4 built-in profile retains its terminal diagnostic startup,
+which the production session does not model.
 
-The staged roadmap is Phase 2 (migrate visible file playback, add Space
-pause/resume and Right Arrow single-step, then obtain Neal's visual acceptance);
-Phase 3A (headless runner/CLI, boundary execution, structured state and
-checkpoints); Phase 3B (Left Arrow and replay-from-start backward reconstruction
-with performance measurement). Playback speed/fast-forward, continuous rewind,
-bookmarks/loops and snapshots remain later or deferred; add snapshots only if
-replay-from-start proves measurably inadequate.
+Neal manually accepted the initial visible playback and its navigation
+refinement. Space toggles pause/resume on a press edge. While paused, each
+Right Arrow tap advances exactly one ordinary recorded simulation tick; one
+tick per tap is ideal. Holding Right repeats that same +1 operation on Raylib's
+native keyboard-repeat events, and releasing it stops stepping. This is an
+effective scrubbing workflow: move quickly through uninteresting portions,
+release near an event, then inspect it one tick at a time. Neal accepts the
+native repeat cadence as-is; its incidental resemblance to real-time playback
+is not a speed requirement and must not be tuned toward real time.
+
+Shift+Right advances five sequential ordinary simulation ticks, and each
+native repeat event while Shift is held starts another five-tick group.
+Groups stop at the recording duration without consuming a nonexistent frame.
+Running playback still advances one ordinary recorded frame per loop
+iteration, ignoring additional Right navigation. Left and Shift+Left remain
+inert and reserved for Phase 3B backward reconstruction. Debugger controls
+remain outside `PlayerInput` and recording files. Each forward tick executes
+the ordinary production simulation and audio behavior. Pausing keeps the
+window responsive and redraws the same game state without advancing
+simulation, cursor, tick-based presentation or simulation audio; existing
+voices may finish naturally. The accepted uppercase `PAUSED  boundary /
+duration` status reflects the current boundary.
+
+Completion is reported once. If a paused step reaches the final boundary, that
+state remains visible and paused; further Right input does nothing there.
+Space resumes to the existing live-input path on the following outer
+iteration, restoring ordinary controls such as Space for Super Zapper and
+Left/Right movement. Recording v1/v2 schemas and gameplay behavior are
+unchanged. Phase 3A is the headless runner/CLI; Phase 3B is deterministic
+replay-from-start backward reconstruction (Left tap/hold = -1, Shift+Left
+tap/hold = -5) with performance measurement. Rewind, speed controls, seeking
+and snapshots remain deferred.
 
 **RECORD / PLAYBACK VERSION 2: MANUALLY ACCEPTED.** Neal manually tested a
 direct production Level 5 recording and separate playback. Playback restored

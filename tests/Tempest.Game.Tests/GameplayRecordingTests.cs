@@ -181,6 +181,47 @@ public sealed class GameplayRecordingTests
 		});
 	}
 
+	[Fact]
+	public void VisibleFilePlaybackAdvancesThroughTheSharedSessionWithoutSkippingFrames()
+	{
+		GameplayStartupConfiguration startup = new(1, 3, 1.0, 1981);
+		PlayerInputRecorder recorder = new(startup);
+		PlayerInput[] inputs =
+		[
+			new(false, 0, false, true),
+			new(true, 0.5f, false, false, ZapPressed: true),
+			default
+		];
+		for (int tick = 0; tick < inputs.Length; tick++)
+			recorder.CaptureTick(tick, inputs[tick]);
+
+		WithTemporaryDirectory(directory =>
+		{
+			string path = Path.Combine(directory, "visible-playback.json");
+			GameplayRecordingFile.SaveNew(path, recorder);
+			GameplayRecording file = GameplayRecordingFile.LoadRecording(path);
+			VisiblePlaybackController controller = new(new GameplayPlaybackSession(
+				file.StartupConfiguration, file.Replay));
+			TempestGame expected = new(file.StartupConfiguration);
+
+			for (int tick = 0; tick < file.Replay.DurationTicks; tick++)
+			{
+				PlayerInputFrame frame = file.Replay.GetFrame(tick);
+				expected.RunOneStep(frame.Input, frame.RestartPressed);
+				Assert.Equal(1, controller.ProcessControls(default));
+				Assert.Equal(tick + 1, controller.Session.CurrentBoundary);
+				AssertEquivalentGameplayState(expected, controller.Session.Game);
+			}
+
+			Assert.True(controller.Session.IsRecordingComplete);
+			Assert.Equal(0, controller.ProcessControls(default));
+			Assert.True(controller.TryMarkCompletionReported());
+			Assert.False(controller.TryMarkCompletionReported());
+			Assert.Equal(inputs.Length, controller.Session.CurrentBoundary);
+			AssertEquivalentGameplayState(expected, controller.Session.Game);
+		});
+	}
+
 	[Theory]
 	[InlineData(1)]
 	[InlineData(2)]

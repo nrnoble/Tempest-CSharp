@@ -11,7 +11,8 @@
 // exclusive; --enemy-bullets-test, --lives and --game-over-density compose with existing
 // scenarios. --game-over-density only changes the procedural visible speck count, not mark size;
 // File recordings use --record-gameplay <file> followed by optional production startup options;
-// file playback restores simulation startup identity from its file and permits density only.
+// file playback restores startup identity, pauses with Space and steps with Right Arrow while
+// paused; debugger controls stay outside PlayerInput and the recording.
 // Normal play progresses Level 1 through terminal Level 7.
 using System.Text.Json;
 using Raylib_cs;
@@ -73,6 +74,7 @@ bool level4Playback = DebugController.UseLevel4GameplayPlayback(args);
 PlayerInputReplay? playback = null;
 PlayerInputRecorder? recording = null;
 GameplayStartupConfiguration? gameplayStartupConfiguration = null;
+VisiblePlaybackController? visiblePlaybackController = null;
 string? recordingPath = null;
 try
 {
@@ -141,24 +143,42 @@ try
         throw new InvalidOperationException("Raylib could not initialize the audio device.");
 
     using AudioSystem audio = new();
-    TempestGame game = gameplayStartupConfiguration is not null
-        ? new TempestGame(gameplayStartupConfiguration, audioEvents: audio)
-        : new TempestGame(DebugController.UseSpikerWave(args),
-            random: deterministicSeed is int seed ? new Random(seed) : null,
-            startingLives: DebugController.GetStartingLives(args),
-            enemyBulletsTest: DebugController.UseEnemyBulletsTest(args),
-            tankerTest: DebugController.UseTankerTest(args),
-            fuseballTest: DebugController.UseFuseballTest(args),
-            pulsarTest: DebugController.UsePulsarTest(args),
-            level2Test: level2Test,
-            level3Test: level3Test,
-            level3GeometryTest: level3GeometryTest,
-            level4Test: level4Test || level4Playback,
-            audioEvents: audio,
-            level6Test: level6Test,
-            level7Test: level7Test,
-            rimSpeedMultiplier: rimSpeedMultiplier,
-            startingProductionLevel: startingProductionLevel);
+    if (gameplayFileCommand is { Mode: GameplayFileMode.Playback })
+    {
+        GameplayStartupConfiguration startup = gameplayStartupConfiguration ??
+            throw new InvalidOperationException("File playback has no restored startup configuration.");
+        PlayerInputReplay replay = playback ??
+            throw new InvalidOperationException("File playback has no validated replay.");
+        visiblePlaybackController = new(new GameplayPlaybackSession(startup, replay, audio));
+    }
+    else if (DebugController.UseGameplayPlayback(args))
+    {
+        PlayerInputReplay replay = playback ??
+            throw new InvalidOperationException("The Level 1 playback profile was not initialized.");
+        GameplayStartupConfiguration startup = new(1, Player.DefaultStartingLives,
+            1.0, replay.RandomSeed);
+        visiblePlaybackController = new(new GameplayPlaybackSession(startup, replay, audio));
+    }
+
+    TempestGame game = visiblePlaybackController?.Session.Game ??
+        (gameplayStartupConfiguration is not null
+            ? new TempestGame(gameplayStartupConfiguration, audioEvents: audio)
+            : new TempestGame(DebugController.UseSpikerWave(args),
+                random: deterministicSeed is int seed ? new Random(seed) : null,
+                startingLives: DebugController.GetStartingLives(args),
+                enemyBulletsTest: DebugController.UseEnemyBulletsTest(args),
+                tankerTest: DebugController.UseTankerTest(args),
+                fuseballTest: DebugController.UseFuseballTest(args),
+                pulsarTest: DebugController.UsePulsarTest(args),
+                level2Test: level2Test,
+                level3Test: level3Test,
+                level3GeometryTest: level3GeometryTest,
+                level4Test: level4Test || level4Playback,
+                audioEvents: audio,
+                level6Test: level6Test,
+                level7Test: level7Test,
+                rimSpeedMultiplier: rimSpeedMultiplier,
+                startingProductionLevel: startingProductionLevel));
     InputSystem input = new();
     VectorRenderer renderer = new(game, gameOverDensityMultiplier);
     int activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
@@ -174,30 +194,54 @@ try
             break;
         }
 
-        bool replaying = playback is not null && playback.IsActiveAt(simulationTick);
-        if (playback is not null && !replaying && !playbackCompletionReported)
+        bool playbackControlsHandled = false;
+        if (visiblePlaybackController is { IsActive: true } playbackController)
         {
-            Console.WriteLine($"Gameplay playback completed after {simulationTick} simulation ticks; live controls resumed.");
+            simulationTick += playbackController.ProcessControls(input.ReadPlaybackControls());
+            playbackControlsHandled = true;
+        }
+
+        if (visiblePlaybackController?.TryMarkCompletionReported() == true)
+        {
+            int duration = visiblePlaybackController.Session.RecordingDurationTicks;
+            string completionState = visiblePlaybackController.IsPaused
+                ? "paused at final boundary."
+                : "live controls resumed.";
+            Console.WriteLine(
+                $"Gameplay playback completed after {duration} simulation ticks; {completionState}");
             playbackCompletionReported = true;
         }
 
-        PlayerInput effectiveInput = default;
-        bool effectiveRestartPressed = false;
-        if (replaying)
+        if (!playbackControlsHandled)
         {
-            (effectiveInput, effectiveRestartPressed) =
-                GameplayPlaybackSession.ApplyPlaybackInputGates(
-                    game, playback!.GetFrame(simulationTick));
-        }
-        else if (game.GameOver || game.LevelComplete)
-            effectiveRestartPressed = input.RestartPressed();
-        else if (game.DeathTicks == 0 &&
-            (!game.IsExiting || game.ExitMovementInputEnabled))
-            effectiveInput = input.ReadPlayer();
+            bool replaying = playback is not null && playback.IsActiveAt(simulationTick);
+            if (playback is not null && visiblePlaybackController is null &&
+                !replaying && !playbackCompletionReported)
+            {
+                Console.WriteLine($"Gameplay playback completed after {simulationTick} simulation ticks; live controls resumed.");
+                playbackCompletionReported = true;
+            }
 
-        game.RunOneStep(effectiveInput, effectiveRestartPressed);
-        recording?.CaptureTick(simulationTick, effectiveInput, effectiveRestartPressed);
-        simulationTick++;
+            PlayerInput effectiveInput = default;
+            bool effectiveRestartPressed = false;
+            if (replaying)
+            {
+                // The built-in Level 4 demo keeps its terminal diagnostic startup, which the
+                // production-only playback session intentionally does not model.
+                (effectiveInput, effectiveRestartPressed) =
+                    GameplayPlaybackSession.ApplyPlaybackInputGates(
+                        game, playback!.GetFrame(simulationTick));
+            }
+            else if (game.GameOver || game.LevelComplete)
+                effectiveRestartPressed = input.RestartPressed();
+            else if (game.DeathTicks == 0 &&
+                (!game.IsExiting || game.ExitMovementInputEnabled))
+                effectiveInput = input.ReadPlayer();
+
+            game.RunOneStep(effectiveInput, effectiveRestartPressed);
+            recording?.CaptureTick(simulationTick, effectiveInput, effectiveRestartPressed);
+            simulationTick++;
+        }
 
         if (!level2Test && !level3Test && !level4Test && !level6Test && !level7Test &&
             !level3GeometryTest &&
@@ -207,7 +251,13 @@ try
             Raylib.SetWindowTitle($"Tempest C# - Level {activeDisplayedLevel}");
         }
 
-        renderer.Draw();
+        PlaybackOverlayStatus? overlayStatus =
+            visiblePlaybackController is { IsPaused: true } pausedPlayback
+                ? new PlaybackOverlayStatus(
+                    pausedPlayback.Session.CurrentBoundary,
+                    pausedPlayback.Session.RecordingDurationTicks)
+                : null;
+        renderer.Draw(overlayStatus);
     }
 
     if (recording is not null)

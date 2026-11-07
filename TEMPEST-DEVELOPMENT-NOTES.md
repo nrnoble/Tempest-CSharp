@@ -2633,17 +2633,15 @@ ended. Neal found no problems. This is acceptance of the C# implementation,
 not new arcade evidence. Malformed-file cases and every automated edge case
 were not manually verified.
 
-Playback speed, pause, single-step/frame-step, automatic looping, playback
-start/end frame, true seeking, snapshots, observation overlays, deterministic
-state signatures, a dedicated headless playback runner, playlist/browser UI,
-and attract-mode integration remain deferred.
+Playback speed, backward stepping, rewind, automatic looping, playback
+start/end frame, true seeking, snapshots, deterministic state signatures, a
+dedicated headless playback runner, playlist/browser UI, and attract-mode
+integration remain deferred.
 
-### Shared deterministic playback session — Phase 1 automated acceptance passed
+### Shared deterministic playback session and visible controls — Phase 2 manually accepted
 
-**SHARED DETERMINISTIC PLAYBACK SESSION PHASE 1: AUTOMATED ACCEPTANCE PASSED.**
-Manual visual acceptance was not required because visible playback was not
-migrated, no visible controls or rendering behavior changed, and the milestone
-only adds the Raylib-independent shared playback and diagnostic seam.
+**PHASE 1 AUTOMATED ACCEPTANCE PASSED. VISIBLE RECORDED-PLAYBACK CONTROLS
+PHASE 2: MANUALLY ACCEPTED.**
 
 `GameplayPlaybackSession` owns a validated production startup configuration,
 the normal `TempestGame`, the replay source/cursor and deterministic forward
@@ -2654,28 +2652,65 @@ rejects out-of-range and earlier targets, and reports completion at the exact
 recording duration without consuming an extra frame.
 
 `GameplayStateSummary` is an immutable, bounded copy of playback/startup
-metadata, selected live game values and Flipper diagnostics. Flippers are
-ordered by cargo/original identity, lane, height, movement state, direction,
-pivot endpoints and angle, not their incidental collection order. The
-session uses the existing silent audio adapter by default and has no Raylib
-dependency. Program's file/profile playback path and the session share the
-accepted state-specific recorded-input/restart gates; Program still owns the
-visible cursor, drawing and live-input handoff until a later migration.
+metadata, selected live game values and stably ordered Flipper diagnostics.
+The session remains Raylib-independent. Visible `--playback-file` delegates
+its cursor, boundary, frame retrieval, playback input gates, production
+`RunOneStep` execution and completion state to the session. A small
+`VisiblePlaybackController` owns only pause/resume, one-tick forward step and
+one-time completion-report state. The compatible built-in Level 1 profile
+also uses the session. The Level 4 profile retains its terminal diagnostic
+startup and existing visible playback path because the production session
+does not model that startup contract.
 
-This accepted implementation is not arcade behavior evidence. No backward
-step/reconstruction, rewind, fast-forward, snapshot, visible pause/step
-controls or headless CLI exists yet. Future controls remain separate from
-gameplay input: Space pause/resume, Right Arrow forward step and Left Arrow
-deterministic reconstruction of the prior boundary.
+Neal manually accepted the initial visible playback and the repeat/group
+navigation refinement. Space toggles pause/resume on a press edge. While
+paused, each Right Arrow tap advances exactly one recorded tick; one tick per
+tap is ideal. Held Right repeats that same one-tick operation on Raylib's
+native `IsKeyPressedRepeat` events, and release stops repeats. The accepted
+workflow is playback scrubbing: move quickly through uninteresting portions,
+release near an event, and inspect it one tick at a time. Neal accepts the
+native repeat cadence as-is; its incidental resemblance to real-time playback
+is not a speed requirement and must not be retuned toward real time.
 
-**Roadmap:** Phase 2 migrates visible file playback onto this session, adds
-Space pause/resume and Right Arrow one-tick stepping, then obtains Neal's
-visual/manual acceptance. Phase 3A adds a reusable headless runner and thin
-VS Code Copilot CLI for running to a boundary and returning structured state,
-assertions and checkpoints. Phase 3B adds Left Arrow/backward reconstruction
-by replay-from-start and benchmarks its cost. Later speed/fast-forward,
-continuous rewind, bookmarks/loops and state comparisons may follow; snapshots
-remain deferred unless replay-from-start is measurably inadequate.
+Shift+Right advances five sequential ordinary ticks. Each native Right repeat
+while Shift remains held executes another five-step group. At the end,
+navigation stops at the final boundary without consuming a nonexistent frame.
+While running, Right events do not add steps: each outer iteration still
+advances one ordinary recorded frame. No held-key polling or per-render-frame
+stepping is used. Left and Shift+Left remain inert in Phase 2.
+
+Debugger commands are separate from `PlayerInput` and are never recorded.
+They do not activate Super Zapper or move the Blaster. Every forward tick
+still executes the ordinary production session step in sequence, preserving
+frame input gates and audio. Near completion a group advances only through
+remaining recorded frames. While paused, the outer window loop remains
+responsive and redraws the same game state without advancing simulation,
+tick-based presentation or audio events; existing voices may finish naturally.
+Each step's ordinary audio events can play once.
+
+A small uppercase `PAUSED  boundary / duration` overlay uses the shared
+`VectorFont` and reflects the boundary after either one- or five-tick
+navigation. Running playback reports completion once. If a paused operation
+consumes the final frame, the final state renders and remains paused; no live
+input or nonexistent frame is consumed. Further Right events do nothing at
+the final boundary. Neal accepted this behavior, the existing audio policy,
+and Space resuming the live-input path on the next outer iteration, restoring
+ordinary gameplay mappings.
+
+These are C# playback/debugger decisions, not arcade behavior evidence.
+Recording v1/v2 schemas and production simulation are unchanged. Intended
+Phase 3B controls are Left tap = -1, Left hold = repeated -1, Shift+Left = -5,
+and Shift+Left hold = repeated -5; backward behavior remains unimplemented
+until deterministic reconstruction exists. Phase 3A remains the headless
+runner/CLI; Phase 3B remains replay-from-start backward reconstruction with
+measured performance. Rewind, speed controls, seeking, snapshots, bookmarks,
+loops and state comparisons remain deferred unless separately justified.
+
+**NEAL-OBSERVED / DEFERRED VISUAL-FIDELITY GAP:** A Blaster-hit enemy
+currently disappears immediately in the C# game. Neal observes that the
+original arcade briefly replaces a destroyed enemy with a small explosion
+animation. This is a separate deferred presentation milestone; it was not
+implemented in Phase 2 and is not new source-backed arcade evidence.
 
 ### Level 5 post-death invalid-direction fix (manually accepted)
 

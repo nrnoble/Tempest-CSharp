@@ -141,7 +141,7 @@ public sealed class VectorRenderer
 			game.CurrentLevel.Definition.CenterY,
 			game.CurrentLevel.Definition.YOffset + ApproachVerticalOffset);
 
-	public void Draw()
+	public void Draw(PlaybackOverlayStatus? playbackStatus = null)
 	{
 		Raylib.BeginDrawing();
 		Raylib.ClearBackground(Color.Black);
@@ -150,6 +150,9 @@ public sealed class VectorRenderer
 		if (game.State == LevelState.GameOverAnimation)
 		{
 			DrawGameOverAnimation((start, end, color) => Raylib.DrawLineV(start, end, color));
+			if (playbackStatus is PlaybackOverlayStatus status)
+				DrawPlaybackPausedStatus(status.Boundary, status.DurationTicks,
+					(start, end) => Raylib.DrawLineV(start, end, Color.White));
 			Raylib.EndMode2D();
 			Raylib.EndDrawing();
 			return;
@@ -202,8 +205,27 @@ public sealed class VectorRenderer
 		DrawGameOverVectorRecords((start, end, color) => Raylib.DrawLineV(start, end, color));
 		DrawRechargeMessage(DrawCenteredText);
 		DrawHud();
+		if (playbackStatus is PlaybackOverlayStatus pausedStatus)
+			DrawPlaybackPausedStatus(pausedStatus.Boundary, pausedStatus.DurationTicks,
+				(start, end) => Raylib.DrawLineV(start, end, Color.White));
 		Raylib.EndMode2D();
 		Raylib.EndDrawing();
+	}
+
+	public void DrawPlaybackPausedStatus(
+		int boundary, int durationTicks, Action<Vector2, Vector2> drawLine)
+	{
+		ArgumentNullException.ThrowIfNull(drawLine);
+		if (durationTicks < 0)
+			throw new ArgumentOutOfRangeException(nameof(durationTicks),
+				"The playback duration cannot be negative.");
+		if (boundary < 0 || boundary > durationTicks)
+			throw new ArgumentOutOfRangeException(nameof(boundary),
+				"The playback boundary must be within the recording duration.");
+
+		string text = FormattableString.Invariant($"PAUSED  {boundary} / {durationTicks}");
+		VectorFont.DrawCenteredText(text, new Vector2(400, 570), 2,
+			(start, end) => drawLine(start, end));
 	}
 
 	public void DrawGameOverAnimation(Action<Vector2, Vector2, Color> drawLine)
