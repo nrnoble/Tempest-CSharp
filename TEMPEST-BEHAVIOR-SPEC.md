@@ -317,6 +317,36 @@ disassemblies as evidence for arcade behavior.
   toward the far end of the currently occupied lane. The current recreation
   limits simultaneous player shots and gives them a fixed travel rate. Those
   limits/rates describe this build, not a claim about measured arcade timing.
+- **ROM-LISTING-BACKED** — Player shots use the static sparkling vector picture
+  at `$1594`: nine point positions in ROM color index 8 and eight in index 1,
+  with blank movement and no visible connecting segments. The picture stays
+  screen-oriented and does not rotate with lane or shot age; the Mathbox
+  supplies depth-dependent external scale through `graphic_at_mid`.
+- **ARCADE/MAME-OBSERVED** — Supplied frames show small warm-colored lane marks;
+  the bright white target-destruction burst is a separate effect. The captures
+  do not establish exact point locations or literal palette RGB values.
+- **PROJECT TRANSLATION** — C# maps the decoded
+  relative point program to compact pixel marks, converts ROM Y-up to screen
+  Y-down, and retains the prior 4.5 scale as the maximum point radius
+  `sqrt(11^2+11^2)` under the existing depth projection. The project color
+  translations are amber `#FFB000` for index 8 and red-orange `#FF4000` for
+  index 1; these are not verified Atari RGB values.
+- **ROM-LISTING-BACKED / COORDINATE QUALIFICATION** — The last four relative
+  moves decode from raw words at `$3600`, `$3608`, `$3610`, and `$3618` as
+  `(0,-11)`, `(0,-11)`, `(+11,0)`, `(+11,0)`, yielding final points
+  `(-11,0)`, `(-11,-11)`, `(0,-11)`, `(11,-11)`. Conflicting inline guesses
+  are not used to invent a symmetric outer pattern.
+- **PREVIOUSLY ACCEPTED PROJECT BEHAVIOR PRESERVED** — The rendering change
+  does not alter firing, capacity, cooldown, movement, collision, scoring,
+  Spike behavior, recording format, playback, or shot lifecycle.
+- **MANUAL ARCADE-FIDELITY ACCEPTANCE** — Neal has manually accepted the
+  resulting shot shape, appearance, size, colors, scaling, and overall
+  presentation as perfectly recreated. No further Blaster-shot visual tuning
+  is currently required. The white type-0 enemy-destruction effect remains a
+  separate rendering pass. This acceptance does not turn project RGB values or
+  the 4.5 scale conversion into literal Atari hardware constants.
+- **UNKNOWN / UNRESOLVED** — Literal ROM RGB values and exact hardware
+  sparkle/flicker behavior are not established by the local listing.
 - **ARCADE VERIFIED** — Neal observes that the Blaster's occupied lane is
   identified by recoloring its two side boundaries along the full tube depth;
   the highlight follows rim movement, and early implemented levels use yellow.

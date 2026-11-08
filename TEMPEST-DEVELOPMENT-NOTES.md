@@ -172,6 +172,48 @@ Tempest is fundamentally designed around a spinner. Keyboard/mouse fallback may 
 
 Firing currently accepts keyboard Ctrl and left mouse/arcade-button input. The existing maximum active player-shot limit and shot timing should remain unless intentionally changed from a verified source.
 
+### ROM-derived player-shot vector picture (2026-11-08)
+
+- **ROM-LISTING-BACKED** — Graphic-table entry `$ced0` selects the static vector
+  picture at `$1594` (`$3594-$3620`). It enables sparkle and contains nine
+  zero-displacement point instructions in color index 8 followed by eight in
+  color index 1. Blank movement vectors reposition the beam; they do not draw
+  connecting segments. The picture does not vary by age or lane orientation;
+  `graphic_at_mid` supplies its external lane/depth projection and scale.
+- **ROM-LISTING-BACKED / COORDINATE QUALIFICATION** — Raw words at `$3600` and
+  `$3608` decode as `(0,-11)`; `$3610` and `$3618` decode as `(+11,0)`.
+  This preserves the local listing's decoded repeated moves despite conflicting
+  inline guesses. The final accumulated points are `(-11,0)`, `(-11,-11)`,
+  `(0,-11)`, `(11,-11)`; do not infer a symmetric outer ring from comments.
+- **ARCADE/MAME-OBSERVED** — Supplied captures show small warm-colored lane
+  marks and a separate, brighter white target-destruction burst. They support
+  the qualitative distinction but do not establish this picture's exact RGB
+  values or individual point locations.
+- **PROJECT TRANSLATION** — C# accumulates ROM
+  relative moves into immutable point groups and renders compact pixel marks.
+  ROM Y-up is converted to screen Y-down. The existing 4.5 project size is
+  retained as the scale of the maximum ROM point radius `sqrt(11^2+11^2)`,
+  then reduced by the existing reciprocal depth projection. Project RGB
+  translations are index 8 `#FFB000` and index 1 `#FF4000`; the ROM listing
+  establishes the indices, not these RGB values.
+- **UNKNOWN / UNRESOLVED** — The listing does not specify literal RGB values,
+  C# pixel size, or exact hardware sparkle/flicker appearance.
+- **PREVIOUSLY ACCEPTED PROJECT BEHAVIOR PRESERVED** — Firing input/cadence,
+  ten-shot capacity, three-tick cooldown, six-unit movement, collision,
+  scoring, Spike interactions, recording/playback, and all other shot lifecycle
+  behavior remain unchanged. `Shot.Rotation` still advances as legacy state
+  but no longer transforms rendering.
+- **MANUAL ARCADE-FIDELITY ACCEPTANCE** — Neal has manually play-tested this
+  candidate and considers its shot shape, appearance, size, colors, scaling,
+  and overall visual presentation perfectly recreated. This accepts the
+  resulting project presentation without reclassifying the RGB translations
+  or 4.5 normalization as literal Atari hardware constants. No further
+  Blaster-shot visual tuning is currently required.
+
+Firing input, cooldown, capacity, shot simulation, collision, Spike behavior,
+score, sound, recording/playback, and all other gameplay behavior remained
+unchanged during this rendering milestone.
+
 ### Controller keyboard compatibility (2026-10-31)
 
 Neal's physical USB controller run in `--input-diagnostic` confirmed ordinary
@@ -245,7 +287,9 @@ Established prototype behavior includes:
 - Maximum of 10 simultaneous player shots.
 - Player shots travel inward/down the tube.
 - Shot movement uses the established 6-unit update rate.
-- Shots are rendered as rotating white vector shapes.
+- Shots use a static ROM-derived two-color point-picture translation, manually
+  accepted by Neal as arcade-fidelity correct; its RGB and project-space size
+  remain C# translations rather than literal Atari hardware constants.
 - Shot collision must be processed before completed Flipper-to-player collision in the frame update order.
 
 ## Flipper Behavior

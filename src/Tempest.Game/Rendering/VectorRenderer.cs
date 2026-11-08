@@ -760,31 +760,39 @@ public sealed class VectorRenderer
 		}
 	}
 
-	// Shot.Height decreases as it travels away from the player, so projected depth grows and the
-	// star naturally shrinks into the tube.
+	// The ROM picture is static; only its external lane/depth projection and scale vary per shot.
 	private void DrawPlayerShots(IReadOnlyList<Vector2> points)
 	{
-		DrawPlayerShots(points, (start, end) => Raylib.DrawLineV(start, end, Color.White));
+		DrawPlayerShots(points, (position, color) => Raylib.DrawPixelV(position, color));
 	}
 
-	public void DrawPlayerShots(Action<Vector2, Vector2> drawLine)
+	public void DrawPlayerShots(Action<Vector2, Color> drawPoint)
 	{
-		ArgumentNullException.ThrowIfNull(drawLine);
-		DrawPlayerShots(game.CurrentLevel.Definition.Points, drawLine);
+		ArgumentNullException.ThrowIfNull(drawPoint);
+		DrawPlayerShots(game.CurrentLevel.Definition.Points, drawPoint);
 	}
 
 	private void DrawPlayerShots(
 		IReadOnlyList<Vector2> points,
-		Action<Vector2, Vector2> drawLine)
+		Action<Vector2, Color> drawPoint)
 	{
 		foreach (Shot shot in game.Shots)
 		{
 			Vector2 center = ProjectShot(shot, points);
 			float projectedDepth = game.CurrentLevel.Configuration.Depth - shot.Height +
 				game.CurrentLevel.Configuration.Position;
-			float size = PlayerShotBaseSize /
+			float scale = PlayerShotBaseSize /
 				((projectedDepth + Projection.ZOffset) / Projection.K);
-			DrawRotatingShot(center, size, shot.Rotation, drawLine);
+			float coordinateScale = scale / PlayerShotVectorProgram.MaximumPointRadius;
+			foreach (PlayerShotVectorPointGroup group in PlayerShotVectorProgram.Groups)
+			{
+				foreach (Vector2 point in group.Points)
+				{
+					// ROM vector Y is up; screen-space Y is down. Keep the point picture screen-oriented.
+					Vector2 screenOffset = new Vector2(point.X, -point.Y) * coordinateScale;
+					drawPoint(center + screenOffset, group.ProjectColor);
+				}
+			}
 		}
 	}
 
@@ -802,22 +810,6 @@ public sealed class VectorRenderer
 			game.CurrentLevel.Configuration.Position;
 		return Projection.Project(midpoint.X, midpoint.Y, projectedDepth,
 			game.CurrentLevel.Definition.CenterY, game.CurrentLevel.Definition.YOffset);
-	}
-
-	private void DrawRotatingShot(
-		Vector2 center,
-		float size,
-		float rotation,
-		Action<Vector2, Vector2> drawLine)
-	{
-		for (int angle = 0; angle < 360; angle += 45)
-		{
-			float radians = (rotation + angle) * MathF.PI / 180;
-			Vector2 offset = new(
-				MathF.Cos(radians) * size,
-				MathF.Sin(radians) * size);
-			drawLine(center - offset, center + offset);
-		}
 	}
 
 	private void DrawFlippers(IReadOnlyList<Vector2> points)

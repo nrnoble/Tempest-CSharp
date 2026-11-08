@@ -4,8 +4,8 @@ namespace Tempest.Game.Gameplay;
 /// Player projectile. Height uses the shared depth convention (Level.Depth at the rim, 0 at the
 /// far end): a shot spawns at the player's depth and Height falls 6 per update as it travels away
 /// toward the far web, expiring once below 0. Unlike EnemyBullet (which climbs toward the rim at 3
-/// per update), shots only ever move away from the player. Rotation is purely cosmetic spin for
-/// the renderer's radial star; it has no collision meaning.
+/// per update), shots only ever move away from the player. Rotation remains legacy cosmetic state,
+/// but the static ROM-derived rendering ignores it; it has no collision meaning.
 /// </summary>
 public sealed class Shot
 {
