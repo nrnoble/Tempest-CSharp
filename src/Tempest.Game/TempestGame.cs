@@ -45,6 +45,7 @@ public sealed class TempestGame
     private readonly List<Fuseball> fuseballs = [];
     private readonly List<Pulsar> pulsars = [];
     private readonly List<FuseballScorePopup> fuseballScorePopups = [];
+    private readonly EnemyDestructionEffectPool enemyDestructionEffects = new();
     // Incitti resolves shot collisions in object-creation order, not nearest depth, so development
     // scenarios record spawn order here. Spikes survive life loss; enemies and bullets do not.
     private readonly List<object> developmentCollisionOrder = [];
@@ -110,6 +111,8 @@ public sealed class TempestGame
     public IReadOnlyList<Fuseball> Fuseballs => fuseballs;
     public IReadOnlyList<Pulsar> Pulsars => pulsars;
     public IReadOnlyList<FuseballScorePopup> FuseballScorePopups => fuseballScorePopups;
+    public IReadOnlyList<EnemyDestructionEffect> EnemyDestructionEffects =>
+        enemyDestructionEffects.Slots;
     public bool FuseballTest { get; }
     public bool PulsarTest { get; }
     public bool Level2Test { get; }
@@ -288,6 +291,8 @@ public sealed class TempestGame
 
     public void RunOneStep(PlayerInput input = default, bool restartPressed = false)
     {
+        // Advance existing records before shot scans so a newly captured age-zero effect is visible.
+        enemyDestructionEffects.Advance();
         if (State == LevelState.Approach)
         {
             UpdateLevelApproach(input);
@@ -432,6 +437,7 @@ public sealed class TempestGame
     // Detaching and rebinding the one SpikeCreated handler keeps old hazards out of the new wave.
     private void InitializeFreshWave(LevelConfiguration configuration, bool beginApproach = false)
     {
+        enemyDestructionEffects.Clear();
         LevelApproach? approach = beginApproach
             ? new LevelApproach(CurrentLevel.Configuration.DisplayedLevel)
             : null;
@@ -516,6 +522,7 @@ public sealed class TempestGame
 
     private void ResetAfterDeath()
     {
+        enemyDestructionEffects.Clear();
         DeathPresentation.Reset();
         if (CurrentLevel.UsesProductionLedger)
         {
@@ -596,6 +603,7 @@ public sealed class TempestGame
         // ROM's post-game flow is reduced to a display and vector interlude before the existing
         // terminal R-to-restart state; neither phase resumes combat or score accounting.
         RestoreProjection();
+        enemyDestructionEffects.Clear();
         CurrentLevel.State = LevelState.GameOverPresentation;
         gameOverPresentationElapsedTicks = 0;
         gameOverDisplayTimeCounter = 0x20;
@@ -759,6 +767,7 @@ public sealed class TempestGame
                 continue;
 
             Flipper flipper = flippers[flipperIndex];
+            enemyDestructionEffects.Add(flipper.EdgeIndex, flipper.Height);
             flippers.RemoveAt(flipperIndex);
             developmentCollisionOrder.Remove(flipper);
             CurrentLevel.RecordEnemyDestroyed();
@@ -773,6 +782,7 @@ public sealed class TempestGame
             if (!bullet.IsHitBy(shot))
                 continue;
 
+            enemyDestructionEffects.Add(bullet.EdgeIndex, bullet.Height);
             enemyBullets.RemoveAt(bulletIndex);
             developmentCollisionOrder.Remove(bullet);
             Score.Add(25);
@@ -1006,6 +1016,7 @@ public sealed class TempestGame
                     audioEvents.Play(AudioEvent.EnemyDestroyed);
                     return true;
                 case Pulsar pulsar when pulsar.IsHitBy(shot):
+                    enemyDestructionEffects.Add(pulsar.EdgeIndex, pulsar.Height);
                     pulsars.Remove(pulsar);
                     developmentCollisionOrder.Remove(pulsar);
                     CurrentLevel.RecordEnemyDestroyed();
@@ -1016,6 +1027,7 @@ public sealed class TempestGame
                     HitSpike(spike);
                     return true;
                 case Spiker spiker when spiker.IsHitBy(shot):
+                    enemyDestructionEffects.Add(spiker.EdgeIndex, spiker.Height);
                     spikers.Remove(spiker);
                     developmentCollisionOrder.Remove(spiker);
                     if (CurrentLevel.UsesProductionLedger)
@@ -1026,11 +1038,13 @@ public sealed class TempestGame
                     audioEvents.Play(AudioEvent.EnemyDestroyed);
                     return true;
                 case EnemyBullet enemyBullet when enemyBullet.IsHitBy(shot):
+                    enemyDestructionEffects.Add(enemyBullet.EdgeIndex, enemyBullet.Height);
                     enemyBullets.Remove(enemyBullet);
                     developmentCollisionOrder.Remove(enemyBullet);
                     Score.Add(25);
                     return true;
                 case Tanker tanker when tanker.IsHitBy(shot):
+                    enemyDestructionEffects.Add(tanker.EdgeIndex, tanker.Height);
                     tankers.Remove(tanker);
                     developmentCollisionOrder.Remove(tanker);
                     if (!CurrentLevel.UsesProductionLedger)
@@ -1042,6 +1056,7 @@ public sealed class TempestGame
                     audioEvents.Play(AudioEvent.EnemyDestroyed);
                     return true;
                 case Flipper flipper when flipper.IsHitBy(shot):
+                    enemyDestructionEffects.Add(flipper.EdgeIndex, flipper.Height);
                     flippers.Remove(flipper);
                     developmentCollisionOrder.Remove(flipper);
                     if (CurrentLevel.UsesProductionLedger && flipper.IsTankerCargo)

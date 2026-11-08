@@ -3104,3 +3104,43 @@ made, and no input diagnostics were launched for it. If the exits continue or
 become disruptive, investigate later as a separate bounded input/exit task.
 No level or trigger was isolated in this earlier entry; whether it is related
 to the separate Level 5 post-death report below is unknown.
+
+## ROM-derived and manually accepted Blaster-hit type-0 vector effect (2026-11-08)
+
+The local ROM listing corrects the earlier destruction-effect investigation:
+`draw_explosions` `$b79a` uses type-0 table offset `$00`, not the nine-entry
+hit-by-shot offset. The age calculation `(frame >> 1) & $fe` selects graphic
+table entries 0, 0, 1, 2 at ages 0, 3, 6, 9. These entries are the ROM's
+size-1, size-2, and size-3 explosion vectors (`$14c2`, `$14f8`, `$1522`),
+each declaring color index 0. The `$1b18`…`$1b04` sequence and `$1b1a`
+color-index changes are not the common type-0 shot-destruction program.
+
+C# now captures a fixed lane/depth effect for confirmed normal Blaster hits on
+ordinary Flippers, Tankers, materialized cargo Flippers, Spiker bodies,
+Pulsars, and enemy projectiles. Spikes, Fuseball/Fuzzball, Super Zapper, and
+player death remain excluded. The eight-slot pool uses the ROM's descending
+free-slot scan and greatest-age replacement, including lowest-index ties.
+Effects stay outside collision, score/audio, enemy/projectile accounting,
+ledger identity, and level completion.
+
+The renderer reproduces the reachable size-1/2/3 vector entries. C# advances
+existing effects before shot collision so a new age-zero effect is visible;
+ages 0 and 3 select the same size-1 picture, while 6 and 9 select sizes 2 and
+3. This adds an initial visible simulation boundary compared with the ROM's
+post-hit update order but does not change C# level-completion timing. Effects
+naturally freeze when no simulation steps run and are reproduced through
+deterministic playback.
+
+**PROJECT TRANSLATION:** The C# renderer maps ROM color index 0 to the existing
+`Color.White` and applies the project's perspective/vector conventions. These
+are implementation translations, not literal ROM RGB or projection data.
+
+**NEAL MANUAL ARCADE-FIDELITY ACCEPTANCE (2026-11-08):** Neal play-tested the
+common type-0 effect against the arcade presentation and accepted it as
+visually identical. He confirmed the explosion geometry/drawing and animation
+timing, pausing recorded gameplay and stepping forward and backward to inspect
+each phase. This is acceptance of the resulting C# drawing and timing to Neal's
+satisfaction; it does not reclassify project translation choices as ROM facts.
+Treat this common type-0 effect as closed and frozen unless a future regression
+or new arcade/ROM evidence justifies revisiting it. Fuseball/Fuzzball special
+destruction remains a separate deferred investigation and implementation.

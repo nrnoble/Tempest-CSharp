@@ -39,6 +39,41 @@ public sealed class VectorRenderer
 	private const float AvoidSpikesWarningScale = 8;
 	private static readonly Color PaletteZeroBlasterLaneColor = new(255, 255, 0, 255);
 	private static readonly Color DeathOrangeColor = new(255, 80, 0, 255);
+	// Type 0 uses graphic-table entries 0, 0, 1, 2 at ages 0, 3, 6, 9. These
+	// single-color programs are the ROM's size-1, size-2, and size-3 explosions.
+	private static readonly (bool Draw, Vector2 Offset)[] TypeZeroExplosionSizeOneVectors =
+	[
+		(false, new(7, 3)), (true, new(-14, -6)),
+		(false, new(1, -3)), (true, new(12, 12)),
+		(false, new(-3, 1)), (true, new(-6, -14)),
+		(false, new(3, -1)), (true, new(0, 16)),
+		(false, new(-3, -1)), (true, new(6, -14)),
+		(false, new(3, 1)), (true, new(-12, 12)),
+		(false, new(-1, -3)), (true, new(14, -6)),
+		(false, new(1, 3)), (true, new(-16, 0))
+	];
+	private static readonly (bool Draw, Vector2 Offset)[] TypeZeroExplosionSizeTwoVectors =
+	[
+		(false, new(14, 6)), (true, new(-28, -10)),
+		(false, new(2, -6)), (true, new(24, 26)),
+		(false, new(-6, 2)), (true, new(-12, -26)),
+		(false, new(6, -2)), (true, new(0, 32)),
+		(false, new(-6, -2)), (true, new(12, -26)),
+		(false, new(6, 2)), (true, new(-24, 26)),
+		(false, new(-2, -6)), (true, new(28, -10)),
+		(false, new(2, 6)), (true, new(-32, 0))
+	];
+	private static readonly (bool Draw, Vector2 Offset)[] TypeZeroExplosionSizeThreeVectors =
+	[
+		(false, new(28, 12)), (true, new(-56, -24)),
+		(false, new(4, -12)), (true, new(48, 48)),
+		(false, new(-12, 4)), (true, new(-24, -56)),
+		(false, new(12, -4)), (true, new(0, 64)),
+		(false, new(-12, -4)), (true, new(24, -56)),
+		(false, new(12, 4)), (true, new(-48, 48)),
+		(false, new(-4, -12)), (true, new(56, -24)),
+		(false, new(4, 12)), (true, new(-64, 0))
+	];
 	private const int GameOverVectorBaseSpecksPerParent = 2;
 	private const float GameOverVectorMarkLength = 2f;
 	// PROJECT APPROXIMATION: deterministic child specks stay compact around their ROM parent.
@@ -191,6 +226,9 @@ public sealed class VectorRenderer
 		{
 			DrawPlayerShots(game.CurrentLevel.Definition.Points);
 		}
+
+		if (!approaching)
+			DrawEnemyDestructionEffects((start, end, color) => Raylib.DrawLineV(start, end, color));
 
 		if (!approaching)
 			DrawFuseballScorePopups((text, position, scale) =>
@@ -390,6 +428,42 @@ public sealed class VectorRenderer
 			drawText(popup.Points.ToString(), center - new Vector2(popup.Scale * 1.5f, 0), popup.Scale);
 		}
 	}
+
+	public void DrawEnemyDestructionEffects(Action<Vector2, Vector2, Color> drawLine)
+	{
+		ArgumentNullException.ThrowIfNull(drawLine);
+		foreach (EnemyDestructionEffect effect in game.EnemyDestructionEffects)
+		{
+			if (!effect.IsActive)
+				continue;
+
+			float projectedDepth = ProjectEnemyDepth(effect.Height);
+			Vector2 center = ProjectLane(effect.EdgeIndex, projectedDepth);
+			float scale = 1 / ((projectedDepth + Projection.ZOffset) / Projection.K);
+			Vector2 pen = Vector2.Zero;
+			foreach ((bool draw, Vector2 offset) in GetTypeZeroExplosionVectors(effect.Age))
+			{
+				Vector2 next = pen + offset;
+				if (draw)
+				{
+					// ROM vstat c=0 has no asserted hardware RGB match; white is the project's
+					// narrow, legible translation for each single-color picture.
+					drawLine(center + pen * scale, center + next * scale, Color.White);
+				}
+				pen = next;
+			}
+		}
+	}
+
+	private static IReadOnlyList<(bool Draw, Vector2 Offset)> GetTypeZeroExplosionVectors(int age) =>
+		age switch
+		{
+			0 or 3 => TypeZeroExplosionSizeOneVectors,
+			6 => TypeZeroExplosionSizeTwoVectors,
+			9 => TypeZeroExplosionSizeThreeVectors,
+			_ => throw new InvalidOperationException(
+				$"Unsupported active type-0 effect age {age}.")
+		};
 
 	public void DrawAvoidSpikesWarning(Action<Vector2, Vector2, Color> drawLine)
 	{

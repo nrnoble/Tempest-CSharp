@@ -1238,6 +1238,38 @@ Pulsar behavior in that scenario, not an authentic all-Pulsar Atari wave.
 - **PROJECT DECISION** — The recreation uses projected vector line art for its
   tube and enemies. Automated geometry/render-submission tests do not establish
   native framebuffer output or arcade visual fidelity.
+- **ROM-LISTING-BACKED / PROJECT TRANSLATION** — Normal Blaster hits and enemy
+  projectile hits use the shared type-0 effect allocator at `$a3d4/$a3d6`.
+  The eight records capture lane/depth, advance age by 3 to the threshold 10,
+  and replace the greatest-age entry when full (equal-age ties select the
+  lowest index). `draw_explosions` `$b79a` combines `(age >> 1) & $fe` with
+  type-0 table offset `$00`, selecting graphic-table entries 0, 0, 1, 2 at
+  ages 0, 3, 6, 9. These are the single-color-index-0 size-1, size-2, and
+  size-3 vector programs at `$14c2`, `$14f8`, and `$1522`. The separate
+  `$1b18`…`$1b04` hit-by-shot sequence and `$1b1a` color changes are not the
+  common type-0 path. C# maps ROM color index 0 to existing `Color.White` as a
+  narrowly scoped project translation; it does not claim an Atari RGB match.
+- **PROJECT TRANSLATION** — C# snapshots the
+  final lane/depth after confirmed Blaster hits on Flippers (including
+  materialized Tanker cargo), Tankers, Spiker bodies, Pulsars, and enemy
+  projectiles. Spike erosion, Fuseball/Fuzzball hits, Super Zapper, and player
+  death remain outside this type-0 effect. The effect is visual-only: it does
+  not enter enemy/projectile collections, collision, score/audio, ledgers, or
+  completion checks. C# advances existing effects before shot collision so a
+  new age-zero record is drawable; the ROM's ordinary update sequence advances
+  a newly created record before drawing. Ages 0 and 3 select the same size-1
+  picture, so this preserves the initial visible state with a one-tick
+  project-boundary translation. Completion timing is unchanged.
+- **NEAL MANUAL ARCADE-FIDELITY ACCEPTANCE (2026-11-08)** — Neal reports that
+  the common type-0 explosion looks identical to the arcade game, with correct
+  geometry/drawing and perfect animation timing. He paused recorded gameplay
+  and used forward/reverse frame stepping to inspect the individual phases.
+  This accepts the resulting C# appearance and timing to Neal's satisfaction;
+  it does not turn the C# color mapping or perspective conventions into ROM
+  facts. Treat the effect as closed and frozen unless a future regression or
+  new arcade/ROM evidence justifies revisiting it.
+- **DEFERRED** — Fuseball/Fuzzball special destruction and ROM effect types
+  2-4 remain a separate investigation and implementation milestone.
 - **PROJECT DECISION** — Fuseball score labels, the current tube projection,
   and the simplified death presentation are recreation choices. They should
   not be interpreted as verified arcade presentation.
