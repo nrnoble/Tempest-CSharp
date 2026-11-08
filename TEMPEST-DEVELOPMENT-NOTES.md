@@ -3144,3 +3144,39 @@ satisfaction; it does not reclassify project translation choices as ROM facts.
 Treat this common type-0 effect as closed and frozen unless a future regression
 or new arcade/ROM evidence justifies revisiting it. Fuseball/Fuzzball special
 destruction remains a separate deferred investigation and implementation.
+
+## Level 5 ordinary Flipper selection correction (2026-11-08)
+
+**ROM-LISTING-BACKED:** The local annotated ROM's `min_flippers` range at
+`$94d1` sets the ordinary Flipper minimum to zero from Level 5 onward. The
+ordinary selector at `$9a15-$9a86` only selects types with a nonzero minimum.
+Level 5's nonzero Flipper maximum (`$94da`) remains relevant to active/cargo
+accounting; Tanker cargo is created through a separate path. The Level 5 ROM
+limits are Flipper 0/5, Tanker 1/1, and Spiker 2/3.
+
+**EXISTING PROJECT BEHAVIOR PRESERVED:** Production Level 5 still has 20
+original identities, four initial Eggs, 16 reserve identities, and the existing
+50-tick release cadence. Its Tanker cargo identities remain owned by their
+original Tanker; death reconstruction retains Tanker/cargo state and clears
+only an unresolved ordinary Flipper species selection so that it must pass the
+Level 5 policy again. Levels 4, 6, and 7 retain their existing selectors.
+
+**PROJECT TRANSLATION:** The shared mixed C# selector now rejects an ordinary
+Flipper candidate for Level 5 while leaving Tanker and Spiker candidates and
+the separate Tanker-cargo creation route intact. No ROM active caps, release
+timing, movement, scoring, effects, or progression behavior is changed. This
+is a bounded selector correction, not a literal port of the ROM scheduling
+algorithm. The Level 3-6 identity ledger and its reconstruction behavior are
+project implementation mechanisms, not literal ROM behavior.
+
+**NEAL MANUAL ACCEPTANCE (2026-11-08):** After several production Level 5
+playthroughs, Neal accepted the correction. He observed no ordinary Flippers
+entering directly from the bottom. Tanker-released cargo Flippers remain
+valid. The original supply remains 20.
+
+Level 6 selection is unchanged and remains a separate evaluation. The broader
+observation that C# levels can take substantially longer to clear than the
+arcade remains unresolved and is deferred for future investigation; this
+correction does not claim to resolve it. Also deferred are Level 3-6
+active/type-cap differences, the ROM six-active gate, release/pending pacing
+differences, hard-difficulty supply adjustment, and Spike-height mapping.

@@ -47,7 +47,8 @@ public static class Level3WaveSelection
         int activeTankers,
         int activeSpikers,
         int activeEnemyUnits,
-        int activeEggs)
+        int activeEggs,
+        bool allowFlippers = true)
     {
         ArgumentNullException.ThrowIfNull(randomInclusive);
         ArgumentOutOfRangeException.ThrowIfNegative(activeTankers);
@@ -66,7 +67,8 @@ public static class Level3WaveSelection
 
             if (candidate == 0)
                 return Level3OriginalType.Spiker;
-            if (candidate == 1)
+            // Level 5's zero ROM minimum gates ordinary entry; Tanker cargo bypasses this picker.
+            if (candidate == 1 && allowFlippers)
                 return Level3OriginalType.Flipper;
             if (candidate is 3 or 4)
                 return Level3OriginalType.Tanker;

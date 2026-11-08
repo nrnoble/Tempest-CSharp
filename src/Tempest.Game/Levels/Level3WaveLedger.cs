@@ -250,7 +250,9 @@ public sealed class Level3WaveLedger
     public void MarkCargoActive(int cargoId) =>
         TransitionCargo(cargoId, Level3CargoState.Egg, Level3CargoState.Active);
 
-    public void RebuildAfterDeath(bool clearUnresolvedSpeciesSelections = false)
+    public void RebuildAfterDeath(
+        bool clearUnresolvedSpeciesSelections = false,
+        bool clearUnresolvedFlipperSelections = false)
     {
         HashSet<int> unresolvedOriginals = UnresolvedOriginalIds.ToHashSet();
         HashSet<int> unresolvedCargo = clearUnresolvedSpeciesSelections
@@ -286,6 +288,12 @@ public sealed class Level3WaveLedger
                     }
                     entry.Type = Level3OriginalType.Unselected;
                 }
+                else if (clearUnresolvedFlipperSelections &&
+                    entry.Type == Level3OriginalType.Flipper)
+                {
+                    // Reapply a no-Flipper level policy without clearing Tanker or cargo commitments.
+                    entry.Type = Level3OriginalType.Unselected;
+                }
             }
         }
 
@@ -318,7 +326,12 @@ public sealed class Level3WaveLedger
         bool unresolvedOriginalsMatch = unresolvedOriginals.SetEquals(UnresolvedOriginalIds);
         bool unresolvedCargoMatch = unresolvedCargo.SetEquals(UnresolvedCargoIds);
         bool selectedTypesMatch = clearUnresolvedSpeciesSelections ||
-            selectedTypes.All(pair => GetOriginalType(pair.Key) == pair.Value);
+            selectedTypes.All(pair =>
+                GetOriginalType(pair.Key) == pair.Value ||
+                (clearUnresolvedFlipperSelections &&
+                    unresolvedOriginals.Contains(pair.Key) &&
+                    pair.Value == Level3OriginalType.Flipper &&
+                    GetOriginalType(pair.Key) == Level3OriginalType.Unselected));
         bool terminalOriginalsMatch =
             terminalOriginals.All(pair => GetOriginalState(pair.Key) == pair.Value);
         bool terminalCargoMatch =

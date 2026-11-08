@@ -134,7 +134,9 @@ public sealed class Level
     {
         if (UsesProductionLedger)
         {
-            Level3Ledger!.RebuildAfterDeath(clearUnresolvedSpeciesSelections);
+            Level3Ledger!.RebuildAfterDeath(
+                clearUnresolvedSpeciesSelections,
+                clearUnresolvedFlipperSelections: !Configuration.AllowsOrdinaryFlipperSelection);
             ReturnSurvivorsToReserve();
 
             for (int eggIndex = 0;

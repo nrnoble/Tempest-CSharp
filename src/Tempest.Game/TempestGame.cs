@@ -934,7 +934,8 @@ public sealed class TempestGame
             spikers.Count,
             flippers.Count + tankers.Count + spikers.Count +
                 shotReleasedCargoPendingActivation.Count,
-            Eggs.Count);
+            Eggs.Count,
+            CurrentLevel.Configuration.AllowsOrdinaryFlipperSelection);
 
     private int CountProductionActiveEnemyUnits() =>
         flippers.Count + tankers.Count + spikers.Count + shotReleasedCargoPendingActivation.Count;

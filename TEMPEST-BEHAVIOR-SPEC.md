@@ -84,7 +84,10 @@ disassemblies as evidence for arcade behavior.
   initial Eggs, and 16 height-60 Spikes. It uses Flippers, Tankers, and
   Spikers; Pulsars and Fuseballs are excluded. This is the fifth row of
   `Reference/incitti/levelsets/levelset1.txt`; the separate custom
-  `levelset5.txt` is not the Original Arcade campaign.
+  `levelset5.txt` is not the Original Arcade campaign. The ROM type-minimum
+  table further qualifies the Flipper composition: its Level 5 minimum is zero,
+  which blocks ordinary bottom Flipper selection while Tanker cargo remains
+  possible.
 - **PROJECT DECISION (Level 5 implementation; visible behavior manually accepted)** —
   Natural Level 4 installs this configuration only after the successful
   Avoid Spikes exit; score/lives carry and fresh-level state follow the
@@ -1966,3 +1969,34 @@ not represented as individually observed manual checks.
 
 **MANUAL ACCEPTANCE: MANUALLY ACCEPTED.** The accepted gameplay correction
 remains Level-5-specific; preserve Levels 4, 6, and 7 as described above.
+
+### Level 5 ordinary Flipper selection correction (2026-11-08)
+
+**ROM-LISTING-BACKED:** The local ROM `min_flippers` table sets Level 5's
+minimum to zero, and the ordinary selection paths at `$9a15-$9a86` require a
+nonzero minimum. Level 5 therefore has no ordinary bottom-entry Flippers;
+its Flipper maximum of five continues to account for active cargo. Tanker
+selection and its two Flipper cargo children are separate from that ordinary
+Flipper minimum.
+
+**PROJECT TRANSLATION:** Level 5 reuses the C# mixed selector with ordinary
+Flipper selection disabled. Cargo Flippers continue through their existing
+identity-aware path. On death, an unresolved original Flipper species choice
+is cleared and must be selected again under the Level 5 policy; Tanker cargo
+is not cleared by this rule.
+
+**EXISTING PROJECT BEHAVIOR PRESERVED:** Production Level 5 keeps its original
+supply of 20, identity ledger, four initial Eggs, reserve/release schedule,
+Tanker cargo ownership and reconstruction, and completion obligations.
+Tanker-released cargo Flippers remain valid. Levels 4, 6, and 7 keep their
+independent selection behavior. The ledger, death reconstruction, and cargo
+ownership are C# project mechanisms, not claims about literal ROM internals.
+
+**NEAL MANUAL ACCEPTANCE (2026-11-08):** After several production Level 5
+playthroughs, Neal accepted this correction. He did not observe any ordinary
+Flipper entering directly from the bottom. This is manual acceptance of the
+visible Level 5 behavior, not a broader claim of arcade fidelity.
+
+Level 6 remains unchanged and is a separate future evaluation. The broader
+observation that C# levels can take substantially longer to clear than the
+arcade remains unresolved and is not explained by this correction.

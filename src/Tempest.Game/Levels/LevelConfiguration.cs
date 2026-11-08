@@ -90,6 +90,8 @@ public sealed record LevelConfiguration(
     public BelowRimFlipperProgram BelowRimFlipperProgram { get; init; } =
         global::Tempest.Game.Levels.BelowRimFlipperProgram.Existing;
     public bool UsesLevel7RomWavePolicy { get; init; }
+    // The Level 5 ROM's zero Flipper minimum excludes ordinary bottom entries, not Tanker cargo.
+    public bool AllowsOrdinaryFlipperSelection { get; init; } = true;
     // Imported ROM handedness is not mapped conclusively; +1 is a reversible C# project choice.
     public int ProgrammedFlipperInitialDirection { get; init; } = 1;
     public float? StartingSpikeHeight { get; init; }
@@ -235,6 +237,7 @@ public sealed record LevelConfiguration(
         Flipper = new(true, 2, 8, 21, 24),
         FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
         BelowRimFlipperProgram = BelowRimFlipperProgram.Level5SpikeSensitive,
+        AllowsOrdinaryFlipperSelection = false,
         StartingSpikeHeight = 60
     };
 
