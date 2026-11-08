@@ -8,7 +8,7 @@
 // --level2-test, --level3-test, --level4-test, --level6-test and --level7-test select direct production configurations;
 // --level3-geometry-test selects plus-board geometry only; --spiker-test, --tanker-test,
 // --fuseball-test and --pulsar-test select isolated enemy waves. These scenarios are mutually
-// exclusive; --enemy-bullets-test, --lives and --game-over-density compose with existing
+// exclusive; --enemy-bullets-test, --lives, --speed and --game-over-density compose with existing
 // scenarios. --game-over-density only changes the procedural visible speck count, not mark size;
 // File recordings use --record-gameplay <file> followed by optional production startup options;
 // file playback restores startup identity, pauses with Space, steps with Right, and reconstructs
@@ -26,6 +26,20 @@ using Tempest.Game.Gameplay;
 // Keep deterministic file analysis ahead of every Raylib window, input, audio and pacing setup.
 if (HeadlessGameplayPlaybackCli.IsRequested(args))
     return HeadlessGameplayPlaybackCli.Run(args, Console.Out, Console.Error);
+
+if (!DebugController.TryParseInteractiveSpeedOptions(args,
+    out InteractiveSpeedOptions speedOptions, out string? speedError))
+{
+    Console.Error.WriteLine(speedError);
+    return 2;
+}
+
+if (DebugController.UseInputDiagnostic(args) &&
+    args.Contains("--speed", StringComparer.Ordinal))
+{
+    Console.Error.WriteLine("--speed applies to interactive Tempest gameplay, not --input-diagnostic.");
+    return 2;
+}
 
 if (!DebugController.TryParseRimSpeedMultiplier(args,
     out double rimSpeedMultiplier, out string? rimSpeedError))
@@ -140,7 +154,7 @@ Raylib.InitWindow(VectorRenderer.ScreenWidth, VectorRenderer.ScreenHeight,
     level3GeometryTest ? "Tempest C# - Development Level 3 Geometry Diagnostic" :
     "Tempest C# - Level 1");
 Raylib.DisableCursor();
-Raylib.SetTargetFPS(60);
+Raylib.SetTargetFPS(speedOptions.TargetFramesPerSecond);
 
 try
 {

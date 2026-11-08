@@ -106,6 +106,28 @@ public sealed class GameplayPlaybackSessionTests
 	}
 
 	[Fact]
+	public void PlaybackBoundaryStateIsIndependentOfInteractiveSpeedSelection()
+	{
+		Assert.True(DebugController.TryParseInteractiveSpeedOptions(
+			["--speed", "0.5"], out InteractiveSpeedOptions slowOptions, out _));
+		Assert.True(DebugController.TryParseInteractiveSpeedOptions(
+			["--speed", "2"], out InteractiveSpeedOptions fastOptions, out _));
+		Assert.NotEqual(slowOptions.TargetFramesPerSecond, fastOptions.TargetFramesPerSecond);
+
+		GameplayStartupConfiguration startup = new(1, 3, 1.0, 4225);
+		PlayerInputFrame[] frames =
+		[
+			new(0, new PlayerInput(true, 0, false, true)),
+			new(20, new PlayerInput(false, 0.5f, true, false)),
+			new(45, new PlayerInput(false, 0, false, false, ZapPressed: true))
+		];
+		GameplayPlaybackSession slow = CreateSession(startup, 90, frames);
+		GameplayPlaybackSession fast = CreateSession(startup, 90, frames);
+
+		AssertEquivalentSummary(slow.RunToBoundary(60), fast.RunToBoundary(60));
+	}
+
+	[Fact]
 	public void RecordingCompletionPreventsAnyAdditionalForwardStep()
 	{
 		GameplayPlaybackSession session = CreateSession(

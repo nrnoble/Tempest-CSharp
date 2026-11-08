@@ -178,6 +178,53 @@ non-blocking, and deferred; no cause has been established. It did not isolate
 a level or trigger, and no relationship to the separate Level 5-specific
 observation below has been established.
 
+## Development-only interactive pacing diagnostic
+
+Use `--speed <multiplier>` to change the requested real-time pace of interactive
+gameplay without changing any simulation-tick behavior:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --speed 1 --lives 10
+dotnet run --project src\Tempest.Game -- --speed 0.95 --lives 10
+dotnet run --project src\Tempest.Game -- --speed 0.9 --lives 10
+dotnet run --project src\Tempest.Game -- --speed 0.5 --lives 10
+dotnet run --project src\Tempest.Game -- --speed 2 --lives 10
+dotnet run --project src\Tempest.Game -- --level 7 --speed 0.95 --lives 10
+dotnet run --project src\Tempest.Game -- --level 7 --speed 2 --lives 10
+dotnet run --project src\Tempest.Game -- --playback-file Temp\GameplayRecordings\level5.json --speed 0.5
+dotnet run --project src\Tempest.Game -- --record-gameplay Temp\GameplayRecordings\level5-speed.json --level 5 --lives 10 --speed 0.9
+```
+
+The supported range is 0.25 through 4.0 inclusive. Omitting the option and
+`--speed 1` both request the accepted normal 60-FPS host-loop target. Other
+targets are `60 * multiplier`, rounded to the nearest integer FPS with exact
+halves rounded away from zero. Each ordinary loop still runs one simulation
+step and one draw; thus 0.5 requests 30 FPS and 2 requests 120 FPS. The
+simulation remains per-tick and unchanged, so tick-driven movement, firing,
+timers, enemies, effects, transitions and scoring all slow down or speed up
+together in wall-clock time. Input is sampled at the new loop cadence and can
+therefore be less frequent at slower settings. Rendering remains coupled to
+that cadence.
+
+This is a **DEVELOPMENT / DIAGNOSTIC PROJECT FEATURE**, not Atari behavior or
+a difficulty setting, and does not imply the accepted normal speed needs
+retuning. It is a requested rate rather than a real-time guarantee: a host
+that cannot sustain the target runs slower, with no catch-up simulation.
+Audio samples retain normal playback rate and pitch; only event spacing
+changes. Visible recording and playback use the selected interactive pacing,
+but recordings still contain per-tick input only and never store `--speed`.
+Headless playback rejects `--speed` and remains unthrottled. Neal manually
+accepted the feature after testing live gameplay and existing recorded-gameplay
+files at slower and faster speeds. He reported no problems; recordings play
+correctly, and pause, forward/grouped stepping and reverse scrubbing retain
+their simulation-boundary behavior at different selected speeds. Faster
+recorded playback is especially useful for quickly inspecting several levels,
+and the diagnostic is expected to help with harder future levels.
+
+The accepted default remains 1.0. Neal subjectively thought approximately
+0.95 might feel slightly closer to his arcade machine, but the difference is
+minor and is not evidence to retune normal gameplay or establish arcade timing.
+
 ## Development-only recorded gameplay
 
 Record a normal production game to an ignored, disposable path and replay it

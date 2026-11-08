@@ -2634,8 +2634,8 @@ The supported file-command grammar starts with a transport flag and filename,
 then permits compatible options in any order:
 
 ```text
---record-gameplay <file> [--level N] [--lives N] [--rim-speed N] [--game-over-density N]
---playback-file <file> [--game-over-density N]
+--record-gameplay <file> [--level N] [--lives N] [--rim-speed N] [--speed N] [--game-over-density N]
+--playback-file <file> [--speed N] [--game-over-density N]
 ```
 
 Recording defaults resolve to Level 1, 3 lives and rim speed 1.0 before the
@@ -2647,6 +2647,36 @@ overrides even when they match the file; the recording is authoritative for
 all simulation identity. The positive finite `--game-over-density` multiplier
 is renderer-only, composes with either file mode, and is intentionally not
 serialized.
+
+### Interactive pacing diagnostic
+
+`--speed <multiplier>` is a **DEVELOPMENT / DIAGNOSTIC PROJECT FEATURE** for
+live play, recording, and visible playback. Its accepted range is 0.25–4.0
+inclusive; omission and `--speed 1` both retain the normal 60-FPS target. The
+requested target is `60 * multiplier`, converted to integer FPS by rounding to
+the nearest integer with exact half values away from zero. Headless playback
+rejects the option and remains unthrottled.
+
+Only the interactive host-loop rate changes. Each ordinary loop still makes
+one simulation step and one draw, so every gameplay value and rule remains
+unchanged per tick. The setting affects wall-clock time for all tick-driven
+behavior, while input sampling and rendering remain coupled to the loop.
+There is no catch-up simulation if the host misses its target. Audio samples
+keep their normal rate and pitch; event spacing changes with gameplay pacing.
+Recordings continue to contain only per-tick inputs; `--speed` is not a
+recorded setting. This diagnostic is not ROM-backed behavior or a difficulty
+control, and is not evidence that the accepted 1.0 speed should be retuned.
+
+**MANUALLY ACCEPTED BY NEAL:** Live gameplay and existing recorded-gameplay
+files were tested at slower and faster settings; the feature worked as intended
+with no problems reported. Recorded files play correctly at different visible
+speeds. Pause, forward/grouped stepping and reverse scrubbing preserve their
+simulation-boundary behavior at different selected speeds. Faster playback is
+particularly useful for inspecting several recorded levels quickly, and the
+diagnostic is expected to help test harder future levels. The accepted default
+remains 1.0. Neal's subjective observation that approximately 0.95 might feel
+slightly closer to his arcade machine was minor and does not justify changing
+the default or tuning normal gameplay; it is not evidence of arcade timing.
 
 The startup configuration and seeded `Random` are applied before
 `TempestGame` constructs the Game Over sequence or production wave, so initial

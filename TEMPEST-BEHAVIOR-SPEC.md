@@ -1329,6 +1329,7 @@ These controls are test conveniences, not arcade level-selection or composition:
 | `--pulsar-test` | Direct-hatches the ten-unit supply as Pulsars, with source-derived late-wave hurry-up. |
 | `--enemy-bullets-test` | Enables the development enemy-bullet behavior; combinations with Spiker or Tanker scenarios enable their corresponding source-backed firing paths. |
 | `--lives <n>` | Overrides the starting life count for longer development sessions. |
+| `--speed <multiplier>` | **DEVELOPMENT / DIAGNOSTIC PROJECT FEATURE:** changes only interactive host-loop pacing from the accepted default 60 FPS; supports 0.25–4.0 inclusive, with target FPS rounded to nearest integer and exact halves away from zero. Per-tick simulation remains unchanged. |
 | `--record-gameplay <file>` | Records effective per-tick input for ordinary production gameplay; new files use strict format version 2 and can include `--level`, `--lives`, and `--rim-speed`. |
 | `--playback-file <file>` | Restores production startup identity and seed from a version-1 or version-2 recording; rejects simulation overrides. |
 
@@ -1357,6 +1358,29 @@ The Level 2 and enemy-specific wave options are mutually exclusive. Deterministi
 seams, controlled selection, artificial wave composition, extra lives, and
 test-only rendering/collision instrumentation are all **DEVELOPMENT ONLY**.
 Passing a simulation test establishes a C# invariant, not arcade fidelity.
+
+`--speed` requests `60 * multiplier` interactive loop iterations per second.
+The default and explicit `--speed 1` both preserve the existing 60-FPS target.
+The loop remains one simulation step and one draw per ordinary pass, without
+catch-up or elapsed-time scaling. Consequently, every tick-driven gameplay
+event changes together in wall-clock time while its per-tick amount remains
+unchanged. Input sampling and rendering follow the selected loop cadence; a
+host that cannot sustain the request runs slower. Audio samples retain normal
+rate and pitch. Recording and visible playback accept the option, but
+recordings remain tick-indexed and do not store speed. Headless playback
+rejects `--speed` and remains unthrottled. This is not Atari functionality,
+not a difficulty setting, and not evidence for changing the accepted 1.0
+rate.
+
+**MANUALLY ACCEPTED BY NEAL:** Live gameplay and existing recorded-gameplay
+files work correctly at slower and faster settings, with no problems reported.
+Pause, forward/grouped stepping and reverse scrubbing preserve their existing
+simulation-boundary semantics across selected speeds. Faster recorded
+playback is especially useful for rapidly inspecting several levels, and the
+diagnostic is expected to help test harder future levels. The accepted default
+remains 1.0. Neal's subjective observation that approximately 0.95 may feel
+slightly closer to his arcade machine is minor and does not justify a default
+change; it is not evidence establishing arcade timing.
 - **DEVELOPMENT ONLY — C3b manual graphical acceptance (C# behavior only)** —
   Across multiple direct Level 3 runs, Neal accepted the entry/HUD, visible
   production Tanker bullets without `--enemy-bullets-test`, silent default
@@ -1392,12 +1416,13 @@ rewritten. Older builds are not required to read version 2.
 
 The file command grammar is `--record-gameplay <file>` or
 `--playback-file <file>`, followed by compatible options. Recording permits
-`--level N`, `--lives N`, `--rim-speed N`, and `--game-over-density N` in any
-order. Playback accepts only renderer-only `--game-over-density N`; it rejects
-`--level`, `--lives`, `--rim-speed`, and special scenarios before opening the
-game. Density affects Game Over rendering only and is not part of recording
-identity. Defaults are Level 1, 3 lives and rim speed 1.0 plus a generated
-nonnegative seed.
+`--level N`, `--lives N`, `--rim-speed N`, `--speed N`, and
+`--game-over-density N` in any order. Playback accepts renderer-only
+`--game-over-density N` and interactive `--speed N`; it rejects `--level`,
+`--lives`, `--rim-speed`, and special scenarios before opening the game.
+Neither renderer density nor interactive speed is part of recording identity.
+Defaults are Level 1, 3 lives and rim speed 1.0 plus a generated nonnegative
+seed.
 
 The recorded configuration and seed are applied before startup consumes
 gameplay randomness. Direct Level 5 uses the accepted production geometry,

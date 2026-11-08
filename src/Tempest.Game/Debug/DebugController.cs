@@ -21,11 +21,12 @@ public sealed record GameplayFileCommand(
 /// that level and continues normal campaign progression. Legacy --levelN-test selectors remain
 /// terminal diagnostics. Scenario flags are mutually exclusive; --enemy-bullets-test (opt-in
 /// Flipper firing), --lives (starting-life override), --rim-speed and --game-over-density compose
-/// with normal play. --gameplay-playback selects a seeded Level 1 profile;
+/// with normal play. --speed changes only the interactive host-loop target rate. --gameplay-playback selects a seeded Level 1 profile;
 /// --gameplay-playback-level4 selects a distinct profile on the production Level 4 configuration.
 /// Both playback commands return to live input when their seeded profile ends.
 /// --record-gameplay records production input with startup metadata; --playback-file restores that
-/// metadata and rejects simulation overrides. The file transport pair precedes compatible options.
+/// metadata and rejects simulation overrides. --speed remains an interactive presentation option
+/// and is never part of recording identity. The file transport pair precedes compatible options.
 /// --input-diagnostic instead opens a standalone development-only input window with no gameplay.
 /// </summary>
 public sealed class DebugController
@@ -158,6 +159,47 @@ public sealed class DebugController
 		return true;
 	}
 
+	public static bool TryParseInteractiveSpeedOptions(
+		IReadOnlyList<string> arguments,
+		out InteractiveSpeedOptions options,
+		out string? error)
+	{
+		options = InteractiveSpeedOptions.Normal;
+		error = null;
+		int optionIndex = -1;
+
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index] != "--speed")
+				continue;
+			if (optionIndex >= 0)
+			{
+				error = "--speed may be specified only once.";
+				return false;
+			}
+			optionIndex = index;
+		}
+
+		if (optionIndex < 0)
+			return true;
+		if (optionIndex + 1 >= arguments.Count ||
+			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
+		{
+			error = "--speed requires a finite numeric multiplier from 0.25 through 4.0.";
+			return false;
+		}
+		if (!double.TryParse(arguments[optionIndex + 1], NumberStyles.Float,
+			CultureInfo.InvariantCulture, out double multiplier) ||
+			!InteractiveSpeedOptions.TryCreate(multiplier, out InteractiveSpeedOptions? parsed))
+		{
+			error = "--speed requires a finite numeric multiplier from 0.25 through 4.0.";
+			return false;
+		}
+
+		options = parsed;
+		return true;
+	}
+
 	public static bool TryParseGameplayFileCommand(
 		IReadOnlyList<string> arguments,
 		out GameplayFileCommand? command,
@@ -201,6 +243,8 @@ public sealed class DebugController
 			error = $"The {arguments[0]} option requires an explicit file path.";
 			return false;
 		}
+		if (!TryParseInteractiveSpeedOptions(arguments, out _, out error))
+			return false;
 
 		int? startingLevel = null;
 		int? startingLives = null;
@@ -264,6 +308,13 @@ public sealed class DebugController
 					}
 					rimSpeedMultiplier = multiplier;
 				}
+				continue;
+			}
+
+			if (option == "--speed")
+			{
+				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
+					return false;
 				continue;
 			}
 

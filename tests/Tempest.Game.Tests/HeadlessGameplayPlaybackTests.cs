@@ -324,6 +324,7 @@ public sealed class HeadlessGameplayPlaybackTests
 	[InlineData("--headless-playback", "recording.json", "--level", "5")]
 	[InlineData("--headless-playback", "recording.json", "--lives", "10")]
 	[InlineData("--headless-playback", "recording.json", "--rim-speed", "2.5")]
+	[InlineData("--headless-playback", "recording.json", "--speed", "0.5")]
 	[InlineData("--headless-playback", "recording.json", "--level5-test")]
 	[InlineData("--headless-playback", "recording.json", "--boundary", "1", "--boundary", "2")]
 	public void CliRejectsMalformedAndIncompatibleArguments(params string[] arguments)

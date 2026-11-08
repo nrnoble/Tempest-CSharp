@@ -492,6 +492,29 @@ public sealed class GameplayRecordingTests
 	}
 
 	[Fact]
+	public void InteractiveSpeedIsNotSerializedIntoRecordingFiles()
+	{
+		Assert.True(DebugController.TryParseInteractiveSpeedOptions(
+			["--speed", "0.5"], out InteractiveSpeedOptions speedOptions, out _));
+		PlayerInputRecorder recorder = new(
+			new GameplayStartupConfiguration(1, 3, 1.0, 4225));
+
+		WithTemporaryDirectory(directory =>
+		{
+			string path = Path.Combine(directory, "speed.json");
+			GameplayRecordingFile.SaveNew(path, recorder);
+			using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
+
+			Assert.Equal(30, speedOptions.TargetFramesPerSecond);
+			Assert.False(document.RootElement.TryGetProperty("Speed", out _));
+			Assert.False(document.RootElement.TryGetProperty("SpeedMultiplier", out _));
+			Assert.Equal(GameplayRecordingFile.CurrentFormatVersion,
+				document.RootElement.GetProperty("Version").GetInt32());
+			Assert.NotNull(GameplayRecordingFile.LoadRecording(path));
+		});
+	}
+
+	[Fact]
 	public void RecordedFullGameRestartRetainsEffectiveLivesAndRimSpeedPolicy()
 	{
 		GameplayStartupConfiguration startup = new(5, 10, 2.5, 7721);
