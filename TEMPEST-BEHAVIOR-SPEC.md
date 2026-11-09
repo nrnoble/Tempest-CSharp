@@ -2227,8 +2227,8 @@ obligations appear and resolve. The wave remains substantial without feeling
 artificially sparse. Enemy bullets remain visible and behave normally; rim
 pursuit remains threatening, stationary defense is not trivially safe, and
 spinner control, player firing, Super Zapper, and death/re-entry remain
-normal. Normal Level 1 completion and Level 1-to-2 progression work with Level
-2 unchanged. Neal also played and recorded the production campaign through
+normal. Normal Level 1 completion and Level 1-to-2 progression work. Neal also
+played and recorded the production campaign through
 Levels 1-8 with no blocking regression observed.
 
 **ACCEPTED PRODUCTION RULE:** No-option campaign startup and generic
@@ -2257,10 +2257,8 @@ Level 1 obligations remain conserved:
 The cap does not gate Egg release or approach and does not change reserve
 timing. It does not add a six-total-active gate or alter other species policy.
 Four Eggs begin active and six originals remain in reserve; the existing
-50-tick reserve release and approach schedule remain unchanged.
-Level 2 remains unchanged and is deferred for separate analysis, implementation
-and manual acceptance; Levels 3-8 remain unchanged. No Level 9 work is part of
-this correction.
+50-tick reserve release and approach schedule remain unchanged. Levels 3-8
+remain unchanged. No Level 9 work is part of this correction.
 
 **RECORDING / PLAYBACK:** No cap or scenario field is added to the recording
 schema. Normal Level 1 recordings, visible playback, and headless playback
@@ -2276,5 +2274,71 @@ timing.
 
 The manual acceptance covers production behavior and arcade-like feel, not
 literal equivalence of every hidden Level 1 timing value or the C# Egg waiting
-mechanism. **DEFERRED:** Level 2 concurrency and the ROM's six-total-active
-gate. The four-Flipper production correction is manually accepted and closed.
+mechanism. The production Level 1 four-Flipper correction is manually accepted
+and closed.
+
+## Production Level 2 four-Flipper maximum (2026-11-09)
+
+Production Level 2 uses the canonical `LevelConfiguration.Level2Square`
+through natural campaign progression, generic `--level 2`, death/re-entry,
+recording/playback startup and headless simulation. The original supply
+remains 12 Flippers. The former development option
+`--level2-four-flipper-cap-test` has been removed; the manually accepted
+diagnostic behavior is now ordinary production behavior.
+
+**ROM-LISTING-BACKED / REV-2-BINARY-CONFIRMED:** Level 2's maximum is four
+active Flippers, unchanged across Easy, Medium, and Hard. Below-rim and rim
+Flippers both count from ordinary hatch into the authoritative active
+collection until the existing lifecycle removes them, including while delayed
+Super Zapper resolution is pending. The separate ROM `max_enm` table value is
+six, but its runtime comparison is inclusive rather than a strict six-object
+ceiling. That global gate does not independently constrain Flipper-only Level
+2 and remains unimplemented.
+
+**PROJECT TRANSLATION:** The production C# hatch path checks the authoritative active
+Flipper collection at the existing hatch boundary. At four active Flippers,
+the next eligible Egg remains unresolved in `ReadyToHatch`; it is not
+destroyed, returned to reserve, rim-cleared, scored, rerolled, or replaced.
+It hatches through the ordinary path once capacity opens, using existing
+ordering, and no hatch update can transiently create a fifth Flipper. Blocked
+waiting consumes no repeated hatch randomness. Release and approach continue
+while the cap is full. This waiting behavior is not the ROM's literal
+pending-entry mechanism or timing.
+
+The canonical Level 2 supply and schedule remain unchanged: four starting
+Eggs, eight reserve originals, 50-active-tick reserve release, maximum Egg
+queue four, maximum approaching/ready Eggs two, existing approach-selection
+interval, Egg update cadence and lane sequence. Canflip direction/destination
+latching, geometry, pivots, collision, shot ownership, movement and randomness
+remain unchanged. Firing, two-shot capacity, 77-tick C# holdoff, bullet
+visibility/collision, 2.5 rim-speed calibration, rim pursuit, death/re-entry,
+Super Zapper scoring/resolution, accounting, completion and Level 2-to-3
+progression remain unchanged. No cap metadata or recording-schema version
+change was added. Accepted Level 1 remains unchanged, and Levels 3-8 do not
+inherit the policy.
+
+Neal's manual A/B comparison of normal production Level 2 with the diagnostic
+passed strongly: fewer simultaneous Flippers, below-rim pivots, converging
+threats and grouped rim arrivals; more useful breathing room; continued
+dangerous rim pursuit and normal visible enemy bullets; and all 12 obligations
+entering without an artificially sparse wave. The promoted normal-production
+Level 2 also passed manual gameplay acceptance and feels much closer to the
+original arcade. Canflip remains accepted, and existing recording files play
+back without error. Production Level 2 is **MANUALLY ARCADE-FIDELITY
+ACCEPTED**.
+
+The small deep-end mark observed while the cap blocks a ready Egg is the real
+unresolved Egg at height zero: **EXPECTED/HARMLESS PROJECT PRESENTATION**. It
+is not an enemy, projectile, collision object, or accounting defect. Do not
+hide, move or remove it. If this display becomes recurring across future
+production levels, revisit it separately (**DEFERRED**). Neal's possible
+memory of seeing something similar is **VAGUE ARCADE RECOLLECTION /
+UNVERIFIED**. A pending object could be consistent with the arcade, but if so
+might be rare in ordinary play because destroying active enemies opens
+capacity before an Egg remains visibly blocked for long. This is not arcade
+verification or evidence that the C# red mark or waiting-object model matches
+the original; evidence is insufficient to decide.
+
+Accepted production Level 1 remains unchanged, as do Levels 3-8. Concurrency
+work for later levels requires separate investigation and manual acceptance.
+The global ROM `max_enm` gate remains unimplemented.

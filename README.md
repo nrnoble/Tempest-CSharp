@@ -67,7 +67,7 @@ sound.
 player start, ten-unit supply, Egg pacing/sequences, standard exit policy and
 Flipper-only normal composition. `LevelConfiguration.Level2Square` is the
 single production Level 2 object and also powers the direct development
-launch. `Level` remains the mutable per-wave runtime.
+launches. `Level` remains the mutable per-wave runtime.
 
 Normal play progresses through production Levels 1-8 only after each
 successful standard or Avoid Spikes exit completes its travel. Wave clear and
@@ -194,8 +194,9 @@ TRANSLATION**, not a claim about the ROM's literal pending-entry mechanism.
 The accepted four starting Eggs, six reserve originals, 50-tick release and
 approach scheduling, geometry, movement, firing, shots, scoring, collisions,
 Super Zapper, 2.5 rim calibration, and death/re-entry behavior remain unchanged.
-The ROM's separate six-total-active-enemy gate is not implemented. Level 2
-remains unchanged and its concurrency policy awaits separate analysis.
+The ROM's separate global `max_enm` gate is not implemented. Production Level 2
+has a separately accepted four-Flipper maximum; its policy and final manual
+acceptance are documented below.
 
 **MANUALLY ARCADE-FIDELITY ACCEPTED:** Neal's final production play confirmed
 that fewer Flippers occupy the tube, ready Eggs wait and later hatch, all ten
@@ -211,8 +212,9 @@ The four-Flipper limit is **ROM-LISTING-BACKED /
 REV-2-BINARY-CONFIRMED**. Waiting in C#'s existing `ReadyToHatch` Egg state is
 a **PROJECT TRANSLATION**, not the ROM's literal pending-entry mechanism.
 Manual acceptance validates the production feel and behavior, not literal
-equivalence of every hidden Level 1 timing value. Level 2 concurrency and the
-six-total-active gate remain **DEFERRED**.
+equivalence of every hidden Level 1 timing value. Production Level 2's
+separately accepted four-Flipper maximum is documented below; the global
+`max_enm` gate remains **DEFERRED**.
 
 Start the normal production campaign or direct Level 1 with:
 
@@ -683,6 +685,68 @@ arcade-equivalent behavior. Level 1 remains the default with no flags.
 Pulsar scenarios; it may be combined with `--lives` or the orthogonal
 `--enemy-bullets-test` option. Those other development scenarios remain
 terminal and replay their selected scenario.
+
+### Production Level 2 four-Flipper maximum
+
+```powershell
+dotnet run --project src\Tempest.Game -- --lives 10 --spinner-sensitivity 1
+dotnet run --project src\Tempest.Game -- --level 2 --lives 10 --spinner-sensitivity 1
+dotnet run --project src\Tempest.Game -- --record-gameplay Temp\GameplayRecordings\level2-four-flipper-production.json --level 2 --lives 10 --spinner-sensitivity 1
+dotnet run --project src\Tempest.Game -- --playback-file Temp\GameplayRecordings\level2-four-flipper-production.json
+```
+
+**ROM-LISTING-BACKED / REV-2-BINARY-CONFIRMED:** Production Level 2 retains its
+original 12 Flippers and permits at most four concurrently active. This
+maximum is four across Easy, Medium, and Hard. It applies to natural Level
+1-to-2 progression, generic `--level 2`, death/re-entry, and production
+recording/playback startup. The old `--level2-four-flipper-cap-test`
+comparison option has been removed because its accepted behavior is now
+ordinary production behavior.
+
+**PROJECT TRANSLATION:** The existing active Flipper collection controls
+hatch eligibility. At four active Flippers, an otherwise-ready Egg remains
+unresolved in `ReadyToHatch` until a slot opens. It is not discarded, scored,
+returned to reserve, or rerolled; blocked waiting consumes no hatch
+randomness. The ROM-backed value does not establish that the ROM uses this
+same C# waiting-Egg representation or timing.
+
+The canonical Level 2 supply and schedule remain unchanged: four starting
+Eggs, eight reserve originals, 50-active-tick reserve release, maximum Egg
+queue four, maximum approaching/ready Eggs two, existing approach cadence,
+and deterministic spawn lanes. Canflip, movement, firing, two-shot capacity,
+77-tick C# holdoff, visible enemy bullets, collision, 2.5 rim-speed
+calibration, rim pursuit, scoring, lives, Super Zapper, death/re-entry, and
+recording schema remain unchanged. No cap metadata or recording version
+change was added. The separate ROM `max_enm` gate is not implemented; its
+table value six uses an inclusive comparison and does not independently
+constrain Flipper-only Level 2. Production Level 1 remains accepted and
+unchanged; Levels 3-8 do not inherit this policy.
+
+Neal's manual A/B comparison of normal production Level 2 against the
+four-Flipper diagnostic **passed strongly**: fewer Flippers, below-rim pivots,
+converging threats and grouped rim arrivals; more useful breathing room;
+continued dangerous rim pursuit and normal visible enemy bullets; and the full
+12-enemy wave entering as capacity opened without feeling artificially sparse.
+The promoted normal-production Level 2 also passed manual gameplay acceptance
+and feels much closer to the original arcade. Canflip remains accepted, and
+existing recording files play back without error. Production Level 2 is
+**MANUALLY ARCADE-FIDELITY ACCEPTED**.
+
+The tiny deep-end mark observed while the cap holds a ready Egg is an
+**EXPECTED/HARMLESS PROJECT PRESENTATION**: it is the real unresolved Egg at
+height zero, not an enemy or collision defect. Do not hide, move, or remove it.
+If visible cap-blocked Eggs become a recurring presentation across future
+production levels, revisit that concern separately (**DEFERRED**). Neal has a
+**VAGUE ARCADE RECOLLECTION / UNVERIFIED** that he may have seen something
+similar. A waiting object could be consistent with the arcade, but if so might
+be rare in ordinary play because destroying active enemies opens capacity
+before an Egg remains visibly blocked for long. This is not arcade
+verification, nor evidence that the C# red mark or waiting-object model
+matches the original.
+
+Production Level 1 remains unchanged, and Levels 3-8 remain unchanged. Any
+later-level concurrency work requires separate investigation and manual
+acceptance. The global ROM `max_enm` gate remains unimplemented.
 
 Neal completed B2 manual validation on 2026-10-31. He found the broad below-rim
 lane changes consistent with Atari Level 2: straight-side and corner flips

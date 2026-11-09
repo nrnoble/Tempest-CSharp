@@ -5,7 +5,8 @@
 // Development command-line modes (see DebugController): --level N starts a fresh production game
 // at N while retaining natural progression; --gameplay-playback runs the seeded Level 1 input
 // profile; --gameplay-playback-level4 runs the distinct profile on production Level 4;
-// --level2-test, --level3-test, --level4-test, --level6-test and --level7-test select direct production configurations;
+// --level2-test, --level3-test, --level4-test, --level6-test and --level7-test
+// select direct development configurations;
 // --level3-geometry-test selects plus-board geometry only; --spiker-test, --tanker-test,
 // --fuseball-test and --pulsar-test select isolated scenarios.
 // These scenario selectors are mutually
@@ -30,6 +31,14 @@ if (args.Contains("--level1-four-flipper-cap-test", StringComparer.Ordinal))
 {
     Console.Error.WriteLine(
         "--level1-four-flipper-cap-test was removed; production Level 1 now applies the four-Flipper limit automatically.");
+    return 2;
+}
+
+if (args.Contains("--level2-four-flipper-cap-test", StringComparer.Ordinal))
+{
+    Console.Error.WriteLine(
+        "--level2-four-flipper-cap-test was removed; " +
+        "production Level 2 now applies the four-Flipper limit automatically.");
     return 2;
 }
 

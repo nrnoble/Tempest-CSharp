@@ -208,17 +208,26 @@ public sealed class Level1ProductionFlipperCapTests
     }
 
     [Fact]
-    public void ProductionLevelTwoRemainsUncappedAndLevelsThreeThroughEightKeepTheirConfigurations()
+    public void ProductionLevelTwoUsesTheFourFlipperLimitAndLevelsThreeThroughEightKeepTheirConfigurations()
     {
         TempestGame levelTwo = new(startingProductionLevel: 2, startingLives: 1000,
             random: new Random(1981));
-        bool exceededFourFlippers = false;
-        for (int tick = 0; tick < 1000 && !exceededFourFlippers; tick++)
+        bool sawWaitingEgg = false;
+        for (int tick = 0; tick < 1000; tick++)
         {
             levelTwo.RunOneStep();
-            exceededFourFlippers = levelTwo.Flippers.Count > ActiveFlipperLimit;
+            Assert.True(levelTwo.Flippers.Count <= ActiveFlipperLimit);
+            Assert.Equal(12, levelTwo.CurrentLevel.ReserveEggs + levelTwo.Eggs.Count +
+                levelTwo.Flippers.Count + levelTwo.CurrentLevel.EnemiesDestroyed +
+                levelTwo.CurrentLevel.EnemiesRimCleared);
+            if (levelTwo.Flippers.Count == ActiveFlipperLimit &&
+                levelTwo.Eggs.Any(egg => egg.State == EggState.ReadyToHatch))
+            {
+                sawWaitingEgg = true;
+                break;
+            }
         }
-        Assert.True(exceededFourFlippers);
+        Assert.True(sawWaitingEgg);
 
         for (int level = 3; level <= 8; level++)
         {

@@ -1196,8 +1196,79 @@ board/palette 0/0, closed Level 1 geometry, player start, ten-unit supply,
 Egg pacing, standard exit policy and Flipper-only composition.
 `LevelConfiguration.Level2Square` is the single immutable production Level 2
 configuration; `--level2-test` selects that same object for direct development
-access. It retains board 1/palette 0, the closed 16-lane square, 12-unit
-supply, Flipper-only composition, and the validated B1/B2 hinge/canflip path.
+access. Production Level 2 now enforces a maximum of four concurrently active
+Flippers, with the original 12-unit supply. Four is **ROM-LISTING-BACKED /
+REV-2-BINARY-CONFIRMED** across Easy, Medium, and Hard. Keeping blocked ready
+Eggs in C#'s existing `ReadyToHatch` state is a **PROJECT TRANSLATION**, not
+the literal ROM pending-entry implementation or timing. The former
+`--level2-four-flipper-cap-test` controlled comparison is removed; its
+accepted policy applies to normal campaign, generic `--level 2`, death/re-entry
+and production recording/playback startup. The separate ROM `max_enm` gate
+remains unimplemented; its value six compares inclusively and is not a strict
+six-object cap.
+
+The canonical Level 2 object retains board 1/palette 0, the closed 16-lane
+square, 12-unit supply, Flipper-only composition, and the validated B1/B2
+hinge/canflip path. Four starting Eggs, eight reserve originals, release and
+approach timing, canflip/movement, firing and the two-shot bullet lifecycle,
+the 50-active-tick reserve release and Egg approach cadence, 2.5 rim-speed
+calibration, collisions, scoring, lives, Super Zapper, death/re-entry, and
+rendering/audio remain unchanged. Production recordings use the existing
+schema and inherit the current production simulation without cap metadata.
+Accepted production Level 1 remains frozen; Levels 3-8 are unaffected.
+
+## Level 2 production four-Flipper maximum (2026-11-09)
+
+**ROM-LISTING-BACKED / REV-2-BINARY-CONFIRMED:** Level 2's maximum is four
+active Flippers, unchanged across Easy, Medium, and Hard. Below-rim and rim
+Flippers both count until ordinary active-object removal; a delayed Super
+Zapper target continues to occupy its slot.
+
+**PROJECT TRANSLATION:** The production hatch path checks the authoritative
+active Flipper collection before invoking the ordinary hatch factory. At four
+active Flippers, an eligible Egg stays in `ReadyToHatch`, unresolved, and
+unrerolled until an existing lifecycle removes an active Flipper. It is not
+destroyed, returned to reserve, rim-cleared, scored, or replaced, and waiting
+consumes no repeated hatch randomness. Release and approach continue at the
+accepted cadence. No update may transiently create a fifth Flipper. This is
+not a claim about the ROM's literal pending-entry data structure or timing.
+
+The 12-unit supply, four starting Eggs, eight reserve originals, 50-active-tick
+reserve release, four-Egg queue, two approaching/ready Egg maximum, 50-active-
+tick approach-selection interval, Egg update cadence and lane sequence remain
+unchanged. Individual Flipper canflip direction/destination latching, pivot
+geometry, movement, collision, shot ownership and randomness remain unchanged.
+Firing, two-shot capacity, 77-tick C# holdoff, bullet visibility/collision,
+2.5 rim-speed calibration, rim pursuit, death/re-entry, Zapper scoring and
+resolution, accounting, completion, Level 2-to-3 progression, and recording
+schema remain unchanged. There is no global active-enemy gate; do not infer a
+strict six-object ceiling from the ROM `max_enm` value.
+The manually accepted Level 2 canflip behavior and ordinary visible enemy
+bullets remain intact. Existing recording files play back without error.
+Broader concurrency work for later levels requires separate investigation and
+manual acceptance; no global ROM active-enemy gate is implemented.
+
+Neal manually compared normal production Level 2 with the diagnostic and
+**passed the four-Flipper result strongly**: fewer simultaneous Flippers,
+pivots, converging threats and grouped rim arrivals; more useful breathing
+room; continued dangerous rim pursuit and normal visible enemy bullets; and
+all 12 obligations still entering without an artificially sparse wave. The
+promoted normal-production Level 2 also passed manual gameplay acceptance and
+feels much closer to the original arcade. Canflip remains accepted, and
+existing recording files play back without error. Production Level 2 is
+**MANUALLY ARCADE-FIDELITY ACCEPTED**.
+
+The small deep-end mark sometimes visible while an Egg is cap-blocked is the
+actual unresolved Egg in `ReadyToHatch` at height zero:
+**EXPECTED/HARMLESS PROJECT PRESENTATION**. Do not hide, move, remove, or
+prematurely hatch it for appearance. Neal's possible memory of seeing
+something similar is **VAGUE ARCADE RECOLLECTION / UNVERIFIED**. A pending
+object could be consistent with the arcade, but if so might be rare in
+ordinary play because destroying active enemies opens capacity before an Egg
+remains visibly blocked for long. This is not arcade verification or evidence
+that the C# mark or waiting-object model matches the original. If this
+presentation becomes common or conspicuous on future production levels,
+revisit it separately (**DEFERRED**).
 
 Normal play advances from Level 1 and Level 2 only after successful standard
 ExitZoom travel updates the player to depth below 10. Wave clear, ExitDelay,
@@ -3483,9 +3554,10 @@ obligations appear and resolve. The wave remains substantial without feeling
 artificially sparse. Enemy bullets are visible and behave normally; rim
 pursuit remains threatening, stationary defense is not trivially safe, and
 spinner control, player firing, Super Zapper, and death/re-entry remain
-normal. Level 1 completion and natural Level 1-to-2 progression work with
-Level 2 unchanged. Neal manually played and recorded the production campaign
-through Levels 1-8 with no blocking regression observed.
+normal. Level 1 completion and natural Level 1-to-2 progression worked with
+Level 2 unchanged at that acceptance point; the later Level 2 promotion is
+recorded separately above. Neal manually played and recorded the production
+campaign through Levels 1-8 with no blocking regression observed.
 
 **AUTOMATED TEST EVIDENCE:** Production default/direct startup, active-count
 maximum, waiting-Egg persistence and hatch, accounting, determinism,
@@ -3495,6 +3567,6 @@ invariants, not arcade observations.
 
 The acceptance supports production Level 1's arcade-like feel; it does not
 establish that every hidden timing value or the C# Egg waiting mechanism
-literally matches the Atari ROM. Level 2 concurrency and the ROM's
-six-total-active gate remain **DEFERRED**. Level 9 and unrelated tuning are
-outside this accepted milestone.
+literally matches the Atari ROM. The later Level 2 policy is documented
+separately above; the ROM's global `max_enm` mechanism remains **DEFERRED**.
+Level 9 and unrelated tuning are outside this accepted milestone.
