@@ -66,4 +66,29 @@ public static class LevelLoader
 			new(160, -160), new(179, -44), new(89, 0), new(179, 44),
 			new(160, 160), new(44, 179), new(0, 89), new(-44, 179)
 		}), "Level 7 - clover");
+
+	// Rev 2 shape row 7 is an open 16-point polyline. The authorized screenshot places
+	// its open endpoints above the short base, so reflect centered ROM Y for this
+	// screen-down projection; the transform preserves the source shape and lane order.
+	public static LevelDefinition LoadLevel8OpenTube()
+	{
+		byte[] rawX =
+		[
+			0x10, 0x1E, 0x2C, 0x3A, 0x48, 0x56, 0x64, 0x70,
+			0x90, 0x9E, 0xAC, 0xBA, 0xC8, 0xD6, 0xE4, 0xF0
+		];
+		byte[] rawY =
+		[
+			0xF0, 0xD0, 0xB0, 0x90, 0x70, 0x50, 0x30, 0x10,
+			0x10, 0x30, 0x50, 0x70, 0x90, 0xB0, 0xD0, 0xF0
+		];
+		const float scale = 25f / 14f;
+		Vector2[] points = new Vector2[rawX.Length];
+		for (int index = 0; index < points.Length; index++)
+			points[index] = new Vector2(
+				(rawX[index] - 128) * scale,
+				-(rawY[index] - 128) * scale);
+
+		return new(false, 300, 0, Array.AsReadOnly(points), "Level 8 - Rev 2 open shape 7");
+	}
 }

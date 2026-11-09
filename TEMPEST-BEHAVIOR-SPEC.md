@@ -215,7 +215,9 @@ disassemblies as evidence for arcade behavior.
   its identity and adds only latent Tanker cargo. Using the existing Spiker
   return-to-height-zero boundary as the ROM `$f2`/`$f0` conversion point is a
   project approximation. Fresh Eggs recreate route state rather than restoring
-  runtime phase. Level 8 remains unimplemented by scope. Automated tests are C#
+  runtime phase. At this 2026-11-04 Level 7 checkpoint, Level 8 was outside
+  scope at that checkpoint; the later ROM-derived Level 8 implementation and
+  final manual acceptance are documented below. Automated tests are C#
   behavior evidence only: 37 focused Level 7/firing tests, 190 focused Level
   1-7/shared-seam regression tests, and all 743 solution tests passed. The
   solution build succeeded with zero warnings/errors and `git diff --check`
@@ -261,14 +263,14 @@ disassemblies as evidence for arcade behavior.
   other accepted presentation.
   The verified current natural progression has no Spikes on Levels 1-3; Level
   4 is its first normal Spike level, and many later levels also contain them.
-  Neal recalls recycled Levels 17 and 18 without Spikes. A future Spike-bearing
-  Level 8+ or open-rim configuration may use the standard exit without the
-  warning. Spike presence must be configured per level, not inferred from a
-  permanent `displayedLevel >= 4` threshold. No such later-level configuration,
-  progression, or open-rim gameplay is implemented. Neal
-  recalls Level 8 as the first open normal-progression board and V-shaped;
-  this is recollection, not an implemented geometry or an all-later-level
-  pursuit rule.
+  Neal recalls recycled Levels 17 and 18 without Spikes. At this earlier
+  checkpoint the Level 8 production candidate used the standard exit on an
+  open tube; its later accepted behavior is documented below. Other
+  later-level configurations remain unknown. Spike presence must be configured
+  per level,
+  not inferred from a permanent `displayedLevel >= 4` threshold. Neal's
+  earlier recollection of Level 8 as open and V-shaped is separate from the
+  later ROM-derived geometry and is not its evidence.
 - **ARCADE VERIFIED (visible behavior only; Neal's direct observation)** —
   During the Avoid Spikes warning/pretravel interval, rim movement remains
   available but firing is disabled. Firing becomes available once down-tube
@@ -779,8 +781,11 @@ disassemblies as evidence for arcade behavior.
   selection; later rim destinations retain that direction until the enemy is
   destroyed or replaced. Fresh Eggs/hatches, cargo reconstruction, new levels
   and restarts create new enemy instances and therefore start without stale
-  pursuit state. Future open-tube endpoints may legitimately require reversal;
-  open-rim behavior is deferred.
+  pursuit   state. Future open-tube endpoints may legitimately require reversal.
+  At the time of this earlier checkpoint, Level 8 topology-aware endpoint
+  handling was a project translation still pending manual acceptance; the
+  accepted result is documented in the Level 8 section below. This does not
+  establish a universal later-level rule.
 - **PROJECT DECISION** — The recreation keeps Flippers shootable in their
   lane while climbing or paused and from either participating lane throughout
   a transition. Two-lane shot acceptance is not literal Incitti ownership.
@@ -896,11 +901,12 @@ disassemblies as evidence for arcade behavior.
   Flipper does not reverse merely because the Blaster moves behind it and the
   opposite route becomes shorter. This does not establish a universal rule
   across later difficulty levels.
-- **FUTURE OPEN-RIM NOTE** — Physical endpoints on future open/unconnected
-  tubes can legitimately require reversal. Neal recalls Level 8 as the first
-  open normal-progression board and V-shaped. That is an arcade recollection;
-  Level 8 and open-tube support remain deferred. Do not extend the closed-rim
-  pursuit latch to every later level.
+- **OPEN-RIM NOTE** — Physical endpoints on open/unconnected tubes can
+  legitimately require reversal. Neal's earlier recollection of Level 8 as
+  open and V-shaped is not the geometry evidence; the later candidate uses
+  local Rev 2 ROM data; Neal later manually accepted the Level 8 endpoint
+  behavior as documented in its production section. Do not extend the
+  closed-rim pursuit latch to unspecified later levels.
 - **REFERENCE VERIFIED** — Incitti's Fuseball has separate lateral movement
   and vertical excursions; its direction can change on a probabilistic
   lateral update. Tankers climb and release cargo but do not chase on the rim.
@@ -2055,3 +2061,117 @@ visible Level 5 behavior, not a broader claim of arcade fidelity.
 Level 6 remains unchanged and is a separate future evaluation. The broader
 observation that C# levels can take substantially longer to clear than the
 arcade remains unresolved and is not explained by this correction.
+
+## Production Level 8 ROM-derived behavior — manually accepted (2026-11-08)
+
+**REV-2-BINARY-CONFIRMED / RAW-ROM-DATA:** Displayed Level 8 is internal level
+index 7 and selects shape row 7, with `lev_open[7]=$FF`. The ordered shape has
+16 vertices and 15 playable lanes, indexed 0-14, with no vertex-15-to-vertex-0
+edge. Raw X bytes are
+`10 1E 2C 3A 48 56 64 70 90 9E AC BA C8 D6 E4 F0`; raw Y bytes are
+`F0 D0 B0 90 70 50 30 10 10 30 50 70 90 B0 D0 F0`. The angle sectors are
+`0D 0D 0D 0D 0D 0D 0D 00 03 03 03 03 03 03 03 00`.
+
+**ROM-LISTING-BACKED / REV-2-BINARY-CONFIRMED:** Presentation values include
+scale `$18`, Y3D `$B0`, Y2D `$0060`, Flipper scale `$0240`, tube-color index
+`$05`, and Level 1-16 color block `00 04 08 0C C3 07 0B 0B`. These do not
+specify C# pixels or RGB values.
+
+**PROJECT TRANSLATION / SCREENSHOT-SUPPORTED ORIENTATION:** C# subtracts `$80`
+from each raw coordinate and scales by `25/14`, then reflects centered Y
+(`yScreen = -yCentered`) for the screen-down projection. This single Y
+reflection preserves all 16 vertices, their order, relative distances and
+angles, and the 15-lane open topology. Neal's
+`UserData/Screenshots/Level8-orientation.png` shows the endpoints upper-left
+and upper-right with the short connecting segment at the bottom. The existing
+unreflected mapping put the endpoints below that segment. A Y reflection
+corrects only that vertical inversion; X reflection leaves the inversion
+unchanged, while 180-degree rotation also swaps the source left/right endpoint
+identities and is not required by the evidence. Axis swaps and quarter-turns
+put an endpoint on a side rather than placing both endpoints across the top.
+`CenterY=300`, `YOffset=0`, blue tube color, initial Blaster lane 7, and
+starting Spike height approximately 71.428571 remain project choices. The
+Spike value translates ROM `$C8` with `(0xF0 - rawAlong) * 400 /
+(0xF0 - 0x10)`. Fifteen starting Spikes occupy lanes 0-14; erosion remains
+the existing C# position/height approximation.
+
+**ROM-LISTING-BACKED / PROJECT CORRECTION:** Active ExitZoom now advances
+normal player firing and shots, resolves shot-versus-Spike erosion, and checks
+the exiting Blaster against the remaining Spike in its current lane. Existing
+shot capacity, cooldown, sound, and deterministic input recording remain in
+use; enemy-wave simulation remains frozen. These active hazards are independent
+of the `AvoidSpikes` presentation policy: Level 8 stays on Standard exit and
+does not show the earlier AVOID SPIKES interstitial. Spike collision during
+exit uses the existing C# depth-height mapping and starts the normal reverse
+zoom/life reconstruction path. If the cleared Level 8 wave remains complete
+after a life loss, it retries through Standard exit delay rather than
+substituting the Avoid Spikes interstitial.
+
+**PROJECT CONTROL MAPPING / MANUALLY ACCEPTED:** The user-facing
+rotational invariant is spinner direction, not screen-left/right. Positive
+mouse delta represents physical clockwise rotation; negative delta is
+counter-clockwise. Levels 1-7 have clockwise increasing lane order. Level 8's
+screenshot-supported Y reflection reverses the signed winding while preserving
+ROM vertex and lane identities, so increasing lane indices there follow the
+rim counter-clockwise. The movement system derives the clockwise lane-index
+step from the tube outline and applies it to spinner delta only. Thus Level 8
+clockwise moves toward decreasing lane indices (visually left), and
+counter-clockwise toward increasing indices (visually right). Open endpoints
+still clamp; no lane wraps across the gap. Keyboard and controller inputs keep
+their established screen-direction mapping, and enemy/cargo lane semantics
+are unchanged. Levels 1-7 retain their existing spinner mapping.
+
+The generic topology model exposes 15 Level 8 lanes, clamps Blaster motion at
+both endpoints, prevents enemy/cargo gap wrapping, and omits the false closing
+rim edge. The renderer retains 16 depth rails and draws 15 near- and far-rim
+edges. Closed Levels 1-7 retain wraparound behavior.
+
+**REV-2-BINARY-CONFIRMED:** Medium/default supply is 24; the ordinary active
+gate is six; Flippers are 0/5, Tankers 1/2, Spikers 2/4, Pulsars 0/0, and
+Fuzzballs 0/0. Ordinary bottom selection is limited to Tankers and Spikers;
+Tankers carry two Flippers without adding generic supply. Active/released
+Flippers and two latent Flipper slots per active Tanker reserve capacity
+against the Flipper maximum before another Tanker is selectable. The
+deterministic post-minimum selector is a **PROJECT TRANSLATION**, not the exact
+ROM Spike-height/random-start policy.
+
+ROM-equivalent Tanker along positions below `$20` use straight Flipper entry
+`$07`; positions at or above `$20`, including equality, use Level 8 program
+`$19`. Natural Tanker release below `$20` uses `$07`; deep player-shot
+destruction uses `$19`. The `$19` route repeats one along interval and a
+directed flip, without Level 7's 2/3 reversal program or a Spike test.
+Movement speed, firing cadence, direction-bit mapping, and Spike erosion are
+not claimed as literal ROM timing.
+
+Death reconstructs generic unresolved supply: species/program choices clear,
+latent cargo is lost with its Tanker, released unresolved cargo re-enters as
+generic units, and resolved outcomes remain resolved. Level 7 naturally
+progresses to Level 8 through the existing approach with score/lives carried
+and fresh Super Zapper charges. Generic `--level 8` and recording v2 startup
+use the production configuration. Level 8 is terminal; no Level 9 is loaded,
+and existing restart returns to fresh Level 1.
+
+**EXISTING PROJECT BEHAVIOR:** Recording v2, visible/headless playback,
+pause/forward/reverse navigation, screenshot capture, and interactive
+`--speed` use the generic startup-level representation; `--speed` is not
+serialized.
+
+**MANUALLY ARCADE-FIDELITY ACCEPTED:** Neal's final Level 8 play test accepts
+the ROM-derived tube shape, corrected screen orientation, open topology and
+endpoint presentation, clockwise/counter-clockwise spinner behavior, endpoint
+clamping/reversal, and absence of wrap across the gap. Level 8 gameplay also
+passes, including the accepted supply/species/cargo behavior, the shallow
+`$07` versus deep `$19` Tanker-cargo route, the repeating
+one-along-interval/one-flip `$19` result, and starting-Spike presentation.
+Active-exit firing and shot movement, shot-versus-Spike interaction, exit
+Spike hazards, and corrected retry behavior pass; no blocking Level 8 gameplay
+issue remains and no further tuning is currently required. These observations
+accept the resulting project behavior, not literal C# coordinate/color/control
+translations as Atari hardware constants.
+
+Neal also manually verified an existing Levels 1-7 recording, playback
+pause/resume, forward/reverse stepping, and `--speed`, with no observed
+regression. Automated tests cover natural Level 7-to-8 progression; no separate
+manual result for that exact transition is asserted here. ROM-derived behavior
+and project translations above retain their evidence classifications. Level 8
+is the terminal production level; Level 9 is not part of this milestone.

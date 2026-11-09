@@ -38,7 +38,6 @@ public sealed class Fuseball : Enemy
     public void Update(Level level, int playerEdge, Func<int, int, int> randomInclusive,
         bool hurryUp = false)
     {
-        int edgeCount = level.Continuous ? level.Definition.Points.Count : level.Definition.Points.Count - 1;
         StateTicks++;
         switch (State)
         {
@@ -50,32 +49,36 @@ public sealed class Fuseball : Enemy
                 {
                     int distance = playerEdge - EdgeIndex;
                     Direction = distance == 0 ? 2 * randomInclusive(0, 1) - 1 : Math.Sign(distance);
-                    if (level.Continuous && Math.Abs(distance) > edgeCount / 2)
+                    if (level.Continuous && Math.Abs(distance) > level.PlayableLaneCount / 2)
                         Direction = -Direction;
                 }
                 StateTicks = 0;
                 W += Direction;
                 if (Direction == 1 && W >= 8)
                 {
-                    W = 0;
-                    if (EdgeIndex == edgeCount - 1 && !level.Continuous)
+                    if (level.TryGetAdjacentLane(EdgeIndex, 1, out int nextLane))
+                    {
+                        W = 0;
+                        EdgeIndex = nextLane;
+                    }
+                    else
                     {
                         W = 8;
                         Direction = -Direction;
                     }
-                    else
-                        EdgeIndex = level.NextEdge(EdgeIndex);
                 }
                 else if (Direction == -1 && W <= 0)
                 {
-                    W = 8;
-                    if (EdgeIndex == 0 && !level.Continuous)
+                    if (level.TryGetAdjacentLane(EdgeIndex, -1, out int previousLane))
+                    {
+                        W = 8;
+                        EdgeIndex = previousLane;
+                    }
+                    else
                     {
                         W = 0;
                         Direction = -Direction;
                     }
-                    else
-                        EdgeIndex = level.PreviousEdge(EdgeIndex);
                 }
                 if (W is 0 or 8)
                 {

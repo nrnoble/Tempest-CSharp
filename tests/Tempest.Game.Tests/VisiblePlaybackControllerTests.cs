@@ -30,6 +30,26 @@ public sealed class VisiblePlaybackControllerTests
 	}
 
 	[Fact]
+	public void LevelEightPlaybackRetainsItsProductionStartupAcrossPauseAndForwardStepping()
+	{
+		GameplayStartupConfiguration startup = new(8, 10, 0.75, 1981);
+		VisiblePlaybackController controller = CreateController(startup, 3,
+			new PlayerInputFrame(0, default),
+			new PlayerInputFrame(1, new PlayerInput(false, 0, true, false)),
+			new PlayerInputFrame(2, default));
+
+		Assert.Same(LevelConfiguration.Level8Production, controller.Session.Game.CurrentLevel.Configuration);
+		Assert.Equal(1, controller.ProcessControls(default));
+		Assert.Equal(0, controller.ProcessControls(new PlaybackControlInput(true, false, false)));
+		Assert.True(controller.IsPaused);
+		Assert.Equal(1, controller.ProcessControls(new PlaybackControlInput(false, true, false)));
+		Assert.Equal(2, controller.Session.CurrentBoundary);
+		Assert.Same(LevelConfiguration.Level8Production, controller.Session.Game.CurrentLevel.Configuration);
+		Assert.Equal(0, controller.ProcessControls(new PlaybackControlInput(true, false, false)));
+		Assert.False(controller.IsPaused);
+	}
+
+	[Fact]
 	public void PausePressDoesNotRunAStepAndHeldSpaceDoesNotRetoggle()
 	{
 		RecordingAudioEvents audio = new();

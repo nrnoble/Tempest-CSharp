@@ -18,7 +18,12 @@ internal enum ProgrammedFlipperRouteStep
     Start,
     Turning,
     CompletionBoundary,
-    RimHandoff
+    RimHandoff,
+    Level8Along,
+    Level8Start,
+    Level8Turning,
+    Level8Straight,
+    Level8StraightTurning
 }
 
 /// <summary>
@@ -38,6 +43,8 @@ public sealed class Flipper : Enemy
     private int programmedFlipsRemaining;
     private ProgrammedFlipperRouteStep programmedRouteStep;
     private bool useLevel5SpikeSensitiveProgram;
+    private bool useLevel8ConstantFlipProgram;
+    private bool useLevel8StraightCargoProgram;
 
     public Flipper(int edge = 0, float height = 0)
     {
@@ -71,6 +78,7 @@ public sealed class Flipper : Enemy
     public bool IsTankerCargo => CargoUnitId >= 0;
     internal int ProgrammedFlipsRemaining => programmedFlipsRemaining;
     internal ProgrammedFlipperRouteStep ProgrammedRouteStep => programmedRouteStep;
+    internal bool UsesLevel8ConstantFlipProgram => useLevel8ConstantFlipProgram;
 
     public void Update(Level level, int playerEdge, Func<int, int, int>? randomInclusive = null)
     {
@@ -84,7 +92,10 @@ public sealed class Flipper : Enemy
         if (programmedRouteStep is not
             (ProgrammedFlipperRouteStep.Disabled or ProgrammedFlipperRouteStep.RimHandoff))
         {
-            UpdateProgrammedRoute(level, playerEdge, tuning);
+            if (useLevel8ConstantFlipProgram || useLevel8StraightCargoProgram)
+                UpdateLevel8ConstantFlipRoute(level, playerEdge, tuning);
+            else
+                UpdateProgrammedRoute(level, playerEdge, tuning);
             return;
         }
 
@@ -143,7 +154,9 @@ public sealed class Flipper : Enemy
     public static Flipper CreateTankerCargo(
         Level level, TankerCargoSpawn cargo, int cargoUnitId,
         bool useLevel7ProgrammedRoute = false,
-        bool useLevel5SpikeSensitiveProgram = false)
+        bool useLevel5SpikeSensitiveProgram = false,
+        bool useLevel8ConstantFlipProgram = false,
+        bool useLevel8StraightCargoProgram = false)
     {
         Flipper flipper = new(cargo.SourceLane, cargo.Height)
         {
@@ -152,13 +165,17 @@ public sealed class Flipper : Enemy
             Direction = cargo.Direction,
             State = FlipperState.Flipping,
             CargoUnitId = cargoUnitId,
-            useLevel5SpikeSensitiveProgram = useLevel5SpikeSensitiveProgram
+            useLevel5SpikeSensitiveProgram = useLevel5SpikeSensitiveProgram,
+            useLevel8ConstantFlipProgram = useLevel8ConstantFlipProgram,
+            useLevel8StraightCargoProgram = useLevel8StraightCargoProgram
         };
         DirectedLaneTransition transition = level.CalculateDirectedLaneTransition(
             cargo.SourceLane, cargo.DestinationLane, cargo.Direction);
         flipper.ActiveTransition = transition;
         flipper.TotalTurnAngle = transition.SweepMagnitudeDegrees;
-        if (useLevel7ProgrammedRoute)
+        if (useLevel8ConstantFlipProgram || useLevel8StraightCargoProgram)
+            flipper.InitializeLevel8CargoRoute(cargo.Direction, useLevel8ConstantFlipProgram);
+        else if (useLevel7ProgrammedRoute)
             flipper.InitializeProgrammedCargoRoute(cargo.Direction);
         return flipper;
     }
@@ -290,6 +307,95 @@ public sealed class Flipper : Enemy
         programmedRouteStep = ProgrammedFlipperRouteStep.Turning;
     }
 
+    private void InitializeLevel8CargoRoute(int initialDirection, bool constantFlipProgram)
+    {
+        if (initialDirection is not (-1 or 1))
+            throw new ArgumentOutOfRangeException(nameof(initialDirection));
+        Direction = initialDirection;
+        programmedRouteStep = constantFlipProgram
+            ? ProgrammedFlipperRouteStep.Level8Turning
+            : ProgrammedFlipperRouteStep.Level8StraightTurning;
+    }
+
+    private void UpdateLevel8ConstantFlipRoute(
+        Level level, int playerEdge, FlipperConfiguration tuning)
+    {
+        switch (programmedRouteStep)
+        {
+            case ProgrammedFlipperRouteStep.Level8Straight:
+                AdvanceLevel8Straight(level, playerEdge, tuning);
+                break;
+
+            case ProgrammedFlipperRouteStep.Level8StraightTurning:
+                ContinueLevel8CargoPivot(level, playerEdge, tuning,
+                    ProgrammedFlipperRouteStep.Level8Straight);
+                break;
+
+            case ProgrammedFlipperRouteStep.Level8Along:
+                AdvanceLevel8Straight(level, playerEdge, tuning);
+                if (Height < Level.Depth)
+                    programmedRouteStep = ProgrammedFlipperRouteStep.Level8Start;
+                break;
+
+            case ProgrammedFlipperRouteStep.Level8Start:
+                if (Height >= Level.Depth)
+                    HandOffToRim(tuning);
+                else
+                {
+                    BeginProgrammedPivot(level);
+                    programmedRouteStep = ProgrammedFlipperRouteStep.Level8Turning;
+                }
+                break;
+
+            case ProgrammedFlipperRouteStep.Level8Turning:
+                ContinueLevel8CargoPivot(level, playerEdge, tuning,
+                    ProgrammedFlipperRouteStep.Level8Along);
+                break;
+
+            default:
+                throw new InvalidOperationException(
+                    $"Unsupported Level 8 Flipper route step {programmedRouteStep}.");
+        }
+    }
+
+    private void AdvanceLevel8Straight(
+        Level level, int playerEdge, FlipperConfiguration tuning)
+    {
+        bool startedBelowRim = Height < Level.Depth;
+        Height = MathF.Min(Level.Depth, Height + tuning.ClimbSpeed);
+        if (startedBelowRim && Height >= Level.Depth && EdgeIndex == playerEdge)
+            CompletedIntoPlayer = true;
+        if (Height >= Level.Depth)
+            HandOffToRim(tuning);
+    }
+
+    private void ContinueLevel8CargoPivot(
+        Level level, int playerEdge, FlipperConfiguration tuning,
+        ProgrammedFlipperRouteStep nextStep)
+    {
+        DirectedLaneTransition transition = ActiveTransition ??
+            throw new InvalidOperationException("A Level 8 Flipper turn requires an active transition.");
+        AdvanceTurnAngle(level, tuning);
+        Height = MathF.Min(Level.Depth, Height + tuning.ClimbSpeed);
+        if (TurnAngle < TotalTurnAngle)
+            return;
+
+        EdgeIndex = transition.DestinationLane;
+        SourceEdge = EdgeIndex;
+        DestinationEdge = EdgeIndex;
+        ActiveTransition = null;
+        TurnAngle = 0;
+        TotalTurnAngle = 0;
+        PauseTicks = 0;
+        State = FlipperState.Climbing;
+        if (Height >= Level.Depth && EdgeIndex == playerEdge)
+            CompletedIntoPlayer = true;
+        if (Height >= Level.Depth)
+            HandOffToRim(tuning);
+        else
+            programmedRouteStep = nextStep;
+    }
+
     private void UpdateProgrammedRoute(
         Level level, int playerEdge, FlipperConfiguration tuning)
     {
@@ -336,9 +442,9 @@ public sealed class Flipper : Enemy
     private void BeginProgrammedPivot(Level level)
     {
         SourceEdge = EdgeIndex;
-        DestinationEdge = Direction > 0
-            ? level.PreviousEdge(EdgeIndex)
-            : level.NextEdge(EdgeIndex);
+        int direction = Direction;
+        DestinationEdge = GetDirectedNeighborLane(level, EdgeIndex, ref direction);
+        Direction = direction;
         ActiveTransition = level.CalculateDirectedLaneTransition(
             SourceEdge, DestinationEdge, Direction);
         TotalTurnAngle = ActiveTransition.Value.SweepMagnitudeDegrees;
@@ -441,15 +547,28 @@ public sealed class Flipper : Enemy
                 $"A Flipper must have direction -1 or 1 before beginning a pivot; got {Direction}.");
 
         SourceEdge = EdgeIndex;
-        DestinationEdge = Direction > 0
-            ? level.PreviousEdge(EdgeIndex)
-            : level.NextEdge(EdgeIndex);
+        int direction = Direction;
+        DestinationEdge = GetDirectedNeighborLane(level, EdgeIndex, ref direction);
+        Direction = direction;
         DirectedLaneTransition transition = level.CalculateDirectedLaneTransition(
             SourceEdge, DestinationEdge, Direction);
         ActiveTransition = transition;
         TotalTurnAngle = transition.SweepMagnitudeDegrees;
         TurnAngle = 0;
         State = FlipperState.Flipping;
+    }
+
+    private static int GetDirectedNeighborLane(Level level, int sourceLane, ref int direction)
+    {
+        int laneIndexDelta = direction > 0 ? -1 : 1;
+        if (level.TryGetAdjacentLane(sourceLane, laneIndexDelta, out int destination))
+            return destination;
+
+        direction = -direction;
+        laneIndexDelta = -laneIndexDelta;
+        if (!level.TryGetAdjacentLane(sourceLane, laneIndexDelta, out destination))
+            throw new InvalidOperationException("A Flipper has no adjacent playable lane.");
+        return destination;
     }
 
     private void CompletePivot(int playerEdge, int pauseTicks)

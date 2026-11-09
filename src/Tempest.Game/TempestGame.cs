@@ -30,7 +30,6 @@ public sealed class TempestGame
     private const float SpinnerSensitivity = 0.0125f;
     private const int MaximumShots = 10;
     private const int PlayerShotCooldownTicks = 3;
-    private const int SpikeExitShotCooldownTicks = 4;
     // $30 maps to Height 342.86 when arcade $F0/$10 map to project entry/rim 0/400; 343 is the
     // nearest integer C# cutoff, not an exact conversion of the ROM's along coordinate.
     private const int MaximumFlipperFiringHeight = 343;
@@ -145,8 +144,9 @@ public sealed class TempestGame
         CurrentLevel.Configuration.ExitPolicy == LevelExitPolicy.AvoidSpikes &&
         (State is LevelState.AvoidSpikes or LevelState.ExitDelay) &&
         DeathTicks == 0;
-    public bool SpikeExitShotsVisible => SpikeExitEnabled &&
-        State is LevelState.AvoidSpikes or LevelState.ExitDelay or LevelState.ExitZoom or LevelState.ReverseZoom;
+    public bool ExitShotsVisible =>
+        State is LevelState.ExitZoom or LevelState.ReverseZoom ||
+        (SpikeExitEnabled && (State is LevelState.AvoidSpikes or LevelState.ExitDelay));
     public bool EnemyBulletsTest => enemyBulletsTest;
     public bool TankerTest => tankerTest;
     public int TankerOriginalSlotsRemaining => unresolvedOriginalSlots.Count;
@@ -335,13 +335,13 @@ public sealed class TempestGame
         else if (State == LevelState.ReverseZoom)
         {
             UpdateReverseZoom();
-            if (SpikeExitEnabled)
-                // Incitti keeps shots moving through reverse zoom; enemy simulation stays frozen.
-                UpdatePlayerShots(spikesOnly: true);
+            // Active-exit projectiles keep resolving against Spikes during reverse zoom;
+            // ordinary enemy simulation remains frozen.
+            UpdatePlayerShots(spikesOnly: true);
         }
-        else if (SpikeExitControlsEnabled)
+        else if (SpikeExitControlsEnabled || State == LevelState.ExitZoom)
         {
-            UpdateSpikeExit(input);
+            UpdateExitSimulation(input);
         }
         else if (State == LevelState.ExitDelay)
         {
@@ -351,13 +351,6 @@ public sealed class TempestGame
                 CurrentLevel.State = LevelState.ExitZoom;
                 audioEvents.Play(AudioEvent.ZoomOut);
             }
-        }
-        else if (State == LevelState.ExitZoom)
-        {
-            UpdateExitZoom();
-            // As in Spike travel, do not apply outgoing-tube input after the approach handoff.
-            if (State == LevelState.ExitZoom)
-                UpdatePlayerMovement(input);
         }
         else if (State == LevelState.PlayerDying)
         {
@@ -542,7 +535,7 @@ public sealed class TempestGame
             if (CurrentLevel.Configuration.UsesLevel7RomWavePolicy)
                 level7DeepCargoDirections.Clear();
             CurrentLevel.ResetAfterDeath(
-                CurrentLevel.Configuration.UsesLevel7RomWavePolicy);
+                CurrentLevel.Configuration.UsesGenericRomDeathReconstruction);
             CurrentLevel.State = LevelState.Playing;
             ValidateLevel3WaveRepresentation();
             return;
@@ -665,7 +658,10 @@ public sealed class TempestGame
 
     private void UpdatePlayerMovement(PlayerInput input)
     {
-        float movement = input.MouseDeltaX * SpinnerSensitivity;
+        // Spinner delta is rotational; keys and the controller remain screen-direction controls.
+        float spinnerMovement =
+            input.MouseDeltaX * SpinnerSensitivity * CurrentLevel.ClockwiseLaneIndexDelta;
+        float movement = spinnerMovement;
         if (input.Left)
             movement -= PlayerSpeed;
         if (input.Right)
@@ -870,6 +866,18 @@ public sealed class TempestGame
                     return null;
                 selectedType = level7SelectedType.Value;
             }
+            else if (CurrentLevel.Configuration.UsesLevel8RomWavePolicy)
+            {
+                Level3OriginalType? level8SelectedType = Level8WaveSelection.SelectOriginalType(
+                    NextRandomInclusive,
+                    tankers.Count,
+                    spikers.Count,
+                    CountProductionActiveEnemyUnits(),
+                    CountLevel8FlipperTypeUnits());
+                if (level8SelectedType is null)
+                    return null;
+                selectedType = level8SelectedType.Value;
+            }
             else
             {
                 selectedType = CurrentLevel.Configuration.NormalEnemyComposition ==
@@ -878,7 +886,8 @@ public sealed class TempestGame
                     : SelectLevel3OriginalType();
             }
             if (selectedType == Level3OriginalType.Tanker &&
-                !CurrentLevel.Configuration.UsesLevel7RomWavePolicy)
+                !CurrentLevel.Configuration.UsesLevel7RomWavePolicy &&
+                !CurrentLevel.Configuration.UsesLevel8RomWavePolicy)
                 Level3WaveSelection.SelectTwoFlipperCargo(NextRandomInclusive);
         }
 
@@ -897,7 +906,8 @@ public sealed class TempestGame
 
         if (selectedType == Level3OriginalType.Tanker)
         {
-            int maximumTankers = CurrentLevel.Configuration.UsesLevel7RomWavePolicy ? 2 : 6;
+            int maximumTankers = CurrentLevel.Configuration.UsesLevel7RomWavePolicy ||
+                CurrentLevel.Configuration.UsesLevel8RomWavePolicy ? 2 : 6;
             if (tankers.Count >= maximumTankers)
                 return null;
 
@@ -939,6 +949,12 @@ public sealed class TempestGame
 
     private int CountProductionActiveEnemyUnits() =>
         flippers.Count + tankers.Count + spikers.Count + shotReleasedCargoPendingActivation.Count;
+
+    // The ROM reserves two latent Flipper slots for every active Tanker.
+    private int CountLevel8FlipperTypeUnits() =>
+        flippers.Count +
+        shotReleasedCargoPendingActivation.Count +
+        tankers.Sum(tanker => tanker.LatentCargoCount);
 
     private Enemy CreateTankerWaveEnemy(Egg egg)
     {
@@ -1127,7 +1143,7 @@ public sealed class TempestGame
 
             spikers.RemoveAt(index--);
             developmentCollisionOrder.Remove(spiker);
-            if (CurrentLevel.Configuration.UsesLevel7RomWavePolicy &&
+            if (CurrentLevel.Configuration.UsesGenericRomDeathReconstruction &&
                 CurrentLevel.PendingGenericEnemyUnits == 0)
             {
                 // ROM `$a009-$a024` turns the same final-pending Spiker slot into a
@@ -1307,6 +1323,12 @@ public sealed class TempestGame
             CurrentLevel.Configuration, releaseKind);
         bool useLevel5SpikeSensitiveProgram = tanker.UsesLevel5SpikeSensitiveCargo(
             CurrentLevel.Configuration, releaseKind);
+        bool useLevel8ConstantFlipProgram = tanker.UsesLevel8ProgrammedCargo(
+            CurrentLevel.Configuration, releaseKind);
+        bool useLevel8StraightCargoProgram =
+            CurrentLevel.Configuration.BelowRimFlipperProgram ==
+                BelowRimFlipperProgram.Level8ConstantFlip &&
+            !useLevel8ConstantFlipProgram;
 
         if (CurrentLevel.UsesProductionLedger)
         {
@@ -1342,7 +1364,8 @@ public sealed class TempestGame
                     level7DeepCargoDirections.Add(cargoId, result.Cargo[index].Direction);
                 Flipper child = Flipper.CreateTankerCargo(
                     CurrentLevel, result.Cargo[index], cargoId,
-                    useLevel7ProgrammedRoute, useLevel5SpikeSensitiveProgram);
+                    useLevel7ProgrammedRoute, useLevel5SpikeSensitiveProgram,
+                    useLevel8ConstantFlipProgram, useLevel8StraightCargoProgram);
 
                 if (releaseKind == TankerReleaseKind.SuperZapperDestruction)
                     child.TryZap(8);
@@ -1932,7 +1955,7 @@ public sealed class TempestGame
         RestoreProjection();
     }
 
-    private void UpdateSpikeExit(PlayerInput input)
+    private void UpdateExitSimulation(PlayerInput input)
     {
         bool firingEnabled = State == LevelState.ExitZoom ||
             CurrentLevel.Configuration.ExitPolicy != LevelExitPolicy.AvoidSpikes;
@@ -1946,7 +1969,7 @@ public sealed class TempestGame
                 return;
         }
 
-        // Avoidance/delay can still carry shots; during travel contact is resolved before shots.
+        // ROM-backed active exits retain firing; resolve Blaster contact before moving shots.
         UpdatePlayerShots(spikesOnly: true);
         if (!exitTravel)
             CheckSpikesAgainstPlayer();
@@ -1961,8 +1984,7 @@ public sealed class TempestGame
             return;
         }
 
-        UpdatePlayer(input, firingEnabled,
-            exitTravel ? SpikeExitShotCooldownTicks : PlayerShotCooldownTicks);
+        UpdatePlayer(input, firingEnabled, PlayerShotCooldownTicks);
         if (State == LevelState.AvoidSpikes)
         {
             RestoreProjection();
@@ -1983,8 +2005,8 @@ public sealed class TempestGame
 
     private void CheckSpikesAgainstPlayer(float? previousPlayerDepth = null)
     {
-        // The configured spike-avoid exit and the Spiker diagnostic use the same persistent hazard.
-        if (!SpikeExitEnabled ||
+        // Active exit and Spiker diagnostic contact use the same persistent Spike hazard.
+        if ((!SpikeExitEnabled && State != LevelState.ExitZoom) ||
             DeathTicks > 0 ||
             State is not (LevelState.Playing or LevelState.AvoidSpikes or LevelState.ExitDelay or LevelState.ExitZoom))
             return;
@@ -2037,7 +2059,7 @@ public sealed class TempestGame
         {
             exitDelayTicks = 0;
             RestoreProjection();
-            if (CurrentLevel.IsComplete(0))
+            if (CurrentLevel.IsComplete(0) && SpikeExitEnabled)
                 CurrentLevel.State = LevelState.AvoidSpikes;
             else
                 ResetAfterDeath();

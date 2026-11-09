@@ -141,7 +141,7 @@ public sealed class InputDiagnosticTests
             ["--record-gameplay", "session.json", "--level"],
             ["--record-gameplay", "session.json", "--lives", "0"],
             ["--record-gameplay", "session.json", "--rim-speed", "NaN"],
-            ["--record-gameplay", "session.json", "--level", "8"],
+            ["--record-gameplay", "session.json", "--level", "9"],
             ["--record-gameplay", "session.json", "unexpected"],
             ["--record-gameplay", "session.json", "--unknown-option", "1"],
             ["--lives", "10", "--record-gameplay", "session.json"]

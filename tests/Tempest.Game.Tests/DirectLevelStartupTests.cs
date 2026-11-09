@@ -30,6 +30,7 @@ public sealed class DirectLevelStartupTests
     [InlineData(5)]
     [InlineData(6)]
     [InlineData(7)]
+    [InlineData(8)]
     public void DirectLevelStartsTheFreshProductionConfiguration(int displayedLevel)
     {
         TempestGame game = new(startingProductionLevel: displayedLevel, startingLives: 9);
@@ -65,9 +66,13 @@ public sealed class DirectLevelStartupTests
     }
 
     [Fact]
-    public void DirectLevelSevenRetainsTheTerminalCampaignRestartAtLevelOne()
+    public void DirectLevelSevenCanContinueAndLevelEightRetainsTheTerminalRestart()
     {
-        TempestGame game = new(startingProductionLevel: 7, startingLives: 5);
+        TempestGame levelSeven = new(startingProductionLevel: 7, startingLives: 5);
+        Assert.Same(LevelConfiguration.Level8Production,
+            LevelProgression.GetNextProductionLevel(levelSeven.CurrentLevel.Configuration));
+
+        TempestGame game = new(startingProductionLevel: 8, startingLives: 5);
         game.Score.Add(88);
         game.CurrentLevel.State = LevelState.Complete;
 

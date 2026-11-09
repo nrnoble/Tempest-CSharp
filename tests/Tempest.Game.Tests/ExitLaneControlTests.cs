@@ -95,12 +95,14 @@ public sealed class ExitLaneControlTests
             Assert.Equal(expectedK, Projection.K);
             Assert.Same(outgoing, game.CurrentLevel);
             Assert.Equal(LevelState.ExitZoom, game.State);
-            Assert.Empty(game.Shots);
+            Assert.InRange(game.Shots.Count, 0, 10);
+            Assert.True(game.ExitShotsVisible);
             Assert.Equal(2, game.SuperZapperChargesRemaining);
             Assert.Equal(125, game.Score.Score);
             Assert.Equal(5, game.Player.Lives);
         }
         Assert.InRange(game.Player.Depth, 10.99f, 11.01f);
+        Assert.NotEmpty(game.Shots);
         Assert.Contains(AudioEvent.PlayerMove, audio.Events);
 
         game.RunOneStep(heldActions);

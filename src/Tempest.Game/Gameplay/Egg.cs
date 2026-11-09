@@ -28,7 +28,7 @@ public sealed class Egg
     public int CargoUnitId { get; }
     public float Height { get; private set; } = -10;
     public int UpdateCounter { get; private set; }
-    public int MovementDirection { get; }
+    public int MovementDirection { get; private set; }
     public int VerticalDirection { get; private set; } = 1;
     public EggState State { get; private set; } = EggState.Roaming;
 
@@ -57,9 +57,14 @@ public sealed class Egg
             if (Height >= -1 || Height <= -20)
                 VerticalDirection = -VerticalDirection;
 
-            EdgeIndex = MovementDirection > 0
-                ? level.NextEdge(EdgeIndex)
-                : level.PreviousEdge(EdgeIndex);
+            int laneIndexDelta = MovementDirection;
+            if (!level.TryGetAdjacentLane(EdgeIndex, laneIndexDelta, out int nextLane))
+            {
+                MovementDirection = -MovementDirection;
+                if (!level.TryGetAdjacentLane(EdgeIndex, MovementDirection, out nextLane))
+                    throw new InvalidOperationException("An Egg has no playable lane to enter.");
+            }
+            EdgeIndex = nextLane;
         }
         else
         {

@@ -222,7 +222,7 @@ public sealed class VectorRenderer
 			if (ShouldDrawEnemyBullets)
 				DrawEnemyBullets((start, end) => Raylib.DrawLineV(start, end, Color.White));
 		}
-		else if (game.SpikeExitShotsVisible)
+		else if (game.ExitShotsVisible)
 		{
 			DrawPlayerShots(game.CurrentLevel.Definition.Points);
 		}
@@ -749,9 +749,9 @@ public sealed class VectorRenderer
 			drawLine(nearRim[i], farRim[i], playerLaneBoundary ? playerLaneColor : railColor);
 		}
 
-		for (int i = 0; i < points.Count; i++)
+		for (int i = 0; i < game.CurrentLevel.PlayableLaneCount; i++)
 		{
-			int next = NextEdge(i, points.Count);
+			int next = game.CurrentLevel.NextEdge(i);
 			// Arcade observation: only the pulsing lane's near-rim connection disappears.
 			// Incitti also hides rims outside the pulse; retain normal geometry otherwise.
 			if (!IsPulsingLane(i))

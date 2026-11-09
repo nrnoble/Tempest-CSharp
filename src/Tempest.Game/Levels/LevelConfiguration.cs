@@ -24,7 +24,8 @@ public enum BelowRimFlipperProgram
     Existing,
     // ROM Level 5 $53, translated using the live C# Spike and Flipper heights.
     Level5SpikeSensitive,
-    Level7ArcadeObserved
+    Level7ArcadeObserved,
+    Level8ConstantFlip
 }
 
 // REFERENCE VERIFIED: Incitti lv=0/1 values; exact gameplay fidelity remains unverified.
@@ -71,6 +72,9 @@ public sealed record LevelConfiguration(
         5 => 68,
         6 => 65,
         7 => 62,
+        // The Level 8 ROM holdoff is not translated directly to C# ticks; retain the
+        // established C# cadence until an independently validated conversion exists.
+        8 => 62,
         _ => throw new InvalidOperationException(
             $"No arcade Flipper shot holdoff is defined for displayed Level {DisplayedLevel}.")
     };
@@ -81,6 +85,7 @@ public sealed record LevelConfiguration(
         5 => 4,
         6 => 3,
         7 => 3,
+        8 => 4,
         _ => throw new InvalidOperationException(
             $"No arcade enemy-shot capacity is defined for displayed Level {DisplayedLevel}.")
     };
@@ -90,6 +95,9 @@ public sealed record LevelConfiguration(
     public BelowRimFlipperProgram BelowRimFlipperProgram { get; init; } =
         global::Tempest.Game.Levels.BelowRimFlipperProgram.Existing;
     public bool UsesLevel7RomWavePolicy { get; init; }
+    public bool UsesLevel8RomWavePolicy { get; init; }
+    public bool UsesGenericRomDeathReconstruction =>
+        UsesLevel7RomWavePolicy || UsesLevel8RomWavePolicy;
     // The Level 5 ROM's zero Flipper minimum excludes ordinary bottom entries, not Tanker cargo.
     public bool AllowsOrdinaryFlipperSelection { get; init; } = true;
     // Imported ROM handedness is not mapped conclusively; +1 is a reversible C# project choice.
@@ -99,6 +107,7 @@ public sealed record LevelConfiguration(
     public int AvoidSpikesWaitThreshold { get; init; } = 150;
     // Conservative C# height cutoff; the ROM's along coordinate does not map exactly to this scale.
     public const float Level7DeepCargoMaximumHeight = 370;
+    public const float Level8StartingSpikeHeight = 40f * Level.Depth / 224f;
 
     public static LevelConfiguration Level1 { get; } = new(
         ProgressionIndex: 0,
@@ -299,5 +308,36 @@ public sealed record LevelConfiguration(
         ProgrammedFlipperInitialDirection = 1,
         StartingSpikeHeight = 60,
         AvoidSpikesWaitThreshold = 30
+    };
+
+    // Rev 2 shape row 7 is open; the resulting geometry, placement, color, player lane,
+    // and Spike presentation are manually accepted project translations.
+    public static LevelConfiguration Level8Production { get; } = new(
+        ProgressionIndex: 7,
+        DisplayedLevel: 8,
+        BoardIndex: 7,
+        PaletteIndex: 0,
+        Definition: LevelLoader.LoadLevel8OpenTube(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: 24,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(Enumerable.Range(0, 15).ToArray()),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.Standard,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersTankersAndSpikers)
+    {
+        Flipper = new(true, 2, 9, 0, 23),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        BelowRimFlipperProgram = BelowRimFlipperProgram.Level8ConstantFlip,
+        UsesLevel8RomWavePolicy = true,
+        AllowsOrdinaryFlipperSelection = false,
+        StartingSpikeHeight = Level8StartingSpikeHeight
     };
 }

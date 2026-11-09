@@ -145,6 +145,29 @@ public sealed class Tanker : Enemy
             Height <= LevelConfiguration.Level7DeepCargoMaximumHeight;
     }
 
+    public bool UsesLevel8ProgrammedCargo(
+        LevelConfiguration configuration, TankerReleaseKind releaseKind)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        return configuration.BelowRimFlipperProgram ==
+                BelowRimFlipperProgram.Level8ConstantFlip &&
+            releaseKind == TankerReleaseKind.PlayerShotDestruction &&
+            IsLevel8DeepCargoPosition(Height);
+    }
+
+    public static float HeightForRomAlongPosition(byte rawAlong) =>
+        (0xF0 - rawAlong) * Level.Depth / (float)(0xF0 - 0x10);
+
+    public static double RomAlongPositionForHeight(float height) =>
+        0xF0 - (double)height * (0xF0 - 0x10) / Level.Depth;
+
+    public static bool IsLevel8DeepCargoPosition(float height)
+    {
+        if (!float.IsFinite(height))
+            throw new ArgumentOutOfRangeException(nameof(height));
+        return RomAlongPositionForHeight(height) >= 0x20;
+    }
+
     public override bool TryZap(int delay) => AcceptZap(delay);
 
     public bool HitsPlayer(Player player) => false;
@@ -155,30 +178,92 @@ public sealed class Tanker : Enemy
     public TankerReleaseResult ReleaseFlipperCargo(
         Level level, int firstSideDirection, TankerReleaseKind kind)
     {
+        ArgumentNullException.ThrowIfNull(level);
         if (LatentCargoCount != CarriedFlipperCount || CargoReleased)
             return new TankerReleaseResult(kind, []);
 
         int side = firstSideDirection < 0 ? -1 : 1;
-        int firstLane = side > 0 ? level.PreviousEdge(EdgeIndex) : level.NextEdge(EdgeIndex);
-        int secondLane = side > 0 ? level.NextEdge(EdgeIndex) : level.PreviousEdge(EdgeIndex);
+        TankerCargoSpawn[] cargo;
+        if (level.Continuous)
+        {
+            int firstLane = side > 0 ? level.PreviousEdge(EdgeIndex) : level.NextEdge(EdgeIndex);
+            int secondLane = side > 0 ? level.NextEdge(EdgeIndex) : level.PreviousEdge(EdgeIndex);
+            int firstDirection = side;
+            int secondDirection = -side;
+            cargo =
+            [
+                new TankerCargoSpawn(firstLane,
+                    firstDirection > 0 ? level.PreviousEdge(firstLane) : level.NextEdge(firstLane),
+                    firstDirection, Height),
+                new TankerCargoSpawn(secondLane,
+                    secondDirection > 0 ? level.PreviousEdge(secondLane) : level.NextEdge(secondLane),
+                    secondDirection, Height)
+            ];
+        }
+        else
+        {
+            cargo = CreateOpenTubeCargoPair(level, side);
+        }
+
         LatentCargoCount = 0;
         CargoReleased = true;
         State = TankerState.CargoReleased;
-
-        int firstDirection = side;
-        int secondDirection = -side;
-        TankerCargoSpawn[] cargo =
-        [
-            // Lane routing away from the Tanker is independent of the inward spatial pivot.
-            new TankerCargoSpawn(firstLane,
-                firstDirection > 0 ? level.PreviousEdge(firstLane) : level.NextEdge(firstLane),
-                firstDirection, Height),
-            new TankerCargoSpawn(secondLane,
-                secondDirection > 0 ? level.PreviousEdge(secondLane) : level.NextEdge(secondLane),
-                secondDirection, Height)
-        ];
         return new TankerReleaseResult(kind, cargo);
     }
+
+    private TankerCargoSpawn[] CreateOpenTubeCargoPair(Level level, int side)
+    {
+        int firstDelta = side > 0 ? -1 : 1;
+        int secondDelta = -firstDelta;
+        int firstLane = level.TryGetAdjacentLane(EdgeIndex, firstDelta, out int adjacentFirst)
+            ? adjacentFirst
+            : EdgeIndex;
+        int secondLane = level.TryGetAdjacentLane(EdgeIndex, secondDelta, out int adjacentSecond)
+            ? adjacentSecond
+            : EdgeIndex;
+        int firstDirection = side;
+        int secondDirection = -side;
+
+        int firstDestination = MakeCargoDirectionPlayable(level, firstLane, ref firstDirection);
+        int secondDestination = MakeCargoDirectionPlayable(level, secondLane, ref secondDirection);
+        if (firstDirection == secondDirection)
+        {
+            int oppositeFirstDirection = -firstDirection;
+            if (TryGetCargoDestination(level, firstLane, oppositeFirstDirection, out int oppositeFirst))
+            {
+                firstDirection = oppositeFirstDirection;
+                firstDestination = oppositeFirst;
+            }
+            else
+            {
+                int oppositeSecondDirection = -secondDirection;
+                if (!TryGetCargoDestination(level, secondLane, oppositeSecondDirection,
+                        out secondDestination))
+                    throw new InvalidOperationException("Open-tube Tanker cargo has no valid inward route.");
+                secondDirection = oppositeSecondDirection;
+            }
+        }
+
+        return
+        [
+            new TankerCargoSpawn(firstLane, firstDestination, firstDirection, Height),
+            new TankerCargoSpawn(secondLane, secondDestination, secondDirection, Height)
+        ];
+    }
+
+    private static int MakeCargoDirectionPlayable(Level level, int lane, ref int direction)
+    {
+        if (TryGetCargoDestination(level, lane, direction, out int destination))
+            return destination;
+
+        direction = -direction;
+        if (!TryGetCargoDestination(level, lane, direction, out destination))
+            throw new InvalidOperationException("Open-tube Tanker cargo has no adjacent playable lane.");
+        return destination;
+    }
+
+    private static bool TryGetCargoDestination(Level level, int lane, int direction, out int destination) =>
+        level.TryGetAdjacentLane(lane, direction > 0 ? -1 : 1, out destination);
 
     public override void Update() { }
 }

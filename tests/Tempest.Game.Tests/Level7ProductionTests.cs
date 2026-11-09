@@ -317,7 +317,7 @@ public sealed class Level7ProductionTests
     }
 
     [Fact]
-    public void ProductionProgressionStopsAtTerminalLevel7AndEarlierLevelsKeepTheirRoute()
+    public void ProductionProgressionContinuesAfterLevel7AndEarlierLevelsKeepTheirRoute()
     {
         Assert.Same(LevelConfiguration.Level2Square,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level1));
@@ -331,7 +331,9 @@ public sealed class Level7ProductionTests
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level5Production));
         Assert.Same(LevelConfiguration.Level7Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level6Production));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level7Production));
+        Assert.Same(LevelConfiguration.Level8Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level7Production));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level8Production));
 
         foreach (LevelConfiguration configuration in new[]
                  {

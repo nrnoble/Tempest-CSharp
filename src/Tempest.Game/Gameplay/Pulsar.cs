@@ -224,26 +224,18 @@ public sealed class Pulsar : Enemy
 
     private void MoveToAdjacentEdge(Level level)
     {
-        int edgeCount = level.Continuous
-            ? level.Definition.Points.Count
-            : level.Definition.Points.Count - 1;
-        int lastEdge = edgeCount - 1;
-
-        // On an open tube, reverse before stepping beyond an endpoint; closed tubes wrap instead.
-        if (!level.Continuous && (EdgeIndex - Direction < 0 || EdgeIndex - Direction > lastEdge))
+        int laneIndexDelta = Direction > 0 ? -1 : 1;
+        if (!level.TryGetAdjacentLane(EdgeIndex, laneIndexDelta, out int nextLane))
         {
             Direction = -Direction;
             if (RimPursuitDirection.HasValue)
                 RimPursuitDirection = Direction;
+            laneIndexDelta = -laneIndexDelta;
+            if (!level.TryGetAdjacentLane(EdgeIndex, laneIndexDelta, out nextLane))
+                throw new InvalidOperationException("A Pulsar has no adjacent playable lane.");
         }
 
-        if (Direction == 1)
-            EdgeIndex = EdgeIndex == 0 ? lastEdge : EdgeIndex - 1;
-        else
-            EdgeIndex = EdgeIndex == lastEdge ? 0 : EdgeIndex + 1;
-
-        if (!level.Continuous)
-            EdgeIndex = Math.Clamp(EdgeIndex, 0, lastEdge);
+        EdgeIndex = nextLane;
     }
 
 }

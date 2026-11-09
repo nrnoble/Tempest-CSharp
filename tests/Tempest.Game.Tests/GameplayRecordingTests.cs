@@ -233,7 +233,7 @@ public sealed class GameplayRecordingTests
 
 	[Theory]
 	[InlineData(0)]
-	[InlineData(8)]
+	[InlineData(9)]
 	[InlineData(-1)]
 	public void VersionTwoRejectsUnsupportedStartingLevels(int level)
 	{
@@ -453,6 +453,26 @@ public sealed class GameplayRecordingTests
 			Assert.Equal(4, game.Player.Lives);
 			Assert.Equal(1.25, game.CurrentLevel.RimTurnSpeedMultiplier);
 			Assert.Equal(16, game.Spikes.Count);
+		});
+	}
+
+	[Fact]
+	public void DirectLevelEightIsAValidProductionRecordingStartup()
+	{
+		GameplayStartupConfiguration startup = new(8, 10, 0.75, 19);
+		PlayerInputRecorder recorder = new(startup);
+		WithTemporaryDirectory(directory =>
+		{
+			string path = Path.Combine(directory, "level8.json");
+			GameplayRecordingFile.SaveNew(path, recorder);
+			GameplayRecording file = GameplayRecordingFile.LoadRecording(path);
+			TempestGame game = new(file.StartupConfiguration);
+
+			Assert.Equal(startup, file.StartupConfiguration);
+			Assert.Same(LevelConfiguration.Level8Production, game.CurrentLevel.Configuration);
+			Assert.Equal(10, game.Player.Lives);
+			Assert.Equal(0.75, game.CurrentLevel.RimTurnSpeedMultiplier);
+			Assert.Equal(15, game.Spikes.Count);
 		});
 	}
 

@@ -69,17 +69,20 @@ Flipper-only normal composition. `LevelConfiguration.Level2Square` is the
 single production Level 2 object and also powers the direct development
 launch. `Level` remains the mutable per-wave runtime.
 
-Normal play progresses through production Levels 1-7 only after each
+Normal play progresses through production Levels 1-8 only after each
 successful standard or Avoid Spikes exit completes its travel. Wave clear and
 exit delay do not commit progression; score and current lives carry unchanged.
 Fresh-level initialization installs the incoming production wave, restores two
 Super Zapper charges, clears its flash, and starts the interactive approach.
-Level 7 is terminal by **PROJECT DECISION**: pressing R there starts a fresh
+Level 8 is terminal by **PROJECT DECISION**: pressing R there starts a fresh
 Level 1 campaign with reset score and configured starting lives. Game Over in
-a normal campaign also restarts at Level 1. Neal manually accepted the
-corrected Level 7 gameplay. This is acceptance of the visible C# gameplay, not
-a claim of exact arcade emulation. The natural Level 6 -> 7 handoff is covered
-by automated progression tests. Natural progression
+a normal campaign also restarts at Level 1. Neal has manually accepted
+production Level 8, including its open tube and orientation, spinner direction
+and endpoint behavior, gameplay, active-exit firing and Spike interactions.
+This is acceptance of the visible C# gameplay, not a claim of exact arcade
+emulation.
+The natural Level 6 -> 7 -> 8 handoffs are covered by automated progression
+tests. Natural progression
 enters an interactive approach state for each incoming production level. Neal
 manually accepted the current approach presentation in normal campaign play:
 no ExitZoom handoff discontinuity, projection flash, wrong board, Blaster jump
@@ -575,8 +578,9 @@ now confirms this closed-rim behavior on the currently implemented Levels 1-5.
 This does not establish an identical rule at every later difficulty level.
 On future open/unconnected tubes, physical endpoints can legitimately require
 reversal. Neal recalls Level 8 as the first open normal-progression board and
-V-shaped; open-tube support and Level 8 remain deferred. The observation
-verifies persistence, not the hidden selection tick. Climb/pivot increments of
+V-shaped; that recollection predates the accepted ROM-derived Level 8
+implementation documented below. The observation verifies persistence, not
+the hidden selection tick. Climb/pivot increments of
 2/8 and lane/rim pauses of 21/24 are **REFERENCE VERIFIED**, not arcade-measured
 tuning. The recreation
 preserves two-lane shot acceptance during pivots and completed-pivot player
@@ -730,7 +734,8 @@ Later Spike-bearing levels may use a standard exit without this warning. Neal
 recalls recycled Levels 17 and 18 without Spikes, so Spike presence must remain
 explicit per level rather than inferred from a permanent
 `displayedLevel >= 4` rule. Neal recalls Level 8 as an open, V-shaped board;
-Level 8, later levels and open-rim gameplay remain unimplemented.
+the later ROM-derived Level 8 implementation and its accepted open-rim
+behavior are documented below. Other later levels remain unimplemented.
 
 Neal manually accepted the natural Level 1 -> Level 2 -> Level 3 -> Level 4
 campaign, late-wave Spiker behavior, and overall Level 4 feel. Level 4 -> 5
@@ -1199,8 +1204,9 @@ uses the scoped programmed route and `Height <= 370` remains a named
 The safe Level 6 -> 7 boundary carries score/lives, creates a fresh ledger,
 Spikes, enemies and two Super Zapper charges, clears stale state, and uses the
 accepted mixed-color approach with rim movement but no firing or Zapper use.
-Level 7 is terminal by **PROJECT DECISION**; natural restart starts Level 1,
-while direct diagnostic replay remains Level 7. Level 8 is not implemented.
+At the Level 7 implementation checkpoint, Level 7 was terminal; the current
+Level 8 production milestone supersedes that boundary. The isolated
+`--level7-test` remains a terminal diagnostic and replays Level 7.
 `--level7-test` is **DEVELOPMENT ONLY** and uses the production configuration,
 movement, cargo policy, firing and normal gameplay systems; it is isolated
 from natural progression and composes with `--lives`.
@@ -1221,6 +1227,52 @@ recording, video/frame or audio implementation change was made.
 dotnet run --project src\Tempest.Game -- --level7-test --lives 10
 dotnet run --project src\Tempest.Game -- --lives 10
 ```
+
+## Production Level 8 ROM-derived open tube
+
+The local Rev 2 CPU ROM resolves displayed Level 8 (zero-based level 7) to
+shape row 7, an open polyline of 16 ordered vertices and 15 playable lanes.
+Raw coordinates, point order, quantized angle sectors, open flag, and the
+Level 8 supply/type/movement values are **REV-2-BINARY-CONFIRMED**. The C#
+geometry centers raw bytes around `$80` and scales by `25/14` to a 200-unit
+extent; its placement, initial Blaster lane, color mapping, and Spike-height
+mapping are **PROJECT TRANSLATIONS**, whose resulting presentation and
+gameplay Neal has manually accepted. ROM presentation values remain data, not
+literal C# pixels or RGB: scale `$18`, Y3D `$B0`, Y2D `$0060`, Flipper scale
+`$0240`, tube-color index `$05`, and Level 1-16 color block
+`00 04 08 0C C3 07 0B 0B`.
+
+The tube uses consecutive lanes 0-14 only. Blaster movement clamps at either
+open endpoint; enemies and Tanker cargo do not wrap across the gap; rendering
+omits the false closing rim edge. Level 8 uses Medium/default supply 24, a
+six-active creation gate, Tankers 1/2, Spikers 2/4, no ordinary Flippers,
+Pulsars, or Fuseballs, and two Flipper cargo units per Tanker. Natural/shallow
+cargo follows straight `$07`; the selector reserves latent and active cargo
+against the five-Flipper type maximum. Deep player-shot cargo at or beyond ROM
+along `$20` uses the repeating move/flip `$19` program. Starting ROM Spike `$C8`
+maps to a project height of approximately 71.42857 on lanes 0-14. Death
+reconstruction is generic; Level 7 progresses naturally into Level 8, and
+Level 8 is terminal with no Level 9.
+
+The candidate is available for direct testing and recording:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --level 8 --lives 10
+dotnet run --project src\Tempest.Game -- --level 8 --lives 10 --speed 0.75
+```
+
+**MANUALLY ARCADE-FIDELITY ACCEPTED:** Neal reports that the ROM-derived tube
+shape and corrected orientation are accepted; the open endpoints, clockwise/
+counter-clockwise spinner behavior, endpoint clamping/reversal, and absence of
+wrap across the gap are correct. Level 8 gameplay, active-exit firing, shot
+movement and Spike interaction, exit Spike hazards, and corrected retry
+behavior pass, with no remaining blocking Level 8 gameplay issue. A
+Levels 1-7 recorded-playback regression check, pause/resume, forward/reverse
+stepping, and `--speed` also passed manually. These observations accept the
+resulting C# production behavior, not literal ROM coordinate transforms,
+colors, timing constants, or hidden hardware behavior. Automated tests cover
+natural Level 7-to-8 progression; it is not separately claimed as a manual
+scenario. No Level 9 is implemented.
 
 Sound-effect volume balance remains a separate, non-blocking deferred issue
 across the current game. Neal specifically identified the enemy-destruction/

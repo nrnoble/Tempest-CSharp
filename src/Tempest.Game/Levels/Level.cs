@@ -30,6 +30,9 @@ public sealed class Level
 
     public LevelConfiguration Configuration { get; }
     public double RimTurnSpeedMultiplier { get; }
+    // Positive screen-space winding follows increasing lane order clockwise. For an open tube,
+    // the implicit closing chord determines orientation only; it is never a playable lane.
+    public int ClockwiseLaneIndexDelta { get; }
     public double RimTurnSpeedDegrees =>
         Configuration.Flipper.TurnSpeedDegrees *
         RimTurnSpeedCalibrationMultiplier * RimTurnSpeedMultiplier;
@@ -85,6 +88,7 @@ public sealed class Level
                 "The rim-speed multiplier must be a positive finite value.");
         Configuration = configuration;
         RimTurnSpeedMultiplier = rimTurnSpeedMultiplier;
+        ClockwiseLaneIndexDelta = CalculatePolygonWindingSign(Definition.Points);
         SpikerDevelopmentWave = spikerDevelopmentWave;
         TankerDevelopmentWave = tankerDevelopmentWave;
         nextRandomInclusive = randomInclusive ?? NextSharedRandomInclusive;
@@ -118,6 +122,9 @@ public sealed class Level
 
     public Spike CreateSpike(int lane, float height)
     {
+        if (!IsPlayableLane(lane))
+            throw new ArgumentOutOfRangeException(nameof(lane),
+                "A Spike must be assigned to a playable lane.");
         Spike spike = new() { EdgeIndex = lane, Height = height };
         spikes.Add(spike);
         SpikeCreated?.Invoke(spike);
@@ -161,7 +168,7 @@ public sealed class Level
         spawnTimer = 0;
         hatchSelectionTimer = 0;
         EnemiesSpawned = UsesProductionLedger
-            ? (Configuration.UsesLevel7RomWavePolicy
+            ? (Configuration.UsesGenericRomDeathReconstruction
                 ? Level3Ledger!.OriginalCount
                 : EnemySupply) - Level3Ledger!.OriginalIdsInReserve().Count
             : EnemiesDestroyed + EnemiesRimCleared;
@@ -413,16 +420,70 @@ public sealed class Level
             : EnemiesDestroyed + EnemiesRimCleared == EnemySupply &&
               ReserveEggs == 0 && eggs.Count == 0 && activeFlippers == 0;
 
-    public int NextEdge(int edge) => (edge + 1) % Definition.Points.Count;
-    public int PreviousEdge(int edge) =>
-        (edge - 1 + Definition.Points.Count) % Definition.Points.Count;
+    public bool IsPlayableLane(int lane) =>
+        (uint)lane < (uint)PlayableLaneCount;
+
+    public bool IsOpenEndpoint(int lane)
+    {
+        if (!IsPlayableLane(lane))
+            throw new ArgumentOutOfRangeException(nameof(lane));
+        return !Continuous && (lane == 0 || lane == PlayableLaneCount - 1);
+    }
+
+    // Delta is in lane-index order; closed tubes wrap while open endpoints have no neighbor.
+    public bool TryGetAdjacentLane(int lane, int laneIndexDelta, out int adjacentLane)
+    {
+        if (!IsPlayableLane(lane))
+            throw new ArgumentOutOfRangeException(nameof(lane));
+        if (laneIndexDelta is not (-1 or 1))
+            throw new ArgumentOutOfRangeException(nameof(laneIndexDelta));
+
+        int candidate = lane + laneIndexDelta;
+        if (Continuous)
+            candidate = (candidate + PlayableLaneCount) % PlayableLaneCount;
+        if (!IsPlayableLane(candidate))
+        {
+            adjacentLane = -1;
+            return false;
+        }
+
+        adjacentLane = candidate;
+        return true;
+    }
+
+    // These are vertex-neighbor lookups used by pivot geometry, not lane traversal.
+    // An open endpoint has no vertex beyond it; closed definitions retain modulo behavior.
+    public int NextEdge(int edge)
+    {
+        if ((uint)edge >= (uint)Definition.Points.Count)
+            throw new ArgumentOutOfRangeException(nameof(edge));
+        return Continuous
+            ? (edge + 1) % Definition.Points.Count
+            : edge + 1 < Definition.Points.Count ? edge + 1 : -1;
+    }
+
+    public int PreviousEdge(int edge)
+    {
+        if ((uint)edge >= (uint)Definition.Points.Count)
+            throw new ArgumentOutOfRangeException(nameof(edge));
+        return Continuous
+            ? (edge - 1 + Definition.Points.Count) % Definition.Points.Count
+            : edge > 0 ? edge - 1 : -1;
+    }
 
     // Sign convention matches Flipper pivots: +1 means stepping toward PreviousEdge (decreasing
     // index), -1 toward NextEdge; wrap-around distances count correctly on the closed tube.
     // Equidistant ties resolve to +1; regression tests pin these rules for Flipper pathing.
     public int FindShortestDirection(int fromEdge, int toEdge)
     {
-        int edgeCount = Definition.Points.Count;
+        if (!IsPlayableLane(fromEdge))
+            throw new ArgumentOutOfRangeException(nameof(fromEdge));
+        if (!IsPlayableLane(toEdge))
+            throw new ArgumentOutOfRangeException(nameof(toEdge));
+        if (!Continuous)
+            return toEdge > fromEdge ? -1 : 1;
+
+        int edgeCount = PlayableLaneCount;
         int clockwise = (toEdge - fromEdge + edgeCount) % edgeCount;
         int counterclockwise = (fromEdge - toEdge + edgeCount) % edgeCount;
         return clockwise < counterclockwise ? -1 : 1;
@@ -467,10 +528,9 @@ public sealed class Level
         if ((uint)sourceLane >= (uint)PlayableLaneCount)
             throw new ArgumentOutOfRangeException(nameof(sourceLane));
 
-        int expectedDestination = direction > 0
-            ? PreviousEdge(sourceLane)
-            : NextEdge(sourceLane);
-        if (destinationLane != expectedDestination)
+        int laneIndexDelta = direction > 0 ? -1 : 1;
+        if (!TryGetAdjacentLane(sourceLane, laneIndexDelta, out int expectedDestination) ||
+            destinationLane != expectedDestination)
             throw new ArgumentException(
                 "A directed lane transition must connect the adjacent lane selected by its direction.",
                 nameof(destinationLane));
@@ -609,16 +669,18 @@ public sealed class Level
 
     public float CalculateLaneTransitionAngle(int sourceLane, int destinationLane)
     {
-        int direction = destinationLane == NextEdge(sourceLane) ? -1 : 1;
+        int direction = GetTransitionDirection(sourceLane, destinationLane);
         return CalculateDirectedLaneTransition(sourceLane, destinationLane, direction)
             .SweepMagnitudeDegrees;
     }
 
     private int GetTransitionDirection(int sourceLane, int destinationLane)
     {
-        if (destinationLane == PreviousEdge(sourceLane))
+        if (TryGetAdjacentLane(sourceLane, -1, out int previous) &&
+            destinationLane == previous)
             return 1;
-        if (destinationLane == NextEdge(sourceLane))
+        if (TryGetAdjacentLane(sourceLane, 1, out int next) &&
+            destinationLane == next)
             return -1;
         throw new ArgumentException("Flipper pivots must connect adjacent lanes.", nameof(destinationLane));
     }
@@ -735,7 +797,8 @@ public sealed class Level
         }
 
         if (!double.IsFinite(twiceArea) || Math.Abs(twiceArea) < 0.0001)
-            throw new InvalidOperationException("Inward pivots require a finite, nondegenerate closed tube polygon.");
+            throw new InvalidOperationException(
+                "Winding-dependent movement requires a finite, nondegenerate tube outline.");
 
         // The same winding sign classifies convex/reflex turns and selects the inward spatial arc.
         return Math.Sign(twiceArea);

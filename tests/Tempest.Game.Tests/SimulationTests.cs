@@ -4967,7 +4967,7 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void ExitZoomAllowsMovementButIgnoresFireAndRestartUntilSuccessfulTravel()
+    public void ExitZoomAllowsMovementAndFireButIgnoresRestartUntilSuccessfulTravel()
     {
         TempestGame game = BeginExit();
         Level outgoingLevel = game.CurrentLevel;
@@ -4980,7 +4980,7 @@ public sealed class SimulationTests
             game.RunOneStep(input, restartPressed: true);
             Assert.Equal(expected.EdgeIndex, game.Player.EdgeIndex);
             Assert.Equal(expected.EdgePosition, game.Player.EdgePosition);
-            Assert.Empty(game.Shots);
+            Assert.InRange(game.Shots.Count, 0, 10);
             Assert.Empty(game.Eggs);
             Assert.Empty(game.Flippers);
             Assert.Equal(0, game.CurrentLevel.ReserveEggs);
@@ -4993,6 +4993,7 @@ public sealed class SimulationTests
         Assert.Equal(LevelState.ExitZoom, game.State);
         Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
         Assert.InRange(game.Player.Depth, 10.99f, 11.01f);
+        Assert.NotEmpty(game.Shots);
 
         game.RunOneStep(input, restartPressed: true);
 
@@ -5182,7 +5183,7 @@ public sealed class SimulationTests
         game.RunOneStep(input, restartPressed: true);
         Assert.Equal(397, game.Player.Depth);
         Assert.Equal(3, Projection.ZOffset);
-        Assert.Empty(game.Shots);
+        Assert.NotEmpty(game.Shots);
     }
 
     [Fact]

@@ -64,18 +64,23 @@ public sealed class Player
         ArgumentNullException.ThrowIfNull(level);
         if (!float.IsFinite(movement))
             throw new ArgumentOutOfRangeException(nameof(movement));
+        if (!level.IsPlayableLane(EdgeIndex))
+            throw new InvalidOperationException("The Blaster is not on a playable lane.");
 
         // The Blaster traverses the rim; enemy inward-pivot geometry does not apply here.
         float remainingDegrees = MathF.Abs(movement) * NormalizedLaneDegrees;
         if (remainingDegrees == 0)
             return;
 
-        int edgeCount = level.Definition.Points.Count;
         if (movement > 0)
         {
             while (remainingDegrees > 0)
             {
-                int nextLane = level.NextEdge(EdgeIndex);
+                if (!level.TryGetAdjacentLane(EdgeIndex, 1, out int nextLane))
+                {
+                    EdgePosition = 1;
+                    break;
+                }
                 float crossingAngle = level.CalculateLaneTransitionAngle(EdgeIndex, nextLane);
                 float degreesToBoundary = (1 - EdgePosition) * crossingAngle;
                 if (remainingDegrees <= degreesToBoundary + BoundaryToleranceDegrees)
@@ -93,9 +98,13 @@ public sealed class Player
         {
             while (remainingDegrees > 0)
             {
-                int previousLane = (EdgeIndex - 1 + edgeCount) % edgeCount;
+                if (!level.TryGetAdjacentLane(EdgeIndex, -1, out int previousLane))
+                {
+                    EdgePosition = 0;
+                    break;
+                }
                 float crossingAngle = level.CalculateLaneTransitionAngle(
-                    EdgeIndex, level.NextEdge(EdgeIndex));
+                    EdgeIndex, level.Continuous ? level.NextEdge(EdgeIndex) : previousLane);
                 float degreesToBoundary = EdgePosition * crossingAngle;
                 if (remainingDegrees <= degreesToBoundary + BoundaryToleranceDegrees)
                 {

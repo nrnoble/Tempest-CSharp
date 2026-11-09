@@ -13,6 +13,7 @@ public sealed class HeadlessGameplayPlaybackTests
 	[Theory]
 	[InlineData(1, 1, 3, 1.0, 1981)]
 	[InlineData(2, 5, 10, 2.5, 9127)]
+	[InlineData(2, 8, 10, 0.75, 31415)]
 	public void RunnerLoadsBothRecordingVersionsAtTheRestoredStartupBoundary(
 		int version, int level, int lives, double rimSpeed, int seed)
 	{
@@ -39,6 +40,7 @@ public sealed class HeadlessGameplayPlaybackTests
 	[Theory]
 	[InlineData(1, 1, 3, 1.0, 1981)]
 	[InlineData(2, 5, 10, 2.5, 9127)]
+	[InlineData(2, 8, 10, 0.75, 31415)]
 	public void VisibleBackwardReconstructionPreservesVersionedStartupAndRecordingFile(
 		int version, int level, int lives, double rimSpeed, int seed)
 	{

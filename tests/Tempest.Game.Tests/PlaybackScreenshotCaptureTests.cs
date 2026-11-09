@@ -220,6 +220,35 @@ public sealed class PlaybackScreenshotCaptureTests
 	}
 
 	[Fact]
+	public void LevelEightScreenshotUsesTheSharedBoundaryCapturePath()
+	{
+		string applicationRoot = CreateTemporaryDirectory();
+		try
+		{
+			List<string> requestedPaths = [];
+			PlaybackScreenshotCapture capture = new(
+				new ApplicationPaths(applicationRoot),
+				path =>
+				{
+					requestedPaths.Add(path);
+					File.WriteAllBytes(Path.Combine(applicationRoot, path), [137, 80, 78, 71]);
+				},
+				TextWriter.Null,
+				TextWriter.Null);
+
+			Assert.True(capture.TryCapture(true, true,
+				new PlaybackScreenshotInput(true, false, true, false, true), 8, 42));
+			Assert.Equal(
+				"UserData/Screenshots/playback-level-8-boundary-000042.png",
+				Assert.Single(requestedPaths));
+		}
+		finally
+		{
+			Directory.Delete(applicationRoot, recursive: true);
+		}
+	}
+
+	[Fact]
 	public void SuccessfulCaptureDoesNotAdvancePausedPlaybackBoundaryOrCursor()
 	{
 		string applicationRoot = CreateTemporaryDirectory();

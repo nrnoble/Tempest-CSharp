@@ -114,7 +114,7 @@ public sealed class GameplayPlaybackSessionTests
 			["--speed", "2"], out InteractiveSpeedOptions fastOptions, out _));
 		Assert.NotEqual(slowOptions.TargetFramesPerSecond, fastOptions.TargetFramesPerSecond);
 
-		GameplayStartupConfiguration startup = new(1, 3, 1.0, 4225);
+		GameplayStartupConfiguration startup = new(8, 10, 0.75, 4225);
 		PlayerInputFrame[] frames =
 		[
 			new(0, new PlayerInput(true, 0, false, true)),
@@ -124,6 +124,8 @@ public sealed class GameplayPlaybackSessionTests
 		GameplayPlaybackSession slow = CreateSession(startup, 90, frames);
 		GameplayPlaybackSession fast = CreateSession(startup, 90, frames);
 
+		Assert.Same(LevelConfiguration.Level8Production, slow.Game.CurrentLevel.Configuration);
+		Assert.Same(LevelConfiguration.Level8Production, fast.Game.CurrentLevel.Configuration);
 		AssertEquivalentSummary(slow.RunToBoundary(60), fast.RunToBoundary(60));
 	}
 

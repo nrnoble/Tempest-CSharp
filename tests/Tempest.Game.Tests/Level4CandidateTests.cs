@@ -723,7 +723,7 @@ public sealed class Level4CandidateTests
     }
 
     [Fact]
-    public void SpikeExitContinuousFireCannotEraseLongSpikeBeforeContact()
+    public void SpikeExitContinuousFireCanErodeLongSpikeBeforeSafePassage()
     {
         TempestGame game = CreateResolvedLevelFourSpikeExit();
         Spike spike = game.Spikes.Single(candidate => candidate.EdgeIndex == game.Player.EdgeIndex);
@@ -733,35 +733,13 @@ public sealed class Level4CandidateTests
         for (int tick = 0; tick < 200 && game.State == LevelState.ExitZoom; tick++)
             game.RunOneStep(new PlayerInput(Fire: true, MouseDeltaX: 0, Left: false, Right: false));
 
-        Assert.Equal(LevelState.ReverseZoom, game.State);
-        Assert.Contains(spike, game.Spikes);
-        Assert.InRange(spike.Height, 1, 390);
-        Assert.True(spike.Height < 390);
-        Assert.True(game.Player.Depth < 390);
+        Assert.Equal(LevelState.Complete, game.State);
+        Assert.DoesNotContain(spike, game.Spikes);
+        Assert.True(game.Player.Depth < 10);
         Assert.True(game.Score.Score > 0);
-
-        float heightAtCollision = spike.Height;
-        int scoreAtCollision = game.Score.Score;
-        for (int tick = 0; tick < 100 && game.State == LevelState.ReverseZoom; tick++)
-            game.RunOneStep();
-
-        Assert.Equal(LevelState.AvoidSpikes, game.State);
-        Assert.Equal(4, game.Player.Lives);
-        Assert.Contains(spike, game.Spikes);
-        Assert.InRange(spike.Height, 1, heightAtCollision);
-        Assert.True(game.Score.Score >= scoreAtCollision);
+        Assert.Equal(5, game.Player.Lives);
         Assert.Empty(game.CurrentLevel.Level3Ledger!.UnresolvedOriginalIds);
         Assert.Empty(game.Eggs);
-
-        for (int tick = 0; tick < 151 && game.State == LevelState.AvoidSpikes; tick++)
-            game.RunOneStep();
-        for (int tick = 0; tick < 21 && game.State == LevelState.ExitDelay; tick++)
-            game.RunOneStep();
-        Assert.Equal(LevelState.ExitZoom, game.State);
-        Assert.Equal(4, game.Player.Lives);
-        Assert.Contains(spike, game.Spikes);
-        game.RunOneStep(new PlayerInput(Fire: true, MouseDeltaX: 0, Left: false, Right: false));
-        Assert.Equal(LevelState.ExitZoom, game.State);
     }
 
     [Fact]
@@ -938,7 +916,7 @@ public sealed class Level4CandidateTests
         Assert.Equal(LevelState.ReverseZoom, game.State);
         Assert.Same(travelingShot, Assert.Single(game.Shots));
         Assert.Equal(397, travelingShot.Height);
-        Assert.True(game.SpikeExitShotsVisible);
+        Assert.True(game.ExitShotsVisible);
         game.RunOneStep(new PlayerInput(Fire: true, MouseDeltaX: 0, Left: false, Right: false));
         Assert.Same(travelingShot, Assert.Single(game.Shots));
         Assert.Equal(391, travelingShot.Height);
