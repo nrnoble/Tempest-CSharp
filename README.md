@@ -181,6 +181,46 @@ non-blocking, and deferred; no cause has been established. It did not isolate
 a level or trigger, and no relationship to the separate Level 5-specific
 observation below has been established.
 
+## Production Level 1 four-Flipper maximum
+
+Normal production Level 1 now permits at most four concurrent active
+Flippers, both in the default campaign and when started directly with
+`--level 1`. The limit of four is **ROM-LISTING-BACKED /
+REV-2-BINARY-CONFIRMED**. Level 1 still has ten original Flipper obligations.
+When four Flippers are active, ready Eggs remain unresolved and hatch through
+the normal path as a slot opens. This waiting-Egg mechanism is a **PROJECT
+TRANSLATION**, not a claim about the ROM's literal pending-entry mechanism.
+
+The accepted four starting Eggs, six reserve originals, 50-tick release and
+approach scheduling, geometry, movement, firing, shots, scoring, collisions,
+Super Zapper, 2.5 rim calibration, and death/re-entry behavior remain unchanged.
+The ROM's separate six-total-active-enemy gate is not implemented. Level 2
+remains unchanged and its concurrency policy awaits separate analysis.
+
+**MANUALLY ARCADE-FIDELITY ACCEPTED:** Neal's final production play confirmed
+that fewer Flippers occupy the tube, ready Eggs wait and later hatch, all ten
+obligations resolve, and the wave retains substantial threat without feeling
+artificially sparse. Enemy bullets remain visible and behave normally; rim
+pursuit remains threatening, and stationary defense is not trivially safe.
+Spinner control, player firing, Super Zapper, and death/re-entry remain
+normal. Normal Level 1 completion and natural Level 1-to-2 progression passed
+with Level 2 unchanged. Neal also played and recorded the production campaign
+through Levels 1-8 with no blocking regression observed.
+
+The four-Flipper limit is **ROM-LISTING-BACKED /
+REV-2-BINARY-CONFIRMED**. Waiting in C#'s existing `ReadyToHatch` Egg state is
+a **PROJECT TRANSLATION**, not the ROM's literal pending-entry mechanism.
+Manual acceptance validates the production feel and behavior, not literal
+equivalence of every hidden Level 1 timing value. Level 2 concurrency and the
+six-total-active gate remain **DEFERRED**.
+
+Start the normal production campaign or direct Level 1 with:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --lives 10 --spinner-sensitivity 1
+dotnet run --project src\Tempest.Game -- --level 1 --lives 10 --spinner-sensitivity 1
+```
+
 ## Development-only interactive pacing diagnostic
 
 Use `--speed <multiplier>` to change the requested real-time pace of interactive

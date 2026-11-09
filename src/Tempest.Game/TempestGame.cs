@@ -29,6 +29,7 @@ public sealed class TempestGame
     private const float PlayerSpeed = 0.05f;
     private const float SpinnerSensitivity = 0.0125f;
     private const int MaximumShots = 10;
+    private const int MaximumActiveLevel1Flippers = 4;
     private const int PlayerShotCooldownTicks = 3;
     // $30 maps to Height 342.86 when arcade $F0/$10 map to project entry/rim 0/400; 343 is the
     // nearest integer C# cutoff, not an exact conversion of the ROM's along coordinate.
@@ -132,9 +133,13 @@ public sealed class TempestGame
     private bool SpikeExitEnabled =>
         CurrentLevel.SpikerDevelopmentWave ||
         CurrentLevel.Configuration.ExitPolicy == LevelExitPolicy.AvoidSpikes;
+    private bool HasProductionLevel1FlipperLimit =>
+        naturalProgressionEnabled &&
+        ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level1);
     private bool FlipperBulletFiringEnabled =>
-        naturalProgressionEnabled || level6Test || level7Test || enemyBulletsTest && !tankerTest &&
-        !spikerDevelopmentWave && !CurrentLevel.UsesProductionLedger;
+        naturalProgressionEnabled || level6Test || level7Test ||
+        enemyBulletsTest && !tankerTest && !spikerDevelopmentWave &&
+        !CurrentLevel.UsesProductionLedger;
     public bool SpikeExitControlsEnabled =>
         SpikeExitEnabled &&
         State is LevelState.AvoidSpikes or LevelState.ExitDelay or LevelState.ExitZoom;
@@ -797,7 +802,11 @@ public sealed class TempestGame
             return;
         }
 
-        while ((tankerTest
+        // Rev-2 limits Level 1 to four Flippers; keeping ready Eggs is a C# translation, not the
+        // ROM's literal pending-entry mechanism.
+        while ((!HasProductionLevel1FlipperLimit ||
+                flippers.Count < MaximumActiveLevel1Flippers) &&
+            (tankerTest
             ? CurrentLevel.HatchReadyEnemyWithIdentity(CreateTankerWaveEnemy)
             : CurrentLevel.HatchReadyEnemy(CreateHatchedEnemy)) is Enemy enemy)
             AddHatchedEnemy(enemy);

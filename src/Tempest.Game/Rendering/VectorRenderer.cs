@@ -142,8 +142,8 @@ public sealed class VectorRenderer
 	private TempestGame game;
 	private readonly double gameOverDensityMultiplier;
 	public IReadOnlyList<Egg> Eggs => game.Eggs;
-	public bool ShouldDrawEnemyBullets =>
-		game.NaturalProgressionEnabled || game.EnemyBulletsTest || game.CurrentLevel.UsesProductionLedger;
+	// The active simulation collection is authoritative; unsupported scenarios have no bullets to draw.
+	public bool ShouldDrawEnemyBullets => game.EnemyBullets.Count > 0;
 	// During normal play Player.Depth == Level.Depth, so this is Level.Position (the near rim).
 	// During exit travel Player.Depth shrinks toward 0, moving the projected player down the tube.
 	public float PlayerProjectedDepth => Level.Position + Level.Depth - game.Player.Depth;
@@ -219,8 +219,7 @@ public sealed class VectorRenderer
 			DrawTankers((start, end) => Raylib.DrawLineV(start, end, TankerColor));
 			DrawFuseballs((start, end, color) => Raylib.DrawLineV(start, end, color));
 			DrawPulsars((start, end, color) => Raylib.DrawLineV(start, end, color));
-			if (ShouldDrawEnemyBullets)
-				DrawEnemyBullets((start, end) => Raylib.DrawLineV(start, end, Color.White));
+			DrawEnemyBullets((start, end, color) => Raylib.DrawLineV(start, end, color));
 		}
 		else if (game.ExitShotsVisible)
 		{
@@ -601,6 +600,12 @@ public sealed class VectorRenderer
 	{
 		Vector2 center = ProjectLane(bullet.EdgeIndex, Level.Position + Level.Depth - bullet.Height);
 		return center;
+	}
+
+	public void DrawEnemyBullets(Action<Vector2, Vector2, Color> drawLine)
+	{
+		if (ShouldDrawEnemyBullets)
+			DrawEnemyBullets((start, end) => drawLine(start, end, Color.White));
 	}
 
 	// Enemy bullet: 8 radial white lines (45° apart) around the lane midpoint, spinning with the

@@ -2212,3 +2212,69 @@ regression. Automated tests cover natural Level 7-to-8 progression; no separate
 manual result for that exact transition is asserted here. ROM-derived behavior
 and project translations above retain their evidence classifications. Level 8
 is the terminal production level; Level 9 is not part of this milestone.
+
+## Production Level 1 four-Flipper maximum (2026-11-09)
+
+**ROM-LISTING-BACKED / REV-2-BINARY-CONFIRMED:** Level 1's original supply is
+10 and its ordinary enemy is the Flipper. The maximum concurrent active
+Flipper count is four. The ROM's separate six-total-active ordinary-enemy
+gate is not implemented by this project correction.
+
+**MANUALLY ARCADE-FIDELITY ACCEPTED:** Neal's final production play confirmed
+that no more than four Flippers are simultaneously active, fewer Flippers
+visibly occupy the tube, ready Eggs wait and later hatch, and all ten
+obligations appear and resolve. The wave remains substantial without feeling
+artificially sparse. Enemy bullets remain visible and behave normally; rim
+pursuit remains threatening, stationary defense is not trivially safe, and
+spinner control, player firing, Super Zapper, and death/re-entry remain
+normal. Normal Level 1 completion and Level 1-to-2 progression work with Level
+2 unchanged. Neal also played and recorded the production campaign through
+Levels 1-8 with no blocking regression observed.
+
+**ACCEPTED PRODUCTION RULE:** No-option campaign startup and generic
+`--level 1` both enforce the maximum. It remains in force on fresh campaign
+and Game Over restart and during death/re-entry. Production Level 1 retains
+four starting Eggs, the accepted reserve, 50-tick reserve-release and
+approach-selection policy, approach limits, movement, deterministic
+lane/direction behavior, 2.5 rim-speed calibration, rim pause/targeting,
+firing rules, shot and bullet capacities, collision ordering, scoring, lives,
+and Super Zapper behavior.
+
+**PROJECT TRANSLATION / ACTIVE COUNT:** Hatching consults the authoritative
+active Flipper collection. Counting begins when the existing hatch path adds a
+Flipper and ends when the existing lifecycle removes it. A Flipper with
+delayed Zapper resolution still counts. At four active Flippers, another
+ready Egg remains unresolved in `ReadyToHatch`; it is not discarded,
+returned to reserve, resolved, retargeted, or rerolled. It hatches through the
+normal path after a slot opens. The cap checks occupancy before invoking the
+hatch factory, so waiting does not consume hatch randomness. This waiting-Egg
+mechanism is not the ROM's literal pending-entry structure or timing policy.
+
+Level 1 obligations remain conserved:
+
+`reserve + Eggs + active Flippers + destroyed + rim-cleared = 10`
+
+The cap does not gate Egg release or approach and does not change reserve
+timing. It does not add a six-total-active gate or alter other species policy.
+Four Eggs begin active and six originals remain in reserve; the existing
+50-tick reserve release and approach schedule remain unchanged.
+Level 2 remains unchanged and is deferred for separate analysis, implementation
+and manual acceptance; Levels 3-8 remain unchanged. No Level 9 work is part of
+this correction.
+
+**RECORDING / PLAYBACK:** No cap or scenario field is added to the recording
+schema. Normal Level 1 recordings, visible playback, and headless playback
+start with the production rule automatically. Replay under updated simulation
+may change historical trajectories; byte-for-byte historical trajectory
+compatibility is not claimed.
+
+**AUTOMATED TEST EVIDENCE:** Startup paths, cap/waiting/accounting,
+determinism, Egg timing isolation, firing and bullet rendering, death/re-entry,
+Super Zapper, completion/progression, recordings/playback, and Levels 2-8
+regressions are covered by tests. These establish project behavior, not arcade
+timing.
+
+The manual acceptance covers production behavior and arcade-like feel, not
+literal equivalence of every hidden Level 1 timing value or the C# Egg waiting
+mechanism. **DEFERRED:** Level 2 concurrency and the ROM's six-total-active
+gate. The four-Flipper production correction is manually accepted and closed.

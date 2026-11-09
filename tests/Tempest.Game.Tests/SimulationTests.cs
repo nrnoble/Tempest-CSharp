@@ -709,19 +709,42 @@ public sealed class SimulationTests
     {
         TempestGame game = new(spikerDevelopmentWave: spiker, tankerTest: tanker,
             random: new MinimumRandom());
-        while (game.CurrentLevel.ReserveEggs > 0 || game.Eggs.Count > 0)
+        const int maximumTicks = 1000;
+        bool productionEggWaitingAtLimit = false;
+        int tick = 0;
+        for (; tick < maximumTicks &&
+             (game.CurrentLevel.ReserveEggs > 0 || game.Eggs.Count > 0) &&
+             !game.GameOver; tick++)
         {
             if (game.Eggs.Count == 0)
-                for (int tick = 0; tick < 50; tick++)
+                for (int releaseTick = 0; releaseTick < 50; releaseTick++)
                     game.CurrentLevel.UpdateEggRelease();
             foreach (Egg egg in game.Eggs)
                 MakeReady(egg, game.CurrentLevel);
             game.RunOneStep();
+
+            if (!spiker && !tanker && game.Flippers.Count == 4 &&
+                game.Eggs.Any(egg => egg.State == EggState.ReadyToHatch))
+            {
+                productionEggWaitingAtLimit = true;
+                break;
+            }
         }
+
+        Assert.True(productionEggWaitingAtLimit ||
+            !game.GameOver && game.CurrentLevel.ReserveEggs == 0 && game.Eggs.Count == 0,
+            $"Egg release/hatching did not reach an expected boundary within {maximumTicks} ticks.");
         Assert.NotEmpty(game.Flippers);
         Assert.Contains(game.Flippers, enemy => enemy.Height < Level.Depth);
         Assert.False(game.HurryUp);
         Assert.Equal(LevelState.Playing, game.State);
+        if (!spiker && !tanker)
+        {
+            Assert.True(productionEggWaitingAtLimit);
+            Assert.Equal(10, game.CurrentLevel.ReserveEggs + game.Eggs.Count +
+                game.Flippers.Count + game.CurrentLevel.EnemiesDestroyed +
+                game.CurrentLevel.EnemiesRimCleared);
+        }
         if (tanker)
             AssertTankerAccounting(game);
         else

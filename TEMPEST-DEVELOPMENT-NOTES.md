@@ -3440,3 +3440,61 @@ This is acceptance of the resulting project presentation and gameplay, not a
 reclassification of project translations as literal Atari constants or
 hidden hardware behavior. Level 8 remains the terminal production level;
 Level 9 is outside this closeout.
+
+## Production Level 1 four-Flipper maximum (2026-11-09)
+
+**ROM-LISTING-BACKED / REV-2-BINARY-CONFIRMED:** Level 1 has ten original
+Flipper obligations and a maximum of four concurrently active Flippers. The
+separate ROM six-total-active ordinary-enemy gate is not implemented.
+
+**ACCEPTED PRODUCTION RULE:** The maximum applies to every normal
+production Level 1 lifecycle, including no-option campaign startup, `--level 1`,
+campaign/Game Over restart, and death/re-entry. The count is the authoritative
+active Flipper collection: it starts at normal Egg hatch and ends only when the
+existing lifecycle removes the Flipper, including destruction, completed
+Super Zapper resolution, rim clear, or death reconstruction. Delayed Zapper
+targets remain active until normal removal.
+
+**PROJECT TRANSLATION:** At four active Flippers, a ready Egg stays in its
+existing `ReadyToHatch` state and remains unresolved. It is not discarded,
+returned to reserve, counted as destroyed or rim-cleared, retargeted, or
+rerolled. The cap checks collection occupancy before calling the hatch factory,
+so a blocked Egg does not consume hatch randomness. When a slot opens it
+hatches through the existing path. This ready-Egg wait is not represented as
+the ROM's literal pending-entry data structure or timing mechanism.
+
+**UNCHANGED LEVEL 1 POLICY:** Supply remains 10, with four starting Eggs and
+six reserve originals. The accepted 50-tick reserve release and approach
+policy, approach limits, movement, deterministic lane/direction choices,
+accepted 2.5 rim-speed calibration, rim pause and targeting, player/enemy
+firing, shot capacities and timing, bullet simulation/rendering/collision,
+scoring, lives, Super Zapper, and recording format are unchanged. There is no
+new six-total-active gate. Recordings restore their existing startup identity;
+replay under this candidate uses production Level 1 behavior, so historical
+trajectory compatibility is not claimed.
+
+At lifecycle boundaries, conservation remains:
+`reserve + Eggs + active Flippers + destroyed + rim-cleared = 10`.
+
+**MANUALLY ARCADE-FIDELITY ACCEPTED:** Neal's final production play confirmed
+that no more than four Flippers are simultaneously active, fewer Flippers
+visibly occupy the tube, ready Eggs wait and later hatch, and all ten
+obligations appear and resolve. The wave remains substantial without feeling
+artificially sparse. Enemy bullets are visible and behave normally; rim
+pursuit remains threatening, stationary defense is not trivially safe, and
+spinner control, player firing, Super Zapper, and death/re-entry remain
+normal. Level 1 completion and natural Level 1-to-2 progression work with
+Level 2 unchanged. Neal manually played and recorded the production campaign
+through Levels 1-8 with no blocking regression observed.
+
+**AUTOMATED TEST EVIDENCE:** Production default/direct startup, active-count
+maximum, waiting-Egg persistence and hatch, accounting, determinism,
+death/re-entry, Super Zapper, completion/progression, enemy-bullet visibility,
+recording/playback, and Levels 2-8 regression coverage are automated
+invariants, not arcade observations.
+
+The acceptance supports production Level 1's arcade-like feel; it does not
+establish that every hidden timing value or the C# Egg waiting mechanism
+literally matches the Atari ROM. Level 2 concurrency and the ROM's
+six-total-active gate remain **DEFERRED**. Level 9 and unrelated tuning are
+outside this accepted milestone.

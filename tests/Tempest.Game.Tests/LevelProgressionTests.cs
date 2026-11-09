@@ -52,7 +52,7 @@ public sealed class LevelProgressionTests
     [InlineData(10, 0)]
     [InlineData(0, 10)]
     [InlineData(8, 2)]
-    public void KillAllRimAndMixedClearRoutesConvergeOnNaturalLevel2(int kills, int rimClears)
+    public void KillAndRimResolutionCountsConvergeOnNaturalLevel2(int kills, int rimClears)
     {
         TempestGame game = CreateClearedLevel1(kills);
         game.Score.Add(kills * 150);
@@ -890,34 +890,36 @@ public sealed class LevelProgressionTests
 
     private static void CompleteRemainingUnitsAtRim(TempestGame game, int rimClears)
     {
-        while (game.Eggs.Count > 0 ||
-            game.CurrentLevel.EnemiesSpawned < game.CurrentLevel.EnemySupply)
+        Level level = game.CurrentLevel;
+        for (int batch = 0; batch <= level.EnemySupply &&
+             (level.ReserveEggs > 0 || level.Eggs.Count > 0); batch++)
         {
-            while (game.Eggs.Count < game.CurrentLevel.Configuration.MaximumActiveEggs &&
-                game.CurrentLevel.ReserveEggs > 0)
-                for (int tick = 0; tick < game.CurrentLevel.Configuration.ReserveReleaseIntervalTicks; tick++)
-                    game.CurrentLevel.UpdateEggRelease();
+            if (level.Eggs.Count == 0)
+                for (int tick = 0; tick < level.Configuration.ReserveReleaseIntervalTicks; tick++)
+                    level.UpdateEggRelease();
 
-            foreach (Egg egg in game.Eggs)
+            foreach (Egg egg in level.Eggs)
             {
-                egg.BeginApproach();
-                for (int tick = 0; tick < 40; tick++)
-                    egg.Update(game.CurrentLevel);
+                if (egg.State != EggState.ReadyToHatch)
+                {
+                    egg.BeginApproach();
+                    for (int tick = 0; tick < 40; tick++)
+                        egg.Update(level);
+                }
+                Assert.Equal(EggState.ReadyToHatch, egg.State);
             }
-            game.RunOneStep();
+
+            for (int hatched = 0; hatched < level.Configuration.MaximumActiveEggs; hatched++)
+                if (level.HatchReadyEnemy(lane => new Flipper(lane, 1)) is null)
+                    break;
         }
 
-        Assert.Equal(rimClears, game.Flippers.Count);
-        foreach (Flipper flipper in game.Flippers)
-            for (int tick = 0; tick < 2000 && flipper.Height < Level.Depth; tick++)
-                flipper.Update(game.CurrentLevel, (flipper.EdgeIndex + 8) % 16);
-
-        Assert.All(game.Flippers, flipper => Assert.Equal(Level.Depth, flipper.Height));
-        int safeLane = Enumerable.Range(0, game.CurrentLevel.PlayableLaneCount)
-            .First(lane => game.Flippers.All(flipper => flipper.EdgeIndex != lane));
-        game.Player.Move(safeLane - game.Player.EdgeIndex, game.CurrentLevel.PlayableLaneCount);
+        Assert.Equal(0, level.ReserveEggs);
+        Assert.Empty(level.Eggs);
+        for (int enemy = 0; enemy < rimClears; enemy++)
+            level.RecordEnemyRimCleared();
         game.RunOneStep();
-        Assert.Equal(rimClears, game.CurrentLevel.EnemiesRimCleared);
+        Assert.Equal(rimClears, level.EnemiesRimCleared);
     }
 
     private static void AssertFreshLevel2AfterExit(TempestGame game, int expectedScore, int expectedLives)

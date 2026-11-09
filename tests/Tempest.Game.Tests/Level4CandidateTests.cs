@@ -524,12 +524,12 @@ public sealed class Level4CandidateTests
             if (game.EnemyBullets.FirstOrDefault() is EnemyBullet bullet)
             {
                 sawBullet = true;
+                Assert.True(renderer.ShouldDrawEnemyBullets);
                 AssertFinite(renderer.ProjectEnemyBullet(bullet));
             }
         }
 
         Assert.True(sawBullet);
-        Assert.True(renderer.ShouldDrawEnemyBullets);
         Assert.DoesNotContain(tanker, game.Tankers);
         Assert.Equal(Level3OriginalState.Escaped,
             ledger.GetOriginalState(tanker.OriginalSlotId));

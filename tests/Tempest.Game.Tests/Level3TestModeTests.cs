@@ -124,12 +124,12 @@ public sealed class Level3TestModeTests
         Assert.False(normalGame.EnemyBulletsTest);
         Assert.Same(LevelConfiguration.Level1, normalGame.CurrentLevel.Configuration);
         Assert.False(normalGame.CurrentLevel.UsesProductionLedger);
-        Assert.True(new VectorRenderer(normalGame).ShouldDrawEnemyBullets);
+        Assert.False(new VectorRenderer(normalGame).ShouldDrawEnemyBullets);
         Assert.False(new VectorRenderer(new TempestGame(level2Test: true)).ShouldDrawEnemyBullets);
         Assert.False(new VectorRenderer(new TempestGame(level3GeometryTest: true)).ShouldDrawEnemyBullets);
         Assert.False(new VectorRenderer(new TempestGame(tankerTest: true)).ShouldDrawEnemyBullets);
-        Assert.True(new VectorRenderer(new TempestGame(enemyBulletsTest: true)).ShouldDrawEnemyBullets);
-        Assert.True(new VectorRenderer(new TempestGame(tankerTest: true,
+        Assert.False(new VectorRenderer(new TempestGame(enemyBulletsTest: true)).ShouldDrawEnemyBullets);
+        Assert.False(new VectorRenderer(new TempestGame(tankerTest: true,
             enemyBulletsTest: true)).ShouldDrawEnemyBullets);
 
         TempestGame game = new(level3Test: true, startingLives: 8, random: new Random(4));

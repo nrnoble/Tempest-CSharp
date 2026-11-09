@@ -7,7 +7,8 @@
 // profile; --gameplay-playback-level4 runs the distinct profile on production Level 4;
 // --level2-test, --level3-test, --level4-test, --level6-test and --level7-test select direct production configurations;
 // --level3-geometry-test selects plus-board geometry only; --spiker-test, --tanker-test,
-// --fuseball-test and --pulsar-test select isolated enemy waves. These scenarios are mutually
+// --fuseball-test and --pulsar-test select isolated scenarios.
+// These scenario selectors are mutually
 // exclusive; --enemy-bullets-test, --lives, --speed and --game-over-density compose with existing
 // scenarios. --game-over-density only changes the procedural visible speck count, not mark size;
 // --spinner-sensitivity scales only live horizontal mouse/spinner input;
@@ -24,6 +25,13 @@ using Tempest.Game.Systems;
 using Tempest.Game.Debug;
 using Tempest.Game.Levels;
 using Tempest.Game.Gameplay;
+
+if (args.Contains("--level1-four-flipper-cap-test", StringComparer.Ordinal))
+{
+    Console.Error.WriteLine(
+        "--level1-four-flipper-cap-test was removed; production Level 1 now applies the four-Flipper limit automatically.");
+    return 2;
+}
 
 // Keep deterministic file analysis ahead of every Raylib window, input, audio and pacing setup.
 if (HeadlessGameplayPlaybackCli.IsRequested(args))
