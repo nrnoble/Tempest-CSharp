@@ -2638,7 +2638,7 @@ The supported file-command grammar starts with a transport flag and filename,
 then permits compatible options in any order:
 
 ```text
---record-gameplay <file> [--level N] [--lives N] [--rim-speed N] [--speed N] [--game-over-density N]
+--record-gameplay <file> [--level N] [--lives N] [--rim-speed N] [--speed N] [--spinner-sensitivity N] [--game-over-density N]
 --playback-file <file> [--speed N] [--game-over-density N]
 ```
 
@@ -2715,6 +2715,37 @@ Playback speed, backward stepping, rewind, automatic looping, playback
 start/end frame, true seeking, snapshots, deterministic state signatures, a
 dedicated headless playback runner, playlist/browser UI, and attract-mode
 integration remain deferred.
+
+### Live spinner/mouse sensitivity diagnostic
+
+`--spinner-sensitivity <multiplier>` scales the live horizontal mouse delta
+used as Tempest's spinner control. Default is `1.0`; finite invariant-culture
+values from `0.1` through `4.0`, inclusive, are accepted. Neal's physical USB
+spinner is observed to move the Windows cursor horizontally and is read through
+the existing `Raylib.GetMouseDelta().X` path. The same multiplier applies when
+an ordinary mouse is used horizontally. Vertical movement, wheel, buttons,
+keyboard and controller input are not scaled; direction mapping and open
+Level 8 endpoint behavior remain as accepted.
+
+Scaling occurs at live input acquisition before simulation and recording
+receive the `PlayerInput`. Fractional deltas remain floats. There is no new
+clamp, smoothing, dead zone, filtering, or Windows pointer/device setting
+change. Live recordings store effective scaled per-tick input without adding a
+recording field; visible and headless playback do not rescale it and reject
+this option. Input diagnostic mode rejects it as inapplicable. The setting is
+independent of `--speed`.
+
+This is a **DEVELOPMENT / DIAGNOSTIC / MANUAL-CALIBRATION PROJECT FEATURE**,
+not ROM behavior, an arcade difficulty setting, tube geometry, or automatic
+hardware calibration. **MANUALLY ACCEPTED BY NEAL:** the feature works
+correctly, all manual tests passed, clockwise/counter-clockwise behavior
+remains correct, and no blocking gameplay regression was found. Neal manually
+tested approximately `0.8` and found it improved control with his physical
+spinner. This is a manually observed optional calibration alternative, not a
+universal, arcade-verified, ROM-backed, accepted-default, or required hardware
+value; the default remains `1.0`. This multiplier is not a literal Atari
+spinner-count conversion, and no further tuning is required for this
+milestone.
 
 ### Shared deterministic playback session and visible controls — Phase 2 manually accepted
 

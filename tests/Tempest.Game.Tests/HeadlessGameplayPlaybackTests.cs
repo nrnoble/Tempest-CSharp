@@ -327,6 +327,7 @@ public sealed class HeadlessGameplayPlaybackTests
 	[InlineData("--headless-playback", "recording.json", "--lives", "10")]
 	[InlineData("--headless-playback", "recording.json", "--rim-speed", "2.5")]
 	[InlineData("--headless-playback", "recording.json", "--speed", "0.5")]
+	[InlineData("--headless-playback", "recording.json", "--spinner-sensitivity", "0.5")]
 	[InlineData("--headless-playback", "recording.json", "--level5-test")]
 	[InlineData("--headless-playback", "recording.json", "--boundary", "1", "--boundary", "2")]
 	public void CliRejectsMalformedAndIncompatibleArguments(params string[] arguments)
@@ -335,6 +336,8 @@ public sealed class HeadlessGameplayPlaybackTests
 
 		Assert.Equal(HeadlessGameplayPlaybackCli.InvalidCommandExitCode, exitCode);
 		Assert.Contains("INVALID COMMAND", error);
+		if (arguments.Contains("--spinner-sensitivity", StringComparer.Ordinal))
+			Assert.Contains("headless playback has no live input", error);
 	}
 
 	[Theory]

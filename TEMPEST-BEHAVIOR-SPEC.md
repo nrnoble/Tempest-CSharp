@@ -1336,7 +1336,8 @@ These controls are test conveniences, not arcade level-selection or composition:
 | `--enemy-bullets-test` | Enables the development enemy-bullet behavior; combinations with Spiker or Tanker scenarios enable their corresponding source-backed firing paths. |
 | `--lives <n>` | Overrides the starting life count for longer development sessions. |
 | `--speed <multiplier>` | **DEVELOPMENT / DIAGNOSTIC PROJECT FEATURE:** changes only interactive host-loop pacing from the accepted default 60 FPS; supports 0.25–4.0 inclusive, with target FPS rounded to nearest integer and exact halves away from zero. Per-tick simulation remains unchanged. |
-| `--record-gameplay <file>` | Records effective per-tick input for ordinary production gameplay; new files use strict format version 2 and can include `--level`, `--lives`, and `--rim-speed`. |
+| `--spinner-sensitivity <multiplier>` | **DEVELOPMENT / DIAGNOSTIC / MANUAL-CALIBRATION PROJECT FEATURE:** scales only live horizontal mouse/spinner delta; default 1.0, range 0.1–4.0 inclusive. Recorded input is scaled before recording; playback and input-diagnostic modes reject this option. |
+| `--record-gameplay <file>` | Records effective per-tick input for ordinary production gameplay; new files use strict format version 2 and can include `--level`, `--lives`, `--rim-speed`, and live `--spinner-sensitivity`. |
 | `--playback-file <file>` | Restores production startup identity and seed from a version-1 or version-2 recording; rejects simulation overrides. |
 
 `--level N` exists to support the one-level-at-a-time manual arcade testing
@@ -1399,6 +1400,41 @@ change; it is not evidence establishing arcade timing.
   scenario does not spawn unrelated enemy types. This validates the test
   scenario's isolation, not authentic arcade wave composition.
 
+### Live spinner/mouse sensitivity diagnostic
+
+`--spinner-sensitivity <multiplier>` is a **DEVELOPMENT / DIAGNOSTIC /
+MANUAL-CALIBRATION PROJECT FEATURE**, not Atari ROM behavior, an arcade
+difficulty setting, tube geometry, or automatic hardware calibration. It
+defaults to `1.0` and accepts finite invariant-culture values from `0.1`
+through `4.0`, inclusive. Explicit values are printed once at startup.
+
+The physical USB spinner is observed to provide horizontal mouse movement to
+the game. The multiplier is applied only to the live
+`Raylib.GetMouseDelta().X` sample before the effective `PlayerInput` reaches
+simulation and recording. Ordinary horizontal mouse movement is included;
+vertical mouse movement and the wheel are irrelevant. The multiplier changes
+magnitude only, preserving clockwise/counter-clockwise movement, closed-tube
+wrapping and Level 8 open-endpoint clamping/reversal. Keyboard, controller,
+fire and Super Zapper input are unchanged. No clamp, dead zone, smoothing,
+filtering or nonlinear response is introduced.
+
+The option is independent of `--speed`, which changes host-loop pacing rather
+than mouse-delta magnitude. It does not modify Windows pointer settings or
+spinner hardware configuration. Live recordings store the effective scaled
+per-tick `MouseDeltaX` without a schema or metadata change. Visible and
+headless playback do not rescale recorded values and reject the option;
+`--input-diagnostic` also rejects it because that mode does not run gameplay
+movement. Historical recordings retain their existing behavior. Manual
+physical-spinner calibration is **MANUALLY ACCEPTED BY NEAL**: the feature
+works correctly, all manual tests passed, clockwise/counter-clockwise behavior
+remains correct, and no blocking gameplay regression was found. Neal manually
+tested approximately `0.8` and found it improved control with his physical
+spinner. This is a manually observed optional calibration alternative, not a
+universal, arcade-verified, ROM-backed, accepted-default, or required hardware
+value; the default remains `1.0`. The multiplier does not represent a literal
+Atari spinner-count conversion. No further tuning is required for this
+milestone.
+
 ### Recorded production gameplay files
 
 The original Level 1 record/playback round trip is manually accepted and its
@@ -1422,10 +1458,11 @@ rewritten. Older builds are not required to read version 2.
 
 The file command grammar is `--record-gameplay <file>` or
 `--playback-file <file>`, followed by compatible options. Recording permits
-`--level N`, `--lives N`, `--rim-speed N`, `--speed N`, and
-`--game-over-density N` in any order. Playback accepts renderer-only
-`--game-over-density N` and interactive `--speed N`; it rejects `--level`,
-`--lives`, `--rim-speed`, and special scenarios before opening the game.
+`--level N`, `--lives N`, `--rim-speed N`, `--speed N`,
+`--spinner-sensitivity N`, and `--game-over-density N` in any order. Playback
+accepts renderer-only `--game-over-density N` and interactive `--speed N`; it rejects `--level`,
+`--lives`, `--rim-speed`, `--spinner-sensitivity`, and special scenarios before
+opening the game.
 Neither renderer density nor interactive speed is part of recording identity.
 Defaults are Level 1, 3 lives and rim speed 1.0 plus a generated nonnegative
 seed.

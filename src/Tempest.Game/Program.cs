@@ -10,10 +10,12 @@
 // --fuseball-test and --pulsar-test select isolated enemy waves. These scenarios are mutually
 // exclusive; --enemy-bullets-test, --lives, --speed and --game-over-density compose with existing
 // scenarios. --game-over-density only changes the procedural visible speck count, not mark size;
+// --spinner-sensitivity scales only live horizontal mouse/spinner input;
 // File recordings use --record-gameplay <file> followed by optional production startup options;
 // file playback restores startup identity, pauses with Space, steps with Right, and reconstructs
 // backward with Left while paused; debugger controls stay outside PlayerInput and the recording.
 // Normal play progresses Level 1 through terminal Level 7.
+using System.Globalization;
 using System.Text.Json;
 using Raylib_cs;
 using Tempest.Game;
@@ -31,6 +33,20 @@ if (!DebugController.TryParseInteractiveSpeedOptions(args,
     out InteractiveSpeedOptions speedOptions, out string? speedError))
 {
     Console.Error.WriteLine(speedError);
+    return 2;
+}
+
+if (!DebugController.TryParseSpinnerSensitivityOptions(args,
+    out SpinnerSensitivityOptions spinnerSensitivityOptions, out string? spinnerSensitivityError))
+{
+    Console.Error.WriteLine(spinnerSensitivityError);
+    return 2;
+}
+
+if (DebugController.UseInputDiagnostic(args) &&
+    spinnerSensitivityOptions.WasExplicitlySpecified)
+{
+    Console.Error.WriteLine("--spinner-sensitivity applies only to live gameplay input, not --input-diagnostic.");
     return 2;
 }
 
@@ -73,6 +89,14 @@ if (DebugController.HasConflictingScenarios(args))
 {
     Console.Error.WriteLine("--level N, --gameplay-playback, --gameplay-playback-level4, --level2-test, --level3-test, --level4-test, --level6-test, --level7-test, --level3-geometry-test, --tanker-test, --spiker-test, --fuseball-test and --pulsar-test are mutually exclusive.");
     return 2;
+}
+
+if (spinnerSensitivityOptions.WasExplicitlySpecified)
+{
+    string multiplier = spinnerSensitivityOptions.Multiplier.ToString(
+        "G", CultureInfo.InvariantCulture);
+    Console.WriteLine(
+        $"Spinner sensitivity: {multiplier}x live horizontal spinner/mouse response relative to current behavior.");
 }
 
 // DEVELOPMENT ONLY: observe the same Raylib input framework without running game actions.
@@ -268,7 +292,7 @@ try
                 effectiveRestartPressed = input.RestartPressed();
             else if (game.DeathTicks == 0 &&
                 (!game.IsExiting || game.ExitMovementInputEnabled))
-                effectiveInput = input.ReadPlayer();
+                effectiveInput = input.ReadPlayer(spinnerSensitivityOptions.Multiplier);
 
             game.RunOneStep(effectiveInput, effectiveRestartPressed);
             recording?.CaptureTick(simulationTick, effectiveInput, effectiveRestartPressed);

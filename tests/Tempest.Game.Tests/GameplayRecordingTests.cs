@@ -535,6 +535,37 @@ public sealed class GameplayRecordingTests
 	}
 
 	[Fact]
+	public void LiveSensitivityRecordsEffectiveInputWithoutAddingRecordingMetadata()
+	{
+		float effectiveMouseDeltaX = InputSystem.ScaleMouseDeltaX(10.0f, 0.5f);
+		PlayerInput effectiveInput = new(
+			Fire: true,
+			MouseDeltaX: effectiveMouseDeltaX,
+			Left: true,
+			Right: false,
+			ZapPressed: true,
+			ControllerAxis: -0.75f);
+		PlayerInputRecorder recorder = new(
+			new GameplayStartupConfiguration(1, 3, 1.0, 4225));
+		recorder.CaptureTick(0, effectiveInput);
+
+		WithTemporaryDirectory(directory =>
+		{
+			string path = Path.Combine(directory, "spinner-sensitivity.json");
+			GameplayRecordingFile.SaveNew(path, recorder);
+			using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
+			JsonElement root = document.RootElement;
+			GameplayRecording file = GameplayRecordingFile.LoadRecording(path);
+
+			Assert.Equal(5.0f, file.Replay.GetFrame(0).Input.MouseDeltaX);
+			Assert.Equal(effectiveInput, file.Replay.GetFrame(0).Input);
+			Assert.False(root.TryGetProperty("SpinnerSensitivity", out _));
+			Assert.Equal(GameplayRecordingFile.CurrentFormatVersion,
+				root.GetProperty("Version").GetInt32());
+		});
+	}
+
+	[Fact]
 	public void RecordedFullGameRestartRetainsEffectiveLivesAndRimSpeedPolicy()
 	{
 		GameplayStartupConfiguration startup = new(5, 10, 2.5, 7721);

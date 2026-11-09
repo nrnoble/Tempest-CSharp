@@ -21,7 +21,9 @@ public sealed record GameplayFileCommand(
 /// that level and continues normal campaign progression. Legacy --levelN-test selectors remain
 /// terminal diagnostics. Scenario flags are mutually exclusive; --enemy-bullets-test (opt-in
 /// Flipper firing), --lives (starting-life override), --rim-speed and --game-over-density compose
-/// with normal play. --speed changes only the interactive host-loop target rate. --gameplay-playback selects a seeded Level 1 profile;
+/// with normal play. --speed changes only the interactive host-loop target rate;
+/// --spinner-sensitivity scales live horizontal mouse/spinner input only.
+/// --gameplay-playback selects a seeded Level 1 profile;
 /// --gameplay-playback-level4 selects a distinct profile on the production Level 4 configuration.
 /// Both playback commands return to live input when their seeded profile ends.
 /// --record-gameplay records production input with startup metadata; --playback-file restores that
@@ -200,6 +202,47 @@ public sealed class DebugController
 		return true;
 	}
 
+	public static bool TryParseSpinnerSensitivityOptions(
+		IReadOnlyList<string> arguments,
+		out SpinnerSensitivityOptions options,
+		out string? error)
+	{
+		options = SpinnerSensitivityOptions.Default;
+		error = null;
+		int optionIndex = -1;
+
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index] != "--spinner-sensitivity")
+				continue;
+			if (optionIndex >= 0)
+			{
+				error = "--spinner-sensitivity may be specified only once.";
+				return false;
+			}
+			optionIndex = index;
+		}
+
+		if (optionIndex < 0)
+			return true;
+		if (optionIndex + 1 >= arguments.Count ||
+			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
+		{
+			error = "--spinner-sensitivity requires a finite numeric multiplier from 0.1 through 4.0.";
+			return false;
+		}
+		if (!float.TryParse(arguments[optionIndex + 1], NumberStyles.Float,
+			CultureInfo.InvariantCulture, out float multiplier) ||
+			!SpinnerSensitivityOptions.TryCreate(multiplier, out SpinnerSensitivityOptions? parsed))
+		{
+			error = "--spinner-sensitivity requires a finite numeric multiplier from 0.1 through 4.0.";
+			return false;
+		}
+
+		options = parsed;
+		return true;
+	}
+
 	public static bool TryParseGameplayFileCommand(
 		IReadOnlyList<string> arguments,
 		out GameplayFileCommand? command,
@@ -244,6 +287,8 @@ public sealed class DebugController
 			return false;
 		}
 		if (!TryParseInteractiveSpeedOptions(arguments, out _, out error))
+			return false;
+		if (!TryParseSpinnerSensitivityOptions(arguments, out _, out error))
 			return false;
 
 		int? startingLevel = null;
@@ -313,6 +358,18 @@ public sealed class DebugController
 
 			if (option == "--speed")
 			{
+				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
+					return false;
+				continue;
+			}
+
+			if (option == "--spinner-sensitivity")
+			{
+				if (mode == GameplayFileMode.Playback)
+				{
+					error = "--spinner-sensitivity applies only to live horizontal mouse/spinner input; recorded playback already contains effective input.";
+					return false;
+				}
 				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
 					return false;
 				continue;

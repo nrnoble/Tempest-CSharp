@@ -181,6 +181,11 @@ public static class HeadlessGameplayPlaybackCli
 		for (int index = 2; index < arguments.Count; index++)
 		{
 			string option = arguments[index];
+			if (option == "--spinner-sensitivity")
+			{
+				error = "--spinner-sensitivity applies only to live horizontal mouse/spinner input; headless playback has no live input.";
+				return false;
+			}
 			if (option == "--json")
 			{
 				if (writeJson)

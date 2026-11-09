@@ -85,14 +85,16 @@ public sealed class InputSystem
 	public static bool IsSuperZapperPressed(bool spacePressed, bool rightMousePressed) =>
 		spacePressed || rightMousePressed;
 
-	public PlayerInput ReadPlayer()
+	public PlayerInput ReadPlayer(float spinnerSensitivityMultiplier = 1.0f)
 	{
 		bool fireButtonDown =
 			Raylib.IsKeyDown(KeyboardKey.LeftControl) ||
 			Raylib.IsKeyDown(KeyboardKey.RightControl) ||
 			Raylib.IsMouseButtonDown(MouseButton.Left);
 
-		float mouseDeltaX = Raylib.GetMouseDelta().X;
+		// Scale at acquisition so simulation and recording consume the same effective input.
+		float mouseDeltaX = ScaleMouseDeltaX(
+			Raylib.GetMouseDelta().X, spinnerSensitivityMultiplier);
 		bool left = Raylib.IsKeyDown(KeyboardKey.Left);
 		bool right = Raylib.IsKeyDown(KeyboardKey.Right);
 		float controllerAxis = Raylib.IsGamepadAvailable(0)
@@ -105,4 +107,7 @@ public sealed class InputSystem
 			Raylib.IsMouseButtonPressed(MouseButton.Right));
 		return new PlayerInput(fireButtonDown, mouseDeltaX, left, right, zapPressed, controllerAxis);
 	}
+
+	public static float ScaleMouseDeltaX(float mouseDeltaX, float multiplier) =>
+		mouseDeltaX * multiplier;
 }

@@ -228,6 +228,45 @@ The accepted default remains 1.0. Neal subjectively thought approximately
 0.95 might feel slightly closer to his arcade machine, but the difference is
 minor and is not evidence to retune normal gameplay or establish arcade timing.
 
+## Development-only live spinner/mouse sensitivity
+
+Use `--spinner-sensitivity <multiplier>` to scale live horizontal mouse input
+used as the game's spinner control:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --level 1 --lives 10 --spinner-sensitivity 0.5
+dotnet run --project src\Tempest.Game -- --record-gameplay Temp\GameplayRecordings\spinner-half.json --level 1 --lives 10 --spinner-sensitivity 0.5
+dotnet run --project src\Tempest.Game -- --playback-file Temp\GameplayRecordings\spinner-half.json
+```
+
+The default is `1.0`, preserving current behavior; accepted values are finite
+invariant-culture multipliers from `0.1` through `4.0`, inclusive. The physical
+USB spinner is presented to the game as horizontal mouse movement, so the
+multiplier affects its live `Raylib.GetMouseDelta().X` sample and also applies
+to ordinary horizontal mouse movement. Vertical mouse movement is irrelevant.
+Sensitivity changes magnitude only: clockwise/counter-clockwise semantics and
+Level 8 endpoint behavior remain unchanged. Keyboard, controller, firing and
+Super Zapper inputs are unaffected. No movement clamp, smoothing, dead zone or
+filter is added.
+
+The multiplier is applied before the same effective input reaches simulation
+and live recording. Recordings therefore store the scaled per-tick horizontal
+input without adding sensitivity metadata; visible and headless playback do not
+rescale recorded input and reject this live-only option. Input diagnostic mode
+also rejects it because that mode does not perform gameplay movement. It is
+independent of `--speed`, and does not change Windows pointer settings or
+device configuration.
+
+This is a **DEVELOPMENT / DIAGNOSTIC / MANUAL-CALIBRATION PROJECT FEATURE**,
+not Atari ROM behavior, an arcade difficulty setting, or automatic hardware
+calibration. **MANUALLY ACCEPTED BY NEAL:** the feature works correctly, all
+manual tests passed, clockwise/counter-clockwise behavior remains correct, and
+no blocking gameplay regression was found. Neal manually tested approximately
+`0.8` and found it improved control with his physical spinner. This is a
+manually observed optional calibration alternative, not a universal,
+arcade-verified, ROM-backed, accepted-default, or required hardware value; the
+default remains `1.0`, and no further tuning is required for this milestone.
+
 ## Development-only recorded gameplay
 
 Record a normal production game to an ignored, disposable path and replay it
