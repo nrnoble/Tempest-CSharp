@@ -3254,6 +3254,12 @@ This is a recommended development workflow, not gameplay behavior or a
 production code policy. It is intended to avoid filling gaps with generic
 assumptions and revisiting multiple levels after implementation.
 
+For each level, explicitly investigate its ROM-defined Flipper movement
+program instead of inferring movement from another level or accepting a
+generic “moves normally” check. Investigate Tanker-cargo movement separately
+when the ROM selects behavior by release cause or depth. Manual acceptance
+should identify the distinguishing cadence or pattern to observe.
+
 ## Direct production-level startup and controller exit (2026-11-06)
 
 The **DEVELOPMENT ONLY** `--level N` option starts fresh at an implemented
@@ -3356,12 +3362,13 @@ playthroughs, Neal accepted the correction. He observed no ordinary Flippers
 entering directly from the bottom. Tanker-released cargo Flippers remain
 valid. The original supply remains 20.
 
-Level 6 selection is unchanged and remains a separate evaluation. The broader
-observation that C# levels can take substantially longer to clear than the
-arcade remains unresolved and is deferred for future investigation; this
-correction does not claim to resolve it. Also deferred are Level 3-6
-active/type-cap differences, the ROM six-active gate, release/pending pacing
-differences, hard-difficulty supply adjustment, and Spike-height mapping.
+Level 6 admission was a separate evaluation at this checkpoint; its accepted
+concurrency closeout is recorded below. The broader observation that C#
+levels can take substantially longer to clear than the arcade remains
+unresolved and is deferred for future investigation; this correction does not
+claim to resolve it. Also deferred are Level 3-5 active/type-cap differences,
+the Level 6 Super Zapper entry pause, separate Hard-supply mode in C#, exact
+release/pending pacing, and literal ROM-to-C# Spike-height equivalence.
 
 ## Production Level 8 ROM-derived open tube — manually accepted (2026-11-08)
 
@@ -3764,3 +3771,82 @@ does not establish hidden zap timing. Exact Atari admission cadence,
 coordinate/timing equivalence, hard-mode supply behavior in C#, and strict
 seven-live-object fidelity during complete cargo-pair release remain outside
 this accepted translation. Level 6 concurrency was not started.
+
+## Production Level 6 concurrency and Tanker-cargo movement (2026-11-10)
+
+**ROM-BACKED (local Rev. 2 listing):** Default Easy/Medium supply is 22
+generic pending originals; Hard supply is 25, but C# has no separate Hard
+supply mode. Ordinary minima/maximums are Flipper 0/5, Tanker 1/2, Spiker
+2/4, Pulsar 0/0, and Fuseball 0/0. Seven shared physical enemy places bound
+ordinary admission; active enemies remain physical occupants through climb,
+retreat, transition, and rim states. The zero Flipper minimum excludes
+ordinary Flipper entry despite positive availability; unmet Spiker minimum
+precedes Tanker minimum.
+Latent Tanker cargo uses no physical place but reduces Flipper availability.
+Materialized cargo occupies places and bypasses ordinary species selection.
+Ordinary availability can stop admission with a place unused; species maxima
+limit ordinary selection, not all late-wave populations.
+
+After both minima are met, when Tankers and Spikers are available, selection
+uses the current pending entry's segment Spike, not a global shortest-Spike
+scan. A zero/depleted segment is `$FF`; `$CC` or greater selects Spiker and
+below `$CC` selects Tanker. A retreating Spiker converts in place to a
+Flipper-carrying Tanker only when mapped generic pending supply is actually
+zero, not merely while admission is blocked. This conversion bypasses the
+ordinary Tanker maximum. The accepted C# conversion preserves project
+identity/accounting semantics rather than reproducing literal ROM identities.
+
+**ROM-BACKED DEATH RECONSTRUCTION:** Active physical enemies plus remaining
+generic pending supply become generic post-death obligations; species
+commitments are discarded. A live Tanker with latent cargo is one active
+obligation, not three. Each unresolved materialized cargo child is one
+obligation. **ACCEPTED C# TRANSLATION:** The canonical Level 6 ledger clears
+pre-death species commitments, conserves unresolved quantity, leaves terminal
+outcomes terminal, excludes latent cargo from the quantity, and counts
+materialized cargo individually, including after repeated deaths. This stable
+identity accounting is not literal ROM identity reproduction.
+
+**PROJECT TRANSLATION:** C# maps the pending Egg lane to its matching Level 6
+segment; live Spike height uses the existing ROM-along conversion, and a
+missing depleted Spike maps to `$FF`. The conversion and C# world height are
+not literal ROM coordinates. C# retains both Tanker cargo identities and
+materializes the complete pair; pair release may temporarily exceed the ROM's
+seven places, after which ordinary admission waits for headroom.
+
+**ROM-BACKED TANKER-CARGO MOVEMENT:** Deep Level 6 cargo at ROM
+`enemy_along >= $20` uses `$0b`: eight along-tube advances, a lane flip at
+fixed depth, then an immediate new eight-advance interval. Direction persists
+through flips, and the two children start opposite. Near-rim/natural cargo
+below `$20` uses `$07` for straight climbing without repeated below-rim lane
+flips; normal top/rim handling follows.
+
+**ACCEPTED C# MOVEMENT TRANSLATION / APPROXIMATION:** The existing Tanker
+ROM-along-position conversion and `$20` boundary select Level 6 `$0b` or `$07`
+behavior without claiming coordinate identity. `$0b` performs its visible
+climb/held-depth-flip cadence without an added below-rim pause; `$07` climbs
+straight. Both use the existing accepted rim behavior.
+
+**NEAL'S LEVEL 6 MANUAL ACCEPTANCE (ARCADE-OBSERVED, VISIBLE SCOPE):** Neal
+accepted ordinary Level 6 admission and manual gameplay; the previously
+repeatable first-ten-second pending-lane depleted-Spike crash is resolved.
+He accepted the deep-release cadence frame by frame: straight movement,
+one flip with no visible climb, then another straight interval, persistent
+travel direction, and opposite directions for the pair. He separately
+accepted the natural/near-rim cargo behavior. No Level 1-5 regression was
+reported. These Level 6 observations are distinct from the earlier Level 5
+arcade observations that motivated generic-obligation reconstruction; they
+do not establish hidden ROM counters or literal coordinate/timing identity.
+
+**AUTOMATED VALIDATION:** The focused Release Level 6/admission/cargo/firing
+selection passed 43 tests. The affected regression selection covering cargo,
+Flipper, Spiker/Spike, death/re-entry, Super Zapper, progression, rim,
+recording/playback, and Levels 1-5/7-8 passed 777 tests. The required full
+Release solution test passed 1,189 tests with no failures or skips; the
+Release solution build passed with zero warnings and errors. VSTest completed
+the blame-hang run without generating a sequence file.
+
+**DEFERRED:** ROM ordinary enemy creation pauses during `zap_running`; C# has
+no literal equivalent admission pause, and this remains deliberately
+untouched. Manual acceptance does not establish hidden zap timing. No Level 7
+concurrency work, other-level movement investigation, or broader movement
+refactoring is included.

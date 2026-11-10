@@ -15,6 +15,13 @@ public enum TankerReleaseKind
     SuperZapperDestruction
 }
 
+public enum TankerCargoMovementProgram
+{
+    Existing,
+    Level6Deep0B,
+    Level6Straight07
+}
+
 public readonly record struct TankerReleaseResult(
     TankerReleaseKind Kind, IReadOnlyList<TankerCargoSpawn> Cargo);
 
@@ -41,6 +48,8 @@ public readonly record struct TankerCargoSpawn(
 /// </summary>
 public sealed class Tanker : Enemy
 {
+    private const byte Level6DeepCargoRomAlongThreshold = 0x20;
+
     // Incitti's 1.75 + lv/20 uses integer division: displayed Level 3 (lv=2) climbs at 1.75.
     public const float DevelopmentClimbSpeed = 1.75f;
     public const int CarriedFlipperCount = 2;
@@ -153,6 +162,26 @@ public sealed class Tanker : Enemy
                 BelowRimFlipperProgram.Level8ConstantFlip &&
             releaseKind == TankerReleaseKind.PlayerShotDestruction &&
             IsLevel8DeepCargoPosition(Height);
+    }
+
+    public TankerCargoMovementProgram GetCargoMovementProgram(
+        LevelConfiguration configuration, TankerReleaseKind releaseKind)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        if (releaseKind is not
+            (TankerReleaseKind.Natural or TankerReleaseKind.PlayerShotDestruction or
+             TankerReleaseKind.SuperZapperDestruction))
+            throw new ArgumentOutOfRangeException(nameof(releaseKind));
+
+        if (!ReferenceEquals(configuration, LevelConfiguration.Level6Production) ||
+            releaseKind == TankerReleaseKind.SuperZapperDestruction)
+            return TankerCargoMovementProgram.Existing;
+
+        // The existing ROM-along conversion is a project approximation, but preserves the
+        // ROM's $20 release branch without guessing a C# height cutoff.
+        return RomAlongPositionForHeight(Height) >= Level6DeepCargoRomAlongThreshold
+            ? TankerCargoMovementProgram.Level6Deep0B
+            : TankerCargoMovementProgram.Level6Straight07;
     }
 
     public static float HeightForRomAlongPosition(byte rawAlong) =>

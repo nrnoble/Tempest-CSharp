@@ -59,27 +59,6 @@ public sealed class Level6ProductionTests
         Assert.Equal(FlipperPivotGeometry.EndpointHinge, configuration.FlipperPivotMode);
     }
 
-    [Theory]
-    [InlineData(0, Level3OriginalType.Spiker)]
-    [InlineData(1, Level3OriginalType.Flipper)]
-    [InlineData(3, Level3OriginalType.Tanker)]
-    [InlineData(4, Level3OriginalType.Tanker)]
-    public void LevelSixUsesTheAcceptedMixedPickerForEligibleTypes(
-        int candidate, Level3OriginalType expected)
-    {
-        Level3OriginalType selected = Level3WaveSelection.SelectLevel4OriginalType(
-            (_, _) => candidate, activeTankers: 0, activeSpikers: 0,
-            activeEnemyUnits: 0, activeEggs: 4);
-
-        Assert.Equal(expected, selected);
-        Assert.Contains(selected, new[]
-        {
-            Level3OriginalType.Flipper,
-            Level3OriginalType.Tanker,
-            Level3OriginalType.Spiker
-        });
-    }
-
     [Fact]
     public void LevelSixLifeLossRetainsConfigurationAccountingScoreLivesAndSpikeDamage()
     {
@@ -114,18 +93,12 @@ public sealed class Level6ProductionTests
     }
 
     [Fact]
-    public void LevelSixReconstructionPreservesResolvedOriginalsCargoAndPersistentSpikes()
+    public void LevelSixReconstructionClearsSpeciesAndLatentCargoWhilePreservingSpikes()
     {
         Level level = new(LevelConfiguration.Level6Production, randomInclusive: (_, _) => 0);
         Level3WaveLedger ledger = level.Level3Ledger!;
         ledger.CommitOriginalAsFlipper(0);
-        ledger.MarkOriginalDestroyed(0);
-        level.RecordEnemyDestroyed();
-
         ledger.CommitOriginalAsTanker(1);
-        IReadOnlyList<int> cargoIds = ledger.MaterializeLiveCargo(1);
-        ledger.MarkCargoDestroyed(cargoIds[0]);
-
         ledger.CommitOriginalAsSpiker(2);
         level.ReturnOriginalToReserve(2);
         Spike persistentSpike = level.Spikes[7];
@@ -135,18 +108,19 @@ public sealed class Level6ProductionTests
         level.ResetAfterDeath();
 
         Assert.Equal(22, ledger.OriginalCount);
-        Assert.Equal(2, ledger.CargoCount);
-        Assert.Equal(24, ledger.TotalIdentityCount);
-        Assert.Equal(21, ledger.UnresolvedOriginalIds.Count);
-        Assert.Single(ledger.UnresolvedCargoIds);
-        Assert.Equal(Level3OriginalState.Destroyed, ledger.GetOriginalState(0));
-        Assert.Equal(Level3CargoState.Destroyed, ledger.GetCargoState(cargoIds[0]));
-        Assert.Contains(ledger.GetCargoState(cargoIds[1]),
-            new[] { Level3CargoState.ReentryReserve, Level3CargoState.Egg });
+        Assert.Equal(0, ledger.CargoCount);
+        Assert.Equal(22, ledger.TotalIdentityCount);
+        Assert.Equal(22, ledger.UnresolvedOriginalIds.Count);
+        Assert.Empty(ledger.UnresolvedCargoIds);
+        Assert.Equal(Level3OriginalType.Unselected, ledger.GetOriginalType(0));
+        Assert.Equal(Level3OriginalState.Egg, ledger.GetOriginalState(0));
+        Assert.Equal(Level3OriginalType.Unselected, ledger.GetOriginalType(1));
+        Assert.Equal(Level3OriginalState.Egg, ledger.GetOriginalState(1));
         Assert.Equal(Level3OriginalType.Unselected, ledger.GetOriginalType(2));
         Assert.Equal(Level3OriginalState.Egg, ledger.GetOriginalState(2));
-        Assert.Equal(1, level.EnemiesDestroyed);
-        Assert.Equal(21, level.RemainingEnemies);
+        Assert.Empty(ledger.GetCargoIdsForOriginal(1));
+        Assert.Equal(0, level.EnemiesDestroyed);
+        Assert.Equal(22, level.RemainingEnemies);
         Assert.Equal(4, level.Eggs.Count);
         Assert.Equal(18, level.ReserveEggs);
         Assert.Same(persistentSpike, Assert.Single(level.Spikes, spike => spike.EdgeIndex == 7));

@@ -96,10 +96,11 @@ public sealed record LevelConfiguration(
         global::Tempest.Game.Levels.BelowRimFlipperProgram.Existing;
     public bool UsesLevel7RomWavePolicy { get; init; }
     public bool UsesLevel8RomWavePolicy { get; init; }
-    // Canonical Level 5 shares generic ROM-style reconstruction; copied configurations stay isolated.
+    // Canonical ROM-policy levels share generic reconstruction; copied configurations stay isolated.
     public bool UsesGenericRomDeathReconstruction =>
         UsesLevel7RomWavePolicy || UsesLevel8RomWavePolicy ||
-        ReferenceEquals(this, Level5Production);
+        ReferenceEquals(this, Level5Production) ||
+        ReferenceEquals(this, Level6Production);
     // The Level 5 ROM's zero Flipper minimum excludes ordinary bottom entries, not Tanker cargo.
     public bool AllowsOrdinaryFlipperSelection { get; init; } = true;
     // Imported ROM handedness is not mapped conclusively; +1 is a reversible C# project choice.
@@ -253,7 +254,7 @@ public sealed record LevelConfiguration(
         StartingSpikeHeight = 60
     };
 
-    // REFERENCE VERIFIED: Original Arcade Level 6 source data; the shared picker remains accepted C# behavior.
+    // ROM-backed Level 6 source data; canonical admission uses its Level-6-specific diagnostic policy.
     public static LevelConfiguration Level6Production { get; } = new(
         ProgressionIndex: 5,
         DisplayedLevel: 6,

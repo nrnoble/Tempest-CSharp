@@ -226,7 +226,7 @@ public sealed class ArcadeFlipperFiringTests
     };
 
     [Fact]
-    public void DirectLevel6DiagnosticUsesProductionFlipperFiringAndReplaysLevel6()
+    public void DirectLevel6DiagnosticUsesLevel6AdmissionAndReplaysLevel6()
     {
         string[] arguments = ["--level6-test", "--lives", "10"];
         TempestGame game = new(level6Test: DebugController.UseLevel6Test(arguments),
@@ -245,10 +245,10 @@ public sealed class ArcadeFlipperFiringTests
 
         game.RunOneStep();
 
-        Assert.Equal(4, game.Flippers.Count);
-        Assert.Equal(3, game.EnemyBullets.Count);
-        Assert.Equal(new[] { 65, 65, 65, 0 },
-            game.Flippers.Select(flipper => flipper.ShotDelayTicks));
+        Assert.Empty(game.Flippers);
+        Assert.Empty(game.EnemyBullets);
+        Assert.Equal(3, game.Spikers.Count);
+        Assert.Single(game.Tankers);
         Assert.True(DebugController.HasConflictingScenarios(["--level6-test", "--level4-test"]));
         Assert.Throws<ArgumentException>(() => new TempestGame(level6Test: true, level4Test: true));
 
@@ -271,7 +271,28 @@ public sealed class ArcadeFlipperFiringTests
     }
 
     [Fact]
-    public void NaturalLevel6UsesProductionFlipperFiringConfiguration()
+    public void CopiedLevelSixFiringConfigurationPreservesShotBehaviorWithoutProductionAdmission()
+    {
+        // Isolate firing from Level 6's canonical species selector while keeping its firing values.
+        LevelConfiguration firingConfiguration = LevelConfiguration.Level6Production with
+        {
+            NormalEnemyComposition = LevelEnemyComposition.FlippersOnly
+        };
+        TempestGame game = CreateGame(firingConfiguration, new Level6FiringRandom());
+        foreach (Egg egg in game.Eggs)
+            MakeReady(egg, game.CurrentLevel);
+
+        game.RunOneStep();
+
+        Assert.False(firingConfiguration.UsesGenericRomDeathReconstruction);
+        Assert.Equal(4, game.Flippers.Count);
+        Assert.Equal(3, game.EnemyBullets.Count);
+        Assert.Equal(new[] { 65, 65, 65, 0 },
+            game.Flippers.Select(flipper => flipper.ShotDelayTicks));
+    }
+
+    [Fact]
+    public void NaturalLevel6UsesLevelSixAdmissionAndFiringConfiguration()
     {
         TempestGame game = new(random: new Level6FiringRandom());
         while (game.CurrentLevel.Configuration.DisplayedLevel < 6)
@@ -296,10 +317,12 @@ public sealed class ArcadeFlipperFiringTests
 
         game.RunOneStep();
 
-        Assert.Equal(4, game.Flippers.Count);
-        Assert.Equal(3, game.EnemyBullets.Count);
-        Assert.Equal(new[] { 65, 65, 65, 0 },
-            game.Flippers.Select(flipper => flipper.ShotDelayTicks));
+        Assert.Empty(game.Flippers);
+        Assert.Empty(game.EnemyBullets);
+        Assert.Equal(3, game.Spikers.Count);
+        Assert.Single(game.Tankers);
+        Assert.Equal(65, game.CurrentLevel.Configuration.FlipperShotHoldoffTicks);
+        Assert.Equal(3, game.CurrentLevel.Configuration.MaximumActiveEnemyShots);
     }
 
     [Fact]

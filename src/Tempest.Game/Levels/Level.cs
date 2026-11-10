@@ -139,8 +139,10 @@ public sealed class Level
     // instead use the configured initial Egg count in Reset.
     public void ResetAfterDeath(bool clearUnresolvedSpeciesSelections = false)
     {
+        // Canonical Levels 5/6 also enable this directly; Level 7/8 callers pass it explicitly.
         clearUnresolvedSpeciesSelections |=
-            ReferenceEquals(Configuration, LevelConfiguration.Level5Production);
+            ReferenceEquals(Configuration, LevelConfiguration.Level5Production) ||
+            ReferenceEquals(Configuration, LevelConfiguration.Level6Production);
 
         if (UsesProductionLedger)
         {

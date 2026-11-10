@@ -143,6 +143,8 @@ public sealed class TempestGame
         ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level4Candidate);
     private bool HasLevel5AdmissionDiagnostic =>
         ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level5Production);
+    private bool HasLevel6AdmissionDiagnostic =>
+        ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level6Production);
     private bool FlipperBulletFiringEnabled =>
         naturalProgressionEnabled || level6Test || level7Test ||
         enemyBulletsTest && !tankerTest && !spikerDevelopmentWave &&
@@ -853,6 +855,9 @@ public sealed class TempestGame
         if (HasLevel5AdmissionDiagnostic &&
             !TrySelectLevel5DiagnosticType(egg, ledger, out diagnosticType))
             return null;
+        if (HasLevel6AdmissionDiagnostic &&
+            !TrySelectLevel6DiagnosticType(egg, ledger, out diagnosticType))
+            return null;
 
         if (egg.CargoUnitId >= 0)
         {
@@ -918,13 +923,15 @@ public sealed class TempestGame
             if (selectedType == Level3OriginalType.Tanker &&
                 !CurrentLevel.Configuration.UsesLevel7RomWavePolicy &&
                 !CurrentLevel.Configuration.UsesLevel8RomWavePolicy &&
-                !HasLevel5AdmissionDiagnostic)
+                !HasLevel5AdmissionDiagnostic &&
+                !HasLevel6AdmissionDiagnostic)
                 Level3WaveSelection.SelectTwoFlipperCargo(NextRandomInclusive);
         }
 
         if (selectedType == Level3OriginalType.Spiker)
         {
-            if (!HasLevel5AdmissionDiagnostic && spikers.Count > 3)
+            if (!HasLevel5AdmissionDiagnostic && !HasLevel6AdmissionDiagnostic &&
+                spikers.Count > 3)
                 return null;
 
             float speed = CurrentLevel.Configuration.ProgressionIndex / 48f +
@@ -940,7 +947,7 @@ public sealed class TempestGame
             int maximumTankers = CurrentLevel.Configuration.UsesLevel7RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel8RomWavePolicy ? 2 : 6;
             if (!HasLevel3MixedAdmissionDiagnostic && !HasLevel4AdmissionDiagnostic &&
-                !HasLevel5AdmissionDiagnostic &&
+                !HasLevel5AdmissionDiagnostic && !HasLevel6AdmissionDiagnostic &&
                 tankers.Count >= maximumTankers)
                 return null;
 
@@ -1056,6 +1063,39 @@ public sealed class TempestGame
         }
 
         selectedType = Level5AdmissionPolicy.SelectOrdinaryType(snapshot);
+        return selectedType is not null;
+    }
+
+    private bool TrySelectLevel6DiagnosticType(
+        Egg egg,
+        Level3WaveLedger ledger,
+        out Level3OriginalType? selectedType)
+    {
+        if (egg.CargoUnitId >= 0)
+            throw new InvalidOperationException(
+                "Canonical Level 6 generic reconstruction cannot hatch a cargo Flipper Egg.");
+
+        int originalId = egg.OriginalSlotId;
+        if (ledger.GetOriginalType(originalId) != Level3OriginalType.Unselected)
+            throw new InvalidOperationException(
+                $"Level 6 generic obligation {originalId} retained a species commitment.");
+
+        Level6AdmissionSnapshot snapshot = new(
+            OrdinaryFlippers: flippers.Count(flipper => !flipper.IsTankerCargo),
+            ReleasedCargoFlippers: flippers.Count(flipper => flipper.IsTankerCargo),
+            PendingShotCargoFlippers: shotReleasedCargoPendingActivation.Count,
+            OrdinaryTankers: tankers.Count(tanker =>
+                !ledger.IsConvertedSpikerTanker(tanker.OriginalSlotId)),
+            ConvertedTankers: tankers.Count(tanker =>
+                ledger.IsConvertedSpikerTanker(tanker.OriginalSlotId)),
+            ActiveSpikers: spikers.Count,
+            ActiveOtherEnemies: fuseballs.Count + pulsars.Count,
+            LatentTankerCargoFlippers: tankers.Sum(tanker => tanker.LatentCargoCount),
+            PendingSegmentSpikeRomComparisonValue:
+                Level6AdmissionPolicy.GetPendingSegmentSpikeRomComparisonValue(
+                    CurrentLevel, egg.EdgeIndex));
+
+        selectedType = Level6AdmissionPolicy.SelectOrdinaryType(snapshot);
         return selectedType is not null;
     }
 
@@ -1279,10 +1319,16 @@ public sealed class TempestGame
                 Level5AdmissionPolicy.ShouldConvertTerminalSpiker(
                     CurrentLevel.Configuration,
                     ledger.PendingGenericOriginalCount);
+            bool terminalLevel6Conversion = HasLevel6AdmissionDiagnostic &&
+                Level6AdmissionPolicy.ShouldConvertTerminalSpiker(
+                    CurrentLevel.Configuration,
+                    ledger.PendingGenericOriginalCount);
             bool genericRomConversion =
-                CurrentLevel.Configuration.UsesGenericRomDeathReconstruction &&
+                (CurrentLevel.Configuration.UsesLevel7RomWavePolicy ||
+                 CurrentLevel.Configuration.UsesLevel8RomWavePolicy) &&
                 CurrentLevel.PendingGenericEnemyUnits == 0;
-            if (terminalLevel4Conversion || terminalLevel5Conversion || genericRomConversion)
+            if (terminalLevel4Conversion || terminalLevel5Conversion ||
+                terminalLevel6Conversion || genericRomConversion)
             {
                 // ROM conversion follows generic pending supply; this C# height-zero retreat
                 // boundary is an approximation, not literal ROM coordinate or timing fidelity.
@@ -1456,6 +1502,8 @@ public sealed class TempestGame
         // Children are added after this tick's Flipper update, so their first update is next tick.
         // The Level 3 diagnostic caps ordinary hatches, not this accepted complete-pair lifecycle;
         // a release can exceed seven live enemies until ordinary admission has room again.
+        TankerCargoMovementProgram tankerCargoMovementProgram =
+            tanker.GetCargoMovementProgram(CurrentLevel.Configuration, releaseKind);
         TankerReleaseResult result = tanker.ReleaseFlipperCargo(
             CurrentLevel, firstSideDirection: 1, releaseKind);
         bool useLevel7ProgrammedRoute = tanker.UsesLevel7ProgrammedCargo(
@@ -1504,7 +1552,8 @@ public sealed class TempestGame
                 Flipper child = Flipper.CreateTankerCargo(
                     CurrentLevel, result.Cargo[index], cargoId,
                     useLevel7ProgrammedRoute, useLevel5SpikeSensitiveProgram,
-                    useLevel8ConstantFlipProgram, useLevel8StraightCargoProgram);
+                    useLevel8ConstantFlipProgram, useLevel8StraightCargoProgram,
+                    tankerCargoMovementProgram);
 
                 if (releaseKind == TankerReleaseKind.SuperZapperDestruction)
                     child.TryZap(8);
@@ -1524,7 +1573,9 @@ public sealed class TempestGame
         {
             int cargoUnitId = nextCargoUnitId++;
             unresolvedCargoUnits.Add(cargoUnitId);
-            Flipper flipper = Flipper.CreateTankerCargo(CurrentLevel, spawn, cargoUnitId);
+            Flipper flipper = Flipper.CreateTankerCargo(
+                CurrentLevel, spawn, cargoUnitId,
+                tankerCargoMovementProgram: tankerCargoMovementProgram);
             if (releaseKind == TankerReleaseKind.SuperZapperDestruction)
                 // Carrier expiry transfers latent units to new unresolved IDs, each with its own timer.
                 flipper.TryZap(8);

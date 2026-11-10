@@ -46,10 +46,10 @@ public sealed class Level5ProductionTests
             LevelConfiguration.Level1,
             LevelConfiguration.Level2Square,
             LevelConfiguration.Level3Mixed,
-            LevelConfiguration.Level4Candidate,
-            LevelConfiguration.Level6Production
+            LevelConfiguration.Level4Candidate
         }, otherConfiguration =>
             Assert.False(otherConfiguration.UsesGenericRomDeathReconstruction));
+        Assert.True(LevelConfiguration.Level6Production.UsesGenericRomDeathReconstruction);
         Assert.True(LevelConfiguration.Level7Production.UsesGenericRomDeathReconstruction);
         Assert.True(LevelConfiguration.Level8Production.UsesGenericRomDeathReconstruction);
         Assert.Equal(4, configuration.InitialActiveEggCount);
