@@ -121,8 +121,9 @@ work, or absorb unrelated changes. Stage only files authorized by the current
 milestone, then review the staged file list and staged diff before committing.
 Commit or push only when the current user task explicitly authorizes it.
 Investigation and implementation candidates normally stop before commit.
-Incomplete required validation blocks normal commit/push unless an explicitly
-authorized partial checkpoint applies.
+Failed, blocked, timed-out, canceled, stalled, or otherwise incomplete required
+validation blocks normal commit/push unless an explicitly authorized partial
+checkpoint applies.
 
 ## 6. Validation and manual acceptance
 
@@ -205,3 +206,6 @@ workspace context, and other agent-generated material after the user's token
 do not invalidate it. If exactly one complete token cannot be established,
 stop before project/repository action and explain why. Do not require this
 convention for trivial questions, simple lookups, or minor interactions.
+A substantial user prompt may still include a short fail-closed token-check
+header as transmission protection; do not treat it as conflicting duplication
+of this repository-wide rule.
