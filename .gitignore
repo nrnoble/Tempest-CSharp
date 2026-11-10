@@ -1,9 +1,17 @@
+# .NET build output
 bin/
 obj/
+
+# Local IDE/user settings
 .vscode/
 *.user
 *.suo
-AI-Logs/
-Videos/
-Temp/
+
+# Copilot working/history artifacts
+/AI-Logs/
+
+# Local reference and gameplay artifacts
+/Videos/
+/Temp/
 /UserData/
+/Reference/arcade/roms.rev2/
