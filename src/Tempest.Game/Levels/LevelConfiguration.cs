@@ -192,8 +192,9 @@ public sealed record LevelConfiguration(
         NormalEnemyComposition = LevelEnemyComposition.FlippersAndTankers
     };
 
-    // REFERENCE VERIFIED: source Level 4 board, supply, enemy eligibility, and starting Spikes.
-    // Natural campaign progression and --level4-test share this accepted configuration.
+    // REFERENCE VERIFIED: source Level 4 board, supply, and starting Spikes. Admission and
+    // terminal conversion are accepted project translations documented in the behavior spec.
+    // Natural campaign progression and --level4-test share this configuration.
     public static LevelConfiguration Level4Candidate { get; } = new(
         ProgressionIndex: 3,
         DisplayedLevel: 4,

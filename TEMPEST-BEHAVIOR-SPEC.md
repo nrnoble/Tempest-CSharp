@@ -2404,3 +2404,46 @@ pair at saturation into ROM-backed behavior, nor does it establish hidden
 implementation equivalence or exact timing. The Level 3 concurrency
 investigation and accepted milestone are closed; Level 4 concurrency is
 outside this scope and requires its own investigation and acceptance.
+
+## Production Level 4 concurrency and ordinary admission (2026-11-09)
+
+**ROM-BACKED (local Rev. 2 listing):** The investigated default displayed
+Level 4 has 17 generic original pending entries. Ordinary entry selects only
+Flippers (minimum 1, maximum 4) and Spikers (minimum 1, maximum 2); Tanker,
+Pulsar, and Fuseball ordinary availability is zero. Seven physical places are
+shared, and an unmet Spiker minimum has priority over an unmet Flipper
+minimum. Consequently four Flippers plus two Spikers may exhaust ordinary
+species availability while one physical place remains open. This is not a
+global four-Flipper cap. Rim and other still-live enemies continue occupying
+physical capacity. Late Tankers arise through terminal Spiker conversion
+after generic pending supply is exhausted, not ordinary Tanker entry;
+released cargo bypasses ordinary species selection.
+
+**PROJECT TRANSLATION / APPROXIMATION:** The C# project preserves stable
+original/cargo identities and exact accounting rather than reproducing the
+ROM's generic reconstruction mechanism literally. While its mapping of
+generic original pending supply remains, an intermediate Spiker retreat
+returns the same identity through reserve/Egg instead of implementing live
+shortest-Spike hopping. At zero mapped pending supply, the same original
+identity converts at the C# retreat boundary; that boundary is an
+approximation, not literal ROM timing or coordinates, and prevents endless
+final-Spiker recycling. Retained converted Tankers may reenter under physical
+headroom while preserving identity, type, and cargo; this is not ordinary
+Tanker admission. Complete cargo pairs are preserved on release and may
+temporarily exceed seven live C# objects; ordinary admission waits until
+capacity reopens. Strict seven-live-object fidelity is not claimed at that
+saturation edge.
+
+**MANUALLY ARCADE-FIDELITY ACCEPTED (visible gameplay):** Neal's judgment was,
+“As far as I can determine, Level 4 is identical to the arcade game.” This is
+strong acceptance of the visible gameplay he tested, not hidden internal
+behavior. It does not promote the accepted C# identity, retreat, reentry, or
+cargo-saturation translations to ROM-backed facts.
+
+**AUTOMATED VALIDATION:** Final Release validation passed: 39 focused Level 4
+tests, 1,154 tests in the affected test project and full solution, and a full
+solution Release build with 0 warnings and 0 errors. The historical Debug
+VSTest attempt remains blocked before test execution by Windows Application
+Control `0x800711C7`; this is an infrastructure/security block, not a
+gameplay defect or a passing test result. The separate Release route
+completed without changing or bypassing Windows security.

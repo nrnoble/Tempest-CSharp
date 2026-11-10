@@ -584,6 +584,50 @@ public sealed class Level4CandidateTests
         Assert.Equal(16, game.Spikes.Count);
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void TerminalSpikersConvertSameIdentityOnceAndAllocateOneCargoPair(int spikerCount)
+    {
+        TempestGame game = new(level4Test: true, random: new MinimumRandom());
+        Level level = game.CurrentLevel;
+        Level3WaveLedger ledger = level.Level3Ledger!;
+        Egg[] spikerEggs = game.Eggs.Take(spikerCount).ToArray();
+        foreach (Egg egg in spikerEggs)
+        {
+            ledger.CommitOriginalAsSpiker(egg.OriginalSlotId);
+            egg.BeginApproach();
+            for (int tick = 0; tick < 100 && egg.State != EggState.ReadyToHatch; tick++)
+                egg.Update(level);
+        }
+
+        game.RunOneStep();
+        Spiker[] spikers = game.Spikers.ToArray();
+        Assert.Equal(spikerCount, spikers.Length);
+        int[] originalIds = spikers.Select(spiker => spiker.OriginalSlotId).ToArray();
+
+        ResolveAllOtherOriginalSupply(level, ledger);
+        Assert.Equal(0, ledger.PendingGenericOriginalCount);
+
+        for (int tick = 0; tick < 500 && game.Tankers.Count < spikerCount; tick++)
+            game.RunOneStep();
+
+        Assert.Equal(spikerCount, game.Tankers.Count);
+        Assert.Empty(game.Spikers);
+        Assert.Equal(17, ledger.OriginalCount);
+        Assert.Equal(17 + 2 * spikerCount, ledger.TotalIdentityCount);
+        foreach (int originalId in originalIds)
+        {
+            Assert.Equal(Level3OriginalType.Tanker, ledger.GetOriginalType(originalId));
+            Assert.Equal(Level3OriginalState.ActiveTanker, ledger.GetOriginalState(originalId));
+            Assert.Equal(Tanker.CarriedFlipperCount, ledger.GetCargoIdsForOriginal(originalId).Count);
+        }
+
+        game.RunOneStep();
+        Assert.Equal(2 * spikerCount, ledger.CargoCount);
+        Assert.Equal(17 + 2 * spikerCount, ledger.TotalIdentityCount);
+    }
+
     [Fact]
     public void ReturnedSpikerIdentityReentersAsAnEligibleTypeWithoutNewOriginals()
     {
@@ -604,20 +648,17 @@ public sealed class Level4CandidateTests
         Assert.Empty(ledger.GetCargoIdsForOriginal(0));
 
         ledger.MarkOriginalEgg(0);
-        Level3OriginalType reselectedType = Level3WaveSelection.SelectLevel4OriginalType(
-            (minimum, _) => minimum == -6 ? -6 : 1,
-            activeTankers: 0,
-            activeSpikers: 0,
-            activeEnemyUnits: 0,
-            activeEggs: 1);
-        Assert.Equal(Level3OriginalType.Flipper, reselectedType);
-        ledger.CommitOriginalAsFlipper(0);
+        Level3OriginalType reselectedType = Level4AdmissionPolicy.SelectOrdinaryType(
+            new Level4AdmissionSnapshot(0, 0, 0, 0, 0, 0),
+            (_, _) => 0)!.Value;
+        Assert.Equal(Level3OriginalType.Spiker, reselectedType);
+        ledger.CommitOriginalAsSpiker(0);
 
         Assert.Equal(originalCount, ledger.OriginalCount);
         Assert.Equal(totalIdentityCount, ledger.TotalIdentityCount);
         Assert.Equal(unresolvedBeforeRetreat, ledger.UnresolvedOriginalIds);
-        Assert.Equal(Level3OriginalType.Flipper, ledger.GetOriginalType(0));
-        Assert.Equal(Level3OriginalState.ActiveFlipper, ledger.GetOriginalState(0));
+        Assert.Equal(Level3OriginalType.Spiker, ledger.GetOriginalType(0));
+        Assert.Equal(Level3OriginalState.ActiveSpiker, ledger.GetOriginalState(0));
         Assert.Empty(ledger.GetCargoIdsForOriginal(0));
         ledger.ValidateState();
     }
@@ -994,58 +1035,47 @@ public sealed class Level4CandidateTests
     }
 
     [Fact]
-    public void LevelFourWavePickerOnlyReturnsEligibleEnemyTypesAndHonorsReferenceCaps()
+    public void CanonicalLevelFourHatchesSpikerBeforeFlipperAndRefreshesSameTickOccupancy()
     {
+        TempestGame game = new(level4Test: true, random: new MinimumRandom());
+        Egg[] readyEggs = game.Eggs.Take(2).ToArray();
+        foreach (Egg egg in readyEggs)
+        {
+            egg.BeginApproach();
+            for (int tick = 0; tick < 100 && egg.State != EggState.ReadyToHatch; tick++)
+                egg.Update(game.CurrentLevel);
+        }
+
+        game.RunOneStep();
+
+        Spiker spiker = Assert.Single(game.Spikers);
+        Flipper flipper = Assert.Single(game.Flippers);
+        Assert.Empty(game.Tankers);
         Assert.Equal(Level3OriginalType.Spiker,
-            Level3WaveSelection.SelectLevel4OriginalType((_, _) => -6,
-                activeTankers: 0, activeSpikers: 0, activeEnemyUnits: 4, activeEggs: 0));
+            game.CurrentLevel.Level3Ledger!.GetOriginalType(spiker.OriginalSlotId));
         Assert.Equal(Level3OriginalType.Flipper,
-            Level3WaveSelection.SelectLevel4OriginalType((_, _) => 1,
-                activeTankers: 0, activeSpikers: 4, activeEnemyUnits: 5, activeEggs: 0));
-        int pickerCalls = 0;
-        Assert.Equal(Level3OriginalType.Tanker,
-            Level3WaveSelection.SelectLevel4OriginalType((_, _) => ++pickerCalls == 1 ? 2 : 3,
-                activeTankers: 0, activeSpikers: 0, activeEnemyUnits: 4, activeEggs: 0));
-        Assert.Equal(Level3OriginalType.Flipper,
-            Level3WaveSelection.SelectLevel4OriginalType((_, _) => 1,
-                activeTankers: 6, activeSpikers: 0, activeEnemyUnits: 5, activeEggs: 0));
+            game.CurrentLevel.Level3Ledger.GetOriginalType(flipper.OriginalSlotId));
     }
 
     [Fact]
-    public void LevelFourSpikerEligibilityUsesStrictActiveEnemyAndEggBoundary()
+    public void CopiedLevelFourConfigurationDoesNotAcquireCanonicalAdmissionPolicy()
     {
-        static int Selection(int minimum, int _) => minimum == -6 ? -6 : 1;
-
-        Assert.Equal(Level3OriginalType.Spiker,
-            Level3WaveSelection.SelectLevel4OriginalType(Selection,
-                activeTankers: 0, activeSpikers: 0, activeEnemyUnits: 4, activeEggs: 0));
-        Assert.Equal(Level3OriginalType.Spiker,
-            Level3WaveSelection.SelectLevel4OriginalType(Selection,
-                activeTankers: 0, activeSpikers: 0, activeEnemyUnits: 3, activeEggs: 1));
-        Assert.Equal(Level3OriginalType.Flipper,
-            Level3WaveSelection.SelectLevel4OriginalType(Selection,
-                activeTankers: 0, activeSpikers: 0, activeEnemyUnits: 3, activeEggs: 0));
-        Assert.Equal(Level3OriginalType.Flipper,
-            Level3WaveSelection.SelectLevel4OriginalType(Selection,
-                activeTankers: 0, activeSpikers: 0, activeEnemyUnits: 0, activeEggs: 3));
-
-        Level levelWithReserve = new(LevelConfiguration.Level4Candidate with
+        LevelConfiguration copiedConfiguration = LevelConfiguration.Level4Candidate with
         {
-            InitialActiveEggCount = 1
-        });
-        Assert.Equal(16, levelWithReserve.ReserveEggs);
-        Assert.Equal(Level3OriginalType.Flipper,
-            Level3WaveSelection.SelectLevel4OriginalType(Selection,
-                activeTankers: 0, activeSpikers: 0,
-                activeEnemyUnits: 0, activeEggs: levelWithReserve.Eggs.Count));
+            InitialActiveEggCount = 1,
+            ReserveReleaseIntervalTicks = 10_000
+        };
+        TempestGame game = new(copiedConfiguration, random: new TankerRandom());
+        Egg egg = game.Eggs[0];
+        egg.BeginApproach();
+        for (int tick = 0; tick < 100 && egg.State != EggState.ReadyToHatch; tick++)
+            egg.Update(game.CurrentLevel);
 
-        Egg approachingEgg = levelWithReserve.Eggs[0];
-        approachingEgg.BeginApproach();
-        Assert.Single(levelWithReserve.Eggs);
-        Assert.Equal(Level3OriginalType.Spiker,
-            Level3WaveSelection.SelectLevel4OriginalType(Selection,
-                activeTankers: 0, activeSpikers: 0,
-                activeEnemyUnits: 3, activeEggs: levelWithReserve.Eggs.Count));
+        game.RunOneStep();
+
+        Tanker tanker = Assert.Single(game.Tankers);
+        Assert.Equal(Level3OriginalType.Tanker,
+            game.CurrentLevel.Level3Ledger!.GetOriginalType(tanker.OriginalSlotId));
     }
 
     private static void AssertFinite(Vector2 point) =>
@@ -1106,6 +1136,32 @@ public sealed class Level4CandidateTests
         List<(Vector2 Start, Vector2 End)> lines = [];
         renderer.DrawSpikes((start, end) => lines.Add((start, end)), _ => { });
         return lines;
+    }
+
+    private static void ResolveAllOtherOriginalSupply(Level level, Level3WaveLedger ledger)
+    {
+        foreach (Egg egg in level.Eggs.ToArray())
+        {
+            egg.BeginApproach();
+            for (int tick = 0; tick < 100 && egg.State != EggState.ReadyToHatch; tick++)
+                egg.Update(level);
+        }
+
+        level.HatchReadyMixedEnemies(
+            egg =>
+            {
+                ledger.CommitOriginalAsFlipper(egg.OriginalSlotId);
+                ledger.MarkOriginalDestroyed(egg.OriginalSlotId);
+                return new Flipper(egg.EdgeIndex, 0);
+            },
+            _ => { });
+
+        foreach (int originalId in ledger.OriginalIdsInReserve())
+        {
+            ledger.MarkOriginalEgg(originalId);
+            ledger.CommitOriginalAsFlipper(originalId);
+            ledger.MarkOriginalDestroyed(originalId);
+        }
     }
 
     private sealed class MinimumRandom : Random

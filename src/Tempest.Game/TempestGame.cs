@@ -139,6 +139,8 @@ public sealed class TempestGame
          ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level2Square));
     private bool HasLevel3MixedAdmissionDiagnostic =>
         ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level3Mixed);
+    private bool HasLevel4AdmissionDiagnostic =>
+        ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level4Candidate);
     private bool FlipperBulletFiringEnabled =>
         naturalProgressionEnabled || level6Test || level7Test ||
         enemyBulletsTest && !tankerTest && !spikerDevelopmentWave &&
@@ -843,6 +845,9 @@ public sealed class TempestGame
         if (HasLevel3MixedAdmissionDiagnostic &&
             !TrySelectLevel3DiagnosticType(egg, ledger, out diagnosticType))
             return null;
+        if (HasLevel4AdmissionDiagnostic &&
+            !TrySelectLevel4DiagnosticType(egg, ledger, out diagnosticType))
+            return null;
 
         if (egg.CargoUnitId >= 0)
         {
@@ -928,7 +933,8 @@ public sealed class TempestGame
         {
             int maximumTankers = CurrentLevel.Configuration.UsesLevel7RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel8RomWavePolicy ? 2 : 6;
-            if (!HasLevel3MixedAdmissionDiagnostic && tankers.Count >= maximumTankers)
+            if (!HasLevel3MixedAdmissionDiagnostic && !HasLevel4AdmissionDiagnostic &&
+                tankers.Count >= maximumTankers)
                 return null;
 
             int ammunition = NextRandomInclusive(1, 2);
@@ -974,6 +980,37 @@ public sealed class TempestGame
         Level3OriginalType retainedType = ledger.GetOriginalType(egg.OriginalSlotId);
         selectedType = Level3MixedAdmissionPolicy.SelectAdmissibleOriginalType(
             snapshot, retainedType);
+        return selectedType is not null;
+    }
+
+    private bool TrySelectLevel4DiagnosticType(
+        Egg egg,
+        Level3WaveLedger ledger,
+        out Level3OriginalType? selectedType)
+    {
+        Level4AdmissionSnapshot snapshot = new(
+            OrdinaryFlippers: flippers.Count(flipper => !flipper.IsTankerCargo),
+            ReleasedCargoFlippers: flippers.Count(flipper => flipper.IsTankerCargo),
+            PendingShotCargoFlippers: shotReleasedCargoPendingActivation.Count,
+            ActiveTankers: tankers.Count,
+            ActiveSpikers: spikers.Count,
+            ActiveOtherEnemies: fuseballs.Count + pulsars.Count);
+
+        if (egg.CargoUnitId >= 0)
+        {
+            selectedType = Level3OriginalType.Flipper;
+            return Level4AdmissionPolicy.CanAdmitCargoReentry(snapshot);
+        }
+
+        Level3OriginalType retainedType = ledger.GetOriginalType(egg.OriginalSlotId);
+        if (retainedType != Level3OriginalType.Unselected)
+        {
+            selectedType = retainedType;
+            return Level4AdmissionPolicy.CanAdmitRetainedOriginal(snapshot, retainedType);
+        }
+
+        selectedType = Level4AdmissionPolicy.SelectOrdinaryType(
+            snapshot, NextRandomInclusive);
         return selectedType is not null;
     }
 
@@ -1190,13 +1227,17 @@ public sealed class TempestGame
 
             spikers.RemoveAt(index--);
             developmentCollisionOrder.Remove(spiker);
-            if (CurrentLevel.Configuration.UsesGenericRomDeathReconstruction &&
-                CurrentLevel.PendingGenericEnemyUnits == 0)
+            Level3WaveLedger ledger = CurrentLevel.Level3Ledger!;
+            bool terminalLevel4Conversion = HasLevel4AdmissionDiagnostic &&
+                ledger.PendingGenericOriginalCount == 0;
+            bool genericRomConversion =
+                CurrentLevel.Configuration.UsesGenericRomDeathReconstruction &&
+                CurrentLevel.PendingGenericEnemyUnits == 0;
+            if (terminalLevel4Conversion || genericRomConversion)
             {
-                // ROM `$a009-$a024` turns the same final-pending Spiker slot into a
-                // Flipper-carrying Tanker at the bottom. Height zero is the C# reserve-return
-                // approximation of that ROM along-coordinate transition, not literal timing.
-                CurrentLevel.Level3Ledger!.ConvertActiveSpikerToTanker(spiker.OriginalSlotId);
+                // ROM conversion follows generic pending supply; this C# height-zero retreat
+                // boundary is an approximation, not literal ROM coordinate or timing fidelity.
+                ledger.ConvertActiveSpikerToTanker(spiker.OriginalSlotId);
                 Tanker converted = new(spiker.EdgeIndex, spiker.OriginalSlotId,
                     bulletAmmunition: NextRandomInclusive(1, 2),
                     bulletTimer: 16 + NextRandomInclusive(1, 64));

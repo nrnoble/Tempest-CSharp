@@ -88,6 +88,10 @@ public sealed class Level3WaveLedger
     public int OriginalCount => originals.Count;
     public int CargoCount => cargo.Count;
     public int TotalIdentityCount => originals.Count + cargo.Count;
+    // PROJECT TRANSLATION: reserve/Egg originals are pending; separately owned cargo
+    // and active/terminal originals are not.
+    public int PendingGenericOriginalCount => originals.Values.Count(
+        entry => entry.State is Level3OriginalState.Reserve or Level3OriginalState.Egg);
     public bool HasLatentCargo =>
         cargo.Values.Any(entry => entry.State == Level3CargoState.Latent);
     public bool HasPendingShotActivation =>

@@ -3639,3 +3639,47 @@ edge, exact timing, or the frequency of any internal arithmetic state. The
 Level 3 ROM concurrency investigation and manually accepted mixed-admission
 milestone are closed; Level 4 concurrency remains separate and is not part of
 this acceptance.
+
+## Accepted production Level 4 concurrency/admission (2026-11-09)
+
+**ROM-BACKED (local Rev. 2 listing):** The investigated default displayed
+Level 4 has 17 generic original pending entries (Hard has 19). Ordinary
+selection is Flipper 1/4 and Spiker 1/2; ordinary Tanker, Pulsar, and Fuseball
+availability is zero. Seven physical enemy places are shared. The unmet
+Spiker minimum precedes the unmet Flipper minimum, so ordinary admission can
+stop at four Flippers plus two Spikers with one physical place unused. This is
+not a global four-Flipper cap. Rim and other still-live enemies continue to
+occupy physical places. A retreating Spiker converts to a Tanker only after
+generic pending supply is exhausted; its released cargo bypasses ordinary
+species selection. Level 4 therefore has no ordinary Tanker admission, not
+zero live Tankers.
+
+**ACCEPTED PROJECT TRANSLATIONS / APPROXIMATIONS:** C# preserves stable
+original and cargo identities with exact ledger accounting; this is not a
+literal reproduction of the ROM's generic reconstruction mechanism. While
+generic original supply remains, an intermediate Spiker retreat returns the
+same identity through reserve/Egg rather than following the ROM's live
+shortest-Spike hop. The project's reserve/Egg count maps to ROM generic
+pending supply. When that count reaches zero, the same original identity
+converts to a Tanker at the existing C# retreat boundary; its height/timing is
+an approximation, not a ROM coordinate claim. This terminal conversion
+prevents endless final-Spiker recycling. A retained converted Tanker can
+reenter under physical-headroom rules, preserving its type and cargo, rather
+than ordinary Tanker selection. Complete Tanker cargo pairs remain intact;
+their release can temporarily exceed seven live C# objects, and ordinary
+admission waits until capacity reopens. These translations are not strict
+seven-live-object ROM fidelity.
+
+**MANUALLY ARCADE-FIDELITY ACCEPTED (visible gameplay):** Neal judged,
+“As far as I can determine, Level 4 is identical to the arcade game.” This is
+strong acceptance of the visible Level 4 gameplay he tested, not evidence of
+unobserved internal ROM mechanisms. Manual acceptance does not turn the
+documented C# translations into ROM-backed behavior.
+
+**AUTOMATED VALIDATION:** Focused Level 4 Release tests passed (39/39), the
+complete affected test project and full solution Release tests passed
+(1,154/1,154), and the full solution Release build passed with 0 warnings and
+0 errors. The earlier Debug VSTest execution remains **BLOCKED** before test
+execution by Windows Application Control `0x800711C7`; it is not a test pass
+or a gameplay defect. Release was the separate successful route and did not
+weaken or bypass Windows security.
