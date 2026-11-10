@@ -135,10 +135,13 @@ public sealed class Level
 
     public void ReturnEnemyToReserve() => EnemiesSpawned--;
 
-    // Life reconstruction retains this Level and restores unresolved units as fresh Eggs. Fresh
-    // wave construction instead uses the configured initial Egg count in Reset.
+    // Death keeps this Level and rebuilds unresolved enemies from its ledger; fresh waves
+    // instead use the configured initial Egg count in Reset.
     public void ResetAfterDeath(bool clearUnresolvedSpeciesSelections = false)
     {
+        clearUnresolvedSpeciesSelections |=
+            ReferenceEquals(Configuration, LevelConfiguration.Level5Production);
+
         if (UsesProductionLedger)
         {
             Level3Ledger!.RebuildAfterDeath(

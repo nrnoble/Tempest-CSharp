@@ -128,6 +128,150 @@ public sealed class Level3WaveLedgerTests
     }
 
     [Fact]
+    public void GenericDeathReconstructionMapsFourActiveCargoFlippersToFourFreshObligations()
+    {
+        Level3WaveLedger ledger = new(originalCount: 2);
+        List<int> cargoIds = [];
+        for (int ownerId = 0; ownerId < 2; ownerId++)
+        {
+            ledger.MarkOriginalEgg(ownerId);
+            ledger.CommitOriginalAsTanker(ownerId);
+            cargoIds.AddRange(ledger.MaterializeLiveCargo(ownerId));
+            ledger.MarkOriginalEscaped(ownerId);
+        }
+
+        Assert.Equal(4, ledger.UnresolvedCargoIds.Count);
+        ledger.RebuildAfterDeath(clearUnresolvedSpeciesSelections: true);
+
+        Assert.Equal(6, ledger.OriginalCount);
+        Assert.Equal(4, ledger.UnresolvedOriginalIds.Count);
+        Assert.Empty(ledger.UnresolvedCargoIds);
+        Assert.All(cargoIds, id =>
+            Assert.Equal(Level3CargoState.Reconstructed, ledger.GetCargoState(id)));
+        int[] genericIds = ledger.UnresolvedOriginalIds.Order().ToArray();
+        Assert.Equal(new[] { 2, 3, 4, 5 }, genericIds);
+        Assert.All(genericIds, id =>
+        {
+            Assert.Equal(Level3OriginalState.Reserve, ledger.GetOriginalState(id));
+            Assert.Equal(Level3OriginalType.Unselected, ledger.GetOriginalType(id));
+        });
+        ledger.ValidateState();
+    }
+
+    [Fact]
+    public void GenericDeathReconstructionClearsFourEnemySpeciesAndDropsLatentCargo()
+    {
+        Level3WaveLedger ledger = new(originalCount: 4);
+        ledger.MarkOriginalEgg(0);
+        ledger.CommitOriginalAsFlipper(0);
+        ledger.MarkOriginalEgg(1);
+        ledger.CommitOriginalAsSpiker(1);
+        ledger.MarkOriginalEgg(2);
+        ledger.CommitOriginalAsTanker(2);
+        ledger.MarkOriginalEgg(3);
+        ledger.CommitOriginalAsSpiker(3);
+
+        ledger.RebuildAfterDeath(clearUnresolvedSpeciesSelections: true);
+
+        Assert.Equal(4, ledger.OriginalCount);
+        Assert.Equal(4, ledger.UnresolvedOriginalIds.Count);
+        Assert.Equal(0, ledger.CargoCount);
+        Assert.Empty(ledger.UnresolvedCargoIds);
+        Assert.All(ledger.UnresolvedOriginalIds, id =>
+        {
+            Assert.Equal(Level3OriginalType.Unselected, ledger.GetOriginalType(id));
+            Assert.Equal(Level3OriginalState.Reserve, ledger.GetOriginalState(id));
+        });
+        ledger.ValidateState();
+    }
+
+    [Fact]
+    public void GenericDeathReconstructionPreservesEightCargoObligationsAcrossRepeatedDeath()
+    {
+        Level3WaveLedger ledger = new(originalCount: 4);
+        List<int> formerCargoIds = [];
+        for (int ownerId = 0; ownerId < 4; ownerId++)
+        {
+            ledger.MarkOriginalEgg(ownerId);
+            ledger.CommitOriginalAsTanker(ownerId);
+            formerCargoIds.AddRange(ledger.MaterializeLiveCargo(ownerId));
+            ledger.MarkOriginalEscaped(ownerId);
+        }
+
+        ledger.RebuildAfterDeath(clearUnresolvedSpeciesSelections: true);
+
+        int[] genericIds = ledger.UnresolvedOriginalIds.Order().ToArray();
+        Assert.Equal(8, genericIds.Length);
+        Assert.Equal(12, ledger.OriginalCount);
+        Assert.Empty(ledger.UnresolvedCargoIds);
+        Assert.All(formerCargoIds, id =>
+            Assert.Equal(Level3CargoState.Reconstructed, ledger.GetCargoState(id)));
+        Assert.All(genericIds, id =>
+            Assert.Equal(Level3OriginalType.Unselected, ledger.GetOriginalType(id)));
+
+        int tankerId = genericIds[0];
+        ledger.MarkOriginalEgg(tankerId);
+        ledger.CommitOriginalAsTanker(tankerId);
+        IReadOnlyList<int> newCargoIds = ledger.MaterializeLiveCargo(tankerId);
+        ledger.MarkOriginalEscaped(tankerId);
+        Assert.Empty(formerCargoIds.Intersect(newCargoIds));
+        Assert.Equal(9, ledger.UnresolvedOriginalIds.Count +
+            ledger.UnresolvedCargoIds.Count);
+
+        ledger.RebuildAfterDeath(clearUnresolvedSpeciesSelections: true);
+
+        Assert.Equal(14, ledger.OriginalCount);
+        Assert.Equal(9, ledger.UnresolvedOriginalIds.Count);
+        Assert.Empty(ledger.UnresolvedCargoIds);
+        Assert.All(newCargoIds, id =>
+            Assert.Equal(Level3CargoState.Reconstructed, ledger.GetCargoState(id)));
+        Assert.All(ledger.UnresolvedOriginalIds, id =>
+            Assert.Equal(Level3OriginalType.Unselected, ledger.GetOriginalType(id)));
+        ledger.ValidateState();
+    }
+
+    [Fact]
+    public void GenericDeathReconstructionKeepsTerminalCargoSiblingAndTransfersOnlyUnresolvedOne()
+    {
+        Level3WaveLedger ledger = new(originalCount: 1);
+        ledger.MarkOriginalEgg(0);
+        ledger.CommitOriginalAsTanker(0);
+        IReadOnlyList<int> cargoIds = ledger.MaterializeLiveCargo(0);
+        ledger.MarkOriginalEscaped(0);
+        ledger.MarkCargoDestroyed(cargoIds[0]);
+
+        ledger.RebuildAfterDeath(clearUnresolvedSpeciesSelections: true);
+
+        Assert.Equal(Level3CargoState.Destroyed, ledger.GetCargoState(cargoIds[0]));
+        Assert.Equal(Level3CargoState.Reconstructed, ledger.GetCargoState(cargoIds[1]));
+        Assert.Single(ledger.UnresolvedOriginalIds);
+        Assert.Empty(ledger.UnresolvedCargoIds);
+        int genericId = Assert.Single(ledger.UnresolvedOriginalIds);
+        Assert.Equal(Level3OriginalType.Unselected, ledger.GetOriginalType(genericId));
+        ledger.ValidateState();
+    }
+
+    [Fact]
+    public void GenericDeathReconstructionTransfersPendingShotAndActiveCargoSeparately()
+    {
+        Level3WaveLedger ledger = new(originalCount: 1);
+        ledger.MarkOriginalEgg(0);
+        ledger.CommitOriginalAsTanker(0);
+        IReadOnlyList<int> cargoIds = ledger.QueueCargoForShotActivation(0);
+        ledger.MarkOriginalDestroyed(0);
+        ledger.ActivateShotCargo(cargoIds[0]);
+
+        ledger.RebuildAfterDeath(clearUnresolvedSpeciesSelections: true);
+
+        Assert.Equal(2, ledger.UnresolvedOriginalIds.Count);
+        Assert.All(cargoIds, id =>
+            Assert.Equal(Level3CargoState.Reconstructed, ledger.GetCargoState(id)));
+        Assert.All(ledger.UnresolvedOriginalIds, id =>
+            Assert.Equal(Level3OriginalType.Unselected, ledger.GetOriginalType(id)));
+        ledger.ValidateState();
+    }
+
+    [Fact]
     public void UnreleasedTankerKeepsItsLatentPairWhenReconstructedAsReserve()
     {
         Level3WaveLedger ledger = new(originalCount: 1);

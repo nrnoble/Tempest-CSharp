@@ -3683,3 +3683,84 @@ complete affected test project and full solution Release tests passed
 execution by Windows Application Control `0x800711C7`; it is not a test pass
 or a gameplay defect. Release was the separate successful route and did not
 weaken or bypass Windows security.
+
+## Production Level 5 concurrency and generic death reconstruction (2026-11-10)
+
+**ROM-BACKED (local Rev. 2 listing):** Easy/Medium Level 5 has 20 generic
+pending originals (Hard has 23). Ordinary species availability is Flipper
+0/5, Tanker 1/1, Spiker 2/3, Pulsar 0/0, and Fuseball 0/0 (minimum/maximum).
+Seven shared physical enemy places are used. The selector checks unmet
+minima in descending species order, so Spiker minimum 2 precedes Tanker
+minimum 1. Flipper availability may be positive, but its zero minimum keeps
+it out of ordinary selection. Latent two-Flipper Tanker cargo reduces
+Flipper availability without occupying places; released cargo bypasses
+ordinary selection. Ordinary species availability can be exhausted with
+physical places still open. At zero generic pending supply, the existing
+live Spiker changes in place to a Flipper-carrying Tanker rather than
+admitting an ordinary Tanker. Species maxima limit ordinary admission; they
+are not absolute late-wave live-population caps.
+
+**ACCEPTED LEVEL 5 PROJECT TRANSLATION:** The canonical production
+configuration uses a Level-5-specific ordinary policy: Tanker/Spiker only,
+the above minima/maxima, seven-place admission headroom, latent cargo
+availability accounting, and terminal Spiker-to-Tanker conversion at the
+existing C# retreat boundary. A blocked ready Egg waits without losing its
+identity or consuming repeated selection randomness; admission recomputes
+current state. Converted Tankers retain project identity and cargo accounting
+and reenter under physical headroom, outside the ordinary Tanker maximum.
+Released cargo bypasses species choice. Complete cargo-pair identity and
+accounting remain preserved even where this C# behavior can temporarily
+exceed seven live objects; ordinary admission then waits for headroom.
+
+**PROJECT TRANSLATION / APPROXIMATION:** The shortest-Spike `$CC` selector
+threshold uses the established ROM-along/world-height mapping (about 64.29
+C# world-height units); C# height is not a literal ROM coordinate. The
+stable identity ledger, ready-Egg wait, admission timing, retreat boundary,
+and reconstructed IDs are project mechanisms, not literal Atari identity or
+timing behavior.
+
+**ROM-BACKED CONCEPT / ARCADE-OBSERVED CONSEQUENCE:** ROM death
+reconstruction turns active enemies into generic pending supply. Neal
+observed that unresolved quantity survives death while pre-death Flipper
+species/presentation does not: Flippers do not independently return from the
+bottom or reappear on the rim, and reconstructed Level 5 obligations later
+use ordinary Tanker/Spiker selection. He observed four unresolved enemies
+become four obligations and eight unresolved materialized cargo Flippers
+become eight obligations, not four former-Tanker obligations.
+
+**ACCEPTED C# DEATH-RECONSTRUCTION TRANSLATION:** Each unresolved
+materialized cargo child is terminalized under its historical cargo identity
+and contributes one fresh unselected generic original obligation. Two
+children are not collapsed into their former Tanker. Resolved/terminal cargo
+stays terminal; latent unreleased cargo does not add obligations. Historical
+Flipper species, cargo-Egg presentation, lane, height, and rim placement are
+not retained. Reconstructed obligations use normal Level 5 Tanker/Spiker
+selection, and repeated deaths conserve the then-current unresolved
+quantity. Stable IDs and this one-child mapping are not claims about literal
+Atari identity behavior.
+
+**REJECTED TRANSLATIONS:** Cargo-Egg reconstruction was rejected because it
+made individual Flippers enter from the bottom after death. Captured-position
+Flipper restoration was also rejected because it preserved Flipper
+presentation and could return Flippers to the rim. The historical
+investigation reports retain those experiments.
+
+**MANUALLY ARCADE-ACCEPTED (visible gameplay):** Neal's final result was:
+“The bug no longer is present in level 5. Level 5 plays as expected. No
+regressions in levels 1-4.” His acceptance includes the observable
+post-death behavior above. It does not establish hidden ROM scheduling or
+`zap_running` timing equivalence.
+
+**AUTOMATED VALIDATION:** The final candidate passed the focused generic
+reconstruction group (7 tests), complete focused Level 5/ledger/cargo groups
+(88), affected regressions (767), and full Release solution tests (1,171),
+all with 0 failures and 0 skips; the Release solution build passed with 0
+warnings and 0 errors. VSTest executed each test stage. Final closeout
+validation is recorded in the paired AI report.
+
+**DEFERRED:** ROM ordinary entry pauses during `zap_running`; the accepted C#
+Super Zapper lifecycle is not redesigned around that gate. Manual acceptance
+does not establish hidden zap timing. Exact Atari admission cadence,
+coordinate/timing equivalence, hard-mode supply behavior in C#, and strict
+seven-live-object fidelity during complete cargo-pair release remain outside
+this accepted translation. Level 6 concurrency was not started.

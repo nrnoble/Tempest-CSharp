@@ -60,6 +60,8 @@ public sealed class Level3WaveLedger
     {
         public Level3OriginalType Type { get; set; }
         public Level3OriginalState State { get; set; }
+        // Retained across death so Level 5 reentry does not consume ordinary Tanker allowance.
+        public bool IsConvertedTanker { get; set; }
 
         public OriginalEntry(Level3OriginalState state)
         {
@@ -107,6 +109,9 @@ public sealed class Level3WaveLedger
 
     public Level3OriginalType GetOriginalType(int id) =>
         GetOriginal(id).Type;
+
+    public bool IsConvertedSpikerTanker(int id) =>
+        GetOriginal(id).IsConvertedTanker;
 
     public Level3OriginalState GetOriginalState(int id) =>
         GetOriginal(id).State;
@@ -291,6 +296,7 @@ public sealed class Level3WaveLedger
                             cargo.Remove(cargoId);
                     }
                     entry.Type = Level3OriginalType.Unselected;
+                    entry.IsConvertedTanker = false;
                 }
                 else if (clearUnresolvedFlipperSelections &&
                     entry.Type == Level3OriginalType.Flipper)
@@ -312,17 +318,14 @@ public sealed class Level3WaveLedger
             {
                 if (clearUnresolvedSpeciesSelections)
                 {
-                    // Released Level 7 cargo is an active generic unit after death, not a
-                    // guaranteed Flipper. Transfer its bookkeeping identity to fresh supply.
+                    // Generic reconstruction keeps one new pending obligation per released child.
                     entry.State = Level3CargoState.Reconstructed;
                     int genericId = originals.Count;
                     originals.Add(genericId, new OriginalEntry(Level3OriginalState.Reserve));
                     unresolvedOriginals.Add(genericId);
                 }
                 else
-                {
                     entry.State = Level3CargoState.ReentryReserve;
-                }
             }
         }
 
@@ -364,6 +367,7 @@ public sealed class Level3WaveLedger
 
         entry.Type = Level3OriginalType.Tanker;
         entry.State = Level3OriginalState.ActiveTanker;
+        entry.IsConvertedTanker = true;
         cargo.Add(CargoUnitId(id, 0), new CargoEntry(id, 0));
         cargo.Add(CargoUnitId(id, 1), new CargoEntry(id, 1));
         ValidateState();
@@ -505,6 +509,9 @@ public sealed class Level3WaveLedger
             if (entry.State is Level3OriginalState.ActiveTanker &&
                 entry.Type != Level3OriginalType.Tanker)
                 throw new InvalidOperationException($"Active Tanker original {id} has inconsistent selected type.");
+            if (entry.IsConvertedTanker && entry.Type != Level3OriginalType.Tanker)
+                throw new InvalidOperationException(
+                    $"Converted Spiker original {id} must retain its Tanker type.");
             if (entry.State is Level3OriginalState.ActiveSpiker &&
                 entry.Type != Level3OriginalType.Spiker)
                 throw new InvalidOperationException($"Active Spiker original {id} has inconsistent selected type.");

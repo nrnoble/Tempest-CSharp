@@ -141,6 +141,8 @@ public sealed class TempestGame
         ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level3Mixed);
     private bool HasLevel4AdmissionDiagnostic =>
         ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level4Candidate);
+    private bool HasLevel5AdmissionDiagnostic =>
+        ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level5Production);
     private bool FlipperBulletFiringEnabled =>
         naturalProgressionEnabled || level6Test || level7Test ||
         enemyBulletsTest && !tankerTest && !spikerDevelopmentWave &&
@@ -848,6 +850,9 @@ public sealed class TempestGame
         if (HasLevel4AdmissionDiagnostic &&
             !TrySelectLevel4DiagnosticType(egg, ledger, out diagnosticType))
             return null;
+        if (HasLevel5AdmissionDiagnostic &&
+            !TrySelectLevel5DiagnosticType(egg, ledger, out diagnosticType))
+            return null;
 
         if (egg.CargoUnitId >= 0)
         {
@@ -912,13 +917,14 @@ public sealed class TempestGame
             }
             if (selectedType == Level3OriginalType.Tanker &&
                 !CurrentLevel.Configuration.UsesLevel7RomWavePolicy &&
-                !CurrentLevel.Configuration.UsesLevel8RomWavePolicy)
+                !CurrentLevel.Configuration.UsesLevel8RomWavePolicy &&
+                !HasLevel5AdmissionDiagnostic)
                 Level3WaveSelection.SelectTwoFlipperCargo(NextRandomInclusive);
         }
 
         if (selectedType == Level3OriginalType.Spiker)
         {
-            if (spikers.Count > 3)
+            if (!HasLevel5AdmissionDiagnostic && spikers.Count > 3)
                 return null;
 
             float speed = CurrentLevel.Configuration.ProgressionIndex / 48f +
@@ -934,6 +940,7 @@ public sealed class TempestGame
             int maximumTankers = CurrentLevel.Configuration.UsesLevel7RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel8RomWavePolicy ? 2 : 6;
             if (!HasLevel3MixedAdmissionDiagnostic && !HasLevel4AdmissionDiagnostic &&
+                !HasLevel5AdmissionDiagnostic &&
                 tankers.Count >= maximumTankers)
                 return null;
 
@@ -1011,6 +1018,44 @@ public sealed class TempestGame
 
         selectedType = Level4AdmissionPolicy.SelectOrdinaryType(
             snapshot, NextRandomInclusive);
+        return selectedType is not null;
+    }
+
+    private bool TrySelectLevel5DiagnosticType(
+        Egg egg,
+        Level3WaveLedger ledger,
+        out Level3OriginalType? selectedType)
+    {
+        Level5AdmissionSnapshot snapshot = new(
+            OrdinaryFlippers: flippers.Count(flipper => !flipper.IsTankerCargo),
+            ReleasedCargoFlippers: flippers.Count(flipper => flipper.IsTankerCargo),
+            PendingShotCargoFlippers: shotReleasedCargoPendingActivation.Count,
+            OrdinaryTankers: tankers.Count(tanker =>
+                !ledger.IsConvertedSpikerTanker(tanker.OriginalSlotId)),
+            ConvertedTankers: tankers.Count(tanker =>
+                ledger.IsConvertedSpikerTanker(tanker.OriginalSlotId)),
+            ActiveSpikers: spikers.Count,
+            ActiveOtherEnemies: fuseballs.Count + pulsars.Count,
+            LatentTankerCargoFlippers: tankers.Sum(tanker => tanker.LatentCargoCount),
+            ShortestSpikeHeight: CurrentLevel.Spikes.Count == 0
+                ? null
+                : CurrentLevel.Spikes.Min(spike => spike.Height));
+
+        if (egg.CargoUnitId >= 0)
+            throw new InvalidOperationException(
+                "Canonical Level 5 reconstruction cannot hatch a cargo Flipper Egg.");
+
+        Level3OriginalType retainedType = ledger.GetOriginalType(egg.OriginalSlotId);
+        if (retainedType != Level3OriginalType.Unselected)
+        {
+            selectedType = retainedType;
+            return Level5AdmissionPolicy.CanAdmitRetainedOriginal(
+                snapshot,
+                retainedType,
+                ledger.IsConvertedSpikerTanker(egg.OriginalSlotId));
+        }
+
+        selectedType = Level5AdmissionPolicy.SelectOrdinaryType(snapshot);
         return selectedType is not null;
     }
 
@@ -1230,10 +1275,14 @@ public sealed class TempestGame
             Level3WaveLedger ledger = CurrentLevel.Level3Ledger!;
             bool terminalLevel4Conversion = HasLevel4AdmissionDiagnostic &&
                 ledger.PendingGenericOriginalCount == 0;
+            bool terminalLevel5Conversion = HasLevel5AdmissionDiagnostic &&
+                Level5AdmissionPolicy.ShouldConvertTerminalSpiker(
+                    CurrentLevel.Configuration,
+                    ledger.PendingGenericOriginalCount);
             bool genericRomConversion =
                 CurrentLevel.Configuration.UsesGenericRomDeathReconstruction &&
                 CurrentLevel.PendingGenericEnemyUnits == 0;
-            if (terminalLevel4Conversion || genericRomConversion)
+            if (terminalLevel4Conversion || terminalLevel5Conversion || genericRomConversion)
             {
                 // ROM conversion follows generic pending supply; this C# height-zero retreat
                 // boundary is an approximation, not literal ROM coordinate or timing fidelity.
