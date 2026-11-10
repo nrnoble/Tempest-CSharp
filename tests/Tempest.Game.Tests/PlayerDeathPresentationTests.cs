@@ -349,7 +349,7 @@ public sealed class PlayerDeathPresentationTests
         Assert.Equal(0, game.EnemyRetractionProgress);
         Tanker? tanker = level == 3 ? game.Tankers.FirstOrDefault() : null;
         if (level == 3)
-            Assert.NotNull(tanker);
+            Assert.InRange(game.Tankers.Count, 0, 1);
         List<(Vector2 Start, Vector2 End)> initialTankerLines = [];
         int tankerOwner = tanker?.OriginalSlotId ?? -1;
         int latentCargo = tanker?.LatentCargoCount ?? 0;

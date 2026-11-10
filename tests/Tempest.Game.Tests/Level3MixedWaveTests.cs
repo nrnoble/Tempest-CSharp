@@ -187,7 +187,7 @@ public sealed class Level3MixedWaveTests
     }
 
     [Fact]
-    public void ProductionWaveEnforcesSixSimultaneousTankersAndStillSelectsFlippers()
+    public void CanonicalProductionAdmissionNeverCreatesASecondTanker()
     {
         BoundedCompositionRandom random = new(maximumCalls: 2000);
         TempestGame game = new(LevelConfiguration.Level3Mixed, random: random);
@@ -195,10 +195,10 @@ public sealed class Level3MixedWaveTests
         for (int tick = 0; tick < 200; tick++)
         {
             game.RunOneStep();
-            Assert.InRange(game.Tankers.Count, 0, 6);
+            Assert.InRange(game.Tankers.Count, 0, 1);
+            Assert.Empty(game.Pulsars);
         }
 
-        Assert.Equal(6, game.Tankers.Count);
         Assert.Contains(game.Flippers, flipper => !flipper.IsTankerCargo);
         Assert.True(random.Consumed > 0);
     }
@@ -206,11 +206,7 @@ public sealed class Level3MixedWaveTests
     [Fact]
     public void FirstSuperZapperResolvesSixMixedWaveCarriersAndTheirOwnedPairsExactlyOnce()
     {
-        BoundedCompositionRandom random = new(maximumCalls: 5000);
-        TempestGame game = new(LevelConfiguration.Level3Mixed, random: random);
-
-        for (int tick = 0; tick < 200; tick++)
-            game.RunOneStep();
+        TempestGame game = CreateArtificialMultiCarrierGame();
 
         Tanker[] carriers = game.Tankers.ToArray();
         Assert.Equal(6, carriers.Length);
@@ -245,13 +241,12 @@ public sealed class Level3MixedWaveTests
         Assert.True(ledger.CargoCount > 12);
         Assert.Equal(0, ledger.CargoCount % Tanker.CarriedFlipperCount);
         Assert.InRange(game.Tankers.Count, 0, 6);
-        Assert.True(random.Consumed > 0);
     }
 
     [Fact]
     public void NaturalShotAndZapCarrierOutcomesOverlapWithoutSharingCargoOrScore()
     {
-        TempestGame game = CreateCappedProductionGame(includeEnemyBullets: true);
+        TempestGame game = CreateArtificialMultiCarrierGame(includeEnemyBullets: true);
         Tanker[] carriers = game.Tankers
             .GroupBy(tanker => tanker.EdgeIndex)
             .Select(group => group.First())
@@ -448,7 +443,7 @@ public sealed class Level3MixedWaveTests
     [Fact]
     public void SecondSuperZapperReplacesTheSelectedTargetTimerAndIgnoresBulletsForDelaySlots()
     {
-        TempestGame game = CreateCappedProductionGame(includeEnemyBullets: true);
+        TempestGame game = CreateArtificialMultiCarrierGame(includeEnemyBullets: true);
         Tanker[] carriers = game.Tankers.ToArray();
         Flipper[] flippers = game.Flippers.ToArray();
         Enemy[] acceptedTargets = carriers.Cast<Enemy>().Concat(flippers).ToArray();
@@ -491,7 +486,7 @@ public sealed class Level3MixedWaveTests
     [Fact]
     public void ShotPreemptsFirstChargeCarrierZapAndItsRemovedTimerCannotScoreLater()
     {
-        TempestGame game = CreateCappedProductionGame();
+        TempestGame game = CreateArtificialMultiCarrierGame();
         Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger!;
 
         Assert.Equal(LevelState.Playing, game.State);
@@ -593,17 +588,12 @@ public sealed class Level3MixedWaveTests
                 .SelectMany(_ => new[] { (0, 15, 0), (0, 1, 0) }),
             (0, 100, 96),
             (0, 100, 96),
-            (-6, 4, 4),
             (0, 2, 1),
             (0, 2, 2),
             (0, 2, 0),
             (1, 2, 1),
             (1, 64, 64),
-            (0, 100, 95),
-            (-6, 4, 0),
-            (-6, 4, 2),
-            (-6, 4, 3),
-            (-6, 4, 1)
+            (0, 100, 95)
         ]);
         TempestGame game = new(LevelConfiguration.Level3Mixed, random: random);
 
@@ -633,7 +623,6 @@ public sealed class Level3MixedWaveTests
             (0, 100, 96),
             (0, 100, 95),
             .. Enumerable.Repeat((0, 100, 95), 38),
-            (-6, 4, 4),
             (0, 2, 0),
             (1, 2, 1),
             (1, 64, 1),
@@ -815,7 +804,7 @@ public sealed class Level3MixedWaveTests
     [Fact]
     public void ConsecutiveOrdinaryDeathsConserveSeveralCarriersCargoEggsAndReentryReserve()
     {
-        TempestGame game = CreateCappedProductionGame();
+        TempestGame game = CreateArtificialMultiCarrierGame();
         Assert.False(game.EnemyBulletsTest);
         Level level = game.CurrentLevel;
         Level3WaveLedger ledger = level.Level3Ledger!;
@@ -1084,7 +1073,7 @@ public sealed class Level3MixedWaveTests
     public void DeathDuringZapChildTimersReentersOnlyTheUnresolvedSiblingCargo()
     {
         BoundedCompositionRandom random = new(maximumCalls: 5000, variedLanes: true);
-        TempestGame game = new(LevelConfiguration.Level3Mixed, random: random);
+        TempestGame game = new(MultiCarrierFixtureConfiguration(), random: random);
         for (int tick = 0; tick < 200; tick++)
             game.RunOneStep();
 
@@ -1152,7 +1141,7 @@ public sealed class Level3MixedWaveTests
     public void DeathAfterZapExpiryKeepsCarrierAndResolvedCargoTerminal()
     {
         BoundedCompositionRandom random = new(maximumCalls: 5000, variedLanes: true);
-        TempestGame game = new(LevelConfiguration.Level3Mixed, random: random);
+        TempestGame game = new(MultiCarrierFixtureConfiguration(), random: random);
         for (int tick = 0; tick < 200; tick++)
             game.RunOneStep();
 
@@ -1214,7 +1203,7 @@ public sealed class Level3MixedWaveTests
     public void DeathWithBothZapReleasedCargoTimersReentersFreshUnzappedCargo()
     {
         BoundedCompositionRandom random = new(maximumCalls: 5000, variedLanes: true);
-        TempestGame game = new(LevelConfiguration.Level3Mixed, random: random);
+        TempestGame game = new(MultiCarrierFixtureConfiguration(), random: random);
         for (int tick = 0; tick < 200; tick++)
             game.RunOneStep();
 
@@ -1303,7 +1292,82 @@ public sealed class Level3MixedWaveTests
     }
 
     [Fact]
-    public void ReconstructedSelectedTankerWaitsAtCapWhileOtherEggsHatchThenUsesSameType()
+    public void DiagnosticKeepsBlockedEggsReadyAndRecomputesCapacityForEachSameTickHatch()
+    {
+        InclusiveRangeScript random = new(
+            Enumerable.Range(0, 2)
+                .SelectMany(_ => new[] { (0, 15, 0), (0, 1, 0) }));
+        LevelConfiguration twoIdentityConfiguration = LevelConfiguration.Level3Mixed with
+        {
+            EnemySupply = 2,
+            InitialActiveEggCount = 2
+        };
+        Level level = new(twoIdentityConfiguration,
+            randomInclusive: random.NextInclusive);
+        Egg firstEgg = level.Eggs[0];
+        Egg secondEgg = level.Eggs[1];
+        foreach (Egg egg in new[] { firstEgg, secondEgg })
+        {
+            egg.BeginApproach();
+            for (int tick = 0; tick < 40; tick++)
+                egg.Update(level);
+        }
+
+        Level3WaveLedger ledger = level.Level3Ledger!;
+        List<Enemy> active = [];
+        int ordinaryFlippersBeforeBatch = 6;
+
+        Enemy? CreateAdmittedFlipper(Egg egg)
+        {
+            Level3MixedAdmissionSnapshot snapshot = new(
+                OrdinaryFlippers: ordinaryFlippersBeforeBatch +
+                    active.OfType<Flipper>().Count(),
+                ReleasedCargoFlippers: 0,
+                PendingShotCargoFlippers: 0,
+                ActiveTankers: 1,
+                ActiveOtherEnemies: 0,
+                LatentTankerCargoFlippers: Tanker.CarriedFlipperCount);
+            Level3OriginalType? type = Level3MixedAdmissionPolicy
+                .SelectAdmissibleOriginalType(snapshot, ledger.GetOriginalType(egg.OriginalSlotId));
+            if (type != Level3OriginalType.Flipper)
+                return null;
+
+            ledger.CommitOriginalAsFlipper(egg.OriginalSlotId);
+            return new Flipper(egg.EdgeIndex, 0);
+        }
+
+        level.HatchReadyMixedEnemies(CreateAdmittedFlipper, active.Add);
+        Assert.Empty(active);
+        Assert.Equal(EggState.ReadyToHatch, firstEgg.State);
+        Assert.Equal(EggState.ReadyToHatch, secondEgg.State);
+        Assert.Equal(Level3OriginalState.Egg,
+            ledger.GetOriginalState(firstEgg.OriginalSlotId));
+        Assert.Equal(Level3OriginalState.Egg,
+            ledger.GetOriginalState(secondEgg.OriginalSlotId));
+        Assert.False(level.IsComplete(active.Count));
+
+        ordinaryFlippersBeforeBatch = 5;
+        level.HatchReadyMixedEnemies(CreateAdmittedFlipper, active.Add);
+        Assert.Single(active);
+        Assert.DoesNotContain(firstEgg, level.Eggs);
+        Assert.Contains(secondEgg, level.Eggs);
+        Assert.Equal(EggState.ReadyToHatch, secondEgg.State);
+        Assert.Equal(Level3OriginalState.ActiveFlipper,
+            ledger.GetOriginalState(firstEgg.OriginalSlotId));
+        Assert.Equal(Level3OriginalState.Egg,
+            ledger.GetOriginalState(secondEgg.OriginalSlotId));
+
+        ordinaryFlippersBeforeBatch = 4;
+        level.HatchReadyMixedEnemies(CreateAdmittedFlipper, active.Add);
+        Assert.Equal(2, active.Count);
+        Assert.DoesNotContain(level.Eggs, egg => egg.State == EggState.ReadyToHatch);
+        Assert.Equal(Level3OriginalState.ActiveFlipper,
+            ledger.GetOriginalState(secondEgg.OriginalSlotId));
+        Assert.Equal(0, random.Remaining);
+    }
+
+    [Fact]
+    public void SyntheticSixTankerHatchFixturePreservesSelectedTypeWhileAtCapacity()
     {
         InclusiveRangeScript random = new(
         [
@@ -1326,6 +1390,7 @@ public sealed class Level3MixedWaveTests
         }
 
         List<Enemy> active = [];
+        // This is a custom hatch-factory stress state, not the canonical production policy.
         int activeTankers = 6;
         Enemy? CreateEnemy(Egg egg)
         {
@@ -1576,7 +1641,7 @@ public sealed class Level3MixedWaveTests
     public void OrdinaryCompletionWaitsForShotPendingCargoThenFinishesLevelThreeWithBullets()
     {
         (TempestGame game, InclusiveRangeScript random) = CreateTankerGame(
-            (0, 100, 100));
+            canonicalLevel3: true, (0, 100, 100));
         Level level = game.CurrentLevel;
         Level3WaveLedger ledger = level.Level3Ledger!;
         Tanker tanker = Assert.Single(game.Tankers);
@@ -1792,8 +1857,6 @@ public sealed class Level3MixedWaveTests
                 .SelectMany(_ => new[] { (0, 15, 0), (0, 1, 0) }),
             (0, 15, 0),
             (0, 1, 0),
-            (-6, 4, 0),
-            (1, 4, 1),
             .. Enumerable.Range(0, 4)
                 .SelectMany(_ => new[] { (0, 15, 1), (0, 1, 1) })
         ]);
@@ -1801,6 +1864,7 @@ public sealed class Level3MixedWaveTests
         Level previous = game.CurrentLevel;
         Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger!;
 
+        ledger.CommitOriginalAsFlipper(0);
         for (int originalId = 1; originalId < ledger.OriginalCount; originalId++)
         {
             if (ledger.GetOriginalState(originalId) == Level3OriginalState.Reserve)
@@ -1988,14 +2052,17 @@ public sealed class Level3MixedWaveTests
         game.Player.Move(movement, laneCount);
     }
 
-    private static TempestGame CreateCappedProductionGame(bool includeEnemyBullets = false)
+    private static TempestGame CreateArtificialMultiCarrierGame(bool includeEnemyBullets = false)
     {
         BoundedCompositionRandom random = new(maximumCalls: 5000, variedLanes: true);
+        // This copied configuration is an artificial multi-carrier lifecycle fixture, not the
+        // canonical production Level 3 admission diagnostic.
+        LevelConfiguration fixtureConfiguration = LevelConfiguration.Level3Mixed with { };
         TempestGame game = new(
             spikerDevelopmentWave: false,
             random: random,
             enemyBulletsTest: includeEnemyBullets,
-            startingConfiguration: LevelConfiguration.Level3Mixed);
+            startingConfiguration: fixtureConfiguration);
         for (int tick = 0; tick < 200; tick++)
         {
             if (includeEnemyBullets)
@@ -2070,6 +2137,11 @@ public sealed class Level3MixedWaveTests
     }
 
     private static (TempestGame Game, InclusiveRangeScript Random) CreateTankerGame(
+        params (int Minimum, int Maximum, int Value)[] followupDecisions) =>
+        CreateTankerGame(canonicalLevel3: false, followupDecisions);
+
+    private static (TempestGame Game, InclusiveRangeScript Random) CreateTankerGame(
+        bool canonicalLevel3,
         params (int Minimum, int Maximum, int Value)[] followupDecisions)
     {
         (int Minimum, int Maximum, int Value)[] initialDecisions =
@@ -2078,20 +2150,27 @@ public sealed class Level3MixedWaveTests
                 .SelectMany(_ => new[] { (0, 15, 0), (0, 1, 0) }),
             (0, 100, 96),
             (0, 100, 96),
-            (-6, 4, 4),
+            .. (canonicalLevel3
+                ? Array.Empty<(int Minimum, int Maximum, int Value)>()
+                : new[] { (-6, 4, 4) }),
             (0, 2, 0),
             (1, 2, 1),
             (1, 64, 64),
             .. followupDecisions
         ];
         InclusiveRangeScript random = new(initialDecisions);
-        TempestGame game = new(LevelConfiguration.Level3Mixed, random: random);
+        TempestGame game = new(
+            canonicalLevel3 ? LevelConfiguration.Level3Mixed : MultiCarrierFixtureConfiguration(),
+            random: random);
         for (int tick = 0; tick < 40; tick++)
             game.RunOneStep();
 
         Assert.Single(game.Tankers);
         return (game, random);
     }
+
+    private static LevelConfiguration MultiCarrierFixtureConfiguration() =>
+        LevelConfiguration.Level3Mixed with { };
 
     private sealed class InclusiveRangeScript(
         IEnumerable<(int Minimum, int Maximum, int Value)> decisions) : Random

@@ -3570,3 +3570,72 @@ establish that every hidden timing value or the C# Egg waiting mechanism
 literally matches the Atari ROM. The later Level 2 policy is documented
 separately above; the ROM's global `max_enm` mechanism remains **DEFERRED**.
 Level 9 and unrelated tuning are outside this accepted milestone.
+
+## Production Level 3 mixed-admission concurrency (2026-11-09)
+
+**ROM-BACKED (local Rev. 2 listing and binary):** The Level 3 ordinary
+admission mechanism selects between Flippers and Tankers using species
+availability, unmet minimums, and seven physical enemy places (slots 0 through
+6). Ordinary admission permits at most one active Tanker. The Flipper table
+maximum is four, but it is not a hard four-Flipper population ceiling:
+availability subtracts two latent cargo Flippers per Tanker using wrapping
+byte arithmetic, then clamps availability to physical free places. Tanker
+selection requires nonzero Flipper availability, not two free Flipper units.
+Rim and transitioning enemies continue to occupy slots; latent cargo affects
+species availability but is not itself a physical occupant. Released Tanker
+cargo bypasses ordinary species selection.
+
+Level 3 is therefore not a Level 1/2-style four-Flipper cap. A Tanker can be
+selected while three Flippers are active; subsequent wrapping availability
+can admit more Flippers, subject to physical places. The ROM has 15 generic
+pending entries, not a fixed Flipper/Tanker mixture. Pulsars, Spikers, and
+Fuseballs are not ordinary Level 3 entry types. The local Rev. 2 evidence
+establishes this admission mechanism; it does not establish a measured
+population distribution or visible frequency of wrapping cases.
+
+**ACCEPTED PROJECT IMPLEMENTATION:** Canonical production Level 3 now applies
+a dedicated mixed-admission policy before a ready Egg is constructed or its
+ledger identity/type is committed. It uses the one-Tanker ordinary-entry
+maximum, ROM-informed Flipper availability and minimum preference, and a
+seven-place ordinary-admission count. Occupancy includes active Flippers
+(ordinary and released cargo), Tankers, pending shot-cargo activation, and
+other active enemies; rim, transition, and pending-Zap enemies remain counted
+while present in their active collections. A denied Egg waits ready with its
+stable identity and selected type intact. This is a C# translation of the
+admission boundary, not the ROM's literal pending-entry data structure or
+timing. It does not change Levels 1 or 2 or broaden admission policy to other
+ledger waves.
+
+The policy preserves stable C# ledger identities and the accepted complete
+two-Flipper Tanker-cargo release. Released cargo bypasses ordinary species
+selection and waits for a physical place on reentry; an already committed
+original waits without changing type. **PROJECT DECISION / PROJECT
+TRANSLATION:** At saturation, retaining the complete cargo pair can produce
+more than seven live C# enemy objects, unlike literal ROM slot allocation,
+which can fail to allocate the second child. Ordinary admission remains
+closed until a physical place opens. The C# behavior is not a strict
+seven-live-object reproduction at every cargo-release edge case, and manual
+acceptance does not resolve or measure the internal saturation case.
+
+**NEAL MANUAL ACCEPTANCE (2026-11-09): PASS.** Neal tested the accepted
+production Level 3 mixed-admission candidate and judged: “As far as I can
+determine, it is perfect. Exact game play as the arcade game.” All eight
+checks passed:
+
+1. Level 3 felt less overcrowded and matched arcade gameplay.
+2. More than one Tanker was not observed simultaneously through normal entry.
+3. Tanker destruction still released both Flippers normally.
+4. Enemy-entry cadence looked natural, without obvious freezing or unnatural
+   gaps.
+5. Flipper population varied naturally rather than appearing rigidly capped
+   at four.
+6. Death and reentry behaved normally.
+7. Super Zapper behavior remained normal.
+8. Rim combat and eventual level completion remained normal.
+
+This is manual acceptance of visible Level 3 gameplay, not proof of hidden
+ROM-internal equivalence, strict occupancy at the complete-pair saturation
+edge, exact timing, or the frequency of any internal arithmetic state. The
+Level 3 ROM concurrency investigation and manually accepted mixed-admission
+milestone are closed; Level 4 concurrency remains separate and is not part of
+this acceptance.

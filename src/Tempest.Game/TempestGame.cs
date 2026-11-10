@@ -137,6 +137,8 @@ public sealed class TempestGame
         naturalProgressionEnabled &&
         (ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level1) ||
          ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level2Square));
+    private bool HasLevel3MixedAdmissionDiagnostic =>
+        ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level3Mixed);
     private bool FlipperBulletFiringEnabled =>
         naturalProgressionEnabled || level6Test || level7Test ||
         enemyBulletsTest && !tankerTest && !spikerDevelopmentWave &&
@@ -837,6 +839,10 @@ public sealed class TempestGame
     {
         Level3WaveLedger ledger = CurrentLevel.Level3Ledger
             ?? throw new InvalidOperationException("Level 3 mixed wave has no identity ledger.");
+        Level3OriginalType? diagnosticType = null;
+        if (HasLevel3MixedAdmissionDiagnostic &&
+            !TrySelectLevel3DiagnosticType(egg, ledger, out diagnosticType))
+            return null;
 
         if (egg.CargoUnitId >= 0)
         {
@@ -865,7 +871,11 @@ public sealed class TempestGame
         Level3OriginalType selectedType = ledger.GetOriginalType(originalId);
         if (selectedType == Level3OriginalType.Unselected)
         {
-            if (CurrentLevel.Configuration.UsesLevel7RomWavePolicy)
+            if (diagnosticType is Level3OriginalType admittedType)
+            {
+                selectedType = admittedType;
+            }
+            else if (CurrentLevel.Configuration.UsesLevel7RomWavePolicy)
             {
                 Level3OriginalType? level7SelectedType = Level7WaveSelection.SelectOriginalType(
                     NextRandomInclusive,
@@ -918,7 +928,7 @@ public sealed class TempestGame
         {
             int maximumTankers = CurrentLevel.Configuration.UsesLevel7RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel8RomWavePolicy ? 2 : 6;
-            if (tankers.Count >= maximumTankers)
+            if (!HasLevel3MixedAdmissionDiagnostic && tankers.Count >= maximumTankers)
                 return null;
 
             int ammunition = NextRandomInclusive(1, 2);
@@ -938,6 +948,33 @@ public sealed class TempestGame
         if (ledger.GetOriginalState(originalId) == Level3OriginalState.Egg)
             ledger.CommitOriginalAsFlipper(originalId);
         return flipper;
+    }
+
+    private bool TrySelectLevel3DiagnosticType(
+        Egg egg,
+        Level3WaveLedger ledger,
+        out Level3OriginalType? selectedType)
+    {
+        Level3MixedAdmissionSnapshot snapshot = new(
+            OrdinaryFlippers: flippers.Count(flipper => !flipper.IsTankerCargo),
+            ReleasedCargoFlippers: flippers.Count(flipper => flipper.IsTankerCargo),
+            PendingShotCargoFlippers: shotReleasedCargoPendingActivation.Count,
+            ActiveTankers: tankers.Count,
+            ActiveOtherEnemies: spikers.Count + fuseballs.Count + pulsars.Count,
+            LatentTankerCargoFlippers: tankers.Sum(tanker => tanker.LatentCargoCount));
+
+        if (egg.CargoUnitId >= 0)
+        {
+            // PROJECT DECISION: Released cargo bypasses species selection, but an ordinary
+            // cargo reentry Egg still waits for a physical place.
+            selectedType = Level3OriginalType.Flipper;
+            return Level3MixedAdmissionPolicy.CanAdmitCargoReentry(snapshot);
+        }
+
+        Level3OriginalType retainedType = ledger.GetOriginalType(egg.OriginalSlotId);
+        selectedType = Level3MixedAdmissionPolicy.SelectAdmissibleOriginalType(
+            snapshot, retainedType);
+        return selectedType is not null;
     }
 
     private Level3OriginalType SelectLevel3OriginalType()
@@ -1327,6 +1364,8 @@ public sealed class TempestGame
     {
         // Every release materializes fresh cargo IDs; only zap expiry gives them their own timers.
         // Children are added after this tick's Flipper update, so their first update is next tick.
+        // The Level 3 diagnostic caps ordinary hatches, not this accepted complete-pair lifecycle;
+        // a release can exceed seven live enemies until ordinary admission has room again.
         TankerReleaseResult result = tanker.ReleaseFlipperCargo(
             CurrentLevel, firstSideDirection: 1, releaseKind);
         bool useLevel7ProgrammedRoute = tanker.UsesLevel7ProgrammedCargo(

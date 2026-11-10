@@ -75,7 +75,6 @@ public sealed class Level3TestModeTests
             (0, 100, 96),
             (0, 100, 95),
             .. Enumerable.Repeat((0, 100, 95), 38),
-            (-6, 4, 4),
             (0, 2, 0),
             (1, 2, 1),
             (1, 64, 1),

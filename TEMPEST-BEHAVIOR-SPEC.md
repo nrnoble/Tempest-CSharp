@@ -2342,3 +2342,65 @@ the original; evidence is insufficient to decide.
 Accepted production Level 1 remains unchanged, as do Levels 3-8. Concurrency
 work for later levels requires separate investigation and manual acceptance.
 The global ROM `max_enm` gate remains unimplemented.
+
+## Production Level 3 mixed-admission concurrency (2026-11-09)
+
+**ROM-BACKED (local Rev. 2 listing and binary):** Level 3 ordinary entry uses
+Flipper/Tanker species availability and minimums alongside seven physical
+enemy slots (indices 0 through 6). Ordinary entry allows at most one active
+Tanker. The Flipper table maximum of four is not an unconditional hard cap:
+latent Tanker cargo reduces Flipper availability by two per carrier using
+wrapping byte subtraction, after which availability is clamped to physical
+free places. Tankers require nonzero Flipper availability for their cargo,
+not two free Flipper units. Rim/live enemies continue to occupy physical
+places, and released cargo bypasses ordinary species selection. Level 3's
+ordinary entry supply is 15 generic pending entries; it is not a fixed
+Flipper/Tanker wave mixture.
+
+Accordingly, Level 3 does not use a simple Level 1/2-style four-Flipper cap.
+Wrapping cargo arithmetic can permit Flipper admission above four, while the
+seven-place ordinary allocation and one-Tanker availability constrain
+ordinary entry. These statements describe the inspected Rev. 2 ROM mechanism,
+not an observed or measured arcade population distribution.
+
+**PROJECT DECISION (accepted C# translation):** The production mixed-wave
+admission checks ready Eggs before constructing an enemy or committing an
+unselected original's stable ledger identity/type. Ordinary admission follows
+the ROM-informed one-Tanker rule, Flipper availability arithmetic/minimums,
+and seven-place capacity concept. Existing rim, transition, and pending-Zap
+enemies remain in the active counts. A blocked Egg waits ready without losing
+its identity or retained type. This waiting behavior is the C# translation;
+it is not claimed to reproduce the ROM pending-entry structure or timing.
+Stable C# ledger identities and the accepted complete two-Flipper Tanker
+cargo pair are preserved.
+
+**PROJECT DECISION / PROJECT TRANSLATION (saturation edge):** The ROM's
+physical slot allocator can fail to allocate a second child when a Tanker
+splits at full occupancy. C# deliberately preserves both cargo identities
+and materializes the complete pair, so a release can exceed seven live
+objects. Ordinary admission remains blocked until a place opens. This
+accepted cargo behavior is not a literal strict seven-live-object
+reproduction for every cargo-release case. Neal's manual play did not directly
+observe or resolve this internal edge case.
+
+**MANUALLY ARCADE-FIDELITY ACCEPTED (visible gameplay; 2026-11-09):** Neal
+manually accepted the resulting Level 3 gameplay, judging, “As far as I can
+determine, it is perfect. Exact game play as the arcade game.” His eight
+checks passed:
+
+1. Level 3 felt less overcrowded and matched arcade gameplay.
+2. More than one Tanker was not observed simultaneously through normal entry.
+3. Tanker destruction still released both Flippers normally.
+4. Entry cadence looked natural, with no obvious freezing or unnatural gaps.
+5. Flipper population varied naturally rather than appearing rigidly capped
+   at four.
+6. Death and reentry behaved normally.
+7. Super Zapper behavior remained normal.
+8. Rim combat and eventual level completion remained normal.
+
+This arcade-fidelity judgment applies to the visible gameplay Neal tested. It
+does not convert the C# waiting mechanism, stable identity ledger, or complete
+pair at saturation into ROM-backed behavior, nor does it establish hidden
+implementation equivalence or exact timing. The Level 3 concurrency
+investigation and accepted milestone are closed; Level 4 concurrency is
+outside this scope and requires its own investigation and acceptance.

@@ -2,7 +2,8 @@ namespace Tempest.Game.Levels;
 
 public static class Level3WaveSelection
 {
-    // These are source-shaped Level 3 decisions, not arcade-verified probabilities.
+    // Noncanonical/custom mixed-wave configurations retain this source-shaped selector.
+    // The canonical production Level 3 configuration uses Level3MixedAdmissionPolicy instead.
     public static Level3OriginalType SelectOriginalType(
         Func<int, int, int> randomInclusive,
         int activeTankers,
