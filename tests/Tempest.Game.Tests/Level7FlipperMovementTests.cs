@@ -275,7 +275,10 @@ public sealed class Level7FlipperMovementTests
             }
         }
         Assert.Equal(releasedCargo.Length, firstPivotsCompleted.Count);
-        Assert.All(releasedCargo, flipper => Assert.InRange(flipper.ShotDelayTicks, 1, 62));
+        Assert.All(releasedCargo, flipper => Assert.InRange(flipper.ShotDelayTicks, 0, 62));
+        if (releasedCargo.Any(flipper => flipper.ShotDelayTicks == 0))
+            Assert.Equal(game.CurrentLevel.Configuration.MaximumActiveEnemyShots,
+                game.EnemyBullets.Count);
 
         game.CurrentLevel.State = LevelState.PlayerDying;
         game.RunOneStep();

@@ -53,6 +53,96 @@ public sealed class Level3WaveLedgerTests
     }
 
     [Fact]
+    public void CapacityLimitedCargoMaterializesOrdinalPrefixAndKeepsSkippedChildTerminal()
+    {
+        Level3WaveLedger ledger = new(originalCount: 1);
+        ledger.MarkOriginalEgg(0);
+        ledger.CommitOriginalAsTanker(0);
+
+        IReadOnlyList<int> allocated = ledger.MaterializeCargoWithinCapacity(
+            0, Level3CargoState.Active, childCapacity: 1);
+        ledger.MarkOriginalEscaped(0);
+
+        Assert.Equal(new[] { 0 }, allocated);
+        Assert.Equal(Level3CargoState.Active, ledger.GetCargoState(0));
+        Assert.Equal(Level3CargoState.NotAllocatedForPhysicalCapacity,
+            ledger.GetCargoState(1));
+        Assert.Equal(new[] { 0 }, ledger.UnresolvedCargoIds);
+        Assert.False(ledger.HasLatentCargo);
+        ledger.ValidateState();
+
+        ledger.RebuildAfterDeath(clearUnresolvedSpeciesSelections: true);
+
+        Assert.Equal(2, ledger.OriginalCount);
+        Assert.Single(ledger.UnresolvedOriginalIds);
+        Assert.Empty(ledger.UnresolvedCargoIds);
+        Assert.Equal(Level3CargoState.Reconstructed, ledger.GetCargoState(0));
+        Assert.Equal(Level3CargoState.NotAllocatedForPhysicalCapacity,
+            ledger.GetCargoState(1));
+
+        ledger.RebuildAfterDeath(clearUnresolvedSpeciesSelections: true);
+
+        Assert.Equal(2, ledger.OriginalCount);
+        Assert.Single(ledger.UnresolvedOriginalIds);
+        Assert.Empty(ledger.UnresolvedCargoIds);
+        Assert.Equal(Level3CargoState.NotAllocatedForPhysicalCapacity,
+            ledger.GetCargoState(1));
+    }
+
+    [Fact]
+    public void CargoWithinTwoChildCapacityPreservesBothUnresolvedOrdinals()
+    {
+        Level3WaveLedger ledger = new(originalCount: 1);
+        ledger.MarkOriginalEgg(0);
+        ledger.CommitOriginalAsTanker(0);
+
+        IReadOnlyList<int> allocated = ledger.MaterializeCargoWithinCapacity(
+            0, Level3CargoState.Active, childCapacity: 2);
+
+        Assert.Equal(new[] { 0, 1 }, allocated);
+        Assert.All(allocated,
+            id => Assert.Equal(Level3CargoState.Active, ledger.GetCargoState(id)));
+        Assert.Equal(new[] { 0, 1 }, ledger.UnresolvedCargoIds.Order());
+        ledger.ValidateState();
+    }
+
+    [Fact]
+    public void ReconstructedObligationCanReleaseAnotherCapacityLimitedTankerWithoutRevivingSibling()
+    {
+        Level3WaveLedger ledger = new(originalCount: 1);
+        ledger.MarkOriginalEgg(0);
+        ledger.CommitOriginalAsTanker(0);
+        ledger.MaterializeCargoWithinCapacity(0, Level3CargoState.Active, childCapacity: 1);
+        ledger.MarkOriginalEscaped(0);
+        ledger.RebuildAfterDeath(clearUnresolvedSpeciesSelections: true);
+
+        ledger.MarkOriginalEgg(1);
+        ledger.CommitOriginalAsTanker(1);
+        IReadOnlyList<int> laterChildren = ledger.MaterializeCargoWithinCapacity(
+            1, Level3CargoState.Active, childCapacity: 1);
+        ledger.MarkOriginalDestroyed(1);
+
+        Assert.Equal(new[] { 2 }, laterChildren);
+        Assert.Equal(Level3CargoState.Reconstructed, ledger.GetCargoState(0));
+        Assert.Equal(Level3CargoState.NotAllocatedForPhysicalCapacity,
+            ledger.GetCargoState(1));
+        Assert.Equal(Level3CargoState.Active, ledger.GetCargoState(2));
+        Assert.Equal(Level3CargoState.NotAllocatedForPhysicalCapacity,
+            ledger.GetCargoState(3));
+        Assert.Equal(new[] { 2 }, ledger.UnresolvedCargoIds);
+
+        ledger.RebuildAfterDeath(clearUnresolvedSpeciesSelections: true);
+
+        Assert.Equal(3, ledger.OriginalCount);
+        Assert.Empty(ledger.UnresolvedCargoIds);
+        Assert.Single(ledger.UnresolvedOriginalIds);
+        Assert.Equal(Level3CargoState.NotAllocatedForPhysicalCapacity,
+            ledger.GetCargoState(1));
+        Assert.Equal(Level3CargoState.NotAllocatedForPhysicalCapacity,
+            ledger.GetCargoState(3));
+    }
+
+    [Fact]
     public void ShotActivationAndDeathReconstructionRetainUnresolvedIdentitySets()
     {
         Level3WaveLedger ledger = new(originalCount: 2);

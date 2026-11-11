@@ -181,7 +181,8 @@ disassemblies as evidence for arcade behavior.
   interpretation of a repeating two/three route for visible Level 7 behavior.
   It does not revise accepted Levels 1-6 or establish numeric movement timing.
 - **ROM-BACKED (Level 7 supply and re-entry)** — The ROM table has Flipper
-  minimum/maximum 0/5, Tanker 1/2, Spiker 2/4, and a six-active-enemy cap.
+  minimum/maximum 0/5, Tanker 1/2, Spiker 2/4, and seven physical enemy
+  places (indices 0-6; 6 is the highest slot index).
   The normal Level 7 picker cannot select an ordinary Flipper because its
   selection paths require a nonzero species minimum. A Tanker consumes one
   generic pending unit; its two Flipper children are allocated separately.
@@ -236,6 +237,47 @@ disassemblies as evidence for arcade behavior.
   behavior retain separate ROM-backed and automated-test evidence. Level 7
   is accepted despite this unobserved visual corner case. Cadence, handedness,
   repeat-boundary and coordinate mappings remain documented C# approximations.
+- **ARCADE OBSERVED / MANUALLY ACCEPTED (Level 7 speed and firing; 2026-11-11)**
+  — Neal compared the completed Level 7 behavior with the original arcade game
+  and MAME and accepted that Tankers and Spikers move at the same visible
+  rate, their shots share the same visible rate, and both kinds of shot travel
+  visibly faster than their firing enemies. Spikers continue firing during
+  later ascent cycles. Neal judges the overall speeds extremely close to
+  arcade play, appearing effectively identical. This is perceptual acceptance,
+  not a numeric arcade measurement; Level 7 speed fidelity is closed and no
+  further speed tuning is wanted.
+- **PROJECT DECISION (Level 7 movement implementation)** — Normal Level 7
+  Spikers use the existing `Tanker.DevelopmentClimbSpeed` authority. Its
+  current C# value is 1.75 depth units per simulation step and is
+  Incitti-derived, not ROM-measured. The numeric `--level7-spiker-speed`
+  override remains **DEVELOPMENT ONLY**. The redundant
+  `--level7-spiker-match-tanker-speed` command-line option was removed;
+  optional version-2 recording metadata with that flag remains loadable for
+  compatibility. Tanker and Spiker shots share the C# `EnemyBullet` movement
+  path; the code value is not a ROM-derived numeric claim.
+- **MAME OBSERVED (rare Level 7 Tanker surge; 2026-11-11)** — Neal reproduced
+  the end-of-wave surge in MAME after the Blaster died with approximately
+  seven or fewer enemies remaining at a narrow point in their lifecycle. He
+  no longer considers it a C# discrepancy or gameplay issue; it is rare in
+  ordinary play. No Tanker cap or change to admission, reconstruction,
+  concurrency, enemy supply, or Tanker creation follows from this behavior.
+  The earlier Spiker-to-Tanker explanation is a discarded, unproven
+  hypothesis.
+- **C# MEASURED (Level 7 recording playback; 2026-11-11)** — The real
+  `Temp\GameplayRecordings\lvl7-SpikerTankerMatch.json` recording completed
+  all 2,808 input frames through the headless playback CLI and advanced from
+  Level 7 Playing into Level 8 Approach. This verifies bounded recording
+  playback and startup restoration, not per-tick population or lifecycle
+  telemetry. The telemetry harness was blocked by Windows Application
+  Control (`0x800711C7`) on
+  `tests\Tempest.Game.Tests\bin\Debug\net9.0\Tempest.Game.Tests.dll`;
+  security was not weakened and no telemetry success was claimed.
+  Fine-grained playback telemetry is an optional future diagnostic direction,
+  not an acceptance requirement.
+- **PROJECT DECISION (Level 7 candidate closure; 2026-11-11)** — The
+  accumulated accepted concurrency, admission, reconstruction, cargo
+  allocation, movement, repeated-cycle firing, and recording compatibility
+  work is closed. No Level 8 work was begun as part of this closeout.
 - **REFERENCE VERIFIED (D1 source findings)** — Displayed Level 4 is internal
   source index 3, board 3 ("binoculars"), palette group 0, with a closed
   16-lane board, center Y 380, offset -65, 17 original enemy obligations,
@@ -1323,6 +1365,7 @@ These controls are test conveniences, not arcade level-selection or composition:
 | Option | Development behavior |
 |---|---|
 | `--level N` | **DEVELOPMENT ONLY:** fresh start at the real production level for a currently implemented displayed level (1–7). Uses normal production initialization and onward campaign progression; it is not a terminal diagnostic. |
+| `--level7-spiker-speed <value>` | **DEVELOPMENT ONLY:** Level 7 Spiker movement calibration override (1.0–3.0 inclusive); playback restores a recorded override rather than accepting a direct override. Normal Level 7 uses the accepted Tanker movement relationship. |
 | `--level2-test` | Direct access to the shared closed 16-lane square, supply-12 Flipper-only canflip configuration; terminal development replay, no progression selection. |
 | `--level3-geometry-test` | Direct access to the Flipper-only Level 3 plus-board geometry diagnostic; separate from the mixed production-shaped wave. |
 | `--level3-test` | Direct graphical access to the existing production-shaped mixed Level 3 configuration; terminal replay without enabling natural progression. Production Tanker bullets are visible without `--enemy-bullets-test`; the natural progression Flipper firing phase is not enabled by this diagnostic alone. |
@@ -1337,7 +1380,7 @@ These controls are test conveniences, not arcade level-selection or composition:
 | `--lives <n>` | Overrides the starting life count for longer development sessions. |
 | `--speed <multiplier>` | **DEVELOPMENT / DIAGNOSTIC PROJECT FEATURE:** changes only interactive host-loop pacing from the accepted default 60 FPS; supports 0.25–4.0 inclusive, with target FPS rounded to nearest integer and exact halves away from zero. Per-tick simulation remains unchanged. |
 | `--spinner-sensitivity <multiplier>` | **DEVELOPMENT / DIAGNOSTIC / MANUAL-CALIBRATION PROJECT FEATURE:** scales only live horizontal mouse/spinner delta; default 1.0, range 0.1–4.0 inclusive. Recorded input is scaled before recording; playback and input-diagnostic modes reject this option. |
-| `--record-gameplay <file>` | Records effective per-tick input for ordinary production gameplay; new files use strict format version 2 and can include `--level`, `--lives`, `--rim-speed`, and live `--spinner-sensitivity`. |
+| `--record-gameplay <file>` | Records effective per-tick input for ordinary production gameplay; new files use strict format version 2 and can include `--level`, `--lives`, `--rim-speed`, `--level7-spiker-speed`, and live `--spinner-sensitivity`. |
 | `--playback-file <file>` | Restores production startup identity and seed from a version-1 or version-2 recording; rejects simulation overrides. |
 
 `--level N` exists to support the one-level-at-a-time manual arcade testing

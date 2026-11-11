@@ -106,6 +106,12 @@ records for accepted decisions and behavior/evidence classifications.
   material, `UserData/`, diagnostic output, and untracked assets. Unless the
   task specifically requires otherwise, do not modify, delete, relocate,
   normalize, overwrite, stage, commit, or unnecessarily inspect it.
+- `TEMP/myNotes.md` is Neal's private convenience scratchpad. Unless Neal
+  explicitly requests access to this file in the current task, VS Code Copilot
+  must not read, search, quote, edit, or use it as project context, evidence,
+  requirements, a basis for inferring current or historical behavior, or an
+  authority for project commands. When access is explicitly requested for a
+  specific task, limit it to that expressly authorized purpose.
 - Never use `git clean`, destructive reset, or equivalent cleanup against user
   or local material.
 

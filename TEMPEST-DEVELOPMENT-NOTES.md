@@ -3132,8 +3132,9 @@ gameplay acceptance; they are not claims of arcade timing or handedness.
 **ARCADE VERIFIED:** The no-individual-bottom-Flipper observation does not
 remove Tanker cargo Flippers or already active Flippers. **ROM-BACKED:** the
 Level 7 normal picker has Flipper minimum/maximum 0/5 (the zero minimum makes
-ordinary Flipper selection unreachable), Tanker 1/2, Spiker 2/4, and six
-active enemy slots. A selected Tanker consumes one generic pending unit;
+ordinary Flipper selection unreachable), Tanker 1/2, Spiker 2/4, and seven
+physical enemy places (indices 0-6; 6 is the highest slot index). A selected
+Tanker consumes one generic pending unit;
 its two Flipper children are allocated separately. Death reconstructs the
 unresolved active and pending quantity as generic supply without restoring
 species, cargo association, or movement programs. With one generic unit, the
@@ -3195,6 +3196,52 @@ behavior retain separate ROM-backed and automated-test evidence. Do not
 describe this visual case as manually verified or leave overall acceptance
 pending because of it. See the evidence distinctions and source findings in
 `TEMPEST-BEHAVIOR-SPEC.md`. No audio or reference implementation was changed.
+
+## Level 7 speed and candidate closeout (2026-11-11)
+
+**ARCADE OBSERVED / MANUALLY ACCEPTED:** Neal compared the completed Level 7
+candidate with the original arcade game and MAME. Tankers and Spikers move at
+the same accepted visible rate; Tanker and Spiker shots share the same visible
+rate and travel visibly faster than their firing enemies. Spikers continue
+firing during later ascent cycles. Neal judges the overall Level 7 speeds
+extremely close to arcade play, appearing effectively identical. This is a
+perceptual acceptance, not a numeric arcade measurement. Level 7 speed fidelity
+is closed; no further speed tuning is wanted.
+
+**PROJECT DECISION:** Normal Level 7 Spikers use
+`Tanker.DevelopmentClimbSpeed` as their shared movement authority. The current
+C# value is 1.75 depth units per simulation step and is Incitti-derived; it is
+not ROM-measured. The bounded `--level7-spiker-speed` calibration override
+remains **DEVELOPMENT ONLY**. The redundant
+`--level7-spiker-match-tanker-speed` command-line option was removed. Its
+optional version-2 recording metadata remains loadable for compatibility, so
+existing version-1 and version-2 recordings remain supported. Tanker and
+Spiker projectiles continue using the shared `EnemyBullet` movement path;
+their implementation value is C# behavior, not a ROM-derived numeric claim.
+
+**MAME OBSERVED:** Neal reproduced the rare end-of-Level-7 Tanker surge in
+MAME after the Blaster died with approximately seven or fewer enemies
+remaining at a narrow point in their lifecycle. He no longer considers this a
+C# discrepancy or gameplay issue. It is rare in ordinary play. No Tanker cap
+or change to admission, reconstruction, concurrency, enemy supply, or Tanker
+creation is warranted by this behavior. The earlier Spiker-to-Tanker
+explanation remains a discarded, unproven hypothesis.
+
+**C# MEASURED:** The existing headless playback CLI completed all 2,808 input
+frames of `Temp\GameplayRecordings\lvl7-SpikerTankerMatch.json` and advanced
+from Level 7 Playing into Level 8 Approach. This establishes bounded playback
+and startup restoration, not per-tick population or lifecycle telemetry.
+Fine-grained telemetry was blocked when Windows Application Control blocked
+`tests\Tempest.Game.Tests\bin\Debug\net9.0\Tempest.Game.Tests.dll` with
+`0x800711C7`. Security was not weakened, the blocked artifact was not
+repeatedly retried, and no telemetry success was claimed. Telemetry remains
+an optional future diagnostic direction, not a Level 7 acceptance
+requirement.
+
+The accumulated accepted Level 7 concurrency, admission, reconstruction,
+cargo allocation, movement, repeated-cycle firing, recording compatibility,
+and diagnostic work is closed with this milestone. The surge does not justify
+a gameplay correction. No Level 8 work was begun as part of this closeout.
 
 ## 2.5-calibrated rim pursuit acceptance (2026-11-05)
 

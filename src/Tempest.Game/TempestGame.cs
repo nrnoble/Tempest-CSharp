@@ -31,9 +31,13 @@ public sealed class TempestGame
     private const int MaximumShots = 10;
     private const int MaximumActiveProductionFlippers = 4;
     private const int PlayerShotCooldownTicks = 3;
+    internal const float MinimumLevel7SpikerSpeedOverride =
+        GameplayStartupConfiguration.MinimumLevel7SpikerSpeedOverride;
+    internal const float MaximumLevel7SpikerSpeedOverride =
+        GameplayStartupConfiguration.MaximumLevel7SpikerSpeedOverride;
     // $30 maps to Height 342.86 when arcade $F0/$10 map to project entry/rim 0/400; 343 is the
-    // nearest integer C# cutoff, not an exact conversion of the ROM's along coordinate.
-    private const int MaximumFlipperFiringHeight = 343;
+    // nearest integer C# shooter cutoff, not an exact conversion of the ROM's along coordinate.
+    private const int MaximumEnemyFiringHeight = 343;
     private static readonly int[] EnemyShotPressureThresholds = [0x00, 0xE0, 0xF0, 0xFA, 0xFF];
     private readonly List<Shot> shots = [];
     private readonly List<EnemyBullet> enemyBullets = [];
@@ -65,6 +69,7 @@ public sealed class TempestGame
     private readonly Random random;
     private readonly int startingLives;
     private readonly double rimSpeedMultiplier;
+    private readonly float? level7SpikerSpeedOverride;
     private IAudioEvents audioEvents;
     // New-game restarts target the original selection even after natural progression changes the active Level.
     private readonly LevelConfiguration launchConfiguration;
@@ -145,6 +150,8 @@ public sealed class TempestGame
         ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level5Production);
     private bool HasLevel6AdmissionDiagnostic =>
         ReferenceEquals(CurrentLevel.Configuration, LevelConfiguration.Level6Production);
+    private bool HasLevel7AdmissionDiagnostic =>
+        CurrentLevel.Configuration.UsesLevel7RomWavePolicy;
     private bool FlipperBulletFiringEnabled =>
         naturalProgressionEnabled || level6Test || level7Test ||
         enemyBulletsTest && !tankerTest && !spikerDevelopmentWave &&
@@ -203,11 +210,19 @@ public sealed class TempestGame
         LevelConfiguration? startingConfiguration = null, bool level3Test = false,
         bool level4Test = false, IAudioEvents? audioEvents = null, bool level6Test = false,
         bool level7Test = false, double rimSpeedMultiplier = 1.0,
-        int? startingProductionLevel = null)
+        int? startingProductionLevel = null,
+        float? level7SpikerSpeedOverride = null)
     {
         if (!double.IsFinite(rimSpeedMultiplier) || rimSpeedMultiplier <= 0)
             throw new ArgumentOutOfRangeException(nameof(rimSpeedMultiplier),
                 "The rim-speed multiplier must be a positive finite value.");
+        if (level7SpikerSpeedOverride is float fixedSpikerSpeed &&
+            (!float.IsFinite(fixedSpikerSpeed) ||
+             fixedSpikerSpeed < MinimumLevel7SpikerSpeedOverride ||
+             fixedSpikerSpeed > MaximumLevel7SpikerSpeedOverride))
+            throw new ArgumentOutOfRangeException(nameof(level7SpikerSpeedOverride),
+                $"The Level 7 Spiker speed override must be between " +
+                $"{MinimumLevel7SpikerSpeedOverride:0.000} and {MaximumLevel7SpikerSpeedOverride:0.000}.");
         LevelConfiguration? directConfiguration = startingProductionLevel is int displayedLevel
             ? LevelProgression.GetProductionLevel(displayedLevel)
             : null;
@@ -232,6 +247,7 @@ public sealed class TempestGame
         GameOverEffect = new GameOverVectorBurstSequence(NextRandomInclusive);
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
         this.rimSpeedMultiplier = rimSpeedMultiplier;
+        this.level7SpikerSpeedOverride = level7SpikerSpeedOverride;
         this.audioEvents = audioEvents ?? SilentAudioEvents.Instance;
         this.launchConfiguration = directConfiguration ?? startingConfiguration ?? (level2Test
             ? LevelConfiguration.Level2Square
@@ -287,7 +303,8 @@ public sealed class TempestGame
             startingLives: startupConfiguration.StartingLives,
             audioEvents: audioEvents,
             rimSpeedMultiplier: startupConfiguration.RimSpeedMultiplier,
-            startingProductionLevel: startupConfiguration.StartingDisplayedLevel)
+            startingProductionLevel: startupConfiguration.StartingDisplayedLevel,
+            level7SpikerSpeedOverride: startupConfiguration.Level7SpikerSpeedOverride)
     {
     }
 
@@ -405,6 +422,7 @@ public sealed class TempestGame
             UpdateFuseballs();
             UpdatePulsars();
             UpdateFlipperFiring();
+            UpdateLevel7SpikerFiring();
             // Once a collision starts death, stop active gameplay before later collisions,
             // all-rim completion or Hurry-Up can process on the same tick.
             CheckFlippersAgainstPlayer();
@@ -858,6 +876,9 @@ public sealed class TempestGame
         if (HasLevel6AdmissionDiagnostic &&
             !TrySelectLevel6DiagnosticType(egg, ledger, out diagnosticType))
             return null;
+        if (HasLevel7AdmissionDiagnostic &&
+            !TrySelectLevel7DiagnosticType(egg, ledger, out diagnosticType))
+            return null;
 
         if (egg.CargoUnitId >= 0)
         {
@@ -889,17 +910,6 @@ public sealed class TempestGame
             if (diagnosticType is Level3OriginalType admittedType)
             {
                 selectedType = admittedType;
-            }
-            else if (CurrentLevel.Configuration.UsesLevel7RomWavePolicy)
-            {
-                Level3OriginalType? level7SelectedType = Level7WaveSelection.SelectOriginalType(
-                    NextRandomInclusive,
-                    tankers.Count,
-                    spikers.Count,
-                    CountProductionActiveEnemyUnits());
-                if (level7SelectedType is null)
-                    return null;
-                selectedType = level7SelectedType.Value;
             }
             else if (CurrentLevel.Configuration.UsesLevel8RomWavePolicy)
             {
@@ -934,8 +944,11 @@ public sealed class TempestGame
                 spikers.Count > 3)
                 return null;
 
-            float speed = CurrentLevel.Configuration.ProgressionIndex / 48f +
-                2.5f + (float)(random.NextDouble() * 2);
+            // PROJECT DECISION: normal Level 7 Spikers use the existing Tanker movement authority.
+            float speed = CurrentLevel.Configuration.UsesLevel7RomWavePolicy
+                ? level7SpikerSpeedOverride ?? Tanker.DevelopmentClimbSpeed
+                : CurrentLevel.Configuration.ProgressionIndex / 48f +
+                    2.5f + (float)(random.NextDouble() * 2);
             Spiker spiker = new(egg.EdgeIndex, speed, originalId);
             if (ledger.GetOriginalState(originalId) == Level3OriginalState.Egg)
                 ledger.CommitOriginalAsSpiker(originalId);
@@ -948,6 +961,7 @@ public sealed class TempestGame
                 CurrentLevel.Configuration.UsesLevel8RomWavePolicy ? 2 : 6;
             if (!HasLevel3MixedAdmissionDiagnostic && !HasLevel4AdmissionDiagnostic &&
                 !HasLevel5AdmissionDiagnostic && !HasLevel6AdmissionDiagnostic &&
+                !HasLevel7AdmissionDiagnostic &&
                 tankers.Count >= maximumTankers)
                 return null;
 
@@ -1098,6 +1112,54 @@ public sealed class TempestGame
         selectedType = Level6AdmissionPolicy.SelectOrdinaryType(snapshot);
         return selectedType is not null;
     }
+
+    private bool TrySelectLevel7DiagnosticType(
+        Egg egg,
+        Level3WaveLedger ledger,
+        out Level3OriginalType? selectedType)
+    {
+        Level7AdmissionSnapshot snapshot = GetLevel7AdmissionSnapshot(
+            ledger,
+            egg.CargoUnitId >= 0 ? null : egg.EdgeIndex);
+
+        if (egg.CargoUnitId >= 0)
+        {
+            selectedType = Level3OriginalType.Flipper;
+            return Level7WaveSelection.GetOpenPhysicalSlots(snapshot) > 0;
+        }
+
+        Level3OriginalType retainedType = ledger.GetOriginalType(egg.OriginalSlotId);
+        if (retainedType != Level3OriginalType.Unselected)
+        {
+            selectedType = retainedType;
+            return Level7WaveSelection.CanAdmitRetainedOriginal(
+                snapshot, retainedType,
+                ledger.IsConvertedSpikerTanker(egg.OriginalSlotId));
+        }
+
+        selectedType = Level7WaveSelection.SelectOrdinaryType(
+            snapshot, NextRandomInclusive);
+        return selectedType is not null;
+    }
+
+    private Level7AdmissionSnapshot GetLevel7AdmissionSnapshot(
+        Level3WaveLedger ledger,
+        int? pendingLane = null) =>
+        new(
+            OrdinaryFlippers: flippers.Count(flipper => !flipper.IsTankerCargo),
+            ReleasedCargoFlippers: flippers.Count(flipper => flipper.IsTankerCargo),
+            PendingShotCargoFlippers: shotReleasedCargoPendingActivation.Count,
+            OrdinaryTankers: tankers.Count(tanker =>
+                !ledger.IsConvertedSpikerTanker(tanker.OriginalSlotId)),
+            ConvertedTankers: tankers.Count(tanker =>
+                ledger.IsConvertedSpikerTanker(tanker.OriginalSlotId)),
+            ActiveSpikers: spikers.Count,
+            ActiveOtherEnemies: fuseballs.Count + pulsars.Count,
+            LatentTankerCargoFlippers: tankers.Sum(tanker => tanker.LatentCargoCount),
+            PendingSegmentSpikeRomComparisonValue: pendingLane is int lane
+                ? Level7WaveSelection.GetPendingSegmentSpikeRomComparisonValue(
+                    CurrentLevel, lane)
+                : null);
 
     private Level3OriginalType SelectLevel3OriginalType()
         => Level3WaveSelection.SelectOriginalType(
@@ -1273,8 +1335,8 @@ public sealed class TempestGame
 
     private void UpdateSpikers()
     {
-        // A retreating Spiker returns its enemy to the reserve instead of destroying it, so the
-        // unit is conserved for later re-entry. Its spikes remain on the tube.
+        // Most configurations return a retreating Spiker to reserve; canonical Level 7 keeps it
+        // live until generic pending supply is exhausted.
         for (int index = 0; index < spikers.Count; index++)
         {
             Spiker spiker = spikers[index];
@@ -1297,7 +1359,9 @@ public sealed class TempestGame
                 CurrentLevel.Configuration.NormalEnemyComposition ==
                     LevelEnemyComposition.FlippersTankersAndSpikers
                     ? NextRandomInclusive
-                    : null);
+                    : null,
+                allowGrowthRetreatShot:
+                    !CurrentLevel.Configuration.UsesLevel7SpikerFiringPolicy);
             if (bullet is not null)
             {
                 // Enemy bullets were already advanced this tick, so this one first moves next
@@ -1309,6 +1373,16 @@ public sealed class TempestGame
 
             if (spiker.State != SpikerState.ReturnedToReserve)
                 continue;
+
+            int pendingGenericOriginals = HasLevel7AdmissionDiagnostic
+                ? CurrentLevel.Level3Ledger!.PendingGenericOriginalCount
+                : 0;
+            if (HasLevel7AdmissionDiagnostic &&
+                pendingGenericOriginals > 0)
+            {
+                spiker.RestartForPendingSupply();
+                continue;
+            }
 
             spikers.RemoveAt(index--);
             developmentCollisionOrder.Remove(spiker);
@@ -1323,10 +1397,12 @@ public sealed class TempestGame
                 Level6AdmissionPolicy.ShouldConvertTerminalSpiker(
                     CurrentLevel.Configuration,
                     ledger.PendingGenericOriginalCount);
-            bool genericRomConversion =
-                (CurrentLevel.Configuration.UsesLevel7RomWavePolicy ||
-                 CurrentLevel.Configuration.UsesLevel8RomWavePolicy) &&
-                CurrentLevel.PendingGenericEnemyUnits == 0;
+            bool level7Conversion = Level7WaveSelection.ShouldConvertTerminalSpiker(
+                CurrentLevel.Configuration,
+                pendingGenericOriginals);
+            bool genericRomConversion = level7Conversion ||
+                (CurrentLevel.Configuration.UsesLevel8RomWavePolicy &&
+                 CurrentLevel.PendingGenericEnemyUnits == 0);
             if (terminalLevel4Conversion || terminalLevel5Conversion ||
                 terminalLevel6Conversion || genericRomConversion)
             {
@@ -1498,10 +1574,9 @@ public sealed class TempestGame
 
     private void ReleaseTankerCargo(Tanker tanker, TankerReleaseKind releaseKind)
     {
-        // Every release materializes fresh cargo IDs; only zap expiry gives them their own timers.
+        // Callers remove the carrier first, so canonical Level 7 measures child capacity against
+        // the same post-removal physical occupancy used by its ordinary admission policy.
         // Children are added after this tick's Flipper update, so their first update is next tick.
-        // The Level 3 diagnostic caps ordinary hatches, not this accepted complete-pair lifecycle;
-        // a release can exceed seven live enemies until ordinary admission has room again.
         TankerCargoMovementProgram tankerCargoMovementProgram =
             tanker.GetCargoMovementProgram(CurrentLevel.Configuration, releaseKind);
         TankerReleaseResult result = tanker.ReleaseFlipperCargo(
@@ -1525,15 +1600,32 @@ public sealed class TempestGame
 
             Level3WaveLedger ledger = CurrentLevel.Level3Ledger
                 ?? throw new InvalidOperationException("Level 3 mixed wave has no identity ledger.");
-            IReadOnlyList<int> cargoIds = releaseKind switch
+            Level3CargoState cargoDestination = releaseKind switch
             {
-                TankerReleaseKind.Natural => ledger.MaterializeLiveCargo(tanker.OriginalSlotId),
-                TankerReleaseKind.PlayerShotDestruction => ledger.QueueCargoForShotActivation(tanker.OriginalSlotId),
-                TankerReleaseKind.SuperZapperDestruction => ledger.MaterializeStillbornCargo(tanker.OriginalSlotId),
+                TankerReleaseKind.Natural => Level3CargoState.Active,
+                TankerReleaseKind.PlayerShotDestruction => Level3CargoState.PendingShotActivation,
+                TankerReleaseKind.SuperZapperDestruction => Level3CargoState.Active,
                 _ => throw new ArgumentOutOfRangeException(nameof(releaseKind))
             };
+            int childCapacity = CurrentLevel.Configuration.UsesLevel7RomWavePolicy
+                ? Level7WaveSelection.GetTankerCargoChildCapacity(
+                    CurrentLevel.Configuration, GetLevel7AdmissionSnapshot(ledger))
+                : result.Cargo.Count;
+            IReadOnlyList<int> cargoIds = CurrentLevel.Configuration.UsesLevel7RomWavePolicy
+                ? ledger.MaterializeCargoWithinCapacity(
+                    tanker.OriginalSlotId, cargoDestination, childCapacity)
+                : releaseKind switch
+                {
+                    TankerReleaseKind.Natural =>
+                        ledger.MaterializeLiveCargo(tanker.OriginalSlotId),
+                    TankerReleaseKind.PlayerShotDestruction =>
+                        ledger.QueueCargoForShotActivation(tanker.OriginalSlotId),
+                    TankerReleaseKind.SuperZapperDestruction =>
+                        ledger.MaterializeStillbornCargo(tanker.OriginalSlotId),
+                    _ => throw new ArgumentOutOfRangeException(nameof(releaseKind))
+                };
 
-            if (cargoIds.Count != result.Cargo.Count)
+            if (cargoIds.Count != Math.Min(childCapacity, result.Cargo.Count))
                 throw new InvalidOperationException("Tanker cargo identities do not match released cargo.");
 
             if (releaseKind == TankerReleaseKind.Natural)
@@ -1544,7 +1636,7 @@ public sealed class TempestGame
                 Score.Add(200);
             }
 
-            for (int index = 0; index < result.Cargo.Count; index++)
+            for (int index = 0; index < cargoIds.Count; index++)
             {
                 int cargoId = cargoIds[index];
                 if (useLevel7ProgrammedRoute)
@@ -1693,7 +1785,7 @@ public sealed class TempestGame
         int shotCapacity = configuration.MaximumActiveEnemyShots;
         foreach (Flipper flipper in flippers)
         {
-            if (flipper.Height > MaximumFlipperFiringHeight)
+            if (flipper.Height > MaximumEnemyFiringHeight)
                 continue;
 
             // ROM decrements an eligible enemy's delay before checking its between-segments flag.
@@ -1714,6 +1806,41 @@ public sealed class TempestGame
             enemyBullets.Add(bullet);
             developmentCollisionOrder.Add(bullet);
             flipper.ReloadShotDelay(shotHoldoff);
+            audioEvents.Play(AudioEvent.EnemyBullet);
+        }
+    }
+
+    private void UpdateLevel7SpikerFiring()
+    {
+        LevelConfiguration configuration = CurrentLevel.Configuration;
+        if (!configuration.UsesLevel7SpikerFiringPolicy)
+            return;
+
+        int shotCapacity = configuration.MaximumActiveEnemyShots;
+        foreach (Spiker spiker in spikers)
+        {
+            // PROJECT TRANSLATION: keep firing to the ascending phase. The ROM checks live
+            // shooter flags/position without this phase distinction, but later ascents must qualify.
+            if (spiker.State != SpikerState.Building ||
+                spiker.Height <= 0 ||
+                spiker.Height > MaximumEnemyFiringHeight ||
+                !spiker.AdvanceShotDelay())
+                continue;
+
+            int activeShots = enemyBullets.Count;
+            // Keep a ready Spiker ready, and avoid spending randomness, while all shared slots are full.
+            if (activeShots >= shotCapacity)
+                continue;
+
+            int threshold = EnemyShotPressureThresholds[
+                Math.Min(activeShots, EnemyShotPressureThresholds.Length - 1)];
+            if (random.Next(0, 256) < threshold)
+                continue;
+
+            EnemyBullet bullet = new(spiker.EdgeIndex, spiker.Height);
+            enemyBullets.Add(bullet);
+            developmentCollisionOrder.Add(bullet);
+            spiker.ReloadShotDelay(configuration.Level7SpikerShotHoldoffTicks);
             audioEvents.Play(AudioEvent.EnemyBullet);
         }
     }

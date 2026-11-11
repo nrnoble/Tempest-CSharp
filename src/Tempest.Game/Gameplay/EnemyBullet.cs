@@ -1,9 +1,9 @@
 namespace Tempest.Game.Gameplay;
 
 /// <summary>
-/// Flipper bullet. Travels up its lane at 3 per tick; a player shot below it destroys it (25 points).
-/// Bullets are not enemies for level accounting and are discarded on death/reset. Constants are
-/// Incitti-derived and unvalidated.
+/// Shared enemy projectile. Travels up its lane at 3 depth units per simulation step; a player
+/// shot below it destroys it (25 points). Tanker and Level 7 Spiker shots use this same type and
+/// movement path. Bullets are not enemies for level accounting and are discarded on death/reset.
 /// </summary>
 public sealed class EnemyBullet : Enemy
 {

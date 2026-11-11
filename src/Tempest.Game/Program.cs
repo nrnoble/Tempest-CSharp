@@ -12,8 +12,9 @@
 // These scenario selectors are mutually
 // exclusive; --enemy-bullets-test, --lives, --speed and --game-over-density compose with existing
 // scenarios. --game-over-density only changes the procedural visible speck count, not mark size;
+// --level7-spiker-speed fixes Level 7 Spiker movement only for calibration runs;
 // --spinner-sensitivity scales only live horizontal mouse/spinner input;
-// File recordings use --record-gameplay <file> followed by optional production startup options;
+// File recordings use --record-gameplay <file> with optional production startup options;
 // file playback restores startup identity, pauses with Space, steps with Right, and reconstructs
 // backward with Left while paused; debugger controls stay outside PlayerInput and the recording.
 // Normal play progresses Level 1 through terminal Level 7.
@@ -81,6 +82,19 @@ if (!DebugController.TryParseRimSpeedMultiplier(args,
     return 2;
 }
 
+if (!DebugController.TryParseLevel7SpikerSpeedOverride(args,
+    out float? level7SpikerSpeedOverride, out string? level7SpikerSpeedError))
+{
+    Console.Error.WriteLine(level7SpikerSpeedError);
+    return 2;
+}
+
+if (DebugController.UseInputDiagnostic(args) && level7SpikerSpeedOverride is not null)
+{
+    Console.Error.WriteLine("--level7-spiker-speed applies only to Level 7 gameplay, not --input-diagnostic.");
+    return 2;
+}
+
 if (!DebugController.TryParseGameOverDensityMultiplier(args,
     out double gameOverDensityMultiplier, out string? gameOverDensityError))
 {
@@ -116,6 +130,13 @@ if (spinnerSensitivityOptions.WasExplicitlySpecified)
         $"Spinner sensitivity: {multiplier}x live horizontal spinner/mouse response relative to current behavior.");
 }
 
+if (level7SpikerSpeedOverride is float fixedSpikerSpeed)
+{
+    Console.WriteLine(
+        $"Level 7 Spiker calibration active: fixed {fixedSpikerSpeed.ToString("0.000", CultureInfo.InvariantCulture)} " +
+        "depth units per active step; production speed variation is suppressed on Level 7 only.");
+}
+
 // DEVELOPMENT ONLY: observe the same Raylib input framework without running game actions.
 if (DebugController.UseInputDiagnostic(args))
     return InputDiagnostic.Run();
@@ -146,7 +167,8 @@ try
             gameplayFileCommand.StartingDisplayedLevel ?? LevelConfiguration.Level1.DisplayedLevel,
             gameplayFileCommand.StartingLives ?? Player.DefaultStartingLives,
             gameplayFileCommand.RimSpeedMultiplier ?? 1.0,
-            randomSeed);
+            randomSeed,
+            gameplayFileCommand.Level7SpikerSpeedOverride);
         recording = new PlayerInputRecorder(gameplayStartupConfiguration);
         Console.WriteLine(
             $"Gameplay recording active: {recordingPath} (Level {gameplayStartupConfiguration.StartingDisplayedLevel}, " +
@@ -239,7 +261,8 @@ try
                 level6Test: level6Test,
                 level7Test: level7Test,
                 rimSpeedMultiplier: rimSpeedMultiplier,
-                startingProductionLevel: startingProductionLevel));
+                startingProductionLevel: startingProductionLevel,
+                level7SpikerSpeedOverride: level7SpikerSpeedOverride));
     InputSystem input = new();
     VectorRenderer renderer = new(game, gameOverDensityMultiplier);
     PlaybackScreenshotCapture screenshotCapture = new(

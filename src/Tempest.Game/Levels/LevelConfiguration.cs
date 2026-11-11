@@ -78,6 +78,11 @@ public sealed record LevelConfiguration(
         _ => throw new InvalidOperationException(
             $"No arcade Flipper shot holdoff is defined for displayed Level {DisplayedLevel}.")
     };
+    public bool UsesLevel7SpikerFiringPolicy =>
+        ReferenceEquals(this, Level7Production);
+    // PROJECT TRANSLATION / APPROXIMATION: reuse the existing Level 7 C# firing cadence;
+    // the ROM's raw shot_holdoff value has no established conversion to simulation ticks.
+    public int Level7SpikerShotHoldoffTicks => FlipperShotHoldoffTicks;
     public int MaximumActiveEnemyShots => DisplayedLevel switch
     {
         1 or 2 or 3 => 2,
@@ -94,7 +99,8 @@ public sealed record LevelConfiguration(
     public FlipperPivotGeometry FlipperPivotMode { get; init; } = FlipperPivotGeometry.LegacyLaneTurn;
     public BelowRimFlipperProgram BelowRimFlipperProgram { get; init; } =
         global::Tempest.Game.Levels.BelowRimFlipperProgram.Existing;
-    public bool UsesLevel7RomWavePolicy { get; init; }
+    public bool UsesLevel7RomWavePolicy =>
+        ReferenceEquals(this, Level7Production);
     public bool UsesLevel8RomWavePolicy { get; init; }
     // Canonical ROM-policy levels share generic reconstruction; copied configurations stay isolated.
     public bool UsesGenericRomDeathReconstruction =>
@@ -308,7 +314,6 @@ public sealed record LevelConfiguration(
         Flipper = new(true, 2, 9, 0, 23),
         FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
         BelowRimFlipperProgram = BelowRimFlipperProgram.Level7ArcadeObserved,
-        UsesLevel7RomWavePolicy = true,
         ProgrammedFlipperInitialDirection = 1,
         StartingSpikeHeight = 60,
         AvoidSpikesWaitThreshold = 30

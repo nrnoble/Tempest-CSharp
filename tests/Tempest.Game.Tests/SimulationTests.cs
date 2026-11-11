@@ -4046,7 +4046,7 @@ public sealed class SimulationTests
     [Theory]
     [InlineData(70, false)]
     [InlineData(71, true)]
-    public void SpikerFiresAtMostOnceOnlyOnSuccessfulGrowthRetreatDecision(int decision, bool fires)
+    public void LegacySpikerGrowthRetreatBulletRemainsSingleAndOptional(int decision, bool fires)
     {
         Level level = new();
         level.CreateSpike(4, 0);

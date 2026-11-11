@@ -54,6 +54,10 @@ public static class GameplayRecordingFile
 			StartingDisplayedLevel = recording.StartupConfiguration.StartingDisplayedLevel,
 			StartingLives = recording.StartupConfiguration.StartingLives,
 			RimSpeedMultiplier = recording.StartupConfiguration.RimSpeedMultiplier,
+			Level7SpikerSpeedOverride =
+				recording.StartupConfiguration.Level7SpikerSpeedOverride,
+			Level7SpikerMatchesTankerSpeed =
+				recording.StartupConfiguration.Level7SpikerMatchesTankerSpeed,
 			DurationTicks = recording.DurationTicks,
 			Frames = ToRecordedFrames(recording.Frames)
 		};
@@ -137,9 +141,11 @@ public static class GameplayRecordingFile
 		try
 		{
 			startup = new GameplayStartupConfiguration(document.StartingDisplayedLevel,
-				document.StartingLives, document.RimSpeedMultiplier, document.RandomSeed);
+				document.StartingLives, document.RimSpeedMultiplier, document.RandomSeed,
+				document.Level7SpikerSpeedOverride,
+				document.Level7SpikerMatchesTankerSpeed);
 		}
-		catch (ArgumentOutOfRangeException exception)
+		catch (ArgumentException exception)
 		{
 			throw new InvalidDataException(
 				$"The version-2 gameplay recording has invalid startup metadata: {exception.Message}",
@@ -234,6 +240,10 @@ public static class GameplayRecordingFile
 		public required int StartingDisplayedLevel { get; init; }
 		public required int StartingLives { get; init; }
 		public required double RimSpeedMultiplier { get; init; }
+		[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+		public float? Level7SpikerSpeedOverride { get; init; }
+		[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+		public bool Level7SpikerMatchesTankerSpeed { get; init; }
 		public required int DurationTicks { get; init; }
 		public required RecordedFrame?[]? Frames { get; init; }
 	}

@@ -101,9 +101,90 @@ public sealed class GameplayRecordingTests
 			Assert.Equal(1, root.GetProperty("StartingDisplayedLevel").GetInt32());
 			Assert.Equal(3, root.GetProperty("StartingLives").GetInt32());
 			Assert.Equal(1.0, root.GetProperty("RimSpeedMultiplier").GetDouble());
+			Assert.False(root.TryGetProperty("Level7SpikerSpeedOverride", out _));
+			Assert.False(root.TryGetProperty("Level7SpikerMatchesTankerSpeed", out _));
 			Assert.Equal(0, root.GetProperty("DurationTicks").GetInt32());
 			Assert.Empty(root.GetProperty("Frames").EnumerateArray());
 		});
+	}
+
+	[Fact]
+	public void Level7DiagnosticSpeedRoundTripsAndIsRestoredByPlayback()
+	{
+		GameplayStartupConfiguration startup =
+			new(7, 10, 1.0, 1981, level7SpikerSpeedOverride: 2.0f);
+		PlayerInputRecorder recorder = new(startup);
+
+		WithTemporaryDirectory(directory =>
+		{
+			string path = Path.Combine(directory, "level7-diagnostic.json");
+			GameplayRecordingFile.SaveNew(path, recorder);
+			using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
+
+			Assert.Equal(2.0f,
+				document.RootElement.GetProperty("Level7SpikerSpeedOverride").GetSingle());
+
+			GameplayRecording file = GameplayRecordingFile.LoadRecording(path);
+			Assert.Equal(startup, file.StartupConfiguration);
+			GameplayPlaybackSession session = new(file.StartupConfiguration, file.Replay);
+			Assert.Equal(2.0f, session.StartupConfiguration.Level7SpikerSpeedOverride);
+			Assert.Same(LevelConfiguration.Level7Production,
+				session.Game.CurrentLevel.Configuration);
+		});
+	}
+
+	[Fact]
+	public void LegacyLevel7TankerSpeedMatchMetadataRemainsCompatibleWithDefaultProduction()
+	{
+		GameplayStartupConfiguration startup = new(7, 10, 1.0, 1981,
+			level7SpikerMatchesTankerSpeed: true);
+		PlayerInputRecorder recorder = new(startup);
+
+		WithTemporaryDirectory(directory =>
+		{
+			string path = Path.Combine(directory, "level7-tanker-speed-match.json");
+			GameplayRecordingFile.SaveNew(path, recorder);
+			using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
+
+			Assert.True(document.RootElement
+				.GetProperty("Level7SpikerMatchesTankerSpeed").GetBoolean());
+			Assert.Equal(1.0, document.RootElement.GetProperty("RimSpeedMultiplier").GetDouble());
+
+			GameplayRecording file = GameplayRecordingFile.LoadRecording(path);
+			Assert.Equal(startup, file.StartupConfiguration);
+			GameplayPlaybackSession session = new(file.StartupConfiguration, file.Replay);
+			Assert.True(session.StartupConfiguration.Level7SpikerMatchesTankerSpeed);
+			Assert.True(session.Game.CurrentLevel.Configuration.UsesLevel7RomWavePolicy);
+		});
+	}
+
+	[Fact]
+	public void ExistingVersionTwoRecordingWithoutDiagnosticMetadataKeepsDefaultStartup()
+	{
+		WithTemporaryDirectory(directory =>
+		{
+			string path = Path.Combine(directory, "legacy-level7.json");
+			File.WriteAllText(path, CreateJson(startingDisplayedLevel: 7));
+
+			GameplayRecording file = GameplayRecordingFile.LoadRecording(path);
+
+			Assert.Equal(2, GameplayRecordingFile.CurrentFormatVersion);
+			Assert.Equal(7, file.StartupConfiguration.StartingDisplayedLevel);
+			Assert.Null(file.StartupConfiguration.Level7SpikerSpeedOverride);
+			Assert.False(file.StartupConfiguration.Level7SpikerMatchesTankerSpeed);
+			Assert.Same(LevelConfiguration.Level7Production,
+				file.Replay.StartingConfiguration);
+		});
+	}
+
+	[Theory]
+	[InlineData(0.5f)]
+	[InlineData(3.5f)]
+	public void VersionTwoRejectsOutOfRangeLevel7DiagnosticMetadata(float speed)
+	{
+		WithRecording(CreateJson(startingDisplayedLevel: 7,
+			level7SpikerSpeedOverride: speed), exception =>
+			Assert.IsType<InvalidDataException>(exception));
 	}
 
 	[Fact]
@@ -535,6 +616,36 @@ public sealed class GameplayRecordingTests
 	}
 
 	[Fact]
+	public void PresentationSpeedDoesNotChangeFixedTickSimulationOrRecordedInputs()
+	{
+		Assert.True(DebugController.TryParseInteractiveSpeedOptions(
+			["--speed", "0.5"], out InteractiveSpeedOptions slowSpeed, out _));
+		Assert.True(DebugController.TryParseInteractiveSpeedOptions(
+			["--speed", "1.0"], out InteractiveSpeedOptions normalSpeed, out _));
+		Assert.Equal(30, slowSpeed.TargetFramesPerSecond);
+		Assert.Equal(60, normalSpeed.TargetFramesPerSecond);
+
+		GameplayStartupConfiguration startup = new(7, 10, 1.0, 4225);
+		TempestGame slowPacedGame = new(startup);
+		TempestGame normalPacedGame = new(startup);
+		PlayerInputRecorder slowPacedRecording = new(startup);
+		PlayerInputRecorder normalPacedRecording = new(startup);
+		for (int tick = 0; tick < 120; tick++)
+		{
+			PlayerInput input = tick % 4 == 0
+				? new PlayerInput(true, 0.25f, tick % 8 == 0, false)
+				: default;
+			slowPacedGame.RunOneStep(input);
+			normalPacedGame.RunOneStep(input);
+			slowPacedRecording.CaptureTick(tick, input);
+			normalPacedRecording.CaptureTick(tick, input);
+		}
+
+		AssertEquivalentGameplayState(slowPacedGame, normalPacedGame);
+		Assert.Equal(slowPacedRecording.Frames, normalPacedRecording.Frames);
+	}
+
+	[Fact]
 	public void LiveSensitivityRecordsEffectiveInputWithoutAddingRecordingMetadata()
 	{
 		float effectiveMouseDeltaX = InputSystem.ScaleMouseDeltaX(10.0f, 0.5f);
@@ -604,6 +715,7 @@ public sealed class GameplayRecordingTests
 		int startingDisplayedLevel = 1,
 		int startingLives = 3,
 		double rimSpeedMultiplier = 1.0,
+		float? level7SpikerSpeedOverride = null,
 		bool includeUnknownMember = false)
 	{
 		object frame = new
@@ -642,6 +754,9 @@ public sealed class GameplayRecordingTests
 				["DurationTicks"] = durationTicks,
 				["Frames"] = new[] { frame }
 			};
+		if (version == GameplayRecordingFile.CurrentFormatVersion &&
+			level7SpikerSpeedOverride is float fixedSpikerSpeed)
+			document["Level7SpikerSpeedOverride"] = fixedSpikerSpeed;
 		if (includeUnknownMember)
 			document["UnknownMember"] = true;
 		return JsonSerializer.Serialize(document);

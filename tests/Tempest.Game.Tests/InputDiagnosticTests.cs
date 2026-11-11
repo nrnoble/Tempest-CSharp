@@ -114,6 +114,26 @@ public sealed class InputDiagnosticTests
         Assert.Equal(5, command!.StartingDisplayedLevel);
         Assert.Equal(10, command.StartingLives);
         Assert.Equal(2.5, command.RimSpeedMultiplier);
+        Assert.Null(command.Level7SpikerSpeedOverride);
+
+        Assert.True(DebugController.TryParseGameplayFileCommand(
+            ["--record-gameplay", "level7.json", "--level", "7", "--lives", "10",
+                "--level7-spiker-speed", "2.0"],
+            out GameplayFileCommand? level7Command, out string? level7Error));
+        Assert.Null(level7Error);
+        Assert.Equal(2f, level7Command!.Level7SpikerSpeedOverride);
+
+        Assert.True(DebugController.TryParseGameplayFileCommand(
+            ["--level", "7", "--lives", "10", "--speed", "0.5",
+                "--record-gameplay", "Temp\\GameplayRecordings\\lvl7-SpikerTest.json",
+                "--level7-spiker-speed", "2.0"],
+            out GameplayFileCommand? requestedOrderCommand, out string? requestedOrderError));
+        Assert.Null(requestedOrderError);
+        Assert.Equal("Temp\\GameplayRecordings\\lvl7-SpikerTest.json",
+            requestedOrderCommand!.Path);
+        Assert.Equal(7, requestedOrderCommand.StartingDisplayedLevel);
+        Assert.Equal(10, requestedOrderCommand.StartingLives);
+        Assert.Equal(2f, requestedOrderCommand.Level7SpikerSpeedOverride);
 
         Assert.True(DebugController.TryParseGameplayFileCommand(
             ["--record-gameplay", "level1.json"], out GameplayFileCommand? defaults,
@@ -122,11 +142,13 @@ public sealed class InputDiagnosticTests
         Assert.Null(defaults!.StartingDisplayedLevel);
         Assert.Null(defaults.StartingLives);
         Assert.Null(defaults.RimSpeedMultiplier);
+        Assert.Null(defaults.Level7SpikerSpeedOverride);
         GameplayStartupConfiguration defaultStartup = new(
             defaults.StartingDisplayedLevel ?? 1,
             defaults.StartingLives ?? 3,
             defaults.RimSpeedMultiplier ?? 1.0,
-            1981);
+            1981,
+            defaults.Level7SpikerSpeedOverride);
         Assert.Equal(new GameplayStartupConfiguration(1, 3, 1.0, 1981), defaultStartup);
     }
 
@@ -144,7 +166,7 @@ public sealed class InputDiagnosticTests
             ["--record-gameplay", "session.json", "--level", "9"],
             ["--record-gameplay", "session.json", "unexpected"],
             ["--record-gameplay", "session.json", "--unknown-option", "1"],
-            ["--lives", "10", "--record-gameplay", "session.json"]
+            ["unexpected", "--record-gameplay", "session.json"]
         ];
 
         foreach (string[] arguments in invalidCommands)

@@ -1,3 +1,5 @@
+using Tempest.Game.Gameplay;
+
 namespace Tempest.Game.Levels;
 
 public enum Level3OriginalType
@@ -29,7 +31,8 @@ public enum Level3CargoState
     Active,
     Destroyed,
     RimCleared,
-    Reconstructed
+    Reconstructed,
+    NotAllocatedForPhysicalCapacity
 }
 
 public enum Level3IdentityKind
@@ -243,6 +246,36 @@ public sealed class Level3WaveLedger
 
     public IReadOnlyList<int> MaterializeStillbornCargo(int ownerOriginalId) =>
         MaterializeCargo(ownerOriginalId, Level3CargoState.Active);
+
+    public IReadOnlyList<int> MaterializeCargoWithinCapacity(
+        int ownerOriginalId,
+        Level3CargoState destination,
+        int childCapacity)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(childCapacity);
+        if (destination is not
+            (Level3CargoState.Active or Level3CargoState.PendingShotActivation))
+            throw new ArgumentOutOfRangeException(nameof(destination));
+        if (GetOriginalType(ownerOriginalId) != Level3OriginalType.Tanker)
+            throw new InvalidOperationException($"Original {ownerOriginalId} is not a selected Tanker.");
+
+        List<int> ids = GetCargoIdsForOriginal(ownerOriginalId).ToList();
+        if (ids.Count != Tanker.CarriedFlipperCount)
+            throw new InvalidOperationException(
+                $"Tanker original {ownerOriginalId} must own exactly two cargo identities.");
+
+        int allocatedCount = Math.Min(childCapacity, ids.Count);
+        for (int index = 0; index < ids.Count; index++)
+        {
+            Level3CargoState nextState = index < allocatedCount
+                ? destination
+                : Level3CargoState.NotAllocatedForPhysicalCapacity;
+            TransitionCargo(ids[index], Level3CargoState.Latent, nextState);
+        }
+
+        // Cargo IDs are ordered by ordinal, matching the ROM's deterministic child attempts.
+        return ids.Take(allocatedCount).ToArray();
+    }
 
     public void ActivateShotCargo(int cargoId) =>
         TransitionCargo(cargoId, Level3CargoState.PendingShotActivation, Level3CargoState.Active);
@@ -633,7 +666,8 @@ public sealed class Level3WaveLedger
 
     private static bool IsTerminal(Level3CargoState state) =>
         state is Level3CargoState.Destroyed or Level3CargoState.RimCleared or
-            Level3CargoState.Reconstructed;
+            Level3CargoState.Reconstructed or
+            Level3CargoState.NotAllocatedForPhysicalCapacity;
 
     private static InvalidOperationException InvalidTransition(
         string identityType,

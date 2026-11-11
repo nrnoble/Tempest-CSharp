@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Reflection;
 using Tempest.Game;
 using Tempest.Game.Debug;
 using Tempest.Game.Gameplay;
@@ -57,38 +58,13 @@ public sealed class Level7ProductionTests
         Assert.Equal(FlipperPivotGeometry.EndpointHinge, configuration.FlipperPivotMode);
         Assert.Equal(BelowRimFlipperProgram.Level7ArcadeObserved, configuration.BelowRimFlipperProgram);
         Assert.True(configuration.UsesLevel7RomWavePolicy);
+        Assert.False((configuration with { }).UsesLevel7RomWavePolicy);
+        Assert.True(configuration.UsesLevel7SpikerFiringPolicy);
+        Assert.Equal(62, configuration.Level7SpikerShotHoldoffTicks);
+        Assert.False((configuration with { }).UsesLevel7SpikerFiringPolicy);
+        Assert.False((configuration with { }).UsesGenericRomDeathReconstruction);
         Assert.Equal(1, configuration.ProgrammedFlipperInitialDirection);
         Assert.Equal(new FlipperConfiguration(true, 2, 9, 0, 23), configuration.Flipper);
-    }
-
-    [Fact]
-    public void DeterministicLevel7SelectionsNeverCreateOrdinaryBottomFlippers()
-    {
-        for (int seed = 0; seed < 32; seed++)
-        {
-            TempestGame game = new(
-                LevelConfiguration.Level7Production with
-                {
-                    EnemySupply = Level7WaveSelection.MaximumActiveEnemies,
-                    InitialActiveEggCount = Level7WaveSelection.MaximumActiveEnemies
-                },
-                random: new Random(seed));
-            foreach (Egg egg in game.Eggs)
-                MakeReady(egg, game.CurrentLevel);
-
-            game.RunOneStep();
-
-            Assert.DoesNotContain(game.Flippers, flipper => !flipper.IsTankerCargo);
-            Assert.InRange(game.Tankers.Count, 1, 2);
-            Assert.InRange(game.Spikers.Count, 2, 4);
-            Assert.True(game.Tankers.Count + game.Spikers.Count + game.Flippers.Count <=
-                Level7WaveSelection.MaximumActiveEnemies);
-            Assert.Equal(4, game.CurrentLevel.Level3Ledger!.CargoCount);
-            Assert.Equal(Level7WaveSelection.MaximumActiveEnemies,
-                game.CurrentLevel.Level3Ledger.UnresolvedOriginalIds.Count);
-            Assert.Equal(4, game.TankerLatentCargoUnits);
-            Assert.Equal(0, game.CurrentLevel.PendingGenericEnemyUnits);
-        }
     }
 
     [Fact]
@@ -115,9 +91,14 @@ public sealed class Level7ProductionTests
         Spiker? reconstructed = null;
         level.HatchReadyMixedEnemies(egg =>
         {
-            Level3OriginalType type = Level7WaveSelection.SelectOriginalType(
-                (_, _) => 0, activeTankers: 0,
-                activeSpikers: 0, activeEnemyUnits: 0)
+            Level7AdmissionSnapshot snapshot = new(
+                OrdinaryFlippers: 0, ReleasedCargoFlippers: 0,
+                PendingShotCargoFlippers: 0, OrdinaryTankers: 0,
+                ConvertedTankers: 0, ActiveSpikers: 0, ActiveOtherEnemies: 0,
+                LatentTankerCargoFlippers: 0,
+                PendingSegmentSpikeRomComparisonValue: 0xFF);
+            Level3OriginalType type = Level7WaveSelection.SelectOrdinaryType(
+                snapshot, (_, _) => throw new InvalidOperationException())
                 ?? throw new InvalidOperationException("The Level 7 one-unit selection was unavailable.");
             Assert.Equal(Level3OriginalType.Spiker, type);
             ledger.CommitOriginalAsSpiker(egg.OriginalSlotId);
@@ -160,38 +141,189 @@ public sealed class Level7ProductionTests
     }
 
     [Fact]
-    public void FinalPendingSpikerConvertsInPlaceToFlipperCarryingTanker()
+    public void CanonicalLevel7NaturalReleaseMaterializesOnlyTheFirstChildAtSaturation()
     {
-        LevelConfiguration configuration = LevelConfiguration.Level7Production with
+        (TempestGame game, Tanker tanker, int[] priorCargoIds) =
+            CreateCapacityLimitedReleaseScenario(spikerCount: 4);
+        Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger!;
+        int pendingOriginalsBefore = ledger.PendingGenericOriginalCount;
+
+        ReleaseTankerCargo(game, tanker, TankerReleaseKind.Natural);
+
+        Assert.Equal(7, CountPhysicalEnemies(game));
+        Assert.Equal(new[] { 0, 1, 2 }, game.Flippers
+            .Where(flipper => flipper.IsTankerCargo)
+            .Select(flipper => flipper.CargoUnitId).Order());
+        Assert.Equal(Level3CargoState.Active, ledger.GetCargoState(2));
+        Assert.Equal(Level3CargoState.NotAllocatedForPhysicalCapacity,
+            ledger.GetCargoState(3));
+        Assert.Equal(new[] { 0, 1, 2 }, ledger.UnresolvedCargoIds.Order());
+        Assert.Equal(pendingOriginalsBefore, ledger.PendingGenericOriginalCount);
+        Assert.DoesNotContain(game.Eggs, egg => egg.CargoUnitId >= 0);
+        Assert.Empty(ledger.CargoIdsInReentryReserve());
+
+        foreach (int id in priorCargoIds)
+            ledger.MarkCargoDestroyed(id);
+        RemovePriorCargoFlippers(game, priorCargoIds);
+
+        int originalCountBeforeDeath = ledger.OriginalCount;
+        game.CurrentLevel.ResetAfterDeath(clearUnresolvedSpeciesSelections: true);
+
+        Assert.Equal(originalCountBeforeDeath + 1, ledger.OriginalCount);
+        Assert.Equal(Level3CargoState.Reconstructed, ledger.GetCargoState(2));
+        Assert.Equal(Level3CargoState.NotAllocatedForPhysicalCapacity,
+            ledger.GetCargoState(3));
+        Assert.Empty(ledger.UnresolvedCargoIds);
+
+        game.CurrentLevel.ResetAfterDeath(clearUnresolvedSpeciesSelections: true);
+
+        Assert.Equal(originalCountBeforeDeath + 1, ledger.OriginalCount);
+        Assert.Equal(Level3CargoState.NotAllocatedForPhysicalCapacity,
+            ledger.GetCargoState(3));
+        Assert.Empty(ledger.UnresolvedCargoIds);
+    }
+
+    [Fact]
+    public void CanonicalLevel7NaturalReleaseMaterializesBothChildrenWhenTheyFit()
+    {
+        (TempestGame game, Tanker tanker, _) =
+            CreateCapacityLimitedReleaseScenario(spikerCount: 3);
+
+        ReleaseTankerCargo(game, tanker, TankerReleaseKind.Natural);
+
+        Flipper[] cargo = game.Flippers.Where(flipper =>
+            flipper.IsTankerCargo && flipper.CargoUnitId >= 2)
+            .OrderBy(flipper => flipper.CargoUnitId).ToArray();
+        Assert.Equal(new[] { 2, 3 }, cargo.Select(flipper => flipper.CargoUnitId));
+        Assert.Equal(new[] { 1, -1 }, cargo.Select(flipper => flipper.Direction));
+        Assert.Equal(new[] { 0, 2 }, cargo.Select(flipper => flipper.EdgeIndex));
+        Assert.Equal(7, CountPhysicalEnemies(game));
+        Assert.All(new[] { 2, 3 },
+            id => Assert.Equal(Level3CargoState.Active,
+                game.CurrentLevel.Level3Ledger!.GetCargoState(id)));
+    }
+
+    [Fact]
+    public void CanonicalLevel7ShotReleaseCountsDeferredActivationAsPhysicalOccupancy()
+    {
+        (TempestGame game, Tanker tanker, _) =
+            CreateCapacityLimitedReleaseScenario(spikerCount: 4);
+        Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger!;
+
+        ReleaseTankerCargo(game, tanker, TankerReleaseKind.PlayerShotDestruction);
+
+        List<Flipper> pendingActivation =
+            GetGameList<Flipper>(game, "shotReleasedCargoPendingActivation");
+        Assert.Single(pendingActivation);
+        Assert.Equal(7, CountPhysicalEnemies(game));
+        Assert.Equal(2, pendingActivation[0].CargoUnitId);
+        Assert.Equal(Level3CargoState.PendingShotActivation,
+            ledger.GetCargoState(2));
+        Assert.Equal(Level3CargoState.NotAllocatedForPhysicalCapacity,
+            ledger.GetCargoState(3));
+        Assert.True(ledger.HasPendingShotActivation);
+        Assert.DoesNotContain(3, ledger.UnresolvedCargoIds);
+    }
+
+    [Fact]
+    public void ConvertedLevel7TankerUsesTheSameIndependentChildCapacity()
+    {
+        (TempestGame game, Tanker tanker, _) =
+            CreateCapacityLimitedReleaseScenario(spikerCount: 4, convertedTanker: true);
+        Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger!;
+        Assert.True(ledger.IsConvertedSpikerTanker(tanker.OriginalSlotId));
+
+        ReleaseTankerCargo(game, tanker, TankerReleaseKind.Natural);
+
+        Assert.Equal(7, CountPhysicalEnemies(game));
+        Assert.Equal(Level3CargoState.Active, ledger.GetCargoState(2));
+        Assert.Equal(Level3CargoState.NotAllocatedForPhysicalCapacity,
+            ledger.GetCargoState(3));
+    }
+
+    [Fact]
+    public void CanonicalLevel7SuperZapperReleaseKeepsAllocatedCargoStillborn()
+    {
+        (TempestGame game, Tanker tanker, _) =
+            CreateCapacityLimitedReleaseScenario(spikerCount: 4);
+        Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger!;
+
+        ReleaseTankerCargo(game, tanker, TankerReleaseKind.SuperZapperDestruction);
+
+        Flipper stillbornChild = Assert.Single(game.Flippers,
+            flipper => flipper.CargoUnitId == 2);
+        Assert.Equal(8, stillbornChild.PendingZapTicks);
+        Assert.Equal(7, CountPhysicalEnemies(game));
+        Assert.Equal(Level3CargoState.NotAllocatedForPhysicalCapacity,
+            ledger.GetCargoState(3));
+        Assert.Equal(Level3OriginalState.Destroyed,
+            ledger.GetOriginalState(tanker.OriginalSlotId));
+    }
+
+    [Fact]
+    public void UnallocatedCargoDoesNotBlockCompletionButMaterializedCargoDoes()
+    {
+        TempestGame game = new(LevelConfiguration.Level7Production,
+            random: new Level7FiringRandom());
+        Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger!;
+
+        for (int originalId = 0; originalId < ledger.OriginalCount; originalId++)
         {
-            EnemySupply = 1,
-            InitialActiveEggCount = 1,
-            MaximumActiveEggs = 1
-        };
-        TempestGame game = new(configuration, random: new Level7FiringRandom());
-        MakeReady(Assert.Single(game.Eggs), game.CurrentLevel);
-        game.RunOneStep();
-        Spiker spiker = Assert.Single(game.Spikers);
-        int originalId = spiker.OriginalSlotId;
-        int edge = spiker.EdgeIndex;
+            if (ledger.GetOriginalState(originalId) == Level3OriginalState.Reserve)
+                ledger.MarkOriginalEgg(originalId);
+            if (originalId == 0)
+            {
+                ledger.CommitOriginalAsTanker(originalId);
+                ledger.MaterializeCargoWithinCapacity(
+                    originalId, Level3CargoState.Active, childCapacity: 1);
+            }
+            else
+                ledger.CommitOriginalAsFlipper(originalId);
+            ledger.MarkOriginalDestroyed(originalId);
+        }
+        GetGameList<Egg>(game.CurrentLevel, "eggs").Clear();
 
-        for (int tick = 0; tick < 500 && game.Tankers.Count == 0; tick++)
-            game.RunOneStep();
+        Assert.Equal(Level3CargoState.NotAllocatedForPhysicalCapacity,
+            ledger.GetCargoState(1));
+        Assert.False(CheckForLevelComplete(game));
+        Assert.Contains(0, ledger.UnresolvedCargoIds);
 
-        Tanker converted = Assert.Single(game.Tankers);
-        Assert.Empty(game.Spikers);
-        Assert.Equal(originalId, converted.OriginalSlotId);
-        Assert.Equal(edge, converted.EdgeIndex);
-        Assert.Equal(10, converted.Height);
-        Assert.Equal(Level3OriginalType.Tanker,
-            game.CurrentLevel.Level3Ledger!.GetOriginalType(originalId));
-        Assert.Equal(Level3OriginalState.ActiveTanker,
-            game.CurrentLevel.Level3Ledger.GetOriginalState(originalId));
-        Assert.Equal(2, game.CurrentLevel.Level3Ledger.GetCargoIdsForOriginal(originalId).Count);
-        Assert.Single(game.CurrentLevel.Level3Ledger.UnresolvedOriginalIds);
-        Assert.Equal(0, game.CurrentLevel.ReserveEggs);
-        Assert.Equal(0, game.CurrentLevel.PendingGenericEnemyUnits);
-        Assert.Equal(2, game.TankerLatentCargoUnits);
+        ledger.MarkCargoDestroyed(0);
+
+        Assert.True(CheckForLevelComplete(game));
+        Assert.Equal(LevelState.AvoidSpikes, game.State);
+        Assert.Empty(ledger.UnresolvedCargoIds);
+    }
+
+    [Fact]
+    public void FinalPendingSpikerConversionPreservesTheOriginalAndAllocatesOneCargoPair()
+    {
+        Level3WaveLedger ledger = new(originalCount: 3);
+        for (int originalId = 0; originalId < 3; originalId++)
+        {
+            ledger.MarkOriginalEgg(originalId);
+            ledger.CommitOriginalAsSpiker(originalId);
+        }
+
+        Assert.False(Level7WaveSelection.ShouldConvertTerminalSpiker(
+            LevelConfiguration.Level7Production, pendingGenericOriginals: 1));
+        Assert.False(Level7WaveSelection.ShouldConvertTerminalSpiker(
+            LevelConfiguration.Level7Production with { }, pendingGenericOriginals: 0));
+        Assert.Equal(0, ledger.PendingGenericOriginalCount);
+        Assert.True(Level7WaveSelection.ShouldConvertTerminalSpiker(
+            LevelConfiguration.Level7Production, ledger.PendingGenericOriginalCount));
+
+        foreach (int originalId in new[] { 0, 1, 2 })
+            ledger.ConvertActiveSpikerToTanker(originalId);
+
+        Assert.Equal(3, ledger.UnresolvedOriginalIds.Count);
+        Assert.All(new[] { 0, 1, 2 }, originalId =>
+        {
+            Assert.Equal(Level3OriginalType.Tanker, ledger.GetOriginalType(originalId));
+            Assert.True(ledger.IsConvertedSpikerTanker(originalId));
+            Assert.Equal(2, ledger.GetCargoIdsForOriginal(originalId).Count);
+        });
+        Assert.Throws<InvalidOperationException>(() => ledger.ConvertActiveSpikerToTanker(0));
     }
 
     [Fact]
@@ -243,34 +375,81 @@ public sealed class Level7ProductionTests
     }
 
     [Fact]
-    public void Level7CompositionUsesOnlyFlippersTankersAndSpikers()
+    public void Level7ProductionUsesThePendingLaneSpikeAfterItsMinima()
     {
-        foreach (int candidate in new[] { 0, 1 })
-        {
-            Level3OriginalType? selected = Level7WaveSelection.SelectOriginalType(
-                (_, _) => candidate, activeTankers: 1,
-                activeSpikers: 2, activeEnemyUnits: 3);
-            Assert.NotNull(selected);
-            Assert.Contains(selected.Value, new[]
-            {
-                Level3OriginalType.Tanker,
-                Level3OriginalType.Spiker
-            });
-        }
-        Assert.Equal(Level3OriginalType.Spiker,
-            Level7WaveSelection.SelectOriginalType(
-                (_, _) => throw new InvalidOperationException(),
-                activeTankers: 0, activeSpikers: 0,
-                activeEnemyUnits: 0));
+        TempestGame game = new(LevelConfiguration.Level7Production,
+            random: new Level7FiringRandom());
+        Egg[] eggs = game.Eggs.ToArray();
+        foreach (Egg egg in eggs)
+            MakeReady(egg, game.CurrentLevel);
+
+        game.RunOneStep();
+
+        Assert.DoesNotContain(game.Flippers, flipper => !flipper.IsTankerCargo);
+        Tanker tanker = Assert.Single(game.Tankers);
+        Assert.Equal(Tanker.DevelopmentClimbSpeed, tanker.ClimbSpeed);
+        Assert.Equal(10 + Tanker.DevelopmentClimbSpeed, tanker.Height);
+        Assert.Equal(3, game.Spikers.Count);
+        Assert.Equal(2, game.CurrentLevel.Level3Ledger!.CargoCount);
+    }
+
+    [Fact]
+    public void ProductionPostMinimumSelectorReadsOnlyThePendingEggsLaneSpike()
+    {
+        TempestGame game = new(LevelConfiguration.Level7Production,
+            random: new Level7FiringRandom());
+        Egg[] initialEggs = game.Eggs.ToArray();
+        foreach (Egg egg in initialEggs.Take(3))
+            MakeReady(egg, game.CurrentLevel);
+
+        game.RunOneStep();
+
+        Assert.Equal(2, game.Spikers.Count);
+        Assert.Single(game.Tankers);
+        Egg pendingEgg = Assert.Single(game.Eggs);
+        for (int tick = 0;
+             tick < game.CurrentLevel.PlayableLaneCount * 8 && pendingEgg.EdgeIndex != 10;
+             tick++)
+            pendingEgg.Update(game.CurrentLevel);
+        Assert.Equal(10, pendingEgg.EdgeIndex);
+
+        foreach (Spike spike in game.Spikes)
+            spike.Height = 120;
+        game.Spikes.Single(spike => spike.EdgeIndex == 2).Height = 60;
+        MakeReady(pendingEgg, game.CurrentLevel);
+
+        game.RunOneStep();
+
         Assert.Equal(Level3OriginalType.Tanker,
-            Level7WaveSelection.SelectOriginalType(
-                (_, _) => throw new InvalidOperationException(),
-                activeTankers: 0, activeSpikers: 2,
-                activeEnemyUnits: 2));
-        Assert.Null(Level7WaveSelection.SelectOriginalType(
-            (_, _) => throw new InvalidOperationException(),
-            activeTankers: 1, activeSpikers: 4,
-            activeEnemyUnits: Level7WaveSelection.MaximumActiveEnemies));
+            game.CurrentLevel.Level3Ledger!.GetOriginalType(pendingEgg.OriginalSlotId));
+        Assert.Equal(2, game.Tankers.Count);
+        Assert.Equal(2, game.Spikers.Count);
+    }
+
+    [Fact]
+    public void SpikerRetainsItsLiveIdentityAcrossRetreatWhileGenericSupplyRemains()
+    {
+        TempestGame game = new(LevelConfiguration.Level7Production,
+            random: new Level7SpikerLifecycleRandom());
+        foreach (Egg egg in game.Eggs)
+            MakeReady(egg, game.CurrentLevel);
+        game.RunOneStep();
+
+        Spiker spiker = game.Spikers[0];
+        int originalId = spiker.OriginalSlotId;
+        int pendingBeforeRetreat = game.CurrentLevel.PendingGenericEnemyUnits;
+        Assert.True(pendingBeforeRetreat > 0);
+
+        for (int tick = 0; tick < 260; tick++)
+            game.RunOneStep();
+
+        Assert.True(game.CurrentLevel.PendingGenericEnemyUnits > 0);
+        Assert.Equal(Level3OriginalState.ActiveSpiker,
+            game.CurrentLevel.Level3Ledger!.GetOriginalState(originalId));
+        Assert.Same(spiker, Assert.Single(
+            game.Spikers, candidate => candidate.OriginalSlotId == originalId));
+        Assert.DoesNotContain(game.Eggs, egg => egg.OriginalSlotId == originalId);
+        Assert.DoesNotContain(game.Flippers, flipper => !flipper.IsTankerCargo);
     }
 
     [Fact]
@@ -430,6 +609,92 @@ public sealed class Level7ProductionTests
         Assert.Equal(0, game.DeathTicks);
     }
 
+    private static (TempestGame Game, Tanker Carrier, int[] PriorCargoIds)
+        CreateCapacityLimitedReleaseScenario(int spikerCount, bool convertedTanker = false)
+    {
+        TempestGame game = new(LevelConfiguration.Level7Production,
+            random: new Level7FiringRandom());
+        Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger!;
+
+        ledger.CommitOriginalAsTanker(0);
+        Tanker previousCarrier = new(0, 0);
+        TankerReleaseResult previousRelease = previousCarrier.ReleaseFlipperCargo(
+            game.CurrentLevel, firstSideDirection: 1, TankerReleaseKind.Natural);
+        int[] priorCargoIds = ledger.MaterializeLiveCargo(0).ToArray();
+        ledger.MarkOriginalEscaped(0);
+        List<Flipper> flippers = GetGameList<Flipper>(game, "flippers");
+        for (int index = 0; index < priorCargoIds.Length; index++)
+            flippers.Add(Flipper.CreateTankerCargo(
+                game.CurrentLevel, previousRelease.Cargo[index], priorCargoIds[index]));
+
+        List<Spiker> spikers = GetGameList<Spiker>(game, "spikers");
+        for (int index = 0; index < spikerCount; index++)
+        {
+            int originalId = index + 2;
+            if (ledger.GetOriginalState(originalId) == Level3OriginalState.Reserve)
+                ledger.MarkOriginalEgg(originalId);
+            ledger.CommitOriginalAsSpiker(originalId);
+            spikers.Add(new Spiker(originalId, speed: 3, originalSlotId: originalId));
+        }
+
+        if (convertedTanker)
+        {
+            ledger.CommitOriginalAsSpiker(1);
+            ledger.ConvertActiveSpikerToTanker(1);
+        }
+        else
+            ledger.CommitOriginalAsTanker(1);
+
+        Tanker carrier = new(1, 1);
+        GetGameList<Tanker>(game, "tankers").Add(carrier);
+        return (game, carrier, priorCargoIds);
+    }
+
+    private static void ReleaseTankerCargo(
+        TempestGame game,
+        Tanker tanker,
+        TankerReleaseKind releaseKind)
+    {
+        Assert.True(GetGameList<Tanker>(game, "tankers").Remove(tanker));
+        MethodInfo release = typeof(TempestGame).GetMethod(
+            "ReleaseTankerCargo", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("The Tanker cargo release method was not found.");
+        release.Invoke(game, [tanker, releaseKind]);
+    }
+
+    private static List<T> GetGameList<T>(object instance, string fieldName)
+    {
+        FieldInfo field = instance.GetType().GetField(
+            fieldName, BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException($"Game collection '{fieldName}' was not found.");
+        return (List<T>)(field.GetValue(instance)
+            ?? throw new InvalidOperationException($"Game collection '{fieldName}' is null."));
+    }
+
+    private static bool CheckForLevelComplete(TempestGame game)
+    {
+        MethodInfo check = typeof(TempestGame).GetMethod(
+            "CheckForLevelComplete", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("The level completion check was not found.");
+        return (bool)(check.Invoke(game, null)
+            ?? throw new InvalidOperationException("The level completion check returned null."));
+    }
+
+    private static int CountPhysicalEnemies(TempestGame game) =>
+        game.Flippers.Count + game.Tankers.Count + game.Spikers.Count +
+        GetGameList<Flipper>(game, "shotReleasedCargoPendingActivation").Count;
+
+    private static void RemovePriorCargoFlippers(TempestGame game, IReadOnlyCollection<int> cargoIds)
+    {
+        List<Flipper> flippers = GetGameList<Flipper>(game, "flippers");
+        foreach (int cargoId in cargoIds)
+        {
+            Flipper flipper = Assert.Single(flippers,
+                candidate => candidate.CargoUnitId == cargoId);
+            Assert.True(flippers.Remove(flipper));
+        }
+    }
+
     private static void MakeReady(Egg egg, Level level)
     {
         egg.BeginApproach();
@@ -477,5 +742,11 @@ public sealed class Level7ProductionTests
             minValue == -6 && maxValue == 5 ? 1 :
             minValue == 0 && maxValue == 256 ? 255 :
             minValue;
+    }
+
+    private sealed class Level7SpikerLifecycleRandom : Random
+    {
+        public override int Next(int minValue, int maxValue) => minValue;
+        public override double NextDouble() => 1;
     }
 }
