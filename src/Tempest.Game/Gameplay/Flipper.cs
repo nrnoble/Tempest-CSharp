@@ -26,7 +26,11 @@ internal enum ProgrammedFlipperRouteStep
     Level8StraightTurning,
     Level6DeepAlong,
     Level6DeepTurning,
-    Level6Straight
+    Level6Straight,
+    Level9Along,
+    Level9Turning,
+    Level9Straight,
+    Level9StraightTurning
 }
 
 /// <summary>
@@ -48,6 +52,8 @@ public sealed class Flipper : Enemy
     private bool useLevel5SpikeSensitiveProgram;
     private bool useLevel8ConstantFlipProgram;
     private bool useLevel8StraightCargoProgram;
+    private bool useLevel9SpikeSensitiveProgram;
+    private bool useLevel9StraightCargoProgram;
     private int level6StraightAdvances;
 
     public Flipper(int edge = 0, float height = 0)
@@ -93,6 +99,27 @@ public sealed class Flipper : Enemy
             level.Configuration.BelowRimFlipperProgram ==
                 BelowRimFlipperProgram.Level7ArcadeObserved)
             InitializeProgrammedRoute(level.Configuration.ProgrammedFlipperInitialDirection);
+
+        if (programmedRouteStep == ProgrammedFlipperRouteStep.Disabled &&
+            !IsTankerCargo &&
+            level.Configuration.BelowRimFlipperProgram ==
+                BelowRimFlipperProgram.Level9SpikeSensitive)
+            InitializeLevel9SpikeSensitiveRoute(
+                level.Configuration.ProgrammedFlipperInitialDirection);
+
+        if (useLevel9SpikeSensitiveProgram &&
+            programmedRouteStep != ProgrammedFlipperRouteStep.RimHandoff)
+        {
+            UpdateLevel9SpikeSensitiveRoute(level, playerEdge, tuning);
+            return;
+        }
+
+        if (useLevel9StraightCargoProgram &&
+            programmedRouteStep != ProgrammedFlipperRouteStep.RimHandoff)
+        {
+            UpdateLevel9StraightCargoRoute(level, playerEdge, tuning);
+            return;
+        }
 
         if (programmedRouteStep is not
             (ProgrammedFlipperRouteStep.Disabled or ProgrammedFlipperRouteStep.RimHandoff))
@@ -163,7 +190,9 @@ public sealed class Flipper : Enemy
         bool useLevel8ConstantFlipProgram = false,
         bool useLevel8StraightCargoProgram = false,
         TankerCargoMovementProgram tankerCargoMovementProgram =
-            TankerCargoMovementProgram.Existing)
+            TankerCargoMovementProgram.Existing,
+        bool useLevel9SpikeSensitiveProgram = false,
+        bool useLevel9StraightCargoProgram = false)
     {
         Flipper flipper = new(cargo.SourceLane, cargo.Height)
         {
@@ -175,6 +204,8 @@ public sealed class Flipper : Enemy
             useLevel5SpikeSensitiveProgram = useLevel5SpikeSensitiveProgram,
             useLevel8ConstantFlipProgram = useLevel8ConstantFlipProgram,
             useLevel8StraightCargoProgram = useLevel8StraightCargoProgram,
+            useLevel9SpikeSensitiveProgram = useLevel9SpikeSensitiveProgram,
+            useLevel9StraightCargoProgram = useLevel9StraightCargoProgram,
             CargoMovementProgram = tankerCargoMovementProgram
         };
         DirectedLaneTransition transition = level.CalculateDirectedLaneTransition(
@@ -184,27 +215,51 @@ public sealed class Flipper : Enemy
         if (tankerCargoMovementProgram is TankerCargoMovementProgram.Level6Deep0B or
             TankerCargoMovementProgram.Level6Straight07)
             flipper.InitializeLevel6CargoRoute(tankerCargoMovementProgram);
+        else if (tankerCargoMovementProgram is
+            TankerCargoMovementProgram.Level9SpikeSensitive53 or
+            TankerCargoMovementProgram.Level9Straight07)
+        {
+            flipper.useLevel9SpikeSensitiveProgram =
+                tankerCargoMovementProgram ==
+                    TankerCargoMovementProgram.Level9SpikeSensitive53;
+            flipper.useLevel9StraightCargoProgram =
+                tankerCargoMovementProgram == TankerCargoMovementProgram.Level9Straight07;
+            flipper.programmedRouteStep = flipper.useLevel9SpikeSensitiveProgram
+                ? ProgrammedFlipperRouteStep.Level9Turning
+                : ProgrammedFlipperRouteStep.Level9StraightTurning;
+        }
         else if (tankerCargoMovementProgram != TankerCargoMovementProgram.Existing)
             throw new ArgumentOutOfRangeException(nameof(tankerCargoMovementProgram));
         else if (useLevel8ConstantFlipProgram || useLevel8StraightCargoProgram)
             flipper.InitializeLevel8CargoRoute(cargo.Direction, useLevel8ConstantFlipProgram);
         else if (useLevel7ProgrammedRoute)
             flipper.InitializeProgrammedCargoRoute(cargo.Direction);
+        else if (useLevel9SpikeSensitiveProgram)
+            flipper.programmedRouteStep = ProgrammedFlipperRouteStep.Level9Turning;
+        else if (useLevel9StraightCargoProgram)
+            flipper.programmedRouteStep = ProgrammedFlipperRouteStep.Level9StraightTurning;
         return flipper;
     }
 
     // Ordinary climbing Flipper used when cargo re-enters through a fresh Egg after a life loss.
     public static Flipper CreateFreshTankerCargo(
         int edge, int cargoUnitId, int? programmedDirection = null,
-        bool useLevel5SpikeSensitiveProgram = false, int? initialDirection = null)
+        bool useLevel5SpikeSensitiveProgram = false, int? initialDirection = null,
+        bool useLevel9SpikeSensitiveProgram = false)
     {
         Flipper flipper = new(edge, 0)
         {
             CargoUnitId = cargoUnitId,
-            useLevel5SpikeSensitiveProgram = useLevel5SpikeSensitiveProgram
+            useLevel5SpikeSensitiveProgram = useLevel5SpikeSensitiveProgram,
+            useLevel9SpikeSensitiveProgram = useLevel9SpikeSensitiveProgram
         };
         if (programmedDirection is int direction)
             flipper.InitializeProgrammedRoute(direction);
+        else if (useLevel9SpikeSensitiveProgram)
+        {
+            flipper.Direction = initialDirection ?? 1;
+            flipper.programmedRouteStep = ProgrammedFlipperRouteStep.Level9Along;
+        }
         else if (initialDirection is int freshDirection)
         {
             if (freshDirection is not (-1 or 1))
@@ -328,6 +383,98 @@ public sealed class Flipper : Enemy
         programmedRouteStep = constantFlipProgram
             ? ProgrammedFlipperRouteStep.Level8Turning
             : ProgrammedFlipperRouteStep.Level8StraightTurning;
+    }
+
+    private void InitializeLevel9SpikeSensitiveRoute(int initialDirection)
+    {
+        if (initialDirection is not (-1 or 1))
+            throw new ArgumentOutOfRangeException(nameof(initialDirection));
+
+        useLevel9SpikeSensitiveProgram = true;
+        Direction = initialDirection;
+        programmedRouteStep = ProgrammedFlipperRouteStep.Level9Along;
+    }
+
+    private void UpdateLevel9SpikeSensitiveRoute(
+        Level level, int playerEdge, FlipperConfiguration tuning)
+    {
+        if (programmedRouteStep == ProgrammedFlipperRouteStep.Level9Turning)
+        {
+            ContinueLevel9Pivot(level, playerEdge, tuning,
+                ProgrammedFlipperRouteStep.Level9Along);
+            return;
+        }
+
+        if (programmedRouteStep != ProgrammedFlipperRouteStep.Level9Along)
+            throw new InvalidOperationException(
+                $"Unsupported Level 9 Flipper route step {programmedRouteStep}.");
+
+        bool startedBelowRim = Height < Level.Depth;
+        Height = MathF.Min(Level.Depth, Height + tuning.ClimbSpeed);
+        if (startedBelowRim && Height >= Level.Depth && EdgeIndex == playerEdge)
+            CompletedIntoPlayer = true;
+        if (Height >= Level.Depth)
+        {
+            HandOffToRim(tuning);
+            return;
+        }
+
+        Spike? spike = level.Spikes.FirstOrDefault(candidate =>
+            candidate.EdgeIndex == EdgeIndex);
+        if (spike is null || spike.IsDepleted || Height >= spike.Height)
+        {
+            BeginProgrammedPivot(level);
+            programmedRouteStep = ProgrammedFlipperRouteStep.Level9Turning;
+        }
+    }
+
+    private void UpdateLevel9StraightCargoRoute(
+        Level level, int playerEdge, FlipperConfiguration tuning)
+    {
+        if (programmedRouteStep == ProgrammedFlipperRouteStep.Level9StraightTurning)
+        {
+            ContinueLevel9Pivot(level, playerEdge, tuning,
+                ProgrammedFlipperRouteStep.Level9Straight);
+            return;
+        }
+
+        if (programmedRouteStep != ProgrammedFlipperRouteStep.Level9Straight)
+            throw new InvalidOperationException(
+                $"Unsupported Level 9 straight Flipper route step {programmedRouteStep}.");
+
+        bool startedBelowRim = Height < Level.Depth;
+        Height = MathF.Min(Level.Depth, Height + tuning.ClimbSpeed);
+        if (startedBelowRim && Height >= Level.Depth && EdgeIndex == playerEdge)
+            CompletedIntoPlayer = true;
+        if (Height >= Level.Depth)
+            HandOffToRim(tuning);
+    }
+
+    private void ContinueLevel9Pivot(
+        Level level, int playerEdge, FlipperConfiguration tuning,
+        ProgrammedFlipperRouteStep nextStep)
+    {
+        DirectedLaneTransition transition = ActiveTransition ??
+            throw new InvalidOperationException("A Level 9 $53 Flipper turn requires an active transition.");
+        AdvanceTurnAngle(level, tuning);
+        Height = MathF.Min(Level.Depth, Height + tuning.ClimbSpeed);
+        if (TurnAngle < TotalTurnAngle)
+            return;
+
+        EdgeIndex = transition.DestinationLane;
+        SourceEdge = EdgeIndex;
+        DestinationEdge = EdgeIndex;
+        ActiveTransition = null;
+        TurnAngle = 0;
+        TotalTurnAngle = 0;
+        PauseTicks = 0;
+        State = FlipperState.Climbing;
+        if (Height >= Level.Depth && EdgeIndex == playerEdge)
+            CompletedIntoPlayer = true;
+        if (Height >= Level.Depth)
+            HandOffToRim(tuning);
+        else
+            programmedRouteStep = nextStep;
     }
 
     private void UpdateLevel8ConstantFlipRoute(

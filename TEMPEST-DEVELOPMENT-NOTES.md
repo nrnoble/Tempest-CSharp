@@ -3310,10 +3310,12 @@ should identify the distinguishing cadence or pattern to observe.
 ## Direct production-level startup and controller exit (2026-11-06)
 
 The **DEVELOPMENT ONLY** `--level N` option starts fresh at an implemented
-production level, currently Levels 1–7. It selects the same production
-configuration and initialization path as campaign progression, with fresh
-score, lives from `--lives` (or the normal default), Super Zapper, wave and
-transition state. The option chooses only the starting level: ordinary
+production level. At this note's 2026-11-06 checkpoint, Levels 1–7 were
+implemented; accepted Level 8 and Level 9 milestones later extended that
+range. It selects the same production configuration and initialization path
+as campaign progression, with fresh score, lives from `--lives` (or the normal
+default), Super Zapper, wave and transition state. The option chooses only
+the starting level: ordinary
 production progression continues after a successful exit. It exists to make
 the agreed one-level-at-a-time manual arcade testing workflow practical;
 legacy `--levelN-test` selectors remain separate terminal diagnostics.
@@ -3325,8 +3327,8 @@ development input diagnostic continues to report both physical key events.
 This lets Neal perform and exit manual gameplay tests from the arcade
 controller without reaching for the keyboard. Neal manually accepted both
 generic direct-level startup and Enter/V exit controls on 2026-11-06. The
-accepted range is production Levels 1–7; direct startup uses fresh-game state
-and continues ordinary progression.
+accepted range at that checkpoint was production Levels 1–7; direct startup
+uses fresh-game state and continues ordinary progression.
 
 **Observed / unresolved / non-blocking / deferred (2026-11-06):** During
 manual testing, the game unexpectedly exited on multiple occasions and the
@@ -3563,8 +3565,8 @@ hazards, and corrected retry behavior also pass. No remaining blocking Level 8
 gameplay problem was found; no further Level 8 tuning is currently required.
 This is acceptance of the resulting project presentation and gameplay, not a
 reclassification of project translations as literal Atari constants or
-hidden hardware behavior. Level 8 remains the terminal production level;
-Level 9 is outside this closeout.
+hidden hardware behavior. At this 2026-11-08 checkpoint, Level 8 was terminal;
+the accepted Level 9 closeout below supersedes only that production boundary.
 
 ## Production Level 1 four-Flipper maximum (2026-11-09)
 
@@ -3897,3 +3899,75 @@ no literal equivalent admission pause, and this remains deliberately
 untouched. Manual acceptance does not establish hidden zap timing. No Level 7
 concurrency work, other-level movement investigation, or broader movement
 refactoring is included.
+
+## Production Level 9 ROM-derived open tube and Spiker correction — manually accepted (2026-11-12)
+
+**ROM / REV. 2 EVIDENCE:** Displayed Level 9 uses shape row 13 (`lev_remap=$0D`):
+16 ordered vertices form an open stepped tube with 15 playable lanes and no
+closing edge. The row-13 coordinates, angle data and presentation fields are
+preserved in code and tests. The 27-unit wave supply, six-unit ordinary-entry
+gate, Tanker/Spiker selection bounds and `$53` Flipper route are
+ROM-listing-backed; the shape bytes and presentation fields remain
+REV-2-BINARY-CONFIRMED. The deterministic post-minimum Tanker/Spiker picker is
+a project translation, not a literal reproduction of ROM selection.
+
+**PROJECT TRANSLATIONS:** Level 9 starts with 15 Spikes on lanes 0–14 at the
+current translated height (about 85.7143 C# depth units). This is not a literal
+ROM pixel/height. The Level 9 `$53` Flipper policy moves along its current lane
+and checks the live Spike after movement; a live tip blocks a turn until the
+Flipper reaches or passes it, while a missing/depleted Spike permits the turn.
+Natural and shallow Tanker cargo use straight `$07`; deep shot-released cargo
+at raw along `$20` and above uses `$53`. Ordinary bottom Flippers, Pulsars and
+Fuseballs are excluded. Tanker latent cargo accounting, final-pending
+Spiker-to-Tanker conversion, generic post-death reconstruction, repeated
+Spiker firing, and the six-unit ordinary gate are part of the accepted
+implementation.
+
+**NEAL'S LEVEL 9 MANUAL ACCEPTANCE (overall mechanics):** Level 9 mechanics
+pass manual testing. The corrected candidate also closes the blocking
+projectile-lag defect: the Spiker projectile is visibly faster than its firing
+Spiker. Record this as an ARCADE/MAME-OBSERVED fidelity requirement and a
+MANUALLY ACCEPTED Level 9 relative-speed result. The exact natural Level 8→9
+handoff has automated progression coverage; no separate manual transition
+acceptance is claimed. Invisible ledger identities and synthetic edge cases
+remain automated-test evidence, not Neal's manual observations.
+
+**PROJECT CALIBRATION / UNRESOLVED ABSOLUTE SPEED:** Normal production Level 9
+Spiker speed is 2.0 C# depth units per active step; shared enemy-projectile
+movement remains 3.0. Neal accepted the visible relative relationship, not an
+exact arcade value for 2.0. The bounded ROM listing yields equal raw Level 9
+Spiker/projectile speed fields, which conflicts with the arcade/MAME-observed
+projectile-faster requirement; this ROM/static contradiction remains
+UNRESOLVED and is not concealed by the C# calibration. Neal reports the C#
+recreation feels significantly more difficult/faster overall across
+implemented levels, so absolute Level 9 speed equivalence cannot be isolated.
+No Level-9-only speed retuning is part of this closeout.
+
+**DEVELOPMENT ONLY:** The optional `--level9-spiker-speed` numeric override
+and its recording/playback metadata are calibration tooling. Normal production
+remains 2.0; recording format version 2 and older Level 9 recordings without
+override metadata remain compatible.
+
+**PROGRESSION AND BOUNDARY:** Natural Level 8→9 progression, direct `--level 9`,
+recording/playback startup and the terminal Level 9 boundary are implemented.
+The handoff is covered by automated progression tests, with no separate manual
+acceptance claim. Level 10 remains unimplemented.
+Accepted Levels 1–8 are frozen and unchanged by this milestone.
+
+**DEFERRED POST-LEVEL-9 MILESTONES (not Level 9 blockers):**
+
+1. Improve held reverse-playback stepping responsiveness while preserving
+   exact single-frame reverse taps; investigate accelerated held reversal if
+   key-repeat limits require it.
+2. Replace generic enemy-shot appearance with closer arcade/ROM-faithful
+   vector rendering, without changing projectile gameplay.
+3. Refine whole-game screen, tube perspective/scale/placement and HUD layout;
+   use Level 9 as an initial presentation reference, regression-check earlier
+   accepted tubes, define the 16 distinct layouts once and recycle from Level
+   17 onward, keep internal gameplay dimensions constant, and consider
+   fullscreen/borderless presentation.
+4. Investigate the cross-level difficulty/timing discrepancy without
+   presuming one global movement multiplier.
+5. Investigate the Spiker/projectile relative-speed invariant separately for
+   the Level 4 candidate and production Levels 5, 6 and 8. Do not retune those
+   accepted levels in this Level 9 closeout.

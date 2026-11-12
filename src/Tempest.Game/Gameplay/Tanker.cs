@@ -19,7 +19,9 @@ public enum TankerCargoMovementProgram
 {
     Existing,
     Level6Deep0B,
-    Level6Straight07
+    Level6Straight07,
+    Level9SpikeSensitive53,
+    Level9Straight07
 }
 
 public readonly record struct TankerReleaseResult(
@@ -86,8 +88,10 @@ public sealed class Tanker : Enemy
     // when the enemy-bullets development option is active, and receives at most one bullet per
     // update to register. The Tanker itself never touches game collections.
     public TankerUpdateResult UpdateForDevelopment(
-        Func<int, int, int>? randomInclusive, out EnemyBullet? bullet)
+        Func<int, int, int>? randomInclusive, out EnemyBullet? bullet,
+        int shotHoldoffTicks = BulletTimerResetTicks)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(shotHoldoffTicks);
         bullet = null;
         if (State == TankerState.CargoReleased)
             return TankerUpdateResult.Active;
@@ -98,7 +102,7 @@ public sealed class Tanker : Enemy
         // Incitti climbs first and then gates firing on the post-climb height (`If height < 380`),
         // so the bullet origin is always the just-advanced height and exactly 380 is silent.
         if (Height < BulletFiringCeiling)
-            bullet = TryFireBullet(randomInclusive);
+            bullet = TryFireBullet(randomInclusive, shotHoldoffTicks);
 
         if (Height > CargoReleaseThreshold)
         {
@@ -113,7 +117,8 @@ public sealed class Tanker : Enemy
     // expiry, and Rand(0,100) > 75 decides the shot. Ammunition is consumed only on a created
     // bullet, so a failed roll keeps the shot available for the next 16-tick window (same
     // convention as Flipper.TryFireBullet).
-    private EnemyBullet? TryFireBullet(Func<int, int, int>? randomInclusive)
+    private EnemyBullet? TryFireBullet(
+        Func<int, int, int>? randomInclusive, int shotHoldoffTicks)
     {
         if (BulletAmmunition <= 0 || randomInclusive is null)
             return null;
@@ -122,7 +127,7 @@ public sealed class Tanker : Enemy
         if (BulletTimer >= 0)
             return null;
 
-        BulletTimer = BulletTimerResetTicks;
+        BulletTimer = shotHoldoffTicks;
         if (randomInclusive(0, 100) <= 75)
             return null;
 
@@ -164,6 +169,14 @@ public sealed class Tanker : Enemy
             IsLevel8DeepCargoPosition(Height);
     }
 
+    public bool UsesLevel9SpikeSensitiveCargo(
+        LevelConfiguration configuration, TankerReleaseKind releaseKind)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        return GetCargoMovementProgram(configuration, releaseKind) ==
+            TankerCargoMovementProgram.Level9SpikeSensitive53;
+    }
+
     public TankerCargoMovementProgram GetCargoMovementProgram(
         LevelConfiguration configuration, TankerReleaseKind releaseKind)
     {
@@ -175,7 +188,11 @@ public sealed class Tanker : Enemy
 
         if (!ReferenceEquals(configuration, LevelConfiguration.Level6Production) ||
             releaseKind == TankerReleaseKind.SuperZapperDestruction)
+        {
+            if (configuration.UsesLevel9RomWavePolicy)
+                return GetLevel9CargoMovementProgram(Height, releaseKind);
             return TankerCargoMovementProgram.Existing;
+        }
 
         // The existing ROM-along conversion is a project approximation, but preserves the
         // ROM's $20 release branch without guessing a C# height cutoff.
@@ -195,6 +212,29 @@ public sealed class Tanker : Enemy
         if (!float.IsFinite(height))
             throw new ArgumentOutOfRangeException(nameof(height));
         return RomAlongPositionForHeight(height) >= 0x20;
+    }
+
+    public static bool IsLevel9DeepCargoPosition(float height)
+    {
+        if (!float.IsFinite(height))
+            throw new ArgumentOutOfRangeException(nameof(height));
+        return RomAlongPositionForHeight(height) >= 0x20;
+    }
+
+    public static TankerCargoMovementProgram GetLevel9CargoMovementProgram(
+        float height, TankerReleaseKind releaseKind)
+    {
+        if (!float.IsFinite(height))
+            throw new ArgumentOutOfRangeException(nameof(height));
+        if (releaseKind is not
+            (TankerReleaseKind.Natural or TankerReleaseKind.PlayerShotDestruction or
+             TankerReleaseKind.SuperZapperDestruction))
+            throw new ArgumentOutOfRangeException(nameof(releaseKind));
+
+        return releaseKind == TankerReleaseKind.PlayerShotDestruction &&
+            IsLevel9DeepCargoPosition(height)
+                ? TankerCargoMovementProgram.Level9SpikeSensitive53
+                : TankerCargoMovementProgram.Level9Straight07;
     }
 
     public override bool TryZap(int delay) => AcceptZap(delay);

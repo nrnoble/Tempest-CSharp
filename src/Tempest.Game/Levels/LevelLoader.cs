@@ -4,6 +4,39 @@ namespace Tempest.Game.Levels;
 
 public static class LevelLoader
 {
+	public static class Level9RomEvidence
+	{
+		public const byte ShapeRemap = 0x0D;
+		public const byte Scale = 0x0C;
+		public const byte Y3d = 0xB0;
+		public const byte Y2dLow = 0x40;
+		public const byte Y2dHigh = 0x01;
+		public const ushort Y2d = 0x0140;
+		public const byte Open = 0xFF;
+		public const byte FlipperScaleLow = 0x50;
+		public const byte FlipperScaleHigh = 0x04;
+		public const ushort FlipperScale = 0x0250;
+		public const byte TubeColorIndex = 0x05;
+
+		public static IReadOnlyList<byte> X { get; } = Array.AsReadOnly(new byte[]
+		{
+			0x10, 0x10, 0x30, 0x30, 0x50, 0x50, 0x70, 0x70,
+			0x90, 0x90, 0xB0, 0xB0, 0xD0, 0xD0, 0xF0, 0xF0
+		});
+
+		public static IReadOnlyList<byte> Y { get; } = Array.AsReadOnly(new byte[]
+		{
+			0x90, 0x70, 0x70, 0x50, 0x50, 0x30, 0x30, 0x10,
+			0x10, 0x30, 0x30, 0x50, 0x50, 0x70, 0x70, 0x90
+		});
+
+		public static IReadOnlyList<byte> Angles { get; } = Array.AsReadOnly(new byte[]
+		{
+			0x0C, 0x00, 0x0C, 0x00, 0x0C, 0x00, 0x0C, 0x00,
+			0x04, 0x00, 0x04, 0x00, 0x04, 0x00, 0x04, 0x00
+		});
+	}
+
 	public static LevelDefinition LoadLevel1() => new(true, 400, -80,
 		new Vector2[]
 		{
@@ -90,5 +123,21 @@ public static class LevelLoader
 				-(rawY[index] - 128) * scale);
 
 		return new(false, 300, 0, Array.AsReadOnly(points), "Level 8 - Rev 2 open shape 7");
+	}
+
+	// Rev 2 shape row 13 is an open 16-point polyline. Its angle bytes are
+	// 0C 00 0C 00 0C 00 0C 00 04 00 04 00 04 00 04 00; presentation bytes are
+	// scale 0C, Y3D B0, Y2D 0140, open FF, Flipper scale 0250, color index 05.
+	// Keep ROM vertex order; centering, scaling and Y reflection are project translations.
+	public static LevelDefinition LoadLevel9OpenTube()
+	{
+		const float scale = 25f / 14f;
+		Vector2[] points = new Vector2[Level9RomEvidence.X.Count];
+		for (int index = 0; index < points.Length; index++)
+			points[index] = new Vector2(
+				(Level9RomEvidence.X[index] - 128) * scale,
+				-(Level9RomEvidence.Y[index] - 128) * scale);
+
+		return new(false, 300, 0, Array.AsReadOnly(points), "Level 9 - Rev 2 open shape 13");
 	}
 }

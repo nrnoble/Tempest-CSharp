@@ -19,14 +19,15 @@ public sealed class CampaignSoakTests
         LevelConfiguration.Level5Production,
         LevelConfiguration.Level6Production,
         LevelConfiguration.Level7Production,
-        LevelConfiguration.Level8Production
+        LevelConfiguration.Level8Production,
+        LevelConfiguration.Level9Production
     ];
 
     [Fact]
     // This covers orchestration only, not combat/scoring, enemy distribution, natural Tanker
     // cargo release, Spiker combat, Spike shooting/avoidance, difficulty, rendering/audio,
     // responsiveness, arcade feel, or playability.
-    public void ProductionCampaignReachesLevel8WithoutClaimingCombatValidation()
+    public void ProductionCampaignReachesLevel9WithoutClaimingCombatValidation()
     {
         TempestGame game = new(random: new Random(CampaignSeed));
         int carriedScore = game.Score.Score;
@@ -66,8 +67,8 @@ public sealed class CampaignSoakTests
                 exitedLevel: outgoingConfiguration.DisplayedLevel);
         }
 
-        AssertFreshBoundary(game, LevelConfiguration.Level8Production, "soak endpoint",
-            LevelState.Playing, carriedScore, carriedLives, exitedLevel: 7);
+        AssertFreshBoundary(game, LevelConfiguration.Level9Production, "soak endpoint",
+            LevelState.Playing, carriedScore, carriedLives, exitedLevel: 8);
     }
 
     private static void ResolveFreshCampaignWaveForSoak(TempestGame game)
@@ -84,9 +85,10 @@ public sealed class CampaignSoakTests
             ReferenceEquals(configuration, LevelConfiguration.Level5Production) ||
             ReferenceEquals(configuration, LevelConfiguration.Level6Production) ||
             ReferenceEquals(configuration, LevelConfiguration.Level7Production) ||
-            ReferenceEquals(configuration, LevelConfiguration.Level8Production);
+            ReferenceEquals(configuration, LevelConfiguration.Level8Production) ||
+            ReferenceEquals(configuration, LevelConfiguration.Level9Production);
         if (!counterWave && !ledgerWave)
-            ThrowUnsupportedWave(game, "only fresh production Levels 1-8 are supported");
+            ThrowUnsupportedWave(game, "only fresh production Levels 1-9 are supported");
 
         if (level.EnemiesDestroyed != 0 || level.EnemiesRimCleared != 0 ||
             level.EnemiesSpawned != configuration.InitialActiveEggCount ||
@@ -200,6 +202,11 @@ public sealed class CampaignSoakTests
 
     private static void RunExitDelay(TempestGame game, LevelConfiguration configuration)
     {
+        Spike? exitLaneSpike = game.Spikes.SingleOrDefault(
+            spike => spike.EdgeIndex == game.Player.EdgeIndex);
+        if (exitLaneSpike is not null)
+            exitLaneSpike.Height = 0;
+
         for (int tick = 0; tick < 21; tick++)
         {
             game.RunOneStep();

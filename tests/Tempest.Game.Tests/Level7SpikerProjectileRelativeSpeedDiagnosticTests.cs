@@ -130,9 +130,11 @@ public sealed class Level7SpikerProjectileRelativeSpeedDiagnosticTests(ITestOutp
     }
 
     [Theory]
+    [InlineData(3)]
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
+    [InlineData(8)]
     public void SpikerSelectionOutsideLevel7KeepsItsExistingSpeedFormula(int displayedLevel)
     {
         CountingRandom random = new(0.5);
@@ -160,10 +162,12 @@ public sealed class Level7SpikerProjectileRelativeSpeedDiagnosticTests(ITestOutp
     }
 
     [Theory]
+    [InlineData(3)]
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
-    public void Level4Through6KeepTheirProductionSpikerSpeedSelectionWhenOverrideIsSet(
+    [InlineData(8)]
+    public void NonLevel7MixedLevelsKeepTheirProductionSpikerSpeedSelectionWhenOverrideIsSet(
         int displayedLevel)
     {
         CountingRandom random = new(0.5);

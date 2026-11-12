@@ -6,19 +6,24 @@ public sealed record GameplayStartupConfiguration
 {
 	public const float MinimumLevel7SpikerSpeedOverride = 1.0f;
 	public const float MaximumLevel7SpikerSpeedOverride = 3.0f;
+	public const float MinimumLevel9SpikerSpeedOverride = 1.0f;
+	public const float MaximumLevel9SpikerSpeedOverride = 2.75f;
 
 	public int StartingDisplayedLevel { get; }
 	public int StartingLives { get; }
 	public double RimSpeedMultiplier { get; }
 	public int RandomSeed { get; }
 	public float? Level7SpikerSpeedOverride { get; }
+	// DEVELOPMENT ONLY: optional Level 9 calibration override, persisted for deterministic playback.
+	public float? Level9SpikerSpeedOverride { get; }
 	// Legacy version-2 recording metadata; true now matches normal Level 7 behavior.
 	public bool Level7SpikerMatchesTankerSpeed { get; }
 
 	public GameplayStartupConfiguration(
 		int startingDisplayedLevel, int startingLives, double rimSpeedMultiplier, int randomSeed,
 		float? level7SpikerSpeedOverride = null,
-		bool level7SpikerMatchesTankerSpeed = false)
+		bool level7SpikerMatchesTankerSpeed = false,
+		float? level9SpikerSpeedOverride = null)
 	{
 		if (LevelProgression.GetProductionLevel(startingDisplayedLevel) is null)
 			throw new ArgumentOutOfRangeException(nameof(startingDisplayedLevel),
@@ -43,12 +48,29 @@ public sealed record GameplayStartupConfiguration
 			throw new ArgumentException(
 				"The Level 7 Spiker numeric override and Tanker-speed match are mutually exclusive.",
 				nameof(level7SpikerMatchesTankerSpeed));
+		if (level9SpikerSpeedOverride is float level9Speed &&
+			(!float.IsFinite(level9Speed) ||
+			 level9Speed < MinimumLevel9SpikerSpeedOverride ||
+			 level9Speed > MaximumLevel9SpikerSpeedOverride))
+			throw new ArgumentOutOfRangeException(nameof(level9SpikerSpeedOverride),
+				$"The Level 9 Spiker speed override must be between " +
+				$"{MinimumLevel9SpikerSpeedOverride:0.000} and {MaximumLevel9SpikerSpeedOverride:0.000}.");
+		if (level9SpikerSpeedOverride is not null && startingDisplayedLevel != 9)
+			throw new ArgumentException(
+				"The Level 9 Spiker speed override is only valid for a Level 9 recording.",
+				nameof(level9SpikerSpeedOverride));
+		if (level7SpikerSpeedOverride is not null &&
+			level9SpikerSpeedOverride is not null)
+			throw new ArgumentException(
+				"Level 7 and Level 9 Spiker speed overrides are mutually exclusive.",
+				nameof(level9SpikerSpeedOverride));
 
 		StartingDisplayedLevel = startingDisplayedLevel;
 		StartingLives = startingLives;
 		RimSpeedMultiplier = rimSpeedMultiplier;
 		RandomSeed = randomSeed;
 		Level7SpikerSpeedOverride = level7SpikerSpeedOverride;
+		Level9SpikerSpeedOverride = level9SpikerSpeedOverride;
 		Level7SpikerMatchesTankerSpeed = level7SpikerMatchesTankerSpeed;
 	}
 

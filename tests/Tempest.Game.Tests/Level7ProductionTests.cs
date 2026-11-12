@@ -512,7 +512,8 @@ public sealed class Level7ProductionTests
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level6Production));
         Assert.Same(LevelConfiguration.Level8Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level7Production));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level8Production));
+        Assert.Same(LevelConfiguration.Level9Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level8Production));
 
         foreach (LevelConfiguration configuration in new[]
                  {

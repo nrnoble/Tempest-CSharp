@@ -2229,8 +2229,10 @@ latent cargo is lost with its Tanker, released unresolved cargo re-enters as
 generic units, and resolved outcomes remain resolved. Level 7 naturally
 progresses to Level 8 through the existing approach with score/lives carried
 and fresh Super Zapper charges. Generic `--level 8` and recording v2 startup
-use the production configuration. Level 8 is terminal; no Level 9 is loaded,
-and existing restart returns to fresh Level 1.
+use the production configuration. At the 2026-11-08 Level 8 closeout
+checkpoint, Level 8 was terminal; the accepted Level 9 closeout below
+supersedes that production boundary. Restart continues to return to a fresh
+Level 1 campaign.
 
 **EXISTING PROJECT BEHAVIOR:** Recording v2, visible/headless playback,
 pause/forward/reverse navigation, screenshot capture, and interactive
@@ -2254,8 +2256,10 @@ Neal also manually verified an existing Levels 1-7 recording, playback
 pause/resume, forward/reverse stepping, and `--speed`, with no observed
 regression. Automated tests cover natural Level 7-to-8 progression; no separate
 manual result for that exact transition is asserted here. ROM-derived behavior
-and project translations above retain their evidence classifications. Level 8
-is the terminal production level; Level 9 is not part of this milestone.
+and project translations above retain their evidence classifications. At this
+Level 8 milestone checkpoint, Level 8 was terminal and Level 9 was outside
+that milestone; the accepted Level 9 closeout below extends the production
+boundary without reopening accepted Level 8 behavior.
 
 ## Production Level 1 four-Flipper maximum (2026-11-09)
 
@@ -2655,3 +2659,64 @@ active; C# has no literal equivalent admission pause, and this work does not
 add one. Manual acceptance does not establish hidden Super Zapper timing.
 Level 7 concurrency, other-level movement programs, and shared movement
 refactoring are outside this Level 6 closeout.
+
+## Production Level 9 ROM-derived behavior and Spiker correction — manually accepted (2026-11-12)
+
+**ROM-LISTING-BACKED / REV-2-BINARY-CONFIRMED:** Displayed Level 9 selects
+shape row 13 (`lev_remap=$0D`). Its 16 ordered vertices form an open stepped
+tube with 15 playable lanes (0–14), no lane 15 and no closing edge. The ROM
+shape, angle and presentation data remain distinct from their C# rendering
+translation. Medium/default supply is 27, the ordinary active-entry gate is
+six, and the ordinary type limits are Tanker 1–2 and Spiker 2–4. Ordinary
+Flippers, Pulsars and Fuseballs are excluded. The deterministic post-minimum
+Tanker/Spiker selector is a project approximation, not an assertion of exact
+ROM selection behavior.
+
+**LEVEL 9 `$53` AND TANKER CARGO:** The Level 9 Flipper route performs its
+along movement and then checks the live Spike on its current lane; it may
+turn at equality or above the live tip, but remains on that lane below the
+tip. Missing/depleted Spikes permit the turn. Natural and shallow Tanker
+cargo use straight `$07`; deep shot-released cargo at raw along `$20` and
+above uses `$53`. The C# route is a project translation of the ROM behavior.
+Fifteen starting Spikes use the accepted project height translation of about
+85.7143 C# depth units, not a literal ROM height. Tanker latent cargo
+accounting, final-pending Spiker-to-Tanker conversion, the six-unit ordinary
+gate and generic death reconstruction are included in the accepted
+implementation.
+
+**MANUALLY ACCEPTED LEVEL 9 MECHANICS:** Neal reports that the overall
+Level 9 mechanics pass manual testing. This accepts the implemented gameplay
+at the stated overall scope; it does not claim that Neal visually inspected
+invisible ledger identities or every synthetic edge case. The exact natural
+Level 8→9 transition has automated progression coverage, but no separate
+manual transition acceptance is asserted.
+
+**ARCADE/MAME-OBSERVED RELATIVE-SPEED REQUIREMENT / MANUALLY ACCEPTED RESULT:**
+Spiker projectiles must travel visibly faster than their firing Spiker. The
+corrected Level 9 candidate satisfies this relationship and closes the
+manually rejected projectile-lag defect. Normal Level 9 production Spiker
+speed is the C# **PROJECT CALIBRATION** 2.0 depth units per active step;
+shared projectile movement remains 3.0. The numeric 2.0 value is not a ROM
+measurement or a claim of exact absolute arcade speed.
+
+**UNRESOLVED SPEED EVIDENCE AND DEFERRED CROSS-LEVEL WORK:** The bounded ROM
+static trace yields equal Level 9 Spiker/projectile movement fields, which
+does not reconcile the observed projectile-faster relationship. This
+ROM/static contradiction remains unresolved. Neal reports that C# currently
+feels significantly more difficult/faster than the arcade across implemented
+levels, so absolute Level 9 speed equivalence cannot be isolated; no further
+Level-9-only tuning is wanted. A separate whole-game difficulty/timing
+investigation must consider interacting movement, firing, collision and
+simulation timing rather than assuming one global multiplier. The inherited
+Spiker/projectile relationship risk in the Level 4 candidate and production
+Levels 5, 6 and 8 is a distinct follow-up; Levels 1–8 remain accepted/frozen
+and are not modified here.
+
+**PROGRESSION, RECORDING AND TERMINAL BOUNDARY:** Natural Level 8→9
+progression, direct `--level 9`, Level 9 recording/playback startup and
+headless playback are covered by automated tests. The Level 8→9 handoff is not
+separately manually accepted. Level 9 is the current terminal production
+level; Level 10 remains unimplemented. The optional numeric
+`--level9-spiker-speed` override and its version-2 recording metadata are
+DEVELOPMENT ONLY calibration tooling; normal production stays at 2.0, and
+legacy recordings without override metadata remain compatible.

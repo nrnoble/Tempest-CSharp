@@ -31,6 +31,7 @@ public sealed class DirectLevelStartupTests
     [InlineData(6)]
     [InlineData(7)]
     [InlineData(8)]
+    [InlineData(9)]
     public void DirectLevelStartsTheFreshProductionConfiguration(int displayedLevel)
     {
         TempestGame game = new(startingProductionLevel: displayedLevel, startingLives: 9);
@@ -52,6 +53,16 @@ public sealed class DirectLevelStartupTests
     }
 
     [Fact]
+    public void LevelTenRemainsUnsupportedForDirectAndRecordedStartup()
+    {
+        Assert.Null(LevelProgression.GetProductionLevel(10));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new TempestGame(startingProductionLevel: 10));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new GameplayStartupConfiguration(10, 3, 1.0, 1981));
+    }
+
+    [Fact]
     public void DirectLevelSevenUsesAcceptedProductionWaveAndRoute()
     {
         TempestGame game = new(startingProductionLevel: 7);
@@ -66,14 +77,18 @@ public sealed class DirectLevelStartupTests
     }
 
     [Fact]
-    public void DirectLevelSevenCanContinueAndLevelEightRetainsTheTerminalRestart()
+    public void DirectLevelEightContinuesAndLevelNineUsesTheTerminalRestart()
     {
         TempestGame levelSeven = new(startingProductionLevel: 7, startingLives: 5);
         Assert.Same(LevelConfiguration.Level8Production,
             LevelProgression.GetNextProductionLevel(levelSeven.CurrentLevel.Configuration));
+        Assert.Same(LevelConfiguration.Level9Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level8Production));
 
-        TempestGame game = new(startingProductionLevel: 8, startingLives: 5);
+        TempestGame game = new(startingProductionLevel: 9, startingLives: 5);
         game.Score.Add(88);
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level9Production));
+
         game.CurrentLevel.State = LevelState.Complete;
 
         game.RunOneStep(restartPressed: true);

@@ -17,6 +17,8 @@ public sealed class ArcadeFlipperFiringTests
     [InlineData(5, 68, 4)]
     [InlineData(6, 65, 3)]
     [InlineData(7, 62, 3)]
+    [InlineData(8, 62, 4)]
+    [InlineData(9, 56, 4)]
     public void ProductionLevelsUseRomHoldoffAndDefaultShotCapacity(
         int displayedLevel, int holdoff, int capacity)
     {
@@ -166,7 +168,7 @@ public sealed class ArcadeFlipperFiringTests
         Assert.Equal(FlipperState.Flipping, flipper.State);
         Assert.Single(game.EnemyBullets);
 
-        for (int tick = 0; tick < 200 && flipper.State == FlipperState.Flipping; tick++)
+        for (int tick = 0; tick < 500 && flipper.State == FlipperState.Flipping; tick++)
             game.RunOneStep();
 
         Assert.NotEqual(FlipperState.Flipping, flipper.State);
@@ -222,8 +224,52 @@ public sealed class ArcadeFlipperFiringTests
         5 => LevelConfiguration.Level5Production,
         6 => LevelConfiguration.Level6Production,
         7 => LevelConfiguration.Level7Production,
+        8 => LevelConfiguration.Level8Production,
+        9 => LevelConfiguration.Level9Production,
         _ => throw new ArgumentOutOfRangeException(nameof(displayedLevel))
     };
+
+    [Fact]
+    public void LevelNineFlipperWaitsUntilTheSpikeSensitivePivotCompletesBeforeFiring()
+    {
+        LevelConfiguration firingConfiguration = LevelConfiguration.Level9Production with
+        {
+            NormalEnemyComposition = LevelEnemyComposition.FlippersOnly,
+            EnemySupply = 1,
+            InitialActiveEggCount = 1,
+            MaximumActiveEggs = 1,
+            MaximumApproachingEggs = 1,
+            SpawnLaneSequence = Array.AsReadOnly(new[] { 5 }),
+            StartingSpikeHeight = null,
+            Flipper = new(true, 20, 45, 0, 23)
+        };
+        TempestGame game = CreateGame(firingConfiguration,
+            new ScriptedRandom(Enumerable.Repeat(255, 200)));
+        for (int lane = 0; lane < game.CurrentLevel.PlayableLaneCount; lane++)
+            game.CurrentLevel.CreateSpike(lane, lane == 5 ? 19 : 300);
+        MakeReady(game.Eggs[0], game.CurrentLevel);
+
+        game.RunOneStep();
+        Flipper flipper = Assert.Single(game.Flippers);
+        Assert.Equal(FlipperState.Flipping, flipper.State);
+        Assert.Empty(game.EnemyBullets);
+
+        for (int tick = 0; tick < 10 && flipper.EdgeIndex == 5; tick++)
+        {
+            game.RunOneStep();
+            if (flipper.State == FlipperState.Flipping)
+                Assert.Empty(game.EnemyBullets);
+        }
+
+        Assert.NotEqual(5, flipper.EdgeIndex);
+        Assert.NotEqual(FlipperState.Flipping, flipper.State);
+        EnemyBullet bullet = Assert.Single(game.EnemyBullets);
+        Assert.Equal(flipper.Height, bullet.Height);
+        float shotHeight = bullet.Height;
+        game.RunOneStep();
+        Assert.Equal(shotHeight + 3, bullet.Height);
+        Assert.Equal(55, flipper.ShotDelayTicks);
+    }
 
     [Fact]
     public void DirectLevel6DiagnosticUsesLevel6AdmissionAndReplaysLevel6()

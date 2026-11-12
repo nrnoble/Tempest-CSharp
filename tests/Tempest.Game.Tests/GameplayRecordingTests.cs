@@ -102,6 +102,7 @@ public sealed class GameplayRecordingTests
 			Assert.Equal(3, root.GetProperty("StartingLives").GetInt32());
 			Assert.Equal(1.0, root.GetProperty("RimSpeedMultiplier").GetDouble());
 			Assert.False(root.TryGetProperty("Level7SpikerSpeedOverride", out _));
+			Assert.False(root.TryGetProperty("Level9SpikerSpeedOverride", out _));
 			Assert.False(root.TryGetProperty("Level7SpikerMatchesTankerSpeed", out _));
 			Assert.Equal(0, root.GetProperty("DurationTicks").GetInt32());
 			Assert.Empty(root.GetProperty("Frames").EnumerateArray());
@@ -129,6 +130,32 @@ public sealed class GameplayRecordingTests
 			GameplayPlaybackSession session = new(file.StartupConfiguration, file.Replay);
 			Assert.Equal(2.0f, session.StartupConfiguration.Level7SpikerSpeedOverride);
 			Assert.Same(LevelConfiguration.Level7Production,
+				session.Game.CurrentLevel.Configuration);
+		});
+	}
+
+	[Fact]
+	public void Level9DiagnosticSpeedRoundTripsAndIsRestoredByPlayback()
+	{
+		GameplayStartupConfiguration startup = new(9, 10, 1.0, 1981,
+			level9SpikerSpeedOverride: 2.5f);
+		PlayerInputRecorder recorder = new(startup);
+
+		WithTemporaryDirectory(directory =>
+		{
+			string path = Path.Combine(directory, "level9-diagnostic.json");
+			GameplayRecordingFile.SaveNew(path, recorder);
+			using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
+
+			Assert.Equal(2, document.RootElement.GetProperty("Version").GetInt32());
+			Assert.Equal(2.5f,
+				document.RootElement.GetProperty("Level9SpikerSpeedOverride").GetSingle());
+
+			GameplayRecording file = GameplayRecordingFile.LoadRecording(path);
+			Assert.Equal(startup, file.StartupConfiguration);
+			GameplayPlaybackSession session = new(file.StartupConfiguration, file.Replay);
+			Assert.Equal(2.5f, session.StartupConfiguration.Level9SpikerSpeedOverride);
+			Assert.Same(LevelConfiguration.Level9Production,
 				session.Game.CurrentLevel.Configuration);
 		});
 	}
@@ -177,6 +204,24 @@ public sealed class GameplayRecordingTests
 		});
 	}
 
+	[Fact]
+	public void ExistingLevelNineVersionTwoRecordingWithoutSpeedMetadataUsesDefaultPolicy()
+	{
+		WithTemporaryDirectory(directory =>
+		{
+			string path = Path.Combine(directory, "legacy-level9.json");
+			File.WriteAllText(path, CreateJson(startingDisplayedLevel: 9));
+
+			GameplayRecording file = GameplayRecordingFile.LoadRecording(path);
+
+			Assert.Null(file.StartupConfiguration.Level9SpikerSpeedOverride);
+			Assert.Same(LevelConfiguration.Level9Production,
+				file.Replay.StartingConfiguration);
+			Assert.Equal(2f, LevelConfiguration.Level9ProductionSpikerSpeed);
+			Assert.Equal(2.75f, GameplayStartupConfiguration.MaximumLevel9SpikerSpeedOverride);
+		});
+	}
+
 	[Theory]
 	[InlineData(0.5f)]
 	[InlineData(3.5f)]
@@ -184,6 +229,25 @@ public sealed class GameplayRecordingTests
 	{
 		WithRecording(CreateJson(startingDisplayedLevel: 7,
 			level7SpikerSpeedOverride: speed), exception =>
+			Assert.IsType<InvalidDataException>(exception));
+	}
+
+	[Theory]
+	[InlineData(0.5f)]
+	[InlineData(2.750001f)]
+	[InlineData(3f)]
+	public void VersionTwoRejectsOutOfRangeLevelNineDiagnosticMetadata(float speed)
+	{
+		WithRecording(CreateJson(startingDisplayedLevel: 9,
+			level9SpikerSpeedOverride: speed), exception =>
+			Assert.IsType<InvalidDataException>(exception));
+	}
+
+	[Fact]
+	public void VersionTwoRejectsLevelNineDiagnosticMetadataOnAnotherLevel()
+	{
+		WithRecording(CreateJson(startingDisplayedLevel: 8,
+			level9SpikerSpeedOverride: 2.5f), exception =>
 			Assert.IsType<InvalidDataException>(exception));
 	}
 
@@ -314,7 +378,7 @@ public sealed class GameplayRecordingTests
 
 	[Theory]
 	[InlineData(0)]
-	[InlineData(9)]
+	[InlineData(10)]
 	[InlineData(-1)]
 	public void VersionTwoRejectsUnsupportedStartingLevels(int level)
 	{
@@ -716,6 +780,7 @@ public sealed class GameplayRecordingTests
 		int startingLives = 3,
 		double rimSpeedMultiplier = 1.0,
 		float? level7SpikerSpeedOverride = null,
+		float? level9SpikerSpeedOverride = null,
 		bool includeUnknownMember = false)
 	{
 		object frame = new
@@ -757,6 +822,9 @@ public sealed class GameplayRecordingTests
 		if (version == GameplayRecordingFile.CurrentFormatVersion &&
 			level7SpikerSpeedOverride is float fixedSpikerSpeed)
 			document["Level7SpikerSpeedOverride"] = fixedSpikerSpeed;
+		if (version == GameplayRecordingFile.CurrentFormatVersion &&
+			level9SpikerSpeedOverride is float fixedLevel9SpikerSpeed)
+			document["Level9SpikerSpeedOverride"] = fixedLevel9SpikerSpeed;
 		if (includeUnknownMember)
 			document["UnknownMember"] = true;
 		return JsonSerializer.Serialize(document);

@@ -12,7 +12,7 @@ namespace Tempest.Game;
 /// renderer only reads the public state exposed here.
 /// </summary>
 /// <remarks>
-/// Normal play progresses through the Level 5 production configuration. Direct Level 2/3/4
+/// Normal play progresses through the terminal Level 9 production configuration. Direct Level 2/3/4
 /// access, the Level 3 geometry diagnostic, the configuration-based headless Level 3 mixed model,
 /// and the Spiker, Tanker, Fuseball and Pulsar scenarios are development-only. Natural production
 /// Flippers use a separate arcade-style firing phase; enemy bullets retain the existing accounting,
@@ -35,6 +35,10 @@ public sealed class TempestGame
         GameplayStartupConfiguration.MinimumLevel7SpikerSpeedOverride;
     internal const float MaximumLevel7SpikerSpeedOverride =
         GameplayStartupConfiguration.MaximumLevel7SpikerSpeedOverride;
+    internal const float MinimumLevel9SpikerSpeedOverride =
+        GameplayStartupConfiguration.MinimumLevel9SpikerSpeedOverride;
+    internal const float MaximumLevel9SpikerSpeedOverride =
+        GameplayStartupConfiguration.MaximumLevel9SpikerSpeedOverride;
     // $30 maps to Height 342.86 when arcade $F0/$10 map to project entry/rim 0/400; 343 is the
     // nearest integer C# shooter cutoff, not an exact conversion of the ROM's along coordinate.
     private const int MaximumEnemyFiringHeight = 343;
@@ -70,6 +74,7 @@ public sealed class TempestGame
     private readonly int startingLives;
     private readonly double rimSpeedMultiplier;
     private readonly float? level7SpikerSpeedOverride;
+    private readonly float? level9SpikerSpeedOverride;
     private IAudioEvents audioEvents;
     // New-game restarts target the original selection even after natural progression changes the active Level.
     private readonly LevelConfiguration launchConfiguration;
@@ -211,7 +216,8 @@ public sealed class TempestGame
         bool level4Test = false, IAudioEvents? audioEvents = null, bool level6Test = false,
         bool level7Test = false, double rimSpeedMultiplier = 1.0,
         int? startingProductionLevel = null,
-        float? level7SpikerSpeedOverride = null)
+        float? level7SpikerSpeedOverride = null,
+        float? level9SpikerSpeedOverride = null)
     {
         if (!double.IsFinite(rimSpeedMultiplier) || rimSpeedMultiplier <= 0)
             throw new ArgumentOutOfRangeException(nameof(rimSpeedMultiplier),
@@ -223,6 +229,25 @@ public sealed class TempestGame
             throw new ArgumentOutOfRangeException(nameof(level7SpikerSpeedOverride),
                 $"The Level 7 Spiker speed override must be between " +
                 $"{MinimumLevel7SpikerSpeedOverride:0.000} and {MaximumLevel7SpikerSpeedOverride:0.000}.");
+        if (level9SpikerSpeedOverride is float level9Speed &&
+            (!float.IsFinite(level9Speed) ||
+             level9Speed < MinimumLevel9SpikerSpeedOverride ||
+             level9Speed > MaximumLevel9SpikerSpeedOverride))
+            throw new ArgumentOutOfRangeException(nameof(level9SpikerSpeedOverride),
+                $"The Level 9 Spiker speed override must be between " +
+                $"{MinimumLevel9SpikerSpeedOverride:0.000} and {MaximumLevel9SpikerSpeedOverride:0.000}.");
+        if (level9SpikerSpeedOverride is not null &&
+            startingProductionLevel != 9 &&
+            startingConfiguration is not
+                { DisplayedLevel: 9, UsesLevel9RomWavePolicy: true })
+            throw new ArgumentException(
+                "The Level 9 Spiker speed override is only valid for a Level 9 start.",
+                nameof(level9SpikerSpeedOverride));
+        if (level7SpikerSpeedOverride is not null &&
+            level9SpikerSpeedOverride is not null)
+            throw new ArgumentException(
+                "Level 7 and Level 9 Spiker speed overrides are mutually exclusive.",
+                nameof(level9SpikerSpeedOverride));
         LevelConfiguration? directConfiguration = startingProductionLevel is int displayedLevel
             ? LevelProgression.GetProductionLevel(displayedLevel)
             : null;
@@ -248,6 +273,7 @@ public sealed class TempestGame
         this.startingLives = startingLives > 0 ? startingLives : Player.DefaultStartingLives;
         this.rimSpeedMultiplier = rimSpeedMultiplier;
         this.level7SpikerSpeedOverride = level7SpikerSpeedOverride;
+        this.level9SpikerSpeedOverride = level9SpikerSpeedOverride;
         this.audioEvents = audioEvents ?? SilentAudioEvents.Instance;
         this.launchConfiguration = directConfiguration ?? startingConfiguration ?? (level2Test
             ? LevelConfiguration.Level2Square
@@ -284,16 +310,51 @@ public sealed class TempestGame
         InitializeFreshWave(launchConfiguration);
     }
 
+    private void UpdateLevel9SpikerFiring()
+    {
+        LevelConfiguration configuration = CurrentLevel.Configuration;
+        if (!configuration.UsesLevel9SpikerFiringPolicy)
+            return;
+
+        int shotCapacity = configuration.MaximumActiveEnemyShots;
+        foreach (Spiker spiker in spikers)
+        {
+            // PROJECT APPROXIMATION: reuse the shared seeded firing phase on each ascent.
+            if (spiker.State != SpikerState.Building ||
+                spiker.Height <= 0 ||
+                spiker.Height > MaximumEnemyFiringHeight ||
+                !spiker.AdvanceShotDelay())
+                continue;
+
+            int activeShots = enemyBullets.Count;
+            if (activeShots >= shotCapacity)
+                continue;
+
+            int threshold = EnemyShotPressureThresholds[
+                Math.Min(activeShots, EnemyShotPressureThresholds.Length - 1)];
+            if (random.Next(0, 256) < threshold)
+                continue;
+
+            EnemyBullet bullet = new(spiker.EdgeIndex, spiker.Height);
+            enemyBullets.Add(bullet);
+            developmentCollisionOrder.Add(bullet);
+            spiker.ReloadShotDelay(configuration.Level9SpikerShotHoldoffTicks);
+            audioEvents.Play(AudioEvent.EnemyBullet);
+        }
+    }
+
     public TempestGame(
         LevelConfiguration startingConfiguration,
         Random? random = null,
         int startingLives = Player.DefaultStartingLives,
         IAudioEvents? audioEvents = null,
-        double rimSpeedMultiplier = 1.0)
+        double rimSpeedMultiplier = 1.0,
+        float? level9SpikerSpeedOverride = null)
         : this(spikerDevelopmentWave: false, random: random, startingLives: startingLives,
             startingConfiguration: startingConfiguration ??
                 throw new ArgumentNullException(nameof(startingConfiguration)),
-            audioEvents: audioEvents, rimSpeedMultiplier: rimSpeedMultiplier)
+            audioEvents: audioEvents, rimSpeedMultiplier: rimSpeedMultiplier,
+            level9SpikerSpeedOverride: level9SpikerSpeedOverride)
     {
     }
 
@@ -304,7 +365,8 @@ public sealed class TempestGame
             audioEvents: audioEvents,
             rimSpeedMultiplier: startupConfiguration.RimSpeedMultiplier,
             startingProductionLevel: startupConfiguration.StartingDisplayedLevel,
-            level7SpikerSpeedOverride: startupConfiguration.Level7SpikerSpeedOverride)
+            level7SpikerSpeedOverride: startupConfiguration.Level7SpikerSpeedOverride,
+            level9SpikerSpeedOverride: startupConfiguration.Level9SpikerSpeedOverride)
     {
     }
 
@@ -423,6 +485,7 @@ public sealed class TempestGame
             UpdatePulsars();
             UpdateFlipperFiring();
             UpdateLevel7SpikerFiring();
+            UpdateLevel9SpikerFiring();
             // Once a collision starts death, stop active gameplay before later collisions,
             // all-rim completion or Hurry-Up can process on the same tick.
             CheckFlippersAgainstPlayer();
@@ -890,14 +953,19 @@ public sealed class TempestGame
             bool useLevel5SpikeSensitiveProgram =
                 CurrentLevel.Configuration.BelowRimFlipperProgram ==
                 BelowRimFlipperProgram.Level5SpikeSensitive;
+            bool useLevel9SpikeSensitiveProgram =
+                CurrentLevel.Configuration.BelowRimFlipperProgram ==
+                BelowRimFlipperProgram.Level9SpikeSensitive;
             // Re-entry cargo can pivot below the rim before rim pursuit assigns its direction.
             int? initialDirection = useLevel5SpikeSensitiveProgram
                 ? CurrentLevel.FindReferenceShortestDirection(
                     egg.EdgeIndex, Player.EdgeIndex, NextRandomInclusive)
+                : useLevel9SpikeSensitiveProgram ? egg.MovementDirection
                 : null;
             return Flipper.CreateFreshTankerCargo(
                 egg.EdgeIndex, egg.CargoUnitId, programmedDirection,
-                useLevel5SpikeSensitiveProgram, initialDirection);
+                useLevel5SpikeSensitiveProgram, initialDirection,
+                useLevel9SpikeSensitiveProgram);
         }
 
         int originalId = egg.OriginalSlotId;
@@ -918,10 +986,22 @@ public sealed class TempestGame
                     tankers.Count,
                     spikers.Count,
                     CountProductionActiveEnemyUnits(),
-                    CountLevel8FlipperTypeUnits());
+                    CountActiveAndLatentFlipperTypeUnits());
                 if (level8SelectedType is null)
                     return null;
                 selectedType = level8SelectedType.Value;
+            }
+            else if (CurrentLevel.Configuration.UsesLevel9RomWavePolicy)
+            {
+                Level3OriginalType? level9SelectedType = Level9WaveSelection.SelectOriginalType(
+                    NextRandomInclusive,
+                    tankers.Count,
+                    spikers.Count,
+                    CountProductionActiveEnemyUnits(),
+                    CountActiveAndLatentFlipperTypeUnits());
+                if (level9SelectedType is null)
+                    return null;
+                selectedType = level9SelectedType.Value;
             }
             else
             {
@@ -944,11 +1024,13 @@ public sealed class TempestGame
                 spikers.Count > 3)
                 return null;
 
-            // PROJECT DECISION: normal Level 7 Spikers use the existing Tanker movement authority.
             float speed = CurrentLevel.Configuration.UsesLevel7RomWavePolicy
                 ? level7SpikerSpeedOverride ?? Tanker.DevelopmentClimbSpeed
-                : CurrentLevel.Configuration.ProgressionIndex / 48f +
-                    2.5f + (float)(random.NextDouble() * 2);
+                : CurrentLevel.Configuration.UsesLevel9RomWavePolicy
+                    ? level9SpikerSpeedOverride ??
+                        LevelConfiguration.Level9ProductionSpikerSpeed
+                    : CurrentLevel.Configuration.ProgressionIndex / 48f +
+                        2.5f + (float)(random.NextDouble() * 2);
             Spiker spiker = new(egg.EdgeIndex, speed, originalId);
             if (ledger.GetOriginalState(originalId) == Level3OriginalState.Egg)
                 ledger.CommitOriginalAsSpiker(originalId);
@@ -958,7 +1040,8 @@ public sealed class TempestGame
         if (selectedType == Level3OriginalType.Tanker)
         {
             int maximumTankers = CurrentLevel.Configuration.UsesLevel7RomWavePolicy ||
-                CurrentLevel.Configuration.UsesLevel8RomWavePolicy ? 2 : 6;
+                CurrentLevel.Configuration.UsesLevel8RomWavePolicy ||
+                CurrentLevel.Configuration.UsesLevel9RomWavePolicy ? 2 : 6;
             if (!HasLevel3MixedAdmissionDiagnostic && !HasLevel4AdmissionDiagnostic &&
                 !HasLevel5AdmissionDiagnostic && !HasLevel6AdmissionDiagnostic &&
                 !HasLevel7AdmissionDiagnostic &&
@@ -1182,7 +1265,7 @@ public sealed class TempestGame
         flippers.Count + tankers.Count + spikers.Count + shotReleasedCargoPendingActivation.Count;
 
     // The ROM reserves two latent Flipper slots for every active Tanker.
-    private int CountLevel8FlipperTypeUnits() =>
+    private int CountActiveAndLatentFlipperTypeUnits() =>
         flippers.Count +
         shotReleasedCargoPendingActivation.Count +
         tankers.Sum(tanker => tanker.LatentCargoCount);
@@ -1361,7 +1444,8 @@ public sealed class TempestGame
                     ? NextRandomInclusive
                     : null,
                 allowGrowthRetreatShot:
-                    !CurrentLevel.Configuration.UsesLevel7SpikerFiringPolicy);
+                    !CurrentLevel.Configuration.UsesLevel7SpikerFiringPolicy &&
+                    !CurrentLevel.Configuration.UsesLevel9SpikerFiringPolicy);
             if (bullet is not null)
             {
                 // Enemy bullets were already advanced this tick, so this one first moves next
@@ -1374,10 +1458,17 @@ public sealed class TempestGame
             if (spiker.State != SpikerState.ReturnedToReserve)
                 continue;
 
-            int pendingGenericOriginals = HasLevel7AdmissionDiagnostic
+            int pendingGenericOriginals = HasLevel7AdmissionDiagnostic ||
+                CurrentLevel.Configuration.UsesLevel9RomWavePolicy
                 ? CurrentLevel.Level3Ledger!.PendingGenericOriginalCount
                 : 0;
             if (HasLevel7AdmissionDiagnostic &&
+                pendingGenericOriginals > 0)
+            {
+                spiker.RestartForPendingSupply();
+                continue;
+            }
+            if (CurrentLevel.Configuration.UsesLevel9RomWavePolicy &&
                 pendingGenericOriginals > 0)
             {
                 spiker.RestartForPendingSupply();
@@ -1402,7 +1493,12 @@ public sealed class TempestGame
                 pendingGenericOriginals);
             bool genericRomConversion = level7Conversion ||
                 (CurrentLevel.Configuration.UsesLevel8RomWavePolicy &&
-                 CurrentLevel.PendingGenericEnemyUnits == 0);
+                 CurrentLevel.PendingGenericEnemyUnits == 0) ||
+                Level9WaveSelection.ShouldConvertTerminalSpiker(
+                    CurrentLevel.Configuration,
+                    CurrentLevel.PendingGenericEnemyUnits,
+                    tankers.Count,
+                    CountActiveAndLatentFlipperTypeUnits());
             if (terminalLevel4Conversion || terminalLevel5Conversion ||
                 terminalLevel6Conversion || genericRomConversion)
             {
@@ -1546,10 +1642,18 @@ public sealed class TempestGame
                 continue;
             }
 
+            bool level9ShotCapacityAvailable =
+                !CurrentLevel.Configuration.UsesLevel9RomWavePolicy ||
+                enemyBullets.Count < CurrentLevel.Configuration.MaximumActiveEnemyShots;
+            bool tankerFiringEnabled =
+                (enemyBulletsTest || CurrentLevel.UsesProductionLedger) &&
+                level9ShotCapacityAvailable;
+            int shotHoldoff = CurrentLevel.Configuration.UsesLevel9RomWavePolicy
+                ? CurrentLevel.Configuration.FlipperShotHoldoffTicks
+                : Tanker.BulletTimerResetTicks;
             TankerUpdateResult result = tanker.UpdateForDevelopment(
-                enemyBulletsTest || CurrentLevel.UsesProductionLedger
-                    ? NextRandomInclusive
-                    : null, out EnemyBullet? bullet);
+                tankerFiringEnabled ? NextRandomInclusive : null,
+                out EnemyBullet? bullet, shotHoldoff);
             if (bullet is not null)
             {
                 // UpdateEnemyBullets already ran this tick, so a bullet created here first moves
@@ -1591,6 +1695,11 @@ public sealed class TempestGame
             CurrentLevel.Configuration.BelowRimFlipperProgram ==
                 BelowRimFlipperProgram.Level8ConstantFlip &&
             !useLevel8ConstantFlipProgram;
+        bool useLevel9SpikeSensitiveProgram =
+            tankerCargoMovementProgram ==
+                TankerCargoMovementProgram.Level9SpikeSensitive53;
+        bool useLevel9StraightCargoProgram =
+            tankerCargoMovementProgram == TankerCargoMovementProgram.Level9Straight07;
 
         if (CurrentLevel.UsesProductionLedger)
         {
@@ -1645,7 +1754,8 @@ public sealed class TempestGame
                     CurrentLevel, result.Cargo[index], cargoId,
                     useLevel7ProgrammedRoute, useLevel5SpikeSensitiveProgram,
                     useLevel8ConstantFlipProgram, useLevel8StraightCargoProgram,
-                    tankerCargoMovementProgram);
+                    tankerCargoMovementProgram, useLevel9SpikeSensitiveProgram,
+                    useLevel9StraightCargoProgram);
 
                 if (releaseKind == TankerReleaseKind.SuperZapperDestruction)
                     child.TryZap(8);

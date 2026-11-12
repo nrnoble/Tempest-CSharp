@@ -12,12 +12,12 @@
 // These scenario selectors are mutually
 // exclusive; --enemy-bullets-test, --lives, --speed and --game-over-density compose with existing
 // scenarios. --game-over-density only changes the procedural visible speck count, not mark size;
-// --level7-spiker-speed fixes Level 7 Spiker movement only for calibration runs;
+// --level7-spiker-speed and --level9-spiker-speed fix their level's Spiker movement only for calibration runs;
 // --spinner-sensitivity scales only live horizontal mouse/spinner input;
 // File recordings use --record-gameplay <file> with optional production startup options;
 // file playback restores startup identity, pauses with Space, steps with Right, and reconstructs
 // backward with Left while paused; debugger controls stay outside PlayerInput and the recording.
-// Normal play progresses Level 1 through terminal Level 7.
+// Normal play progresses Level 1 through terminal Level 9.
 using System.Globalization;
 using System.Text.Json;
 using Raylib_cs;
@@ -89,9 +89,29 @@ if (!DebugController.TryParseLevel7SpikerSpeedOverride(args,
     return 2;
 }
 
+if (!DebugController.TryParseLevel9SpikerSpeedOverride(args,
+    out float? level9SpikerSpeedOverride, out string? level9SpikerSpeedError))
+{
+    Console.Error.WriteLine(level9SpikerSpeedError);
+    return 2;
+}
+
+if (level7SpikerSpeedOverride is not null &&
+    level9SpikerSpeedOverride is not null)
+{
+    Console.Error.WriteLine("Level 7 and Level 9 Spiker speed overrides are mutually exclusive.");
+    return 2;
+}
+
 if (DebugController.UseInputDiagnostic(args) && level7SpikerSpeedOverride is not null)
 {
     Console.Error.WriteLine("--level7-spiker-speed applies only to Level 7 gameplay, not --input-diagnostic.");
+    return 2;
+}
+
+if (DebugController.UseInputDiagnostic(args) && level9SpikerSpeedOverride is not null)
+{
+    Console.Error.WriteLine("--level9-spiker-speed applies only to Level 9 gameplay, not --input-diagnostic.");
     return 2;
 }
 
@@ -116,6 +136,12 @@ if (!DebugController.TryParseStartingLevel(args,
     return 2;
 }
 
+if (level9SpikerSpeedOverride is not null && startingProductionLevel != 9)
+{
+    Console.Error.WriteLine("--level9-spiker-speed is only valid with --level 9.");
+    return 2;
+}
+
 if (DebugController.HasConflictingScenarios(args))
 {
     Console.Error.WriteLine("--level N, --gameplay-playback, --gameplay-playback-level4, --level2-test, --level3-test, --level4-test, --level6-test, --level7-test, --level3-geometry-test, --tanker-test, --spiker-test, --fuseball-test and --pulsar-test are mutually exclusive.");
@@ -135,6 +161,14 @@ if (level7SpikerSpeedOverride is float fixedSpikerSpeed)
     Console.WriteLine(
         $"Level 7 Spiker calibration active: fixed {fixedSpikerSpeed.ToString("0.000", CultureInfo.InvariantCulture)} " +
         "depth units per active step; production speed variation is suppressed on Level 7 only.");
+}
+
+if (level9SpikerSpeedOverride is float fixedLevel9SpikerSpeed)
+{
+    Console.WriteLine(
+        $"DEVELOPMENT ONLY — Level 9 Spiker calibration override active: " +
+        $"fixed {fixedLevel9SpikerSpeed.ToString("0.000", CultureInfo.InvariantCulture)} " +
+        "depth units per active step; production speed variation is suppressed on Level 9 only.");
 }
 
 // DEVELOPMENT ONLY: observe the same Raylib input framework without running game actions.
@@ -168,7 +202,8 @@ try
             gameplayFileCommand.StartingLives ?? Player.DefaultStartingLives,
             gameplayFileCommand.RimSpeedMultiplier ?? 1.0,
             randomSeed,
-            gameplayFileCommand.Level7SpikerSpeedOverride);
+            gameplayFileCommand.Level7SpikerSpeedOverride,
+            level9SpikerSpeedOverride: gameplayFileCommand.Level9SpikerSpeedOverride);
         recording = new PlayerInputRecorder(gameplayStartupConfiguration);
         Console.WriteLine(
             $"Gameplay recording active: {recordingPath} (Level {gameplayStartupConfiguration.StartingDisplayedLevel}, " +
@@ -262,7 +297,8 @@ try
                 level7Test: level7Test,
                 rimSpeedMultiplier: rimSpeedMultiplier,
                 startingProductionLevel: startingProductionLevel,
-                level7SpikerSpeedOverride: level7SpikerSpeedOverride));
+                level7SpikerSpeedOverride: level7SpikerSpeedOverride,
+                level9SpikerSpeedOverride: level9SpikerSpeedOverride));
     InputSystem input = new();
     VectorRenderer renderer = new(game, gameOverDensityMultiplier);
     PlaybackScreenshotCapture screenshotCapture = new(

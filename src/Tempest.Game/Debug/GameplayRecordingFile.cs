@@ -56,6 +56,8 @@ public static class GameplayRecordingFile
 			RimSpeedMultiplier = recording.StartupConfiguration.RimSpeedMultiplier,
 			Level7SpikerSpeedOverride =
 				recording.StartupConfiguration.Level7SpikerSpeedOverride,
+			Level9SpikerSpeedOverride =
+				recording.StartupConfiguration.Level9SpikerSpeedOverride,
 			Level7SpikerMatchesTankerSpeed =
 				recording.StartupConfiguration.Level7SpikerMatchesTankerSpeed,
 			DurationTicks = recording.DurationTicks,
@@ -143,7 +145,8 @@ public static class GameplayRecordingFile
 			startup = new GameplayStartupConfiguration(document.StartingDisplayedLevel,
 				document.StartingLives, document.RimSpeedMultiplier, document.RandomSeed,
 				document.Level7SpikerSpeedOverride,
-				document.Level7SpikerMatchesTankerSpeed);
+				document.Level7SpikerMatchesTankerSpeed,
+				document.Level9SpikerSpeedOverride);
 		}
 		catch (ArgumentException exception)
 		{
@@ -244,6 +247,8 @@ public static class GameplayRecordingFile
 		public float? Level7SpikerSpeedOverride { get; init; }
 		[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
 		public bool Level7SpikerMatchesTankerSpeed { get; init; }
+		[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+		public float? Level9SpikerSpeedOverride { get; init; }
 		public required int DurationTicks { get; init; }
 		public required RecordedFrame?[]? Frames { get; init; }
 	}

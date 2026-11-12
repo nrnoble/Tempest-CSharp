@@ -474,16 +474,18 @@ public sealed class Level8ProductionTests
     }
 
     [Fact]
-    public void DirectLevelEightUsesProductionWaveAndTerminalRestartDoesNotLoadLevelNine()
+    public void DirectLevelNineUsesProductionWaveAndTerminalRestartBeginsLevelOne()
     {
-        TempestGame game = new(startingProductionLevel: 8, startingLives: 5);
+        TempestGame game = new(startingProductionLevel: 9, startingLives: 5);
         game.Score.Add(88);
 
-        Assert.Same(LevelConfiguration.Level8Production, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level9Production, game.CurrentLevel.Configuration);
         Assert.Equal(5, game.Player.Lives);
-        Assert.Equal(24, game.CurrentLevel.EnemySupply);
+        Assert.Equal(27, game.CurrentLevel.EnemySupply);
         Assert.Equal(15, game.Spikes.Count);
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level8Production));
+        Assert.Same(LevelConfiguration.Level9Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level8Production));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level9Production));
 
         game.CurrentLevel.State = LevelState.Complete;
         game.RunOneStep(restartPressed: true);
@@ -673,9 +675,9 @@ public sealed class Level8ProductionTests
     }
 
     [Fact]
-    public void HoldingFireClearsTheExitLaneSpikeBeforeSafeTerminalCompletion()
+    public void HoldingFireClearsTheExitLaneSpikeBeforeLevelNineTerminalCompletion()
     {
-        TempestGame game = new(startingProductionLevel: 8);
+        TempestGame game = new(startingProductionLevel: 9);
         game.CurrentLevel.State = LevelState.ExitZoom;
         Spike exitLaneSpike = game.Spikes.Single(spike => spike.EdgeIndex == game.Player.EdgeIndex);
 

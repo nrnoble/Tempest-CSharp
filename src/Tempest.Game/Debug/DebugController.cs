@@ -12,7 +12,8 @@ public enum GameplayFileMode
 public sealed record GameplayFileCommand(
 	GameplayFileMode Mode, string Path, int? StartingDisplayedLevel = null,
 	int? StartingLives = null, double? RimSpeedMultiplier = null,
-	bool ScreenshotKeyDiagnostic = false, float? Level7SpikerSpeedOverride = null);
+	bool ScreenshotKeyDiagnostic = false, float? Level7SpikerSpeedOverride = null,
+	float? Level9SpikerSpeedOverride = null);
 
 /// <summary>
 /// Parses the development/testing command-line switches. These are controlled engineering tools
@@ -21,16 +22,17 @@ public sealed record GameplayFileCommand(
 /// that level and continues normal campaign progression. Legacy --levelN-test selectors remain
 /// terminal diagnostics. Scenario flags are mutually exclusive; --enemy-bullets-test (opt-in
 /// Flipper firing), --lives (starting-life override), --rim-speed, --game-over-density and
-/// --level7-spiker-speed (a bounded Level 7-only calibration override) composes with normal play.
+/// --level7-spiker-speed and --level9-spiker-speed (bounded level-specific calibration overrides)
+/// compose with normal play.
 /// --speed changes only the interactive host-loop target rate;
 /// --spinner-sensitivity scales live horizontal mouse/spinner input only.
 /// --gameplay-playback selects a seeded Level 1 profile;
 /// --gameplay-playback-level4 selects a distinct profile on the production Level 4 configuration.
 /// Both playback commands return to live input when their seeded profile ends.
 /// --record-gameplay records production input with startup metadata; --playback-file restores that
-/// metadata and rejects simulation overrides. The numeric Level 7 Spiker calibration override
-/// may be recorded as startup metadata. --speed remains an interactive presentation option and
-/// is never part of recording identity. Recording and playback accept the file selector alongside
+/// metadata and rejects simulation overrides. Numeric Spiker calibration overrides may be
+/// recorded as startup metadata. --speed remains an interactive presentation option and is never
+/// part of recording identity. Recording and playback accept the file selector alongside
 /// compatible options.
 /// --input-diagnostic instead opens a standalone development-only input window with no gameplay.
 /// </summary>
@@ -212,6 +214,54 @@ public sealed class DebugController
 		$"{GameplayStartupConfiguration.MinimumLevel7SpikerSpeedOverride.ToString("0.000", CultureInfo.InvariantCulture)} through " +
 		$"{GameplayStartupConfiguration.MaximumLevel7SpikerSpeedOverride.ToString("0.000", CultureInfo.InvariantCulture)}.";
 
+	public static bool TryParseLevel9SpikerSpeedOverride(
+		IReadOnlyList<string> arguments,
+		out float? speed,
+		out string? error)
+	{
+		speed = null;
+		error = null;
+		int optionIndex = -1;
+
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index] != "--level9-spiker-speed")
+				continue;
+			if (optionIndex >= 0)
+			{
+				error = "--level9-spiker-speed may be specified only once.";
+				return false;
+			}
+			optionIndex = index;
+		}
+
+		if (optionIndex < 0)
+			return true;
+		if (optionIndex + 1 >= arguments.Count ||
+			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
+		{
+			error = BuildLevel9SpikerSpeedError();
+			return false;
+		}
+		if (!float.TryParse(arguments[optionIndex + 1], NumberStyles.Float,
+			CultureInfo.InvariantCulture, out float parsed) ||
+			!float.IsFinite(parsed) ||
+			parsed < GameplayStartupConfiguration.MinimumLevel9SpikerSpeedOverride ||
+			parsed > GameplayStartupConfiguration.MaximumLevel9SpikerSpeedOverride)
+		{
+			error = BuildLevel9SpikerSpeedError();
+			return false;
+		}
+
+		speed = parsed;
+		return true;
+	}
+
+	private static string BuildLevel9SpikerSpeedError() =>
+		$"--level9-spiker-speed requires a finite value from " +
+		$"{GameplayStartupConfiguration.MinimumLevel9SpikerSpeedOverride.ToString("0.000", CultureInfo.InvariantCulture)} through " +
+		$"{GameplayStartupConfiguration.MaximumLevel9SpikerSpeedOverride.ToString("0.000", CultureInfo.InvariantCulture)}.";
+
 	public static bool TryParseInteractiveSpeedOptions(
 		IReadOnlyList<string> arguments,
 		out InteractiveSpeedOptions options,
@@ -350,10 +400,22 @@ public sealed class DebugController
 		if (!TryParseLevel7SpikerSpeedOverride(arguments,
 			out float? level7SpikerSpeedOverride, out error))
 			return false;
-		if (mode == GameplayFileMode.Playback &&
-			level7SpikerSpeedOverride is not null)
+		if (!TryParseLevel9SpikerSpeedOverride(arguments,
+			out float? level9SpikerSpeedOverride, out error))
+			return false;
+		if (level7SpikerSpeedOverride is not null &&
+			level9SpikerSpeedOverride is not null)
 		{
-			error = "--playback-file restores Level 7 Spiker calibration from recording metadata; direct diagnostic options are not allowed.";
+			error = "Level 7 and Level 9 Spiker speed overrides are mutually exclusive.";
+			return false;
+		}
+		if (mode == GameplayFileMode.Playback &&
+			(level7SpikerSpeedOverride is not null ||
+			 level9SpikerSpeedOverride is not null))
+		{
+			error = level7SpikerSpeedOverride is not null
+				? "--playback-file restores Level 7 Spiker calibration from recording metadata; direct diagnostic options are not allowed."
+				: "--playback-file restores Level 9 Spiker calibration from recording metadata; direct diagnostic options are not allowed.";
 			return false;
 		}
 
@@ -372,6 +434,12 @@ public sealed class DebugController
 
 			string option = arguments[index];
 			if (option == "--level7-spiker-speed")
+			{
+				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
+					return false;
+				continue;
+			}
+			if (option == "--level9-spiker-speed")
 			{
 				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
 					return false;
@@ -492,9 +560,15 @@ public sealed class DebugController
 			return false;
 		}
 
+		if (level9SpikerSpeedOverride is not null && startingLevel != 9)
+		{
+			error = "--level9-spiker-speed is only valid with --level 9.";
+			return false;
+		}
+
 		command = new GameplayFileCommand(mode, arguments[pathIndex], startingLevel,
 			startingLives, rimSpeedMultiplier, screenshotKeyDiagnostic,
-			level7SpikerSpeedOverride);
+			level7SpikerSpeedOverride, level9SpikerSpeedOverride);
 		return true;
 	}
 

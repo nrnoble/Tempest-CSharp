@@ -664,7 +664,7 @@ public sealed class LevelProgressionTests
     }
 
     [Fact]
-    public void NaturalLevelSevenEntersLevelEightAndLevelEightCompletionIsTerminal()
+    public void NaturalLevelSevenEntersLevelEightThenNineAndNineCompletionIsTerminal()
     {
         TempestGame game = CreateNaturalLevel6(startingLives: 5);
         CompleteProductionLedgerWave(game);
@@ -699,14 +699,30 @@ public sealed class LevelProgressionTests
         foreach (Spike spike in game.Spikes)
             spike.Height = 0;
         Step(game, 21);
+        for (int tick = 0; tick < 250 && ReferenceEquals(levelEight, game.CurrentLevel); tick++)
+            game.RunOneStep();
+
+        Assert.NotSame(levelEight, game.CurrentLevel);
+        Assert.Same(LevelConfiguration.Level9Production, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Approach, game.State);
+        Assert.Empty(levelEightLedger.UnresolvedOriginalIds);
+        FinishApproach(game);
+
+        Level levelNine = game.CurrentLevel;
+        Level3WaveLedger levelNineLedger = levelNine.Level3Ledger!;
+        CompleteProductionLedgerWave(game);
+        Assert.Equal(LevelState.ExitDelay, game.State);
+        foreach (Spike spike in game.Spikes)
+            spike.Height = 0;
+        Step(game, 21);
         for (int tick = 0; tick < 250 && !game.LevelComplete; tick++)
             game.RunOneStep();
 
         Assert.True(game.LevelComplete);
-        Assert.Same(levelEight, game.CurrentLevel);
-        Assert.Same(LevelConfiguration.Level8Production, game.CurrentLevel.Configuration);
+        Assert.Same(levelNine, game.CurrentLevel);
+        Assert.Same(LevelConfiguration.Level9Production, game.CurrentLevel.Configuration);
         Assert.Null(LevelProgression.GetNextProductionLevel(game.CurrentLevel.Configuration));
-        Assert.Empty(levelEightLedger.UnresolvedOriginalIds);
+        Assert.Empty(levelNineLedger.UnresolvedOriginalIds);
 
         game.RunOneStep(restartPressed: true);
         Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);

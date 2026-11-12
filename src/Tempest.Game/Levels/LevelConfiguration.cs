@@ -24,6 +24,8 @@ public enum BelowRimFlipperProgram
     Existing,
     // ROM Level 5 $53, translated using the live C# Spike and Flipper heights.
     Level5SpikeSensitive,
+    // ROM Level 9 $53, translated using post-move live C# Spike and Flipper heights.
+    Level9SpikeSensitive,
     Level7ArcadeObserved,
     Level8ConstantFlip
 }
@@ -75,6 +77,8 @@ public sealed record LevelConfiguration(
         // The Level 8 ROM holdoff is not translated directly to C# ticks; retain the
         // established C# cadence until an independently validated conversion exists.
         8 => 62,
+        // PROJECT APPROXIMATION: the ROM's 56 holdoff parameter is used as the C# cadence.
+        9 => 56,
         _ => throw new InvalidOperationException(
             $"No arcade Flipper shot holdoff is defined for displayed Level {DisplayedLevel}.")
     };
@@ -83,6 +87,9 @@ public sealed record LevelConfiguration(
     // PROJECT TRANSLATION / APPROXIMATION: reuse the existing Level 7 C# firing cadence;
     // the ROM's raw shot_holdoff value has no established conversion to simulation ticks.
     public int Level7SpikerShotHoldoffTicks => FlipperShotHoldoffTicks;
+    public bool UsesLevel9SpikerFiringPolicy =>
+        UsesLevel9RomWavePolicy;
+    public int Level9SpikerShotHoldoffTicks => FlipperShotHoldoffTicks;
     public int MaximumActiveEnemyShots => DisplayedLevel switch
     {
         1 or 2 or 3 => 2,
@@ -91,6 +98,7 @@ public sealed record LevelConfiguration(
         6 => 3,
         7 => 3,
         8 => 4,
+        9 => 4,
         _ => throw new InvalidOperationException(
             $"No arcade enemy-shot capacity is defined for displayed Level {DisplayedLevel}.")
     };
@@ -102,9 +110,11 @@ public sealed record LevelConfiguration(
     public bool UsesLevel7RomWavePolicy =>
         ReferenceEquals(this, Level7Production);
     public bool UsesLevel8RomWavePolicy { get; init; }
+    public bool UsesLevel9RomWavePolicy { get; init; }
     // Canonical ROM-policy levels share generic reconstruction; copied configurations stay isolated.
     public bool UsesGenericRomDeathReconstruction =>
         UsesLevel7RomWavePolicy || UsesLevel8RomWavePolicy ||
+        UsesLevel9RomWavePolicy ||
         ReferenceEquals(this, Level5Production) ||
         ReferenceEquals(this, Level6Production);
     // The Level 5 ROM's zero Flipper minimum excludes ordinary bottom entries, not Tanker cargo.
@@ -117,6 +127,9 @@ public sealed record LevelConfiguration(
     // Conservative C# height cutoff; the ROM's along coordinate does not map exactly to this scale.
     public const float Level7DeepCargoMaximumHeight = 370;
     public const float Level8StartingSpikeHeight = 40f * Level.Depth / 224f;
+    public const float Level9StartingSpikeHeight = 48f * Level.Depth / 224f;
+    // PROJECT CALIBRATION: manually accepted relative projectile lead; not a ROM speed measurement.
+    public const float Level9ProductionSpikerSpeed = 2.0f;
 
     public static LevelConfiguration Level1 { get; } = new(
         ProgressionIndex: 0,
@@ -348,5 +361,37 @@ public sealed record LevelConfiguration(
         UsesLevel8RomWavePolicy = true,
         AllowsOrdinaryFlipperSelection = false,
         StartingSpikeHeight = Level8StartingSpikeHeight
+    };
+
+    // ROM row 13 and Level 9 composition are source-backed; visual scale, placement,
+    // starting lane and simulation-tick mappings remain project translations.
+    public static LevelConfiguration Level9Production { get; } = new(
+        ProgressionIndex: 8,
+        DisplayedLevel: 9,
+        BoardIndex: 8,
+        PaletteIndex: 0,
+        Definition: LevelLoader.LoadLevel9OpenTube(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: 27,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(Enumerable.Range(0, 15).ToArray()),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.Standard,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersTankersAndSpikers)
+    {
+        Flipper = new(true, 2, 9, 0, 23),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        BelowRimFlipperProgram = BelowRimFlipperProgram.Level9SpikeSensitive,
+        UsesLevel9RomWavePolicy = true,
+        AllowsOrdinaryFlipperSelection = false,
+        ProgrammedFlipperInitialDirection = 1,
+        StartingSpikeHeight = Level9StartingSpikeHeight
     };
 }
