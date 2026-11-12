@@ -219,7 +219,9 @@ public sealed class VectorRenderer
 			DrawTankers((start, end) => Raylib.DrawLineV(start, end, TankerColor));
 			DrawFuseballs((start, end, color) => Raylib.DrawLineV(start, end, color));
 			DrawPulsars((start, end, color) => Raylib.DrawLineV(start, end, color));
-			DrawEnemyBullets((start, end, color) => Raylib.DrawLineV(start, end, color));
+			DrawEnemyBullets(
+				(start, end, color) => Raylib.DrawLineV(start, end, color),
+				(point, color) => Raylib.DrawPixelV(point, color));
 		}
 		else if (game.ExitShotsVisible)
 		{
@@ -604,25 +606,48 @@ public sealed class VectorRenderer
 
 	public void DrawEnemyBullets(Action<Vector2, Vector2, Color> drawLine)
 	{
-		if (ShouldDrawEnemyBullets)
-			DrawEnemyBullets((start, end) => drawLine(start, end, Color.White));
+		ArgumentNullException.ThrowIfNull(drawLine);
+		DrawEnemyBullets(drawLine, (_, _) => { });
 	}
 
-	// Enemy bullet: 8 radial white lines (45° apart) around the lane midpoint, spinning with the
-	// bullet's own Rotation. Uses a 6-unit base size; compare DrawPlayerShots, which uses 4.
 	public void DrawEnemyBullets(Action<Vector2, Vector2> drawLine)
 	{
+		ArgumentNullException.ThrowIfNull(drawLine);
+		DrawEnemyBullets(
+			(start, end, _) => drawLine(start, end),
+			(_, _) => { });
+	}
+
+	public void DrawEnemyBullets(
+		Action<Vector2, Vector2, Color> drawLine,
+		Action<Vector2, Color> drawPoint)
+	{
+		ArgumentNullException.ThrowIfNull(drawLine);
+		ArgumentNullException.ThrowIfNull(drawPoint);
+		if (!ShouldDrawEnemyBullets)
+			return;
+
+		EnemyShotVectorFrame frame =
+			EnemyShotVectorProgram.GetFrame(game.EnemyShotAnimationFrame);
 		foreach (EnemyBullet bullet in game.EnemyBullets)
 		{
 			Vector2 center = ProjectEnemyBullet(bullet);
 			float projectedDepth = Level.Position + Level.Depth - bullet.Height;
-			float size = 6 / ((projectedDepth + Projection.ZOffset) / Projection.K);
-			for (int angle = 0; angle < 360; angle += 45)
+			// PROJECT TRANSLATION: normalize logical ROM units to the prior compact shot scale.
+			float coordinateScale = 6 /
+				((projectedDepth + Projection.ZOffset) / Projection.K) /
+				EnemyShotVectorProgram.MaximumLogicalExtent;
+			foreach (EnemyShotVectorSegment segment in frame.Segments)
 			{
-				float radians = (bullet.Rotation + angle) * MathF.PI / 180;
-				Vector2 offset = new(MathF.Cos(radians) * size, MathF.Sin(radians) * size);
-				drawLine(center - offset, center + offset);
+				// ROM coordinates are Y-up; the projected screen coordinate system is Y-down.
+				Vector2 start = center + new Vector2(segment.Start.X, -segment.Start.Y) * coordinateScale;
+				Vector2 end = center + new Vector2(segment.End.X, -segment.End.Y) * coordinateScale;
+				drawLine(start, end, Color.White);
 			}
+
+			// PROJECT TRANSLATION: a zero-displacement ROM draw is represented by one visible pixel.
+			foreach (Vector2 point in frame.Points)
+				drawPoint(center + new Vector2(point.X, -point.Y) * coordinateScale, Color.White);
 		}
 	}
 

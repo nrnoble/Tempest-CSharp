@@ -106,6 +106,20 @@ public sealed class GameplayPlaybackSessionTests
 	}
 
 	[Fact]
+	public void ReconstructingPlaybackBoundaryRestoresEnemyShotAnimationFrame()
+	{
+		GameplayStartupConfiguration startup = new(5, 10, 1.0, 1981);
+		GameplayPlaybackSession session = CreateSession(startup, 12);
+		session.RunToBoundary(11);
+		int expectedFrame = session.Game.EnemyShotAnimationFrame;
+
+		GameplayPlaybackSession reconstructed = session.ReconstructToBoundary(11);
+
+		Assert.Equal(2, expectedFrame);
+		Assert.Equal(expectedFrame, reconstructed.Game.EnemyShotAnimationFrame);
+	}
+
+	[Fact]
 	public void PlaybackBoundaryStateIsIndependentOfInteractiveSpeedSelection()
 	{
 		Assert.True(DebugController.TryParseInteractiveSpeedOptions(

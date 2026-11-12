@@ -73,6 +73,34 @@ public sealed class VisiblePlaybackControllerTests
 	}
 
 	[Fact]
+	public void EnemyShotAnimationPhaseFreezesOnPauseAndFollowsForwardAndReverseSteps()
+	{
+		GameplayStartupConfiguration startup = new(1, 3, 1.0, 1981);
+		VisiblePlaybackController controller = CreateController(startup, 12);
+		controller.Session.RunToBoundary(7);
+		Assert.Equal(1, controller.Session.Game.EnemyShotAnimationFrame);
+		VectorRenderer renderer = new(controller.Session.Game);
+
+		Assert.Equal(0, controller.ProcessControls(new PlaybackControlInput(true, false, false)));
+		for (int render = 0; render < 5; render++)
+		{
+			Assert.Equal(0, controller.ProcessControls(default));
+			renderer.DrawEnemyBullets((_, _, _) => { }, (_, _) => { });
+		}
+		Assert.Equal(1, controller.Session.Game.EnemyShotAnimationFrame);
+
+		Assert.Equal(1, controller.ProcessControls(new PlaybackControlInput(false, true, false)));
+		Assert.Equal(2, controller.Session.Game.EnemyShotAnimationFrame);
+		Assert.Equal(-1, controller.ProcessControls(new PlaybackControlInput(
+			PauseTogglePressed: false,
+			ForwardNavigationPressed: false,
+			ShiftDown: false,
+			BackwardNavigationPressed: true)));
+		Assert.Equal(7, controller.Session.CurrentBoundary);
+		Assert.Equal(1, controller.Session.Game.EnemyShotAnimationFrame);
+	}
+
+	[Fact]
 	public void ResumeUsesTheExactNextRecordedFrameAndSpaceIsNotGameplayInput()
 	{
 		GameplayStartupConfiguration startup = new(1, 3, 1.0, 1981);

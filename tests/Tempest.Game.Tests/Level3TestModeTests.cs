@@ -102,7 +102,7 @@ public sealed class Level3TestModeTests
             AssertFinite(end);
             lines++;
         });
-        Assert.Equal(8, lines);
+        Assert.Equal(4, lines);
 
         IReadOnlyList<string> waveLines = renderer.GetWaveHudLines();
         Assert.Contains("ORIGINAL 15", waveLines);

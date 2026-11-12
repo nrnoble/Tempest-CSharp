@@ -361,7 +361,7 @@ public sealed class Level2SquareTests
         AssertFinite(renderer.ProjectFlipperEndpoints(flipper).End);
         int bulletRenderLines = 0;
         renderer.DrawEnemyBullets((_, _) => bulletRenderLines++);
-        Assert.Equal(8, bulletRenderLines);
+        Assert.Equal(4, bulletRenderLines);
 
         IEnumerable<Enemy> targets = game.Flippers.Cast<Enemy>().Concat(game.EnemyBullets);
         Assert.True(game.SuperZapper.TryActivate(targets,

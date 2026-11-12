@@ -156,7 +156,7 @@ public sealed class Level2FourFlipperCapTests
         Assert.True(renderer.ShouldDrawEnemyBullets);
         List<(System.Numerics.Vector2 Start, System.Numerics.Vector2 End, Raylib_cs.Color Color)> lines = [];
         renderer.DrawEnemyBullets((start, end, color) => lines.Add((start, end, color)));
-        Assert.Equal(8, lines.Count);
+        Assert.Equal(4, lines.Count);
         Assert.All(lines, line => Assert.Equal(Raylib_cs.Color.White, line.Color));
         Assert.Same(bullet, game.EnemyBullets[0]);
 
@@ -187,7 +187,7 @@ public sealed class Level2FourFlipperCapTests
             $"Bullet advance bound was reached. {StateSnapshot(game, 133)}");
         VectorRenderer renderer = new(game);
         Assert.Contains(bullet, game.EnemyBullets);
-        Assert.Equal(8, CaptureEnemyBulletLines(renderer));
+        Assert.Equal(4, CaptureEnemyBulletLines(renderer));
 
         game.RunOneStep();
 

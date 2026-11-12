@@ -3959,15 +3959,60 @@ Accepted Levels 1–8 are frozen and unchanged by this milestone.
 1. Improve held reverse-playback stepping responsiveness while preserving
    exact single-frame reverse taps; investigate accelerated held reversal if
    key-repeat limits require it.
-2. Replace generic enemy-shot appearance with closer arcade/ROM-faithful
-   vector rendering, without changing projectile gameplay.
-3. Refine whole-game screen, tube perspective/scale/placement and HUD layout;
+2. Refine whole-game screen, tube perspective/scale/placement and HUD layout;
    use Level 9 as an initial presentation reference, regression-check earlier
    accepted tubes, define the 16 distinct layouts once and recycle from Level
    17 onward, keep internal gameplay dimensions constant, and consider
-   fullscreen/borderless presentation.
-4. Investigate the cross-level difficulty/timing discrepancy without
+   fullscreen/borderless presentation. Revisit the apparent enemy-shot size
+   only as part of this broader scale comparison; the arcade/C# size
+   difference is uncertain and is not an accepted discrepancy or reason to
+   retune the accepted enemy-shot rendering.
+3. Investigate the cross-level difficulty/timing discrepancy without
    presuming one global movement multiplier.
-5. Investigate the Spiker/projectile relative-speed invariant separately for
+4. Investigate the Spiker/projectile relative-speed invariant separately for
    the Level 4 candidate and production Levels 5, 6 and 8. Do not retune those
    accepted levels in this Level 9 closeout.
+
+## Enemy-shot ROM vector rendering (2026-11-12; manually accepted)
+
+**ROM-BACKED:** Four distinct enemy-shot vector pictures are selected by a
+global timer-based modulo-four model. Each has four disconnected lit segments
+and four point-like marks, preserving verified logical geometry, draw order,
+and deliberate asymmetries. Blank beam movements are not visible lines. ROM
+color indices do not establish RGB values.
+
+**PROJECT TRANSLATION:** A dedicated deterministic phase selects one shared
+frame for all enemy bullets, advancing one frame per four `RunOneStep` calls.
+The exact arcade real-time frequency and mapping to simulation steps remain
+unresolved; this cadence is not ROM-proven. Logical Y-up coordinates map to
+screen Y-down, the current normalization/scale is a project translation, and
+zero-displacement marks use one-pixel rasterization. The current white
+presentation remains accepted for this milestone; ROM color indices do not
+establish that RGB translation. `EnemyBullet.Rotation` and all projectile
+gameplay/state remain unchanged.
+
+**NEAL MANUAL VISUAL/PLAYABILITY ACCEPTANCE:** Neal reports that the new shots
+look pretty good, are not distracting, and do not make the game more difficult
+to play. He manually accepted the current candidate as tested. Arcade shots
+may possibly appear larger, but that comparison is unclear because the overall
+arcade presentation is also larger. This is not an established arcade/C#
+discrepancy, does not justify changing enemy-shot size, and is not a claim of
+pixel-identical or proven exact-size fidelity. Any broader comparison belongs
+to the deferred whole-game presentation refinement; no further enemy-shot
+size or rendering change is currently requested.
+
+**GAMEPLAY PRESERVED:** The milestone changes presentation only. Enemy-shot
+creation, speed, trajectory, firing, collision, lifecycle, scoring, sound,
+enemy/level behavior, difficulty/timing, gameplay geometry, player shots, and
+recording/playback schema or input behavior were not changed.
+
+**AUTOMATED VALIDATION — PASS (Neal-supplied final run):**
+`dotnet test tests\Tempest.Game.Tests\Tempest.Game.Tests.csproj --no-restore --blame-hang-timeout 2m`
+completed with 1341 passed, 0 failed, and 0 skipped. The Blame collector's
+"All tests finished running, Sequence file will not be generated." warning
+was not a test failure. An earlier Application Control block prevented test
+discovery for a prior run; it did not prevent Neal's final run, which loaded
+the test assembly and completed all tests. No root cause for the different
+outcomes is established. See
+`AI-Logs/Reports/2026-11-12-enemy-shot-rom-four-frame-closeout.md` for the
+closeout and validation record.

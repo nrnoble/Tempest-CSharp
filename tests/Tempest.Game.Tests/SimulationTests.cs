@@ -3808,7 +3808,7 @@ public sealed class SimulationTests
     }
 
     [Fact]
-    public void EnemyBulletRenderUsesFiniteLaneDepthAndEightDistinctRadials()
+    public void EnemyBulletRenderUsesFiniteLaneDepthAndFourProgramSegments()
     {
         TempestGame game = PrepareBulletGame(1, 76);
         VectorRenderer renderer = new(game);
@@ -3816,16 +3816,20 @@ public sealed class SimulationTests
         List<(Vector2 Start, Vector2 End)> lines = [];
 
         renderer.DrawEnemyBullets((start, end) => lines.Add((start, end)));
-        Assert.Equal(8, lines.Count);
+        Assert.Equal(4, lines.Count);
         foreach ((Vector2 start, Vector2 end) in lines)
         {
             Assert.True(float.IsFinite(start.X) && float.IsFinite(start.Y));
             Assert.True(float.IsFinite(end.X) && float.IsFinite(end.Y));
         }
         float projectedDepth = Level.Position + Level.Depth - bullet.Height;
-        float expectedDiameter = 12 / ((projectedDepth + Projection.ZOffset) / Projection.K);
+        EnemyShotVectorSegment segment =
+            EnemyShotVectorProgram.GetFrame(game.EnemyShotAnimationFrame).Segments[0];
+        float expectedLength = Vector2.Distance(segment.Start, segment.End) * 6 /
+            ((projectedDepth + Projection.ZOffset) / Projection.K) /
+            EnemyShotVectorProgram.MaximumLogicalExtent;
         Assert.InRange(Vector2.Distance(lines[0].Start, lines[0].End),
-            expectedDiameter - 0.001f, expectedDiameter + 0.001f);
+            expectedLength - 0.001f, expectedLength + 0.001f);
         Assert.Equal(2, bullet.Height);
         Assert.InRange(renderer.ProjectEnemyBullet(bullet).X, 0, 800);
         Assert.InRange(renderer.ProjectEnemyBullet(bullet).Y, 0, 600);

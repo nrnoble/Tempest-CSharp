@@ -31,6 +31,8 @@ public sealed class TempestGame
     private const int MaximumShots = 10;
     private const int MaximumActiveProductionFlippers = 4;
     private const int PlayerShotCooldownTicks = 3;
+    private const int EnemyShotAnimationTicksPerFrame = 4;
+    private const int EnemyShotAnimationFrameCount = 4;
     internal const float MinimumLevel7SpikerSpeedOverride =
         GameplayStartupConfiguration.MinimumLevel7SpikerSpeedOverride;
     internal const float MaximumLevel7SpikerSpeedOverride =
@@ -91,6 +93,7 @@ public sealed class TempestGame
     private Level? currentLevel;
     private int pulsePhase;
     private float pulseZh;
+    private int enemyShotAnimationSteps;
     private int fuseballAnimationTicks;
     private int nextCargoUnitId;
     private int shotTimer = 4;
@@ -135,6 +138,10 @@ public sealed class TempestGame
     public LevelApproach? CurrentApproach { get; private set; }
     public bool HurryUp { get; private set; }
     public int PulsePhase => pulsePhase;
+    // PROJECT TRANSLATION: a dedicated four-step frame cadence; it is deterministic, not an
+    // established arcade frequency, and advances only with simulation steps.
+    public int EnemyShotAnimationFrame =>
+        enemyShotAnimationSteps / EnemyShotAnimationTicksPerFrame;
     public bool Pulsing { get; private set; }
     public float PulseZh => pulseZh;
     // Incitti shares four animation frames across all Fuseballs, changing frame every four ticks.
@@ -384,6 +391,9 @@ public sealed class TempestGame
 
     public void RunOneStep(PlayerInput input = default, bool restartPressed = false)
     {
+        enemyShotAnimationSteps =
+            (enemyShotAnimationSteps + 1) %
+            (EnemyShotAnimationTicksPerFrame * EnemyShotAnimationFrameCount);
         // Advance existing records before shot scans so a newly captured age-zero effect is visible.
         enemyDestructionEffects.Advance();
         if (State == LevelState.Approach)

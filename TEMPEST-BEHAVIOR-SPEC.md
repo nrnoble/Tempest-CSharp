@@ -1351,6 +1351,24 @@ Pulsar behavior in that scenario, not an authentic all-Pulsar Atari wave.
   new arcade/ROM evidence justifies revisiting it.
 - **DEFERRED** — Fuseball/Fuzzball special destruction and ROM effect types
   2-4 remain a separate investigation and implementation milestone.
+- **ROM-LISTING-BACKED — enemy-shot vector rendering (2026-11-12):** The four
+  ROM pictures each contain four disconnected lit segments and four
+  point-like marks; blank beam movements draw no visible lines, and the
+  verified logical geometry and asymmetries are preserved. Global
+  modulo-four selection does not establish a real-time frequency.
+- **PROJECT TRANSLATION — enemy-shot vector rendering:** The accepted C# phase
+  selects one deterministic shared frame, advancing once per four
+  `RunOneStep` calls, converts logical Y-up to screen Y-down, applies the
+  current normalization/scale, rasterizes each point as one pixel, and keeps
+  the rendered color white. These are not ROM-proven cadence, pixel
+  dimensions, or RGB values.
+- **NEAL MANUAL VISUAL/PLAYABILITY ACCEPTANCE:** Neal accepted the current
+  shots as visually good, unobtrusive, and not more difficult to play. A
+  possible apparent size difference remains uncertain because the whole
+  arcade presentation is also larger; it is not an established discrepancy
+  and does not authorize size retuning. No gameplay or
+  `EnemyBullet.Rotation` behavior changed. This does not claim pixel-identical
+  or exact-size arcade fidelity.
 - **PROJECT DECISION** — Fuseball score labels, the current tube projection,
   and the simplified death presentation are recreation choices. They should
   not be interpreted as verified arcade presentation.
