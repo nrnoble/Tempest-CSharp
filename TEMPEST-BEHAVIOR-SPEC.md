@@ -2887,3 +2887,37 @@ Level 7-specific architecture was not changed. Do not retune Blaster sizes,
 scale normalization/baseline, exit or Approach cameras, tube geometry or
 projection, or accepted level placements absent a separately demonstrated
 regression or an explicitly authorized milestone.
+
+## ExitZoom focal compensation — manually accepted and frozen (2026-11-18)
+
+**PROJECT TRANSLATION — MANUAL ACCEPTANCE (PASS):** Neal reports that the
+ExitZoom focal-point regression is fixed: Level 5 remains fixed, Levels 8 and
+9 now exit properly, ordinary Playing presentation remains correct, and
+gameplay remains normal. Neal wants no further work on this bug. The correction
+is presentation-only; gameplay and exit simulation are unchanged.
+
+**PROJECT TRANSLATION — ACCEPTED PIVOT RULE:** Closed tubes use the mapped
+far-rim center. Open tubes calculate the common intersection of their mapped
+near-to-far rails from the active tube geometry; the terminal-endpoint
+midpoint of the omitted closing chord is not used. The existing logical-space
+compensation remains
+`latchedPivotAtExitStart - currentMappedPivot`. It is applied only during
+ExitZoom, after the active presentation adapter and accepted per-level
+placement and before the shared portrait host camera. The shared translation
+keeps the tube, Blaster, Spikes, and tube-space presentation objects together.
+It is absent from ordinary Playing and Approach.
+
+The open-rail intersection is calculated by a double-precision least-squares
+fit over non-degenerate mapped rails and checked against the maximum
+perpendicular residual. Its numerical tolerance is
+`max(1e-5, coordinateScale * 32 * float epsilon)`, where `coordinateScale`
+is the largest absolute mapped coordinate. No per-level focal constants are
+used. These focal rules and the compensation architecture are project
+translations; the ROM does not designate either pivot or this C# architecture.
+
+**SCOPE AND PRESERVATION:** Level 10 remains diagnostic-only; it is not
+required for this manual acceptance. Level 7 remains outside this closeout,
+and its ExitZoom is not accepted here. Accepted ordinary Playing placement,
+including Level 8 `+212.28139`, Level 9 `+180.96825`, and diagnostic Level 10
+`+50`, remains unchanged. The separately accepted Blaster Exit/Approach scale
+correction remains unchanged.

@@ -149,6 +149,8 @@ public sealed class VectorRenderer
 	private readonly bool atariTubeRn000fDiagnosticEnabled;
 	private readonly bool atariTubeReferenceShapeDiagnosticEnabled;
 	private readonly Level7VisibleRuntimeDiagnostic? level7VisibleRuntimeDiagnostic;
+	private readonly ExitZoomFocalCompensation exitZoomFocalCompensation = new();
+	private readonly Func<Vector2, float, Vector2> projectFocalOpeningPoint;
 	private readonly HashSet<int> legacyFallbackLevels = [];
 	public IReadOnlyList<Egg> Eggs => game.Eggs;
 	// The active simulation collection is authoritative; unsupported scenarios have no bullets to draw.
@@ -223,16 +225,44 @@ public sealed class VectorRenderer
 		this.atariTubeReferenceShapeDiagnosticEnabled =
 			atariTubeReferenceShapeDiagnosticEnabled;
 		this.level7VisibleRuntimeDiagnostic = level7VisibleRuntimeDiagnostic;
+		projectFocalOpeningPoint = ProjectFocalOpeningPoint;
 	}
 
-	public void SetGame(TempestGame game) =>
+	public void SetGame(TempestGame game)
+	{
 		this.game = game ?? throw new ArgumentNullException(nameof(game));
+		exitZoomFocalCompensation.Reset();
+	}
 
 	private Vector2 ProjectApproachGeometry(Vector2 point, float depth) =>
 		ProjectWorldPoint(point.X, point.Y, depth);
 
 	// All world anchors share the active tube interval; Approach shifts the point and both ends.
 	private Vector2 ProjectWorldPoint(float x, float y, float depth)
+	{
+		Vector2 mappedPoint = ProjectWorldPointWithoutExitCompensation(x, y, depth);
+		if (!atariPresentationEnabled)
+		{
+			exitZoomFocalCompensation.Reset();
+			return mappedPoint;
+		}
+
+		LevelConfiguration configuration = game.CurrentLevel.Configuration;
+		Vector2 compensation = exitZoomFocalCompensation.GetTranslation(
+			game.State,
+			game.CurrentLevel.Definition,
+			configuration,
+			Projection.K,
+			Projection.ZOffset,
+			Projection.PortraitPerspective,
+			projectFocalOpeningPoint);
+		return mappedPoint + compensation;
+	}
+
+	private Vector2 ProjectFocalOpeningPoint(Vector2 point, float depth) =>
+		ProjectWorldPointWithoutExitCompensation(point.X, point.Y, depth);
+
+	private Vector2 ProjectWorldPointWithoutExitCompensation(float x, float y, float depth)
 	{
 		if (!atariPresentationEnabled || IsLevel6GameOverState)
 			return ProjectWorldPointLegacy(x, y, depth);

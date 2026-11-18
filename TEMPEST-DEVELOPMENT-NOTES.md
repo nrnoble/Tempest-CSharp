@@ -4182,3 +4182,42 @@ Playing outward orientation and current yellow color/intensity remain; the
 brightness diagnostic remains removed. Accepted Level 8 (+212.28139), Level 9
 (+180.96825), and Level 10 (+50) placements remain unchanged, and Level 7
 architecture was not changed.
+
+## ExitZoom focal compensation — manually accepted and frozen (2026-11-18)
+
+**PROJECT TRANSLATION — MANUAL ACCEPTANCE (PASS):** Neal reports that the
+ExitZoom focal-point regression is fixed. Level 5 remains fixed, Levels 8 and
+9 now exit properly, ordinary Playing presentation remains correct, and
+gameplay remains normal. Neal wants no further work on this bug. This is a
+presentation-only correction; gameplay and exit simulation are unchanged.
+
+**ACCEPTED PIVOT AND LIFECYCLE:** Closed tubes use the arithmetic center of
+their mapped far-rim vertices. Open tubes calculate the common intersection
+of their mapped near-to-far rails from the active geometry; they do not use
+the midpoint of the terminal endpoints on the omitted closing chord. The
+open pivot is computed with a double-precision least-squares fit over
+non-degenerate mapped rails and validated by maximum perpendicular residual.
+The numerical tolerance is
+`max(1e-5, coordinateScale * 32 * float epsilon)`, with `coordinateScale`
+equal to the largest absolute mapped coordinate. No focal coordinates are
+hardcoded by level.
+
+At ExitZoom onset the mapped pivot is latched. As projection changes, the
+shared logical-space translation remains
+`latchedPivotAtExitStart - currentMappedPivot`. It is calculated after the
+active Atari presentation adapter and accepted per-level placement and
+applied before the common portrait host camera. The same translation reaches
+the tube, Blaster, Spikes, and tube-space presentation objects. It is inactive
+outside ExitZoom, including ordinary Playing and Approach.
+
+**EVIDENCE AND PRESERVATION:** These focal rules are an accepted **PROJECT
+TRANSLATION** that resolves the demonstrated project regression. ROM tube
+data does not designate the closed far-rim center or open rail-convergence
+point as an ExitZoom focal point, and does not specify this C# compensation
+architecture. Neal's manual testing establishes the accepted project result,
+not ROM behavior. Accepted ordinary Playing placement is unchanged, including
+Level 8 `+212.28139`, Level 9 `+180.96825`, and diagnostic Level 10 `+50`.
+The separately accepted Blaster Exit/Approach scale correction remains
+unchanged. Level 10 remains diagnostic-only and is not required for this
+acceptance. Level 7 remains outside this milestone; its ExitZoom is not
+accepted here.
