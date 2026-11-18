@@ -38,7 +38,7 @@ public static class Level7WaveSelection
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentOutOfRangeException.ThrowIfNegative(pendingGenericOriginals);
-        return ReferenceEquals(configuration, LevelConfiguration.Level7Production) &&
+        return configuration.UsesLevel7RomWavePolicy &&
             pendingGenericOriginals == 0;
     }
 

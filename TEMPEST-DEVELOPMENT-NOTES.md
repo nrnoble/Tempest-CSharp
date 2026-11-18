@@ -3951,7 +3951,8 @@ override metadata remain compatible.
 **PROGRESSION AND BOUNDARY:** Natural Level 8→9 progression, direct `--level 9`,
 recording/playback startup and the terminal Level 9 boundary are implemented.
 The handoff is covered by automated progression tests, with no separate manual
-acceptance claim. Level 10 remains unimplemented.
+acceptance claim. Production Level 10 remains unimplemented; the later
+development-only diagnostic candidate is recorded separately below.
 Accepted Levels 1–8 are frozen and unchanged by this milestone.
 
 **DEFERRED POST-LEVEL-9 MILESTONES (not Level 9 blockers):**
@@ -4016,3 +4017,38 @@ the test assembly and completed all tests. No root cause for the different
 outcomes is established. See
 `AI-Logs/Reports/2026-11-12-enemy-shot-rom-four-frame-closeout.md` for the
 closeout and validation record.
+
+## Diagnostic Level 10 Atari presentation — manually accepted (2026-11-17)
+
+**ROM-BACKED / PROJECT TRANSLATION:** Diagnostic Level 10 uses the recovered
+Rev. 2 shape-row-9 open geometry, its raw Level 10 presentation metadata, and
+the established raw-shape normalization used for the open Level 8 and 9
+definitions. The C# model translation, reciprocal presentation projection,
+and Level-7-like gameplay remain explicit project engineering translations;
+this milestone is not an implementation of authentic Level 10 arcade gameplay.
+
+**NEAL MANUAL ACCEPTANCE — PASS:** Neal replayed the existing genuine-geometry
+Level 10 recording with `--atari-presentation` and judged the candidate's
+placement and gameplay perfect. No further bug regression was observed. The
+characteristic depth-dependent enemy slowdown defect was absent during the
+accepted replay. These statements apply to the accepted C# candidate at the
+observed scope; they do not claim pixel-identical arcade fidelity or manually
+validated authentic Level 10 gameplay.
+
+**FROZEN PRESENTATION TRANSLATION:** The accepted final screen-space Level 10
+placement is a +50 logical-pixel downward translation. It is applied after
+projection, preserving the accepted horizontal center, existing
+projection/perspective, raw geometry, open topology, and tube/entity
+registration. The Level 10 presentation is frozen unless a future
+independently demonstrated regression requires reopening it.
+
+**DEVELOPMENT-ONLY GAMEPLAY BOUNDARY:** Diagnostic Level 10 remains outside
+production campaign progression. It uses Level-7-like enemy supply, timing,
+movement, wave and firing behavior on genuine Level 10 geometry; its 15-lane
+spawn sequence is the geometry-required adaptation. This closeout does not
+alter simulation behavior, enemy movement or timing, Levels 1-9, the Level 7
+slowdown investigation, or the terminal production Level 9 boundary.
+
+**AUTOMATED VALIDATION:** Closeout reruns the focused DiagnosticLevel10Tests,
+full regression suite, Release build, and `git diff --check`; the final
+closeout report is the authoritative record for this run's results.

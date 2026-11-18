@@ -6,13 +6,16 @@ public static class LevelLoader
 {
 	public static class Level9RomEvidence
 	{
-		public const byte ShapeRemap = 0x0D;
-		public const byte Scale = 0x0C;
-		public const byte Y3d = 0xB0;
-		public const byte Y2dLow = 0x40;
-		public const byte Y2dHigh = 0x01;
-		public const ushort Y2d = 0x0140;
-		public const byte Open = 0xFF;
+		public static RomPresentationMetadata PresentationMetadata =>
+			RomPresentationMetadataCatalog.ForDisplayedLevel(9);
+
+		public static byte ShapeRemap => checked((byte)PresentationMetadata.TubeTableIndex);
+		public static byte Scale => PresentationMetadata.ScaleRaw;
+		public static byte Y3d => PresentationMetadata.CameraHeightRaw;
+		public static byte Y2dLow => PresentationMetadata.ScreenYOffsetLowRaw;
+		public static byte Y2dHigh => PresentationMetadata.ScreenYOffsetHighRaw;
+		public static ushort Y2d => PresentationMetadata.ScreenYOffsetCombinedRaw;
+		public static byte Open => PresentationMetadata.OpenRaw;
 		public const byte FlipperScaleLow = 0x50;
 		public const byte FlipperScaleHigh = 0x04;
 		public const ushort FlipperScale = 0x0250;
@@ -34,6 +37,38 @@ public static class LevelLoader
 		{
 			0x0C, 0x00, 0x0C, 0x00, 0x0C, 0x00, 0x0C, 0x00,
 			0x04, 0x00, 0x04, 0x00, 0x04, 0x00, 0x04, 0x00
+		});
+	}
+
+	public static class Level10RomEvidence
+	{
+		public static RomPresentationMetadata PresentationMetadata =>
+			RomPresentationMetadataCatalog.ForDisplayedLevel(10);
+
+		public static byte ShapeRemap => checked((byte)PresentationMetadata.TubeTableIndex);
+		public static byte Scale => PresentationMetadata.ScaleRaw;
+		public static byte Y3d => PresentationMetadata.CameraHeightRaw;
+		public static byte Y2dLow => PresentationMetadata.ScreenYOffsetLowRaw;
+		public static byte Y2dHigh => PresentationMetadata.ScreenYOffsetHighRaw;
+		public static ushort Y2d => PresentationMetadata.ScreenYOffsetCombinedRaw;
+		public static byte Open => PresentationMetadata.OpenRaw;
+
+		public static IReadOnlyList<byte> X { get; } = Array.AsReadOnly(new byte[]
+		{
+			0x10, 0x10, 0x10, 0x10, 0x16, 0x29, 0x46, 0x69,
+			0x97, 0xBA, 0xD7, 0xEA, 0xF0, 0xF0, 0xF0, 0xF0
+		});
+
+		public static IReadOnlyList<byte> Y { get; } = Array.AsReadOnly(new byte[]
+		{
+			0xF0, 0xCB, 0xA6, 0x80, 0x5C, 0x39, 0x20, 0x12,
+			0x12, 0x20, 0x39, 0x5C, 0x80, 0xA6, 0xCB, 0xF0
+		});
+
+		public static IReadOnlyList<byte> Angles { get; } = Array.AsReadOnly(new byte[]
+		{
+			0x0C, 0x0C, 0x0C, 0x0D, 0x0E, 0x0F, 0x0F, 0x00,
+			0x01, 0x01, 0x02, 0x03, 0x04, 0x04, 0x04, 0x00
 		});
 	}
 
@@ -139,5 +174,19 @@ public static class LevelLoader
 				-(Level9RomEvidence.Y[index] - 128) * scale);
 
 		return new(false, 300, 0, Array.AsReadOnly(points), "Level 9 - Rev 2 open shape 13");
+	}
+
+	// ROM-BACKED Rev 2 shape row 9; centering, scaling and Y reflection follow the
+	// established raw-geometry translation used for the open Level 8 and 9 definitions.
+	public static LevelDefinition LoadLevel10OpenTube()
+	{
+		const float scale = 25f / 14f;
+		Vector2[] points = new Vector2[Level10RomEvidence.X.Count];
+		for (int index = 0; index < points.Length; index++)
+			points[index] = new Vector2(
+				(Level10RomEvidence.X[index] - 128) * scale,
+				-(Level10RomEvidence.Y[index] - 128) * scale);
+
+		return new(false, 300, 0, Array.AsReadOnly(points), "Level 10 - Rev 2 open shape 9");
 	}
 }

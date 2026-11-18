@@ -63,6 +63,91 @@ public sealed class TransitionPresentationTests
     }
 
     [Fact]
+    public void PortraitPerspectiveKeepsTheApproachNearRimAnchoredWithoutAdvancingTransition()
+    {
+        float originalPerspective = Projection.PortraitPerspective;
+        try
+        {
+            TempestGame game = EnterExitFrom(1);
+            game.Player.AdvanceExit(Level.Depth - 12);
+            game.RunOneStep();
+            Assert.Equal(LevelState.Approach, game.State);
+
+            VectorRenderer renderer = new(game);
+            float approachOffset = renderer.ApproachDepthOffset;
+            int elapsedTicks = game.CurrentApproach!.ElapsedTicks;
+            List<(Vector2 Start, Vector2 End)> neutralLines = [];
+            Projection.PortraitPerspective = 0;
+            renderer.DrawTube((start, end, _) => neutralLines.Add((start, end)));
+
+            List<(Vector2 Start, Vector2 End)> candidateLines = [];
+            Projection.PortraitPerspective = 50;
+            renderer.DrawTube((start, end, _) => candidateLines.Add((start, end)));
+
+            Assert.True(approachOffset > 0);
+            Assert.Equal(neutralLines.Count, candidateLines.Count);
+            LevelConfiguration configuration = game.CurrentLevel.Configuration;
+            float nearDepth = configuration.Position + approachOffset;
+            float farDepth = configuration.Position + configuration.Depth + approachOffset;
+            float yOffset = game.CurrentLevel.Definition.YOffset + renderer.ApproachVerticalOffset;
+            for (int vertex = 0; vertex < game.CurrentLevel.Definition.Points.Count; vertex++)
+            {
+                Vector2 point = game.CurrentLevel.Definition.Points[vertex];
+                Vector2 expectedNear = Projection.Project(
+                    point.X, point.Y, nearDepth,
+                    game.CurrentLevel.Definition.CenterY, yOffset, nearDepth, farDepth);
+                Vector2 expectedFar = Projection.Project(
+                    point.X, point.Y, farDepth,
+                    game.CurrentLevel.Definition.CenterY, yOffset, nearDepth, farDepth);
+                Assert.InRange(Vector2.Distance(candidateLines[vertex].Start, expectedNear), 0, .001f);
+                Assert.InRange(Vector2.Distance(candidateLines[vertex].End, expectedFar), 0, .001f);
+                Assert.True(float.IsFinite(candidateLines[vertex].End.X));
+                Assert.True(float.IsFinite(candidateLines[vertex].End.Y));
+            }
+
+            int lane = 0;
+            int nextLane = (lane + 1) % game.CurrentLevel.Definition.Points.Count;
+            float shotHeight = configuration.Depth * .6f;
+            float shotDepth = configuration.Position + configuration.Depth - shotHeight +
+                approachOffset;
+            double nearReciprocal = 1d / (nearDepth + Projection.ZOffset);
+            double farReciprocal = 1d / (farDepth + Projection.ZOffset);
+            float shotFraction = (float)(
+                (nearReciprocal - 1d / (shotDepth + Projection.ZOffset)) /
+                (nearReciprocal - farReciprocal));
+            Vector2 nearLaneCenter =
+                (candidateLines[lane].Start + candidateLines[nextLane].Start) / 2;
+            Vector2 farLaneCenter =
+                (candidateLines[lane].End + candidateLines[nextLane].End) / 2;
+            Vector2 shotAnchor = renderer.ProjectShot(new Tempest.Game.Gameplay.Shot
+            {
+                EdgeIndex = lane,
+                Height = shotHeight
+            });
+            Assert.InRange(Vector2.Distance(
+                shotAnchor, Vector2.Lerp(nearLaneCenter, farLaneCenter, shotFraction)), 0, .001f);
+            IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
+            renderer.GetPlayerEdge(points, out Vector2 playerStart, out Vector2 playerEnd);
+            int playerNextLane = (game.Player.EdgeIndex + 1) % points.Count;
+            float playerDepth = renderer.PlayerProjectedDepth + approachOffset;
+            Vector2 expectedPlayerStart = Projection.Project(
+                points[game.Player.EdgeIndex].X, points[game.Player.EdgeIndex].Y,
+                playerDepth, game.CurrentLevel.Definition.CenterY, yOffset, nearDepth, farDepth);
+            Vector2 expectedPlayerEnd = Projection.Project(
+                points[playerNextLane].X, points[playerNextLane].Y,
+                playerDepth, game.CurrentLevel.Definition.CenterY, yOffset, nearDepth, farDepth);
+            Assert.InRange(Vector2.Distance(playerStart, expectedPlayerStart), 0, .001f);
+            Assert.InRange(Vector2.Distance(playerEnd, expectedPlayerEnd), 0, .001f);
+            Assert.Equal(approachOffset, renderer.ApproachDepthOffset);
+            Assert.Equal(elapsedTicks, game.CurrentApproach.ElapsedTicks);
+        }
+        finally
+        {
+            Projection.PortraitPerspective = originalPerspective;
+        }
+    }
+
+    [Fact]
     public void StarsStartAroundMidExitAndGrowToFullVisibilityBeforeCommit()
     {
         TempestGame game = new();

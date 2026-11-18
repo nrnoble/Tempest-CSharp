@@ -256,11 +256,11 @@ public sealed class TempestGame
                 "Level 7 and Level 9 Spiker speed overrides are mutually exclusive.",
                 nameof(level9SpikerSpeedOverride));
         LevelConfiguration? directConfiguration = startingProductionLevel is int displayedLevel
-            ? LevelProgression.GetProductionLevel(displayedLevel)
+            ? LevelProgression.GetDirectStartLevel(displayedLevel)
             : null;
         if (startingProductionLevel is not null && directConfiguration is null)
             throw new ArgumentOutOfRangeException(nameof(startingProductionLevel),
-                "The selected production level is not implemented.");
+                "The selected direct-start level is not implemented.");
         if ((level2Test ? 1 : 0) + (level3Test ? 1 : 0) +
             (level4Test ? 1 : 0) + (level6Test ? 1 : 0) + (level7Test ? 1 : 0) +
             (level3GeometryTest ? 1 : 0) +
@@ -303,8 +303,8 @@ public sealed class TempestGame
         this.level6Test = level6Test;
         this.level7Test = level7Test;
         this.level3GeometryTest = level3GeometryTest;
-        // A generic direct start changes only the initial production configuration; it keeps the
-        // same onward campaign transitions as a level reached through ordinary play.
+        // Direct production starts keep the campaign's simulation rules. Diagnostic Level 10
+        // uses those same rules, but its terminal restart remains on the diagnostic configuration.
         naturalProgressionEnabled = startingProductionLevel is not null ||
             startingConfiguration is null &&
             !level2Test && !level3Test && !level4Test && !level6Test && !level7Test &&
@@ -427,7 +427,9 @@ public sealed class TempestGame
             if (restartPressed)
             {
                 if (naturalProgressionEnabled &&
-                    LevelProgression.GetNextProductionLevel(CurrentLevel.Configuration) is null)
+                    LevelProgression.GetNextProductionLevel(CurrentLevel.Configuration) is null &&
+                    !ReferenceEquals(CurrentLevel.Configuration,
+                        LevelConfiguration.Level10Diagnostic))
                     // A naturally reached terminal production level starts a fresh campaign.
                     ResetGame();
                 else
@@ -526,7 +528,8 @@ public sealed class TempestGame
     {
         Score.Reset();
         Player.Lives = startingLives;
-        InitializeFreshWave(naturalProgressionEnabled
+        InitializeFreshWave(naturalProgressionEnabled &&
+            !ReferenceEquals(launchConfiguration, LevelConfiguration.Level10Diagnostic)
             ? LevelConfiguration.Level1
             : launchConfiguration);
     }

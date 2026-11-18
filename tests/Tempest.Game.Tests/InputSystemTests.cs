@@ -9,6 +9,33 @@ namespace Tempest.Game.Tests;
 public sealed class InputSystemTests
 {
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void F9AndF10PressEdgesMapOnlyToLivePauseAndScreenshot(
+        bool f9Pressed, bool f10Pressed)
+    {
+        LiveControlInput controls =
+            InputSystem.CreateLiveControlInput(f9Pressed, f10Pressed);
+
+        Assert.Equal(f9Pressed, controls.PauseTogglePressed);
+        Assert.Equal(f10Pressed, controls.ScreenshotPressed);
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    public void LivePauseChangesOnlyOnF9PressEdge(
+        bool initiallyPaused, bool f9Pressed, bool expectedPaused)
+    {
+        Assert.Equal(expectedPaused,
+            InputSystem.ToggleLivePause(initiallyPaused, f9Pressed));
+    }
+
+    [Theory]
     [InlineData(false, false, false)]
     [InlineData(true, false, true)]
     [InlineData(false, true, true)]

@@ -9,6 +9,7 @@ using Xunit;
 
 namespace Tempest.Game.Tests;
 
+[Collection("Level 2 tests")]
 public sealed class GameOverDensityDiagnosticTests
 {
     [Fact]

@@ -53,13 +53,13 @@ public sealed class DirectLevelStartupTests
     }
 
     [Fact]
-    public void LevelTenRemainsUnsupportedForDirectAndRecordedStartup()
+    public void LevelElevenRemainsUnsupportedForDirectAndRecordedStartup()
     {
         Assert.Null(LevelProgression.GetProductionLevel(10));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new TempestGame(startingProductionLevel: 10));
+            new TempestGame(startingProductionLevel: 11));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new GameplayStartupConfiguration(10, 3, 1.0, 1981));
+            new GameplayStartupConfiguration(11, 3, 1.0, 1981));
     }
 
     [Fact]

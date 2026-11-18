@@ -73,7 +73,7 @@ public sealed record LevelConfiguration(
         4 => 71,
         5 => 68,
         6 => 65,
-        7 => 62,
+        7 or 10 => 62,
         // The Level 8 ROM holdoff is not translated directly to C# ticks; retain the
         // established C# cadence until an independently validated conversion exists.
         8 => 62,
@@ -83,7 +83,7 @@ public sealed record LevelConfiguration(
             $"No arcade Flipper shot holdoff is defined for displayed Level {DisplayedLevel}.")
     };
     public bool UsesLevel7SpikerFiringPolicy =>
-        ReferenceEquals(this, Level7Production);
+        UsesLevel7RomWavePolicy;
     // PROJECT TRANSLATION / APPROXIMATION: reuse the existing Level 7 C# firing cadence;
     // the ROM's raw shot_holdoff value has no established conversion to simulation ticks.
     public int Level7SpikerShotHoldoffTicks => FlipperShotHoldoffTicks;
@@ -96,7 +96,7 @@ public sealed record LevelConfiguration(
         4 => 3,
         5 => 4,
         6 => 3,
-        7 => 3,
+        7 or 10 => 3,
         8 => 4,
         9 => 4,
         _ => throw new InvalidOperationException(
@@ -108,7 +108,8 @@ public sealed record LevelConfiguration(
     public BelowRimFlipperProgram BelowRimFlipperProgram { get; init; } =
         global::Tempest.Game.Levels.BelowRimFlipperProgram.Existing;
     public bool UsesLevel7RomWavePolicy =>
-        ReferenceEquals(this, Level7Production);
+        ReferenceEquals(this, Level7Production) ||
+        ReferenceEquals(this, Level10Diagnostic);
     public bool UsesLevel8RomWavePolicy { get; init; }
     public bool UsesLevel9RomWavePolicy { get; init; }
     // Canonical ROM-policy levels share generic reconstruction; copied configurations stay isolated.
@@ -331,6 +332,16 @@ public sealed record LevelConfiguration(
         StartingSpikeHeight = 60,
         AvoidSpikesWaitThreshold = 30
     };
+
+    // DEVELOPMENT ONLY: Level-7-like gameplay on genuine Level 10 geometry; not arcade Level 10 gameplay.
+    // The open tube has 15 lanes, so the Level 7 spawn sequence omits its unplayable lane 15.
+    public static LevelConfiguration Level10Diagnostic { get; } =
+        Level7Production with
+        {
+            DisplayedLevel = 10,
+            Definition = LevelLoader.LoadLevel10OpenTube(),
+            SpawnLaneSequence = Array.AsReadOnly(Enumerable.Range(0, 15).ToArray())
+        };
 
     // Rev 2 shape row 7 is open; the resulting geometry, placement, color, player lane,
     // and Spike presentation are manually accepted project translations.

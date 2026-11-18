@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Tempest.Game.Debug;
 using Tempest.Game.Levels;
+using Tempest.Game.Rendering;
 using Tempest.Game.Systems;
 using Xunit;
 
@@ -378,7 +379,7 @@ public sealed class GameplayRecordingTests
 
 	[Theory]
 	[InlineData(0)]
-	[InlineData(10)]
+	[InlineData(11)]
 	[InlineData(-1)]
 	public void VersionTwoRejectsUnsupportedStartingLevels(int level)
 	{
@@ -544,6 +545,55 @@ public sealed class GameplayRecordingTests
 
 			AssertEquivalentGameplayState(recordedGame, playbackGame);
 		});
+	}
+
+	[Fact]
+	public void PortraitPerspectiveDoesNotChangeSimulationOrRecordedInput()
+	{
+		float originalPerspective = Projection.PortraitPerspective;
+		try
+		{
+			const int randomSeed = 1981;
+			GameplayStartupConfiguration startup = new(1, 3, 1.0, randomSeed);
+			TrackingRandom neutralRandom = new(randomSeed);
+			TrackingRandom calibratedRandom = new(randomSeed);
+			TempestGame neutralGame = new(LevelConfiguration.Level1,
+				random: neutralRandom);
+			TempestGame calibratedGame = new(LevelConfiguration.Level1,
+				random: calibratedRandom);
+			PlayerInputRecorder neutralRecording = new(startup);
+			PlayerInputRecorder calibratedRecording = new(startup);
+
+			for (int tick = 0; tick < 240; tick++)
+			{
+				PlayerInput input = tick switch
+				{
+					< 80 => new PlayerInput(true, 0, false, false),
+					< 160 => new PlayerInput(false, .5f, false, true),
+					160 => new PlayerInput(false, 0, false, false, ZapPressed: true),
+					_ => default
+				};
+
+				Projection.PortraitPerspective = 0;
+				neutralGame.RunOneStep(input);
+				neutralRecording.CaptureTick(tick, input);
+
+				Projection.PortraitPerspective = 50;
+				calibratedGame.RunOneStep(input);
+				calibratedRecording.CaptureTick(tick, input);
+
+				AssertEquivalentGameplayState(neutralGame, calibratedGame);
+			}
+
+			Assert.Equal(neutralRecording.Frames, calibratedRecording.Frames);
+			Assert.Equal(neutralRecording.StartupConfiguration,
+				calibratedRecording.StartupConfiguration);
+			Assert.Equal(neutralRandom.Calls, calibratedRandom.Calls);
+		}
+		finally
+		{
+			Projection.PortraitPerspective = originalPerspective;
+		}
 	}
 
 	[Fact]
@@ -881,5 +931,24 @@ public sealed class GameplayRecordingTests
 				(enemy.EdgeIndex, enemy.Height, enemy.State, enemy.PauseTicks)),
 			second.Flippers.Select(enemy =>
 				(enemy.EdgeIndex, enemy.Height, enemy.State, enemy.PauseTicks)));
+	}
+
+	private sealed class TrackingRandom : Random
+	{
+		public TrackingRandom(int seed) : base(seed) { }
+
+		public int Calls { get; private set; }
+
+		public override int Next(int minValue, int maxValue)
+		{
+			Calls++;
+			return base.Next(minValue, maxValue);
+		}
+
+		public override double NextDouble()
+		{
+			Calls++;
+			return base.NextDouble();
+		}
 	}
 }

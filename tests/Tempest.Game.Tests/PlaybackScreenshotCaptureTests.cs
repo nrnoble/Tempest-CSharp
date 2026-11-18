@@ -249,6 +249,103 @@ public sealed class PlaybackScreenshotCaptureTests
 	}
 
 	[Fact]
+	public void RepeatedLiveCapturesAtOnePausedTickUseDistinctSequenceNames()
+	{
+		string applicationRoot = CreateTemporaryDirectory();
+		try
+		{
+			List<string> requestedPaths = [];
+			StringWriter output = new();
+			StringWriter error = new();
+			PlaybackScreenshotCapture capture = new(
+				new ApplicationPaths(applicationRoot),
+				path =>
+				{
+					requestedPaths.Add(path);
+					File.WriteAllBytes(Path.Combine(applicationRoot, path), [137, 80, 78, 71]);
+				},
+				output,
+				error);
+
+			Assert.True(capture.TryCaptureLive(displayedLevel: 9, simulationTick: 4820));
+			Assert.True(capture.TryCaptureLive(displayedLevel: 9, simulationTick: 4820));
+
+			string outputDirectory = Path.Combine(applicationRoot, "UserData", "Screenshots");
+			Assert.Equal(
+				[
+					"UserData/Screenshots/live-level-9-tick-004820-001.png",
+					"UserData/Screenshots/live-level-9-tick-004820-002.png"
+				],
+				requestedPaths);
+			Assert.Equal(2, Directory.GetFiles(outputDirectory).Length);
+			Assert.All(requestedPaths, path => Assert.False(Path.IsPathRooted(path)));
+			Assert.Equal(4, capture.LastFileLength);
+			Assert.Contains("Screenshot saved:", output.ToString());
+			Assert.Empty(error.ToString());
+		}
+		finally
+		{
+			Directory.Delete(applicationRoot, recursive: true);
+		}
+	}
+
+	[Fact]
+	public void LiveCaptureFailureIsReportedAndIncompleteReservationIsRemoved()
+	{
+		string applicationRoot = CreateTemporaryDirectory();
+		try
+		{
+			StringWriter output = new();
+			StringWriter error = new();
+			PlaybackScreenshotCapture capture = new(
+				new ApplicationPaths(applicationRoot),
+				_ => throw new IOException("test live capture failure"),
+				output,
+				error);
+
+			Assert.False(capture.TryCaptureLive(displayedLevel: 9, simulationTick: 42));
+
+			Assert.Contains("Could not capture live gameplay screenshot", error.ToString());
+			Assert.Contains("live-level-9-tick-000042-001.png", error.ToString());
+			Assert.Contains("test live capture failure", error.ToString());
+			Assert.Empty(output.ToString());
+			Assert.Empty(Directory.GetFiles(Path.Combine(
+				applicationRoot, "UserData", "Screenshots")));
+		}
+		finally
+		{
+			Directory.Delete(applicationRoot, recursive: true);
+		}
+	}
+
+	[Fact]
+	public void EmptyLiveCaptureOutputIsNotReportedAsSuccess()
+	{
+		string applicationRoot = CreateTemporaryDirectory();
+		try
+		{
+			StringWriter output = new();
+			StringWriter error = new();
+			PlaybackScreenshotCapture capture = new(
+				new ApplicationPaths(applicationRoot),
+				_ => { },
+				output,
+				error);
+
+			Assert.False(capture.TryCaptureLive(displayedLevel: 2, simulationTick: 988));
+
+			Assert.Contains("non-empty PNG file", error.ToString());
+			Assert.Empty(output.ToString());
+			Assert.Empty(Directory.GetFiles(Path.Combine(
+				applicationRoot, "UserData", "Screenshots")));
+		}
+		finally
+		{
+			Directory.Delete(applicationRoot, recursive: true);
+		}
+	}
+
+	[Fact]
 	public void SuccessfulCaptureDoesNotAdvancePausedPlaybackBoundaryOrCursor()
 	{
 		string applicationRoot = CreateTemporaryDirectory();

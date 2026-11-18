@@ -20,6 +20,12 @@ public static class LevelProgression
         return current.DisplayedLevel == displayedLevel ? current : null;
     }
 
+    // Keep diagnostic Level 10 selectable without adding it to the production campaign chain.
+    public static LevelConfiguration? GetDirectStartLevel(int displayedLevel) =>
+        displayedLevel == LevelConfiguration.Level10Diagnostic.DisplayedLevel
+            ? LevelConfiguration.Level10Diagnostic
+            : GetProductionLevel(displayedLevel);
+
     public static LevelConfiguration GetLastProductionLevel()
     {
         LevelConfiguration current = LevelConfiguration.Level1;

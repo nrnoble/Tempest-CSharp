@@ -2,6 +2,7 @@ namespace Tempest.Game.Debug;
 using System.Globalization;
 using Tempest.Game.Gameplay;
 using Tempest.Game.Levels;
+using Tempest.Game.Rendering;
 
 public enum GameplayFileMode
 {
@@ -19,13 +20,21 @@ public sealed record GameplayFileCommand(
 /// Parses the development/testing command-line switches. These are controlled engineering tools
 /// for exercising one mechanic in isolation; they are not the finished arcade level-selection or
 /// progression system. No flags = normal Level 1. --level N starts a fresh production game at
-/// that level and continues normal campaign progression. Legacy --levelN-test selectors remain
+/// that level and continues normal campaign progression; diagnostic Level 10 uses Level-7-like
+/// gameplay on its genuine open Level 10 geometry outside the campaign. Legacy --levelN-test selectors remain
 /// terminal diagnostics. Scenario flags are mutually exclusive; --enemy-bullets-test (opt-in
 /// Flipper firing), --lives (starting-life override), --rim-speed, --game-over-density and
 /// --level7-spiker-speed and --level9-spiker-speed (bounded level-specific calibration overrides)
 /// compose with normal play.
 /// --speed changes only the interactive host-loop target rate;
 /// --spinner-sensitivity scales live horizontal mouse/spinner input only.
+/// --portrait-perspective calibrates the shared portrait projection only and is not recording data.
+/// --atari-presentation enables an opt-in development-only portrait transform; it is not recording data.
+/// --level7-framebuffer-diagnostic captures bounded Level 7 screen-buffer samples and
+/// requires the visible-runtime trace; file playback uses fixed playback-boundary windows.
+/// --atari-tube-prototype draws a development-only Atari record-06 Level 7 wireframe; it is not recording data.
+/// --atari-tube-rn000f-diagnostic selects the conditional RN=$000F quotient experiment on that prototype only.
+/// --atari-tube-reference-shape-diagnostic selects a DEVELOPMENT-ONLY prototype control that shares the Level 7 project translation.
 /// --gameplay-playback selects a seeded Level 1 profile;
 /// --gameplay-playback-level4 selects a distinct profile on the production Level 4 configuration.
 /// Both playback commands return to live input when their seeded profile ends.
@@ -64,7 +73,7 @@ public sealed class DebugController
 
 		int highestLevel = LevelProgression.GetLastProductionLevel().DisplayedLevel;
 		string requirement =
-			$"--level requires an implemented production level from 1 through {highestLevel}.";
+			$"--level requires an implemented production level from 1 through {highestLevel} or diagnostic Level 10.";
 		if (optionIndex + 1 >= arguments.Count ||
 			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
 		{
@@ -73,13 +82,477 @@ public sealed class DebugController
 		}
 		if (!int.TryParse(arguments[optionIndex + 1], NumberStyles.Integer,
 			CultureInfo.InvariantCulture, out int parsed) ||
-			LevelProgression.GetProductionLevel(parsed) is null)
+			LevelProgression.GetDirectStartLevel(parsed) is null)
 		{
 			error = requirement;
 			return false;
 		}
 
 		startingLevel = parsed;
+		return true;
+	}
+
+	public static bool TryParseLevel7VisibleRuntimeDiagnostic(
+		IReadOnlyList<string> arguments,
+		out string? outputFileName,
+		out string? error)
+	{
+		outputFileName = null;
+		error = null;
+		int optionIndex = -1;
+
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index] != "--level7-visible-runtime-diagnostic")
+				continue;
+			if (optionIndex >= 0)
+			{
+				error = "--level7-visible-runtime-diagnostic may be specified only once.";
+				return false;
+			}
+			optionIndex = index;
+		}
+
+		if (optionIndex < 0)
+			return true;
+		if (optionIndex + 1 >= arguments.Count ||
+			string.IsNullOrWhiteSpace(arguments[optionIndex + 1]) ||
+			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
+		{
+			error = "--level7-visible-runtime-diagnostic requires a new .jsonl filename.";
+			return false;
+		}
+
+		string parsedFileName = arguments[optionIndex + 1];
+		if (!string.Equals(Path.GetFileName(parsedFileName), parsedFileName,
+				StringComparison.Ordinal) ||
+			!string.Equals(Path.GetExtension(parsedFileName), ".jsonl",
+				StringComparison.OrdinalIgnoreCase) ||
+			parsedFileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+		{
+			error = "--level7-visible-runtime-diagnostic requires a .jsonl filename without a directory path.";
+			return false;
+		}
+
+		outputFileName = parsedFileName;
+		return true;
+	}
+
+	public static bool TryParseLevel7FramebufferDiagnostic(
+		IReadOnlyList<string> arguments,
+		out string? outputFileName,
+		out string? error)
+	{
+		outputFileName = null;
+		error = null;
+		int optionIndex = -1;
+
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index] != "--level7-framebuffer-diagnostic")
+				continue;
+			if (optionIndex >= 0)
+			{
+				error = "--level7-framebuffer-diagnostic may be specified only once.";
+				return false;
+			}
+			optionIndex = index;
+		}
+
+		if (optionIndex < 0)
+			return true;
+		if (optionIndex + 1 >= arguments.Count ||
+			string.IsNullOrWhiteSpace(arguments[optionIndex + 1]) ||
+			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
+		{
+			error = "--level7-framebuffer-diagnostic requires a new .jsonl filename.";
+			return false;
+		}
+
+		string parsedFileName = arguments[optionIndex + 1];
+		if (!string.Equals(Path.GetFileName(parsedFileName), parsedFileName,
+				StringComparison.Ordinal) ||
+			!string.Equals(Path.GetExtension(parsedFileName), ".jsonl",
+				StringComparison.OrdinalIgnoreCase) ||
+			parsedFileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+		{
+			error = "--level7-framebuffer-diagnostic requires a .jsonl filename without a directory path.";
+			return false;
+		}
+
+		outputFileName = parsedFileName;
+		return true;
+	}
+
+	public static bool TryValidateLevel7FramebufferDiagnosticContext(
+		bool framebufferDiagnosticEnabled,
+		bool visibleRuntimeDiagnosticEnabled,
+		out string? error)
+	{
+		error = null;
+		if (!framebufferDiagnosticEnabled || visibleRuntimeDiagnosticEnabled)
+			return true;
+
+		error =
+			"--level7-framebuffer-diagnostic requires --level7-visible-runtime-diagnostic " +
+			"for synchronized entity metadata.";
+		return false;
+	}
+
+	public static bool TryValidateLevel7VisibleRuntimeDiagnosticContext(
+		bool visibleRuntimeDiagnosticEnabled,
+		bool framebufferDiagnosticEnabled,
+		bool atariPresentationEnabled,
+		bool playbackFileSelected,
+		bool headlessPlaybackAnalysis,
+		bool inputDiagnostic,
+		bool atariTubePrototypeEnabled,
+		bool atariTubeRn000fDiagnosticEnabled,
+		bool atariTubeReferenceShapeDiagnosticEnabled,
+		out string? error)
+	{
+		error = null;
+		if (!visibleRuntimeDiagnosticEnabled)
+			return true;
+
+		bool atariPresentationRequired =
+			!atariPresentationEnabled &&
+			!(framebufferDiagnosticEnabled && playbackFileSelected);
+		if (atariPresentationRequired || headlessPlaybackAnalysis || inputDiagnostic ||
+			atariTubePrototypeEnabled || atariTubeRn000fDiagnosticEnabled ||
+			atariTubeReferenceShapeDiagnosticEnabled)
+		{
+			error =
+				"--level7-visible-runtime-diagnostic requires interactive rendering with " +
+				"--atari-presentation, except for recorded-playback framebuffer capture, and " +
+				"cannot be combined with Atari tube prototypes or input/headless diagnostics.";
+			return false;
+		}
+
+		return true;
+	}
+
+	public static bool TryParsePortraitPerspective(
+		IReadOnlyList<string> arguments,
+		out float? perspective,
+		out string? error)
+	{
+		perspective = null;
+		error = null;
+		int optionIndex = -1;
+
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index] != "--portrait-perspective")
+				continue;
+			if (optionIndex >= 0)
+			{
+				error = "--portrait-perspective may be specified only once.";
+				return false;
+			}
+			optionIndex = index;
+		}
+
+		if (optionIndex < 0)
+			return true;
+
+		string requirement =
+			"--portrait-perspective requires a finite signed 32-bit floating-point value. " +
+			"Values outside the automated validated envelope are experimental and may cause " +
+			"clipping or rendering failures. Use 0 for the neutral portrait projection.";
+		if (optionIndex + 1 >= arguments.Count ||
+			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
+		{
+			error = requirement;
+			return false;
+		}
+		if (!float.TryParse(arguments[optionIndex + 1], NumberStyles.Float,
+			CultureInfo.InvariantCulture, out float parsed) ||
+			!float.IsFinite(parsed))
+		{
+			error = requirement;
+			return false;
+		}
+
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index] == "--legacy-presentation")
+			{
+				error = "--portrait-perspective cannot be combined with --legacy-presentation; omit the perspective option to use the unchanged legacy reference.";
+				return false;
+			}
+		}
+
+		perspective = parsed;
+		return true;
+	}
+
+	public static bool TryParseAtariPresentation(
+		IReadOnlyList<string> arguments,
+		out bool enabled,
+		out string? error)
+	{
+		enabled = false;
+		error = null;
+		int optionCount = 0;
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index] != "--atari-presentation")
+				continue;
+			optionCount++;
+			if (index + 1 < arguments.Count &&
+				!arguments[index + 1].StartsWith("--", StringComparison.Ordinal))
+			{
+				error = "--atari-presentation does not take a value.";
+				return false;
+			}
+		}
+
+		if (optionCount > 1)
+		{
+			error = "--atari-presentation may be specified only once.";
+			return false;
+		}
+		if (optionCount == 0)
+			return true;
+		if (arguments.Contains("--legacy-presentation", StringComparer.Ordinal))
+		{
+			error = "--atari-presentation is portrait-only and cannot be combined with --legacy-presentation.";
+			return false;
+		}
+		if (arguments.Contains("--portrait-perspective", StringComparer.Ordinal))
+		{
+			error = "--atari-presentation cannot be combined with --portrait-perspective; omit the perspective option to use the Atari candidate.";
+			return false;
+		}
+
+		enabled = true;
+		return true;
+	}
+
+	public static bool TryParseAtariTubePrototype(
+		IReadOnlyList<string> arguments,
+		out bool enabled,
+		out string? error)
+	{
+		enabled = false;
+		error = null;
+		int optionCount = 0;
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index] != "--atari-tube-prototype")
+				continue;
+			optionCount++;
+			if (index + 1 < arguments.Count &&
+				!arguments[index + 1].StartsWith("--", StringComparison.Ordinal))
+			{
+				error = "--atari-tube-prototype does not take a value.";
+				return false;
+			}
+		}
+
+		if (optionCount > 1)
+		{
+			error = "--atari-tube-prototype may be specified only once.";
+			return false;
+		}
+		if (optionCount == 0)
+			return true;
+		if (arguments.Contains("--atari-presentation", StringComparer.Ordinal))
+		{
+			error = "--atari-tube-prototype cannot be combined with --atari-presentation.";
+			return false;
+		}
+		if (arguments.Contains("--legacy-presentation", StringComparer.Ordinal))
+		{
+			error = "--atari-tube-prototype is portrait-only and cannot be combined with --legacy-presentation.";
+			return false;
+		}
+		if (arguments.Contains("--portrait-perspective", StringComparer.Ordinal))
+		{
+			error = "--atari-tube-prototype cannot be combined with --portrait-perspective.";
+			return false;
+		}
+
+		enabled = true;
+		return true;
+	}
+
+	public static bool TryParseAtariTubeRn000fDiagnostic(
+		IReadOnlyList<string> arguments,
+		out bool enabled,
+		out string? error)
+	{
+		enabled = false;
+		error = null;
+		int optionCount = 0;
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index] != "--atari-tube-rn000f-diagnostic")
+				continue;
+			optionCount++;
+			if (index + 1 < arguments.Count &&
+				!arguments[index + 1].StartsWith("--", StringComparison.Ordinal))
+			{
+				error = "--atari-tube-rn000f-diagnostic does not take a value.";
+				return false;
+			}
+		}
+
+		if (optionCount > 1)
+		{
+			error = "--atari-tube-rn000f-diagnostic may be specified only once.";
+			return false;
+		}
+		if (optionCount == 0)
+			return true;
+		if (!TryParseAtariTubePrototype(arguments, out bool prototypeEnabled, out error))
+			return false;
+		if (!prototypeEnabled)
+		{
+			error = "--atari-tube-rn000f-diagnostic requires --atari-tube-prototype.";
+			return false;
+		}
+
+		enabled = true;
+		return true;
+	}
+
+	public static bool TryParseAtariTubeReferenceShapeDiagnostic(
+		IReadOnlyList<string> arguments,
+		out bool enabled,
+		out string? error)
+	{
+		enabled = false;
+		error = null;
+		int optionCount = 0;
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index] != "--atari-tube-reference-shape-diagnostic")
+				continue;
+			optionCount++;
+			if (index + 1 < arguments.Count &&
+				!arguments[index + 1].StartsWith("--", StringComparison.Ordinal))
+			{
+				error = "--atari-tube-reference-shape-diagnostic does not take a value.";
+				return false;
+			}
+		}
+
+		if (optionCount > 1)
+		{
+			error = "--atari-tube-reference-shape-diagnostic may be specified only once.";
+			return false;
+		}
+		if (optionCount == 0)
+			return true;
+		if (!TryParseAtariTubePrototype(arguments, out bool prototypeEnabled, out error))
+			return false;
+		if (!prototypeEnabled)
+		{
+			error = "--atari-tube-reference-shape-diagnostic requires --atari-tube-prototype.";
+			return false;
+		}
+		if (arguments.Contains("--atari-tube-rn000f-diagnostic", StringComparer.Ordinal))
+		{
+			error =
+				"--atari-tube-reference-shape-diagnostic cannot be combined with --atari-tube-rn000f-diagnostic.";
+			return false;
+		}
+
+		enabled = true;
+		return true;
+	}
+
+	public static bool TryValidateAtariTubePrototypeContext(
+		bool enabled,
+		IReadOnlyList<string> arguments,
+		bool headlessPlaybackAnalysis,
+		bool inputDiagnostic,
+		out string? error,
+		bool rn000fDiagnosticEnabled = false,
+		bool referenceShapeDiagnosticEnabled = false)
+	{
+		error = null;
+		if (rn000fDiagnosticEnabled && !enabled)
+		{
+			error = "--atari-tube-rn000f-diagnostic requires --atari-tube-prototype.";
+			return false;
+		}
+		if (referenceShapeDiagnosticEnabled && !enabled)
+		{
+			error = "--atari-tube-reference-shape-diagnostic requires --atari-tube-prototype.";
+			return false;
+		}
+		if (rn000fDiagnosticEnabled && referenceShapeDiagnosticEnabled)
+		{
+			error =
+				"--atari-tube-reference-shape-diagnostic cannot be combined with --atari-tube-rn000f-diagnostic.";
+			return false;
+		}
+		if (!enabled)
+			return true;
+		if (headlessPlaybackAnalysis)
+		{
+			error = "--atari-tube-prototype applies only to interactive Level 7 rendering, not headless playback analysis.";
+			return false;
+		}
+		if (inputDiagnostic)
+		{
+			error = "--atari-tube-prototype applies only to interactive Tempest rendering, not --input-diagnostic.";
+			return false;
+		}
+		if (!UseDirectProductionLevelStart(arguments))
+		{
+			error = "--atari-tube-prototype requires an explicit ordinary --level 7 start.";
+			return false;
+		}
+		if (!TryParseStartingLevel(arguments, out int? startingLevel, out error))
+		{
+			return false;
+		}
+		if (startingLevel != 7)
+		{
+			error = "--atari-tube-prototype is valid only with an explicit --level 7 start.";
+			return false;
+		}
+		if (HasConflictingScenarios(arguments))
+		{
+			error = "--atari-tube-prototype requires ordinary direct Level 7 gameplay and cannot be combined with another gameplay scenario.";
+			return false;
+		}
+		if (arguments.Any(option => option is
+			"--record-gameplay" or "--playback-file" or "--gameplay-playback" or
+			"--gameplay-playback-level4" or "--lives" or "--rim-speed" or
+			"--level7-spiker-speed" or "--level9-spiker-speed" or
+			"--game-over-density"))
+		{
+			error = "--atari-tube-prototype does not support gameplay recording, playback, or gameplay calibration overrides.";
+			return false;
+		}
+
+		return true;
+	}
+
+	public static bool TryValidateAtariPresentationContext(
+		bool enabled,
+		bool headlessPlaybackAnalysis,
+		bool inputDiagnostic,
+		out string? error)
+	{
+		error = null;
+		if (!enabled)
+			return true;
+		if (headlessPlaybackAnalysis)
+		{
+			error = "--atari-presentation applies only to interactive rendering, not headless playback analysis.";
+			return false;
+		}
+		if (inputDiagnostic)
+		{
+			error = "--atari-presentation applies only to interactive Tempest rendering, not --input-diagnostic.";
+			return false;
+		}
 		return true;
 	}
 
@@ -351,6 +824,21 @@ public sealed class DebugController
 	{
 		command = null;
 		error = null;
+		if (!TryParsePortraitPerspective(arguments, out _, out error))
+			return false;
+		if (!TryParseAtariPresentation(arguments, out _, out error))
+			return false;
+		if (!TryParseAtariTubePrototype(arguments, out bool tubePrototypeEnabled, out error))
+			return false;
+		if (!TryParseAtariTubeRn000fDiagnostic(arguments, out _, out error))
+			return false;
+		if (!TryParseAtariTubeReferenceShapeDiagnostic(arguments, out _, out error))
+			return false;
+		if (!TryParseLevel7VisibleRuntimeDiagnostic(arguments, out _, out error))
+			return false;
+		if (!TryParseLevel7FramebufferDiagnostic(arguments, out _, out error))
+			return false;
+
 		for (int index = 0; index < arguments.Count; index++)
 		{
 			if (arguments[index] == "--level7-spiker-match-tanker-speed")
@@ -386,6 +874,11 @@ public sealed class DebugController
 
 		if (optionIndex < 0)
 			return true;
+		if (tubePrototypeEnabled)
+		{
+			error = "--atari-tube-prototype is not supported with gameplay recording or playback.";
+			return false;
+		}
 		int pathIndex = optionIndex + 1;
 		if (pathIndex >= arguments.Count || string.IsNullOrWhiteSpace(arguments[pathIndex]) ||
 			arguments[pathIndex].StartsWith("--", StringComparison.Ordinal))
@@ -472,9 +965,9 @@ public sealed class DebugController
 				{
 					int highestLevel = LevelProgression.GetLastProductionLevel().DisplayedLevel;
 					if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture,
-						out int level) || LevelProgression.GetProductionLevel(level) is null)
+						out int level) || LevelProgression.GetDirectStartLevel(level) is null)
 					{
-						error = $"--level requires an implemented production level from 1 through {highestLevel}.";
+						error = $"--level requires an implemented production level from 1 through {highestLevel} or diagnostic Level 10.";
 						return false;
 					}
 					startingLevel = level;
@@ -503,6 +996,29 @@ public sealed class DebugController
 			}
 
 			if (option == "--speed")
+			{
+				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
+					return false;
+				continue;
+			}
+
+			if (option == "--portrait-perspective")
+			{
+				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
+					return false;
+				continue;
+			}
+			if (option == "--atari-presentation")
+				continue;
+
+			if (option == "--level7-visible-runtime-diagnostic")
+			{
+				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
+					return false;
+				continue;
+			}
+
+			if (option == "--level7-framebuffer-diagnostic")
 			{
 				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
 					return false;

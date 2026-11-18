@@ -4,6 +4,12 @@ namespace Tempest.Game.Debug;
 
 public sealed class PlaybackScreenshotCapture
 {
+	private enum CaptureKind
+	{
+		Live,
+		Playback
+	}
+
 	private readonly ApplicationPaths applicationPaths;
 	private readonly Action<string> takeScreenshot;
 	private readonly TextWriter output;
@@ -43,9 +49,7 @@ public sealed class PlaybackScreenshotCapture
 		int displayedLevel,
 		int boundary)
 	{
-		LastRequestedPath = null;
-		LastRaylibPath = null;
-		LastFileLength = null;
+		ResetLastCapture();
 		if (!IsCaptureRequested(filePlaybackActive, playbackPaused, input))
 			return false;
 
@@ -54,13 +58,29 @@ public sealed class PlaybackScreenshotCapture
 		if (boundary < 0)
 			throw new ArgumentOutOfRangeException(nameof(boundary));
 
+		return TryCaptureFile(CaptureKind.Playback, displayedLevel, boundary);
+	}
+
+	public bool TryCaptureLive(int displayedLevel, int simulationTick)
+	{
+		ResetLastCapture();
+		if (displayedLevel < 1)
+			throw new ArgumentOutOfRangeException(nameof(displayedLevel));
+		if (simulationTick < 0)
+			throw new ArgumentOutOfRangeException(nameof(simulationTick));
+
+		return TryCaptureFile(CaptureKind.Live, displayedLevel, simulationTick);
+	}
+
+	private bool TryCaptureFile(CaptureKind captureKind, int displayedLevel, int tick)
+	{
 		string? fullDestination = null;
 		string? raylibPath = null;
 		try
 		{
 			string outputDirectory = applicationPaths.ScreenshotsDirectory;
 			Directory.CreateDirectory(outputDirectory);
-			fullDestination = ReserveUniquePath(outputDirectory, displayedLevel, boundary);
+			fullDestination = ReserveUniquePath(outputDirectory, captureKind, displayedLevel, tick);
 			LastRequestedPath = fullDestination;
 			raylibPath = applicationPaths.GetRaylibRelativeScreenshotPath(fullDestination);
 			LastRaylibPath = raylibPath;
@@ -78,7 +98,7 @@ public sealed class PlaybackScreenshotCapture
 		{
 			string cleanupFailure = DeleteReservation(fullDestination);
 			error.WriteLine(
-				$"Could not capture playback screenshot. Raylib-relative path: " +
+				$"Could not capture {GetCaptureLabel(captureKind)} screenshot. Raylib-relative path: " +
 				$"{raylibPath ?? "(not generated)"}; expected full destination: " +
 				$"{fullDestination ?? "(not reserved)"}. {exception.Message}{cleanupFailure}");
 			return false;
@@ -88,13 +108,23 @@ public sealed class PlaybackScreenshotCapture
 		return true;
 	}
 
-	private static string ReserveUniquePath(string outputDirectory, int displayedLevel, int boundary)
+	private void ResetLastCapture()
 	{
+		LastRequestedPath = null;
+		LastRaylibPath = null;
+		LastFileLength = null;
+	}
+
+	private static string ReserveUniquePath(
+		string outputDirectory, CaptureKind captureKind, int displayedLevel, int tick)
+	{
+		string captureName = captureKind == CaptureKind.Live ? "live" : "playback";
+		string tickName = captureKind == CaptureKind.Live ? "tick" : "boundary";
 		string stem = FormattableString.Invariant(
-			$"playback-level-{displayedLevel}-boundary-{boundary:D6}");
+			$"{captureName}-level-{displayedLevel}-{tickName}-{tick:D6}");
 		for (int sequence = 1; ; sequence++)
 		{
-			string suffix = sequence == 1
+			string suffix = sequence == 1 && captureKind == CaptureKind.Playback
 				? string.Empty
 				: FormattableString.Invariant($"-{sequence:D3}");
 			string path = Path.Combine(outputDirectory, $"{stem}{suffix}.png");
@@ -109,6 +139,9 @@ public sealed class PlaybackScreenshotCapture
 			}
 		}
 	}
+
+	private static string GetCaptureLabel(CaptureKind captureKind) =>
+		captureKind == CaptureKind.Live ? "live gameplay" : "playback";
 
 	private static string DeleteReservation(string? path)
 	{

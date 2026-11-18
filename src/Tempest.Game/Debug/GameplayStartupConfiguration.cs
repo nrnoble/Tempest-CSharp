@@ -25,9 +25,9 @@ public sealed record GameplayStartupConfiguration
 		bool level7SpikerMatchesTankerSpeed = false,
 		float? level9SpikerSpeedOverride = null)
 	{
-		if (LevelProgression.GetProductionLevel(startingDisplayedLevel) is null)
+		if (LevelProgression.GetDirectStartLevel(startingDisplayedLevel) is null)
 			throw new ArgumentOutOfRangeException(nameof(startingDisplayedLevel),
-				"The starting level must be an implemented production level.");
+				"The starting level must be an implemented production level or diagnostic Level 10.");
 		if (startingLives <= 0)
 			throw new ArgumentOutOfRangeException(nameof(startingLives),
 				"Starting lives must be positive.");
@@ -75,7 +75,7 @@ public sealed record GameplayStartupConfiguration
 	}
 
 	public LevelConfiguration ResolveStartingConfiguration() =>
-		LevelProgression.GetProductionLevel(StartingDisplayedLevel) ??
+		LevelProgression.GetDirectStartLevel(StartingDisplayedLevel) ??
 		throw new InvalidOperationException(
-			$"Production Level {StartingDisplayedLevel} is no longer available.");
+			$"Direct-start Level {StartingDisplayedLevel} is no longer available.");
 }

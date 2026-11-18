@@ -3,7 +3,7 @@ using Tempest.Game.Systems;
 namespace Tempest.Game.Debug;
 
 /// <summary>
-/// Executes one validated production recording against the normal headless game simulation.
+/// Executes one validated production or diagnostic recording against the normal headless simulation.
 /// Boundary 0 is the restored startup state; consuming frame N produces boundary N+1.
 /// </summary>
 public sealed class GameplayPlaybackSession

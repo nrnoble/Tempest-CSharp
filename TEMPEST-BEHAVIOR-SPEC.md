@@ -2734,7 +2734,40 @@ and are not modified here.
 progression, direct `--level 9`, Level 9 recording/playback startup and
 headless playback are covered by automated tests. The Level 8→9 handoff is not
 separately manually accepted. Level 9 is the current terminal production
-level; Level 10 remains unimplemented. The optional numeric
+level; production Level 10 remains unimplemented. The later development-only
+diagnostic Level 10 presentation is specified separately below. The optional numeric
 `--level9-spiker-speed` override and its version-2 recording metadata are
 DEVELOPMENT ONLY calibration tooling; normal production stays at 2.0, and
 legacy recordings without override metadata remain compatible.
+
+## Diagnostic Level 10 Atari-presentation candidate — manually accepted (2026-11-17)
+
+**DEVELOPMENT-ONLY SCOPE:** Direct `--level 10` runs Level-7-like diagnostic
+gameplay on the recovered Rev. 2 Level 10 open shape-row-9 geometry. It is
+outside natural production progression and is not an authentic Level 10
+arcade-gameplay implementation. The terminal production campaign level remains
+Level 9.
+
+**ROM-BACKED GEOMETRY / PROJECT TRANSLATION:** Level 10 retains the recovered
+16-point open geometry and 15 playable lanes. Raw Level 10 geometry and
+presentation metadata are ROM-backed; the established raw-coordinate
+normalization, Y reflection, reciprocal projection, and final screen-space
+placement are project translations rather than direct Atari mathbox/DVG
+claims.
+
+**NEAL MANUAL ACCEPTANCE — PASS (2026-11-17):** Neal replayed the existing
+genuine-geometry Level 10 recording with `--atari-presentation` and judged its
+placement perfect and gameplay perfect. No further bug regression was
+observed, and the characteristic depth-dependent enemy slowdown defect was
+absent during that replay.
+
+**FROZEN ACCEPTED PLACEMENT:** The final Level 10 screen-space Y placement is
++50 logical pixels downward. This post-projection translation preserves the
+accepted horizontal center, model geometry, perspective/depth response, and
+tube/entity registration. It is frozen unless a future independently
+demonstrated regression requires reopening the candidate.
+
+**PRESERVED BEHAVIOR:** This closeout changes no gameplay, entity movement,
+timing, simulation state, Level 7 behavior, Levels 1-9, or production
+progression. Recording/playback continues to preserve direct diagnostic
+Level 10 startup identity in both standard and Atari-presentation modes.

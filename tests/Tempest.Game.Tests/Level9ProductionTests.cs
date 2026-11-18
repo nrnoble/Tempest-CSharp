@@ -45,6 +45,11 @@ public sealed class Level9ProductionTests
         Assert.Equal(15, definition.PlayableLaneCount);
         Assert.Equal(300, definition.CenterY);
         Assert.Equal(0, definition.YOffset);
+        RomPresentationMetadata metadata =
+            RomPresentationMetadataCatalog.ForDisplayedLevel(9);
+        Assert.Same(metadata, LevelLoader.Level9RomEvidence.PresentationMetadata);
+        Assert.Equal(13, metadata.TubeTableIndex);
+        Assert.Equal((short)320, metadata.ScreenYOffsetSigned);
         Assert.Equal(RawX, LevelLoader.Level9RomEvidence.X);
         Assert.Equal(RawY, LevelLoader.Level9RomEvidence.Y);
         Assert.Equal(RawAngles, LevelLoader.Level9RomEvidence.Angles);

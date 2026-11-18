@@ -27,9 +27,225 @@ public sealed class DebugControllerTests
     }
 
     [Theory]
+    [InlineData("-100", -100f)]
+    [InlineData("-50", -50f)]
+    [InlineData("-20", -20f)]
+    [InlineData("0", 0f)]
+    [InlineData("+20", 20f)]
+    [InlineData("+50", 50f)]
+    [InlineData("+100", 100f)]
+    public void PortraitPerspectiveAcceptsFiniteInvariantSignedValues(
+        string value, float expected)
+    {
+        Assert.True(DebugController.TryParsePortraitPerspective(
+            ["--portrait-perspective", value], out float? actual, out string? error));
+
+        Assert.Equal(expected, actual);
+        Assert.Null(error);
+    }
+
+    [Fact]
+    public void PortraitPerspectiveUsesInvariantCultureAndRejectsInvalidOrRepeatedValues()
+    {
+        System.Globalization.CultureInfo originalCulture =
+            System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture =
+                System.Globalization.CultureInfo.GetCultureInfo("fr-FR");
+            Assert.True(DebugController.TryParsePortraitPerspective(
+                ["--portrait-perspective", "1.25"], out float? parsed, out _));
+            Assert.Equal(1.25f, parsed);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = originalCulture;
+        }
+
+        string[][] invalidArguments =
+        [
+            ["--portrait-perspective"],
+            ["--portrait-perspective", "--level", "9"],
+            ["--portrait-perspective", ""],
+            ["--portrait-perspective", "not-a-number"],
+            ["--portrait-perspective", "1,25"],
+            ["--portrait-perspective", "NaN"],
+            ["--portrait-perspective", "Infinity"],
+            ["--portrait-perspective", "-Infinity"],
+            ["--portrait-perspective", "+Infinity"],
+            ["--portrait-perspective", "1e100"],
+            ["--portrait-perspective", "-1e100"],
+            ["--portrait-perspective", "1", "--portrait-perspective", "2"]
+        ];
+
+        foreach (string[] arguments in invalidArguments)
+        {
+            Assert.False(DebugController.TryParsePortraitPerspective(
+                arguments, out float? parsed, out string? error));
+            Assert.Null(parsed);
+            Assert.NotNull(error);
+        }
+    }
+
+    [Fact]
+    public void PortraitPerspectiveAcceptsTheFiniteSinglePrecisionLimits()
+    {
+        float originalPerspective = Tempest.Game.Rendering.Projection.PortraitPerspective;
+        try
+        {
+            foreach (float expected in new[] { float.MinValue, float.MaxValue })
+            {
+                string value = expected.ToString("R",
+                    System.Globalization.CultureInfo.InvariantCulture);
+                Assert.True(DebugController.TryParsePortraitPerspective(
+                    ["--portrait-perspective", value], out float? parsed, out string? error));
+                Assert.Equal(expected, parsed);
+                Assert.Null(error);
+                Tempest.Game.Rendering.Projection.PortraitPerspective = parsed!.Value;
+            }
+        }
+        finally
+        {
+            Tempest.Game.Rendering.Projection.PortraitPerspective = originalPerspective;
+        }
+    }
+
+    [Fact]
+    public void PortraitPerspectiveComposesWithRecordingAndPlaybackWithoutBecomingStartupMetadata()
+    {
+        string[] recordingArguments =
+        [
+            "--record-gameplay", "session.json", "--level", "9", "--lives", "8",
+            "--speed", "0.5", "--rim-speed", "1.5", "--portrait-perspective", "+50"
+        ];
+        Assert.True(DebugController.TryParseGameplayFileCommand(
+            recordingArguments, out GameplayFileCommand? recording, out string? recordingError));
+        Assert.Null(recordingError);
+        Assert.Equal(9, recording!.StartingDisplayedLevel);
+        Assert.Equal(8, recording.StartingLives);
+        Assert.Equal(1.5, recording.RimSpeedMultiplier);
+        Assert.True(DebugController.TryParsePortraitPerspective(
+            recordingArguments, out float? recordingPerspective, out string? recordingPerspectiveError));
+        Assert.Equal(50f, recordingPerspective);
+        Assert.Null(recordingPerspectiveError);
+
+        Assert.True(DebugController.TryParseStartingLevel(
+            ["--level", "9", "--portrait-perspective", "+50"],
+            out int? startingLevel, out string? levelError));
+        Assert.Equal(9, startingLevel);
+        Assert.Null(levelError);
+
+        Assert.True(DebugController.TryParseGameplayFileCommand(
+            ["--playback-file", "session.json", "--speed", "1.5",
+                "--portrait-perspective", "+50"],
+            out GameplayFileCommand? playback, out string? playbackError));
+        Assert.Equal(new GameplayFileCommand(GameplayFileMode.Playback, "session.json"), playback);
+        Assert.Null(playbackError);
+        Assert.True(DebugController.TryParsePortraitPerspective(
+            ["--playback-file", "session.json", "--speed", "1.5",
+                "--portrait-perspective", "+50"],
+            out float? playbackPerspective, out string? playbackPerspectiveError));
+        Assert.Equal(50f, playbackPerspective);
+        Assert.Null(playbackPerspectiveError);
+
+        Assert.False(DebugController.TryParseGameplayFileCommand(
+            ["--playback-file", "session.json", "--legacy-presentation",
+                "--portrait-perspective", "0"],
+            out _, out string? conflictError));
+        Assert.Contains("cannot be combined with --legacy-presentation", conflictError);
+    }
+
+    [Fact]
+    public void AtariPresentationIsExplicitOptInAndRejectsDuplicateMalformedOrIncompatibleOptions()
+    {
+        Assert.True(DebugController.TryParseAtariPresentation(
+            [], out bool omitted, out string? omittedError));
+        Assert.False(omitted);
+        Assert.Null(omittedError);
+
+        Assert.True(DebugController.TryParseAtariPresentation(
+            ["--atari-presentation"], out bool enabled, out string? enabledError));
+        Assert.True(enabled);
+        Assert.Null(enabledError);
+
+        string[][] invalidArguments =
+        [
+            ["--atari-presentation", "--atari-presentation"],
+            ["--atari-presentation", "unexpected-value"],
+            ["--atari-presentation", "--legacy-presentation"],
+            ["--atari-presentation", "--portrait-perspective", "0"]
+        ];
+        foreach (string[] arguments in invalidArguments)
+        {
+            Assert.False(DebugController.TryParseAtariPresentation(
+                arguments, out bool parsed, out string? error));
+            Assert.False(parsed);
+            Assert.NotNull(error);
+        }
+    }
+
+    [Fact]
+    public void AtariPresentationComposesWithInteractiveFileRecordingAndPlaybackOnly()
+    {
+        Assert.True(DebugController.TryParseGameplayFileCommand(
+            ["--record-gameplay", "session.json", "--level", "7", "--atari-presentation"],
+            out GameplayFileCommand? recording, out string? recordingError));
+        Assert.Equal(
+            new GameplayFileCommand(GameplayFileMode.Record, "session.json", 7),
+            recording);
+        Assert.Null(recordingError);
+
+        Assert.True(DebugController.TryParseGameplayFileCommand(
+            ["--atari-presentation", "--playback-file", "session.json"],
+            out GameplayFileCommand? playback, out string? playbackError));
+        Assert.Equal(new GameplayFileCommand(GameplayFileMode.Playback, "session.json"), playback);
+        Assert.Null(playbackError);
+    }
+
+    [Fact]
+    public void AtariPresentationIsRejectedForNonRenderingModes()
+    {
+        Assert.True(DebugController.TryValidateAtariPresentationContext(
+            false, headlessPlaybackAnalysis: true, inputDiagnostic: true, out _));
+        Assert.False(DebugController.TryValidateAtariPresentationContext(
+            true, headlessPlaybackAnalysis: true, inputDiagnostic: false, out string? headlessError));
+        Assert.Contains("headless playback analysis", headlessError);
+        Assert.False(DebugController.TryValidateAtariPresentationContext(
+            true, headlessPlaybackAnalysis: false, inputDiagnostic: true, out string? diagnosticError));
+        Assert.Contains("--input-diagnostic", diagnosticError);
+        Assert.True(DebugController.TryValidateAtariPresentationContext(
+            true, headlessPlaybackAnalysis: false, inputDiagnostic: false, out string? interactiveError));
+        Assert.Null(interactiveError);
+    }
+
+    [Fact]
+    public void PortraitPerspectiveDoesNotConflictWithSupportedVisiblePlaybackOrScenarios()
+    {
+        string[] compatibleModes =
+        [
+            "--gameplay-playback",
+            "--gameplay-playback-level4",
+            "--level2-test",
+            "--level6-test",
+            "--spiker-test"
+        ];
+
+        foreach (string mode in compatibleModes)
+        {
+            Assert.True(DebugController.TryParsePortraitPerspective(
+                [mode, "--portrait-perspective", "2"], out float? perspective,
+                out string? error));
+            Assert.Equal(2f, perspective);
+            Assert.Null(error);
+            Assert.False(DebugController.HasConflictingScenarios(
+                [mode, "--portrait-perspective", "2"]));
+        }
+    }
+
+    [Theory]
     [InlineData("0")]
     [InlineData("-1")]
-    [InlineData("10")]
+    [InlineData("11")]
     [InlineData("999")]
     [InlineData("not-a-number")]
     public void RejectsUnsupportedOrMalformedStartingLevels(string value)

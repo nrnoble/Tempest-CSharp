@@ -10,6 +10,9 @@ public readonly record struct PlaybackControlInput(
 	bool PauseTogglePressed, bool ForwardNavigationPressed, bool ShiftDown,
 	bool BackwardNavigationPressed = false);
 
+public readonly record struct LiveControlInput(
+	bool PauseTogglePressed, bool ScreenshotPressed);
+
 public readonly record struct PlaybackScreenshotInput(
 	bool LeftControlDown,
 	bool RightControlDown,
@@ -35,6 +38,16 @@ public sealed class InputSystem
 
 	public bool RestartPressed() => IsRestartPressed(
 		Raylib.IsKeyPressed(KeyboardKey.R), Raylib.IsKeyPressed(KeyboardKey.P));
+
+	public LiveControlInput ReadLiveControls() =>
+		CreateLiveControlInput(
+			(bool)Raylib.IsKeyPressed(KeyboardKey.F9),
+			(bool)Raylib.IsKeyPressed(KeyboardKey.F10));
+
+	public void DiscardMouseDelta()
+	{
+		_ = Raylib.GetMouseDelta();
+	}
 
 	public PlaybackControlInput ReadPlaybackControls()
 	{
@@ -74,6 +87,13 @@ public sealed class InputSystem
 
 	public static bool IsRestartPressed(bool rPressed, bool pPressed) =>
 		rPressed || pPressed;
+
+	public static LiveControlInput CreateLiveControlInput(
+		bool f9Pressed, bool f10Pressed) =>
+		new(f9Pressed, f10Pressed);
+
+	public static bool ToggleLivePause(bool isPaused, bool pauseTogglePressed) =>
+		pauseTogglePressed ? !isPaused : isPaused;
 
 	public static QuitReason? GetQuitReason(bool windowShouldClose, bool enterPressed) =>
 		windowShouldClose ? QuitReason.WindowShouldClose :
