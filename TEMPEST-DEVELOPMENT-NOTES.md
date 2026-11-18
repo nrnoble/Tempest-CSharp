@@ -4111,3 +4111,35 @@ explicitly authorized future milestone.
 **PRESERVED BEHAVIOR:** This milestone changes presentation only. Gameplay,
 simulation timing, RNG, recording/playback simulation, and entity behavior
 remain unchanged.
+
+## Blaster Atari-presentation rim orientation - manually accepted (2026-11-17)
+
+**PROJECT DECISION — MANUAL ACCEPTANCE (PASS):** During ordinary
+Atari-presentation `Playing`, the Blaster body travels around the outside of
+the visible rim. Neal accepted the outward orientation, including ordinary rim
+movement and direction changes; no further orientation adjustment is wanted.
+
+**PROJECT TRANSLATION:** The render-only correction determines the interior
+side from the projected near-to-far rails corresponding to the Blaster's rim
+edge, then selects the opposite normal for the body. The shared geometry rule
+supports closed and open tubes, reflected presentation geometry, and either
+player movement direction without per-level normal signs. It preserves the
+existing rim anchor, lane identity, movement, spinner response, highlighted
+lane, six-line artwork, size, firing, collision, and gameplay state. It is
+limited to Atari-presentation `Playing`; exit, Approach, transition, death,
+and legacy rendering are outside this correction.
+
+**BRIGHTNESS DECISION:** The temporary RGB-multiplier experiment established
+that values below 1.0 visibly reduce brightness, while values above 1.0 offer
+no useful visible improvement. No production brightness change will be
+pursued. The existing yellow Blaster color/intensity remains accepted as-is;
+the temporary `--blaster-brightness` diagnostic and its option/configuration
+surface have been removed. This is a concluded diagnostic, not a gameplay or
+presentation failure.
+
+**EVIDENCE AND PRESERVATION:** The accepted visual result is a project
+decision, and projected rail selection is its project translation; neither
+claim is ROM-backed. Gameplay position and movement are unchanged. Existing
+accepted geometry and placement, including Levels 8 (+212.28139), 9
+(+180.96825), and diagnostic Level 10 (+50), remain frozen. No Level 7
+architecture or separate Blaster-exit behavior is changed or reconsidered.

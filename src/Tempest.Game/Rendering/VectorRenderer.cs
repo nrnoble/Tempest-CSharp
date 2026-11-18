@@ -1722,8 +1722,15 @@ public sealed class VectorRenderer
 		}
 	}
 
-	private void DrawPlayer(IReadOnlyList<Vector2> points)
+	private void DrawPlayer(IReadOnlyList<Vector2> points) =>
+		DrawPlayer(points, (start, end, color) => Raylib.DrawLineV(start, end, color));
+
+	public void DrawPlayer(
+		IReadOnlyList<Vector2> points,
+		Action<Vector2, Vector2, Color> drawLine)
 	{
+		ArgumentNullException.ThrowIfNull(points);
+		ArgumentNullException.ThrowIfNull(drawLine);
 		GetPlayerEdge(points, out Vector2 p1, out Vector2 p2);
 		float dx = p2.X - p1.X;
 		float dy = p2.Y - p1.Y;
@@ -1737,31 +1744,32 @@ public sealed class VectorRenderer
 		Vector2 center = p2 - edgeVector * game.Player.EdgePosition;
 		Vector2 clawOffset = ApplyAtariLocalPresentationToOffset(
 			new Vector2(xn, yn) * clawHeight);
+		if (atariPresentationEnabled && game.State == LevelState.Playing)
+			clawOffset = GetOutwardBlasterClawOffset(points, p1, p2, clawOffset);
 		Vector2 outer1 = center + clawOffset;
 		Vector2 outer2 = center + clawOffset * .5f;
 		Vector2 left1 = p2 - edgeVector * .2f;
 		Vector2 left2 = p2 - edgeVector * .3f;
 		Vector2 right1 = p2 - edgeVector * .7f;
 		Vector2 right2 = p2 - edgeVector * .8f;
-
 		List<Vector2>? submittedCoordinates =
 			ShouldCaptureLevel7VisibleRuntime ? [] : null;
-		Raylib.DrawLineV(left1, outer1, Color.Yellow);
+		drawLine(left1, outer1, Color.Yellow);
 		submittedCoordinates?.Add(left1);
 		submittedCoordinates?.Add(outer1);
-		Raylib.DrawLineV(right1, outer1, Color.Yellow);
+		drawLine(right1, outer1, Color.Yellow);
 		submittedCoordinates?.Add(right1);
 		submittedCoordinates?.Add(outer1);
-		Raylib.DrawLineV(left1, left2, Color.Yellow);
+		drawLine(left1, left2, Color.Yellow);
 		submittedCoordinates?.Add(left1);
 		submittedCoordinates?.Add(left2);
-		Raylib.DrawLineV(right1, right2, Color.Yellow);
+		drawLine(right1, right2, Color.Yellow);
 		submittedCoordinates?.Add(right1);
 		submittedCoordinates?.Add(right2);
-		Raylib.DrawLineV(outer2, left2, Color.Yellow);
+		drawLine(outer2, left2, Color.Yellow);
 		submittedCoordinates?.Add(outer2);
 		submittedCoordinates?.Add(left2);
-		Raylib.DrawLineV(outer2, right2, Color.Yellow);
+		drawLine(outer2, right2, Color.Yellow);
 		submittedCoordinates?.Add(outer2);
 		submittedCoordinates?.Add(right2);
 
@@ -1780,6 +1788,57 @@ public sealed class VectorRenderer
 				submittedCoordinates,
 				6);
 		}
+	}
+
+	private Vector2 GetOutwardBlasterClawOffset(
+		IReadOnlyList<Vector2> points,
+		Vector2 nearStart,
+		Vector2 nearEnd,
+		Vector2 currentOffset)
+	{
+		int lane = game.Player.EdgeIndex;
+		int nextLane;
+		Vector2 farStart;
+		Vector2 farEnd;
+		if (UsesAtariLevel7PresentationCandidateForCurrentLevel)
+		{
+			int presentationLane =
+				AtariLevel7EntityPresentation.MapGameplayLaneToPresentationLane(lane);
+			nextLane = (presentationLane + 1) % AtariLevel7Presentation.FarPoints.Count;
+			farStart = AtariLevel7Presentation.FarPoints[presentationLane];
+			farEnd = AtariLevel7Presentation.FarPoints[nextLane];
+		}
+		else
+		{
+			nextLane = game.CurrentLevel.NextEdge(lane);
+			if (nextLane < 0)
+				throw new InvalidOperationException(
+					"The Blaster is not on an edge with a corresponding far rail.");
+
+			LevelConfiguration configuration = game.CurrentLevel.Configuration;
+			float farDepth = configuration.Position + configuration.Depth;
+			farStart = ProjectApproachGeometry(points[lane], farDepth);
+			farEnd = ProjectApproachGeometry(points[nextLane], farDepth);
+		}
+
+		Vector2 tangent = nearEnd - nearStart;
+		float tangentLength = tangent.Length();
+		if (!float.IsFinite(tangentLength) || tangentLength <= 0)
+			throw new InvalidOperationException("The Blaster rim edge has degenerate presentation geometry.");
+
+		// Matched near-to-far rails identify the tube interior without relying on polygon winding or closure.
+		Vector2 inward = ((farStart - nearStart) + (farEnd - nearEnd)) * .5f;
+		Vector2 normal = new(-tangent.Y / tangentLength, tangent.X / tangentLength);
+		float interiorSide = Vector2.Dot(normal, inward);
+		if (!float.IsFinite(interiorSide) || MathF.Abs(interiorSide) <= 1e-4f)
+			throw new InvalidOperationException(
+				"The Blaster rim edge has no determinable interior side from its presentation rails.");
+
+		Vector2 outwardNormal = interiorSide > 0 ? -normal : normal;
+		float currentOffsetLength = currentOffset.Length();
+		if (!float.IsFinite(currentOffsetLength))
+			throw new InvalidOperationException("The Blaster presentation offset is not finite.");
+		return outwardNormal * currentOffsetLength;
 	}
 
 	// Public (rather than private like the other player helpers) so headless tests can verify the

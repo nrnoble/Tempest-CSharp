@@ -2829,3 +2829,37 @@ regression or an explicitly authorized future milestone.
 **PRESERVED BEHAVIOR:** This milestone changes presentation only. Gameplay,
 simulation timing, RNG, recording/playback simulation, and entity behavior
 remain unchanged.
+
+## Blaster Atari-presentation rim orientation - manually accepted (2026-11-17)
+
+**PROJECT DECISION — MANUAL ACCEPTANCE (PASS):** In ordinary
+Atari-presentation `Playing`, the Blaster body stays outside the visible rim
+through ordinary rim movement and direction changes. Neal accepted this
+outward orientation and does not want another adjustment.
+
+**PROJECT TRANSLATION:** The render-only correction derives the tube-interior
+side from the projected near-to-far rails for the Blaster's current rim edge
+and chooses the opposite normal. This shared geometry method covers open and
+closed tubes, reflected presentation geometry, and movement-direction
+changes; it does not use per-level hardcoded normal signs. The correction
+preserves the rim anchor and all gameplay state/behavior, including lane
+identity, movement, spinner response, highlighted lane, firing, collision,
+and the existing six-line Blaster artwork. Its scope is Atari-presentation
+`Playing`, not exit, Approach, transition, death, or legacy rendering.
+
+**BRIGHTNESS DECISION:** The temporary RGB-multiplier experiment showed that
+values below 1.0 visibly dim the Blaster, but values above 1.0 provide no
+useful visible improvement. No brightness increase or other production
+brightness change will be pursued. The existing yellow Blaster
+color/intensity remains unchanged and accepted as-is. The temporary
+`--blaster-brightness` diagnostic and its CLI, configuration, renderer, and
+test surface are removed. This concludes a diagnostic experiment; it is not a
+gameplay or presentation failure.
+
+**EVIDENCE AND PRESERVATION:** The manually accepted C# visual result is a
+project decision, while selecting the exterior side from projected rail
+geometry is a project translation; neither is classified as ROM-backed.
+Gameplay position/movement, simulation, and recording/playback formats remain
+unchanged. Accepted Levels 8 (+212.28139), 9 (+180.96825), and diagnostic
+Level 10 (+50) placements remain frozen. Level 7 architecture and the
+separate Blaster-exit presentation defect remain outside this closeout.

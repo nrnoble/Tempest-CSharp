@@ -219,6 +219,19 @@ public sealed class DebugControllerTests
     }
 
     [Fact]
+    public void RemovedBlasterBrightnessOptionUsesNormalUnknownGameplayFileOptionBehavior()
+    {
+        Assert.False(DebugController.TryParseGameplayFileCommand(
+            ["--record-gameplay", "session.json", "--blaster-brightness", "1.5"],
+            out GameplayFileCommand? command, out string? error));
+
+        Assert.Null(command);
+        Assert.Equal(
+            "Unknown gameplay file option or argument '--blaster-brightness'.",
+            error);
+    }
+
+    [Fact]
     public void PortraitPerspectiveDoesNotConflictWithSupportedVisiblePlaybackOrScenarios()
     {
         string[] compatibleModes =
