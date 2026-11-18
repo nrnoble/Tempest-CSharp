@@ -4080,3 +4080,34 @@ Gameplay, simulation timing, RNG, recording/playback simulation, and entity
 behavior remain unchanged. The accepted diagnostic Level 10 +50 logical-pixel
 placement remains frozen; Level 7's separate presentation investigation is
 unchanged.
+
+## Level 9 Atari presentation - manually accepted (2026-11-17)
+
+**ROM-BACKED INPUT / PROJECT TRANSLATION:** Displayed Level 9 uses the
+recovered Rev. 2 geometry and existing Level 9 ROM presentation metadata.
+Displayed Level 9 selects shape row 13 with 16 ordered vertices, open topology,
+and 15 playable lanes. The existing model-frame mapping and shared tube/entity
+projection path remain in use. The recovered geometry and presentation
+metadata retain their existing ROM/Rev. 2 evidence classifications; the C#
+model-frame mapping and final placement are project translations, not Atari
+ROM constants or claims of hardware-equivalent rendering.
+
+**NEAL MANUAL ACCEPTANCE - PASS:** Neal reports that Level 9 tube
+presentation, open topology, horizontal placement, vertical placement beneath
+the HUD, Blaster/rim registration, enemy registration, player/enemy shot
+registration, along-tube motion, rim motion, and gameplay all passed manual
+testing. No regressions were observed, and nothing more needs to be changed.
+
+**FROZEN ACCEPTED PRESENTATION TRANSLATION:** The accepted final
+Level-9-specific post-projection logical Y placement is **+180.96825**. No
+horizontal correction is required. This placement uses the existing recovered
+geometry and shared tube/entity projector. Level 9 presentation is frozen:
+geometry, shape-row selection, point order, topology, lane count, projection,
+perspective, scale, horizontal and vertical placement, entity registration,
+motion presentation, gameplay timing, and gameplay mechanics are not to be
+reopened or retuned without a separately demonstrated regression or an
+explicitly authorized future milestone.
+
+**PRESERVED BEHAVIOR:** This milestone changes presentation only. Gameplay,
+simulation timing, RNG, recording/playback simulation, and entity behavior
+remain unchanged.
