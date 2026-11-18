@@ -4052,3 +4052,31 @@ slowdown investigation, or the terminal production Level 9 boundary.
 **AUTOMATED VALIDATION:** Closeout reruns the focused DiagnosticLevel10Tests,
 full regression suite, Release build, and `git diff --check`; the final
 closeout report is the authoritative record for this run's results.
+
+## Level 8 Atari presentation - manually accepted (2026-11-17)
+
+**ROM-BACKED INPUT / PROJECT TRANSLATION:** Displayed Level 8 continues to use
+the recovered Rev. 2 shape-7 geometry, tube-table index 7 metadata, and the
+existing `LevelLoader.LoadLevel8OpenTube` production geometry. Its Atari
+presentation uses the existing Level 8 model-frame mapping and shared
+projector for tube points and gameplay entity anchors. The placement is an
+engineering translation, not a ROM placement constant.
+
+**NEAL MANUAL ACCEPTANCE - PASS:** Neal reports that all Level 8
+`--atari-presentation` manual tests passed, no regressions were observed, and
+the visuals look perfect. No further Level 8 presentation work is wanted.
+
+**FROZEN ACCEPTED PRESENTATION TRANSLATION:** The accepted final logical Y
+placement is **+212.28139**, applied after projection to Level 8's projected
+points and entity anchors. It vertically centers the complete tube envelope
+in the HUD-cleared gameplay composition without an X correction. This
+Level-8-specific placement is frozen; do not retune geometry, metadata
+selection, placement, projection, scale, perspective, or entity presentation
+without a separately demonstrated regression or explicitly authorized
+milestone.
+
+**PRESERVED BEHAVIOR:** The Level 8 milestone changes presentation only.
+Gameplay, simulation timing, RNG, recording/playback simulation, and entity
+behavior remain unchanged. The accepted diagnostic Level 10 +50 logical-pixel
+placement remains frozen; Level 7's separate presentation investigation is
+unchanged.

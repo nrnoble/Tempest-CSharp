@@ -2771,3 +2771,30 @@ demonstrated regression requires reopening the candidate.
 timing, simulation state, Level 7 behavior, Levels 1-9, or production
 progression. Recording/playback continues to preserve direct diagnostic
 Level 10 startup identity in both standard and Atari-presentation modes.
+
+## Level 8 Atari presentation - manually accepted (2026-11-17)
+
+**ROM-BACKED INPUT / PROJECT TRANSLATION:** Displayed Level 8 uses the already
+recovered Rev. 2 shape-7 geometry, tube-table index 7 metadata, and the
+existing `LevelLoader.LoadLevel8OpenTube` production geometry. Atari
+presentation uses the existing Level 8 model-frame mapping and shared
+projector for the tube and gameplay entity anchors. The final placement is a
+project translation, not an Atari ROM placement constant.
+
+**NEAL MANUAL ACCEPTANCE - PASS:** Neal reports all Level 8
+`--atari-presentation` manual tests passed, no regressions were observed, and
+the visuals look perfect. No further Level 8 presentation work is wanted.
+
+**FROZEN ACCEPTED PRESENTATION TRANSLATION:** The final logical Y placement is
+**+212.28139**, applied after projection to the Level 8 tube points and entity
+anchors. It centers the complete tube envelope vertically in the
+HUD-cleared gameplay composition without an X correction. This Level-8-specific
+placement is frozen; changing it or the geometry, metadata selection,
+projection, scale, perspective, or entity presentation requires a separately
+demonstrated regression or an explicitly authorized new milestone.
+
+**PRESERVED BEHAVIOR:** This milestone changes presentation only. Gameplay,
+simulation timing, RNG, recording/playback simulation, and entity behavior
+remain unchanged. The accepted diagnostic Level 10 +50 logical-pixel
+placement remains frozen, and Level 7's separate presentation investigation
+is unchanged.

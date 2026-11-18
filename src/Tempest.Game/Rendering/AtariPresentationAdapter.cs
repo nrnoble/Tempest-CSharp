@@ -86,6 +86,8 @@ public static class AtariPresentationAdapter
 {
 	private const float AtariCenter = 128;
 	private const float LogicalCenterX = 400;
+	// PROJECT TRANSLATION: center Level 8's projected envelope in the portrait playfield below the HUD.
+	public const float Level8VerticalPlacement = 212.28139f;
 	// PROJECT TRANSLATION: diagnostic Level 10 final screen-space Y offset. Applied after
 	// projection so the existing horizontal mapping, scale, and depth response stay unchanged.
 	public const float Level10VerticalPlacement = 50;
@@ -412,6 +414,8 @@ public static class AtariPresentationAdapter
 		float screenY = baseline + yOrientation * logicalScale *
 			(metadata.ScreenYOffsetSigned +
 				ReciprocalProjection(yRawDelta, reciprocalDepth, scaleRaw));
+		if (displayedLevel == 8)
+			screenY += Level8VerticalPlacement;
 		if (displayedLevel == 10)
 			screenY += Level10VerticalPlacement;
 

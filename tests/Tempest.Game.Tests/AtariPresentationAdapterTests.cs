@@ -1493,6 +1493,8 @@ public sealed class AtariPresentationAdapterTests
 		double projectedY = baseline + orientation * lambda *
 			(metadata.ScreenYOffsetSigned +
 				256 * yDelta / (reciprocalDepth + scaleRaw));
+		if (displayedLevel == 8)
+			projectedY += AtariPresentationAdapter.Level8VerticalPlacement;
 		double localScale = lambda * 256 /
 			(unitsPerRawUnit * (reciprocalDepth + scaleRaw));
 		return (projectedX, projectedY, localScale);
