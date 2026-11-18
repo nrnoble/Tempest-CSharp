@@ -132,7 +132,9 @@ public static class AtariPresentationAdapter
 		float position,
 		float levelDepth,
 		float approachDepthOffset,
-		float approachVerticalOffset)
+		float approachVerticalOffset,
+		float? projectionK = null,
+		float? projectionZOffset = null)
 	{
 		ValidateLevel5Scale(Level5HorizontalPresentationScale,
 			nameof(Level5HorizontalPresentationScale));
@@ -143,16 +145,20 @@ public static class AtariPresentationAdapter
 		float nearDepth = position + approachDepthOffset;
 		float farDepth = position + levelDepth + approachDepthOffset;
 		float projectedYOffset = yOffset + approachVerticalOffset;
+		float k = projectionK ?? Projection.K;
+		float zOffset = projectionZOffset ?? Projection.ZOffset;
 		Vector2 projected = Projection.Project(
-			x, y, projectedDepth, centerY, projectedYOffset, nearDepth, farDepth);
+			x, y, projectedDepth, centerY, projectedYOffset, nearDepth, farDepth,
+			k, zOffset);
 		Vector2 nearAnchor = Projection.Project(
-			0, 0, nearDepth, centerY, projectedYOffset, nearDepth, farDepth);
+			0, 0, nearDepth, centerY, projectedYOffset, nearDepth, farDepth,
+			k, zOffset);
 		Vector2 presentationAnchor = nearAnchor + new Vector2(0, Level5VerticalPlacement);
 		Vector2 displacement = projected - nearAnchor;
 		Vector2 positionOnScreen = presentationAnchor + new Vector2(
 			displacement.X * Level5HorizontalPresentationScale,
 			displacement.Y * Level5VerticalPresentationScale);
-		float localScale = Projection.K / (projectedDepth + Projection.ZOffset);
+		float localScale = k / (projectedDepth + zOffset);
 		float localScaleX = localScale * Level5HorizontalPresentationScale;
 		float localScaleY = localScale * Level5VerticalPresentationScale;
 		EnsureFinite(positionOnScreen.X, "Level 5 screen X");
@@ -178,7 +184,9 @@ public static class AtariPresentationAdapter
 		float position,
 		float levelDepth,
 		float approachDepthOffset,
-		float approachVerticalOffset)
+		float approachVerticalOffset,
+		float? projectionK = null,
+		float? projectionZOffset = null)
 	{
 		ValidateLevel6Scale(Level6HorizontalPresentationScale,
 			nameof(Level6HorizontalPresentationScale));
@@ -189,17 +197,21 @@ public static class AtariPresentationAdapter
 		float nearDepth = position + approachDepthOffset;
 		float farDepth = position + levelDepth + approachDepthOffset;
 		float projectedYOffset = yOffset + approachVerticalOffset;
+		float k = projectionK ?? Projection.K;
+		float zOffset = projectionZOffset ?? Projection.ZOffset;
 		Vector2 projected = Projection.Project(
-			x, y, projectedDepth, centerY, projectedYOffset, nearDepth, farDepth);
+			x, y, projectedDepth, centerY, projectedYOffset, nearDepth, farDepth,
+			k, zOffset);
 		Vector2 nearAnchor = Projection.Project(
-			0, 0, nearDepth, centerY, projectedYOffset, nearDepth, farDepth);
+			0, 0, nearDepth, centerY, projectedYOffset, nearDepth, farDepth,
+			k, zOffset);
 		Vector2 presentationAnchor = nearAnchor + new Vector2(0, Level6VerticalPlacement);
 		Vector2 displacement = projected - nearAnchor;
 		Vector2 positionOnScreen = presentationAnchor + new Vector2(
 			displacement.X * Level6HorizontalPresentationScale,
 			displacement.Y * Level6VerticalPresentationScale);
 		// Keep screen-oriented artwork uniform; tube-oriented artwork consumes both local axes.
-		float localScale = Projection.K / (projectedDepth + Projection.ZOffset);
+		float localScale = k / (projectedDepth + zOffset);
 		float localScaleX = localScale * Level6HorizontalPresentationScale;
 		float localScaleY = localScale * Level6VerticalPresentationScale;
 		EnsureFinite(positionOnScreen.X, "Level 6 screen X");

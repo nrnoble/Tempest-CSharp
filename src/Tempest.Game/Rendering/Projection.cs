@@ -44,16 +44,20 @@ public static class Projection
         float centerY,
         float yOffset,
         float? nearDepth = null,
-        float? farDepth = null)
+        float? farDepth = null,
+        float? projectionK = null,
+        float? projectionZOffset = null)
     {
         ValidateFinite(x, nameof(x));
         ValidateFinite(y, nameof(y));
         ValidateFinite(z, nameof(z));
         ValidateFinite(centerY, nameof(centerY));
         ValidateFinite(yOffset, nameof(yOffset));
-        if (!float.IsFinite(K) || K <= 0)
+        float k = projectionK ?? K;
+        float zOffset = projectionZOffset ?? ZOffset;
+        if (!float.IsFinite(k) || k <= 0)
             throw new InvalidOperationException("Projection K must be positive and finite.");
-        if (!float.IsFinite(ZOffset))
+        if (!float.IsFinite(zOffset))
             throw new InvalidOperationException("Projection ZOffset must be finite.");
         if (nearDepth.HasValue != farDepth.HasValue)
             throw new ArgumentException("Near and far projection depths must be provided together.");
@@ -61,8 +65,8 @@ public static class Projection
             throw new InvalidOperationException(
                 "Portrait perspective projection requires active near and far depth context.");
 
-        float liveDepth = z + ZOffset;
-        float depthScale = liveDepth / K;
+        float liveDepth = z + zOffset;
+        float depthScale = liveDepth / k;
         if (!float.IsFinite(depthScale) || depthScale == 0)
             throw new ArgumentOutOfRangeException(nameof(z),
                 "The projected depth must have a finite, non-zero camera denominator.");
@@ -72,8 +76,8 @@ public static class Projection
         {
             ValidateFinite(activeNearDepth, nameof(nearDepth));
             ValidateFinite(activeFarDepth, nameof(farDepth));
-            liveNearDepth = activeNearDepth + ZOffset;
-            liveFarDepth = activeFarDepth + ZOffset;
+            liveNearDepth = activeNearDepth + zOffset;
+            liveFarDepth = activeFarDepth + zOffset;
             if (!float.IsFinite(liveNearDepth) || liveNearDepth == 0)
                 throw new ArgumentOutOfRangeException(nameof(nearDepth),
                     "The near depth must have a finite, non-zero camera denominator.");

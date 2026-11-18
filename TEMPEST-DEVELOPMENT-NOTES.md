@@ -4143,3 +4143,42 @@ claim is ROM-backed. Gameplay position and movement are unchanged. Existing
 accepted geometry and placement, including Levels 8 (+212.28139), 9
 (+180.96825), and diagnostic Level 10 (+50), remain frozen. No Level 7
 architecture or separate Blaster-exit behavior is changed or reconsidered.
+
+## Blaster Exit/Approach scale correction — manually accepted and frozen (2026-11-17)
+
+**PROJECT DECISION — MANUAL ACCEPTANCE (PASS):** Neal reports that the
+Blaster tube-exit defect is fixed on all tested levels, the previous extreme
+stretching during exit is gone, and no further work is wanted on this defect.
+
+**PROJECT TRANSLATION — ACCEPTED/FROZEN:** Shared Atari-presentation travel
+artwork uses the active adapter's local scale relative to the stable
+gameplay-rim adapter scale:
+
+```text
+BlasterHeight =
+    20
+    * CurrentAdapterLocalScale(
+        live Blaster depth,
+        active presentation offsets,
+        active K/ZOffset)
+    / StableGameplayRimAdapterLocalScale(
+        normal gameplay rim,
+        no Approach offsets,
+        baseline K=70,
+        baseline ZOffset=5)
+```
+
+Both scales use the applicable presentation adapter. The stable baseline is
+evaluated without mutating live camera state. This is a presentation correction
+for the established shared ExitZoom/Approach regression, not a claim about
+literal Atari ROM or hardware behavior.
+
+This correction is frozen. Do not retune ordinary Playing, ExitZoom, or
+Approach size; the local-scale normalization or stable baseline; exit or
+Approach camera; tube geometry or projection; or accepted level placements
+without a separately demonstrated regression or an explicitly authorized
+milestone. Gameplay and exit simulation are unchanged. The accepted ordinary
+Playing outward orientation and current yellow color/intensity remain; the
+brightness diagnostic remains removed. Accepted Level 8 (+212.28139), Level 9
+(+180.96825), and Level 10 (+50) placements remain unchanged, and Level 7
+architecture was not changed.

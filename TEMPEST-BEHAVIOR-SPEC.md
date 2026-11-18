@@ -2863,3 +2863,27 @@ Gameplay position/movement, simulation, and recording/playback formats remain
 unchanged. Accepted Levels 8 (+212.28139), 9 (+180.96825), and diagnostic
 Level 10 (+50) placements remain frozen. Level 7 architecture and the
 separate Blaster-exit presentation defect remain outside this closeout.
+
+## Blaster Exit/Approach scale correction — manually accepted and frozen (2026-11-17)
+
+**PROJECT DECISION — MANUAL ACCEPTANCE (PASS):** Neal reports that the
+Blaster tube-exit defect is fixed on all tested levels, the previous extreme
+Blaster stretching during exit is gone, and no further work is wanted on this
+defect.
+
+**PROJECT TRANSLATION — PRESENTATION ONLY:** During shared Blaster travel,
+height is the active presentation adapter's local scale at live Blaster depth
+and active presentation offsets/K/ZOffset, normalized by that adapter's scale
+at the normal gameplay rim with no Approach offsets and baseline K=70,
+ZOffset=5. The stable baseline is evaluated without mutating live camera state.
+This accepted project correction addresses the established scale regression;
+it is not asserted to be literal Atari ROM or hardware behavior.
+
+The correction is frozen. Gameplay and exit simulation are unchanged.
+Ordinary Playing orientation and the current yellow color/intensity remain
+accepted; the brightness diagnostic remains removed. Accepted Levels 8
+(+212.28139), 9 (+180.96825), and 10 (+50) placements are unchanged, and
+Level 7-specific architecture was not changed. Do not retune Blaster sizes,
+scale normalization/baseline, exit or Approach cameras, tube geometry or
+projection, or accepted level placements absent a separately demonstrated
+regression or an explicitly authorized milestone.

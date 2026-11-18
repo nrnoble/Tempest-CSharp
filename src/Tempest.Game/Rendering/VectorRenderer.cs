@@ -172,19 +172,12 @@ public sealed class VectorRenderer
 			if (UsesAtariPresentationForCurrentLevel)
 			{
 				float depth = PlayerProjectedDepth;
-				if (game.State == LevelState.Approach)
-				{
-					float baselineScale = GetAtariLocalScale(depth, 0, 0);
-					float approachScale = GetAtariLocalScale(
-						depth, ApproachDepthOffset, ApproachVerticalOffset);
-					return 20 * baselineScale / approachScale;
-				}
-				if (game.Player.Depth == Level.Depth)
+				if (game.State != LevelState.Approach &&
+					game.Player.Depth == Level.Depth)
 					return 20;
 
-				float nearScale = GetAtariLocalScale(
-					game.CurrentLevel.Configuration.Position, 0, 0);
-				return 20 * nearScale / GetAtariLocalScale(depth, 0, 0);
+				return GetStableBaselinePlayerClawHeight(
+					depth, ApproachDepthOffset, ApproachVerticalOffset);
 			}
 
 			return game.State == LevelState.Approach
@@ -294,15 +287,20 @@ public sealed class VectorRenderer
 			? GetLevel7LaneGeometry(lane, projectedDepth).LocalScale
 			: GetAtariLocalScale(projectedDepth, ApproachDepthOffset, ApproachVerticalOffset);
 
+	// Camera overrides let the stable-rim baseline use this same adapter without mutating live zoom state.
 	private AtariPresentationProjection ProjectAtariPresentation(
 		float x,
 		float y,
 		float depth,
 		float approachDepthOffset,
-		float approachVerticalOffset)
+		float approachVerticalOffset,
+		float? projectionK = null,
+		float? projectionZOffset = null)
 	{
 		LevelConfiguration configuration = game.CurrentLevel.Configuration;
 		int displayedLevel = configuration.DisplayedLevel;
+		float k = projectionK ?? Projection.K;
+		float zOffset = projectionZOffset ?? Projection.ZOffset;
 		if (displayedLevel == 5)
 		{
 			return AtariPresentationAdapter.ProjectLevel5(
@@ -314,7 +312,9 @@ public sealed class VectorRenderer
 				configuration.Position,
 				configuration.Depth,
 				approachDepthOffset,
-				approachVerticalOffset);
+				approachVerticalOffset,
+				k,
+				zOffset);
 		}
 		if (displayedLevel == 6)
 		{
@@ -327,7 +327,9 @@ public sealed class VectorRenderer
 				configuration.Position,
 				configuration.Depth,
 				approachDepthOffset,
-				approachVerticalOffset);
+				approachVerticalOffset,
+				k,
+				zOffset);
 		}
 
 		RomPresentationMetadata metadata =
@@ -344,8 +346,8 @@ public sealed class VectorRenderer
 			configuration.Depth,
 			approachDepthOffset,
 			approachVerticalOffset,
-			Projection.K,
-			Projection.ZOffset,
+			k,
+			zOffset,
 			metadata);
 	}
 
@@ -389,8 +391,43 @@ public sealed class VectorRenderer
 		!UsesAtariTubePrototypeForCurrentLevel;
 
 	// Screen-oriented artwork uses the scalar scale; tube-oriented glyphs use both Jacobian axes.
-	private float GetAtariLocalScale(float depth, float approachDepthOffset, float approachVerticalOffset) =>
-		ProjectAtariPresentation(0, 0, depth, approachDepthOffset, approachVerticalOffset).LocalScale;
+	private float GetAtariLocalScale(
+		float depth,
+		float approachDepthOffset,
+		float approachVerticalOffset,
+		float? projectionK = null,
+		float? projectionZOffset = null) =>
+		ProjectAtariPresentation(
+			0, 0, depth, approachDepthOffset, approachVerticalOffset,
+			projectionK, projectionZOffset).LocalScale;
+
+	// PROJECT TRANSLATION: travel artwork follows the active adapter Jacobian relative to the
+	// stable gameplay-rim projection. This reverses the former live-baseline ratio; Playing stays
+	// fixed at 20, and evaluating presentation scale never changes gameplay state.
+	private float GetStableBaselinePlayerClawHeight(
+		float depth,
+		float approachDepthOffset,
+		float approachVerticalOffset)
+	{
+		float currentScale = GetAtariLocalScale(
+			depth, approachDepthOffset, approachVerticalOffset);
+		float baselineScale = GetAtariLocalScale(
+			game.CurrentLevel.Configuration.Position,
+			0,
+			0,
+			Projection.PortraitPerspectiveBaselineK,
+			Projection.PortraitPerspectiveBaselineZOffset);
+		if (!float.IsFinite(currentScale) || currentScale <= 0 ||
+			!float.IsFinite(baselineScale) || baselineScale <= 0)
+			throw new InvalidOperationException(
+				"The Blaster projection scales must be positive and finite.");
+
+		float height = 20 * (currentScale / baselineScale);
+		if (!float.IsFinite(height) || height <= 0)
+			throw new InvalidOperationException(
+				"The projected Blaster height must be positive and finite.");
+		return height;
+	}
 
 	private Vector2 GetAtariLocalScaleAxes(
 		float depth, float approachDepthOffset, float approachVerticalOffset)
