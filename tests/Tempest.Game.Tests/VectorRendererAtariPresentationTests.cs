@@ -75,10 +75,6 @@ public sealed class VectorRendererAtariPresentationTests
 				game.Spikers.Count + game.Tankers.Count + game.Fuseballs.Count +
 				game.Pulsars.Count + game.EnemyBullets.Count);
 			Assert.Equal(originalPoints.Length + originalLaneCount * 2, lines.Count);
-			AtariTubeVectorList? level7Vectors = level == 7
-				? AtariTubeVectorListBuilder.Build(AtariTubeRecordCatalog.Level7Record06)
-				: null;
-
 			if (level == 1)
 			{
 				List<(Vector2 Start, Vector2 End, Color Color)> legacyLines = [];
@@ -121,13 +117,6 @@ public sealed class VectorRendererAtariPresentationTests
 						configuration, point, configuration.Position).Position;
 					expectedFar = ProjectLevel6CandidatePoint(
 						configuration, point, configuration.Position + configuration.Depth).Position;
-				}
-				else if (level7Vectors is not null)
-				{
-					expectedNear = AtariLevel7Presentation.MapNearCentered(
-						level7Vectors.NearPoints[index]);
-					expectedFar = AtariLevel7Presentation.MapFarCentered(
-						level7Vectors.FarPoints[index]);
 				}
 				else if (AtariPresentationAdapter.HasModelFrameMapping(level))
 				{

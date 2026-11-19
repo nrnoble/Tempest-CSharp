@@ -1497,6 +1497,8 @@ public sealed class AtariPresentationAdapterTests
 			projectedY += AtariPresentationAdapter.Level8VerticalPlacement;
 		if (displayedLevel == 9)
 			projectedY += AtariPresentationAdapter.Level9VerticalPlacement;
+		if (displayedLevel == 7)
+			projectedY += AtariPresentationAdapter.Level7VerticalPlacement;
 		double localScale = lambda * 256 /
 			(unitsPerRawUnit * (reciprocalDepth + scaleRaw));
 		return (projectedX, projectedY, localScale);

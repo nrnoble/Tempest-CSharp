@@ -53,7 +53,6 @@ public sealed class Level9AtariPresentationTests
 			Assert.Equal((25f / 14f, -1), AtariPresentationAdapter.GetModelFrameMapping(9));
 			Assert.Equal(50, configuration.Position);
 			Assert.Equal(400, configuration.Depth);
-			Assert.False(renderer.UsesAtariLevel7PresentationCandidateForCurrentLevel);
 
 			for (int index = 0; index < originalPoints.Length; index++)
 			{

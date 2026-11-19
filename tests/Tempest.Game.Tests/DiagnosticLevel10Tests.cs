@@ -93,7 +93,6 @@ public sealed class DiagnosticLevel10Tests
         TempestGame level10Game = new(startingProductionLevel: 10);
         TempestGame level7Game = new(startingProductionLevel: 7);
         VectorRenderer renderer = new(level10Game, atariPresentationEnabled: true);
-        VectorRenderer level7Renderer = new(level7Game, atariPresentationEnabled: true);
         LevelConfiguration configuration = LevelConfiguration.Level10Diagnostic;
         RomPresentationMetadata metadata =
             RomPresentationMetadataCatalog.ForDisplayedLevel(10);
@@ -109,8 +108,6 @@ public sealed class DiagnosticLevel10Tests
         Assert.Equal(unchecked((short)0xFF20), metadata.ScreenYOffsetSigned);
         Assert.Equal((byte)0xFF, metadata.OpenRaw);
         Assert.True(metadata.IsOpen);
-        Assert.False(renderer.UsesAtariLevel7PresentationCandidateForCurrentLevel);
-        Assert.True(level7Renderer.UsesAtariLevel7PresentationCandidateForCurrentLevel);
 
         List<(Vector2 Start, Vector2 End)> lines = [];
         renderer.DrawTube((start, end, _) => lines.Add((start, end)));
@@ -228,7 +225,6 @@ public sealed class DiagnosticLevel10Tests
                 standardPlayback.Game.CurrentLevel.Configuration);
             Assert.Same(LevelConfiguration.Level10Diagnostic,
                 atariPlayback.Game.CurrentLevel.Configuration);
-            Assert.False(atariRenderer.UsesAtariLevel7PresentationCandidateForCurrentLevel);
 
             Assert.True(standardPlayback.StepForward());
             Assert.True(atariPlayback.StepForward());

@@ -182,6 +182,26 @@ public sealed class DebugControllerTests
             Assert.False(parsed);
             Assert.NotNull(error);
         }
+
+    }
+
+    [Theory]
+    [InlineData("--atari-tube-prototype")]
+    [InlineData("--atari-tube-rn000f-diagnostic")]
+    [InlineData("--atari-tube-reference-shape-diagnostic")]
+    [InlineData("--level7-visible-runtime-diagnostic")]
+    [InlineData("--level7-framebuffer-diagnostic")]
+    public void RemovedLevel7PresentationOptionsAreRejectedInsteadOfIgnored(string option)
+    {
+        Assert.False(DebugController.TryParseAtariPresentation(
+            [option], out bool enabled, out string? error));
+        Assert.False(enabled);
+        Assert.Contains(option, error);
+        Assert.Contains("was removed", error);
+        Assert.False(DebugController.TryParseGameplayFileCommand(
+            ["--playback-file", "recording.json", option],
+            out _, out string? playbackError));
+        Assert.Contains(option, playbackError);
     }
 
     [Fact]

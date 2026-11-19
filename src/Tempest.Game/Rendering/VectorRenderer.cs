@@ -145,10 +145,6 @@ public sealed class VectorRenderer
 	private TempestGame game;
 	private readonly double gameOverDensityMultiplier;
 	private readonly bool atariPresentationEnabled;
-	private readonly bool atariTubePrototypeEnabled;
-	private readonly bool atariTubeRn000fDiagnosticEnabled;
-	private readonly bool atariTubeReferenceShapeDiagnosticEnabled;
-	private readonly Level7VisibleRuntimeDiagnostic? level7VisibleRuntimeDiagnostic;
 	private readonly ExitZoomFocalCompensation exitZoomFocalCompensation = new();
 	private readonly Func<Vector2, float, Vector2> projectFocalOpeningPoint;
 	private readonly HashSet<int> legacyFallbackLevels = [];
@@ -195,36 +191,15 @@ public sealed class VectorRenderer
 	public VectorRenderer(
 		TempestGame game,
 		double gameOverDensityMultiplier = 2.0,
-		bool atariPresentationEnabled = false,
-		bool atariTubePrototypeEnabled = false,
-		bool atariTubeRn000fDiagnosticEnabled = false,
-		bool atariTubeReferenceShapeDiagnosticEnabled = false,
-		Level7VisibleRuntimeDiagnostic? level7VisibleRuntimeDiagnostic = null)
+		bool atariPresentationEnabled = false)
 	{
 		ArgumentNullException.ThrowIfNull(game);
 		if (!double.IsFinite(gameOverDensityMultiplier) || gameOverDensityMultiplier <= 0)
 			throw new ArgumentOutOfRangeException(nameof(gameOverDensityMultiplier),
 				"The Game Over density multiplier must be a positive finite value.");
-		if (atariPresentationEnabled && atariTubePrototypeEnabled)
-			throw new ArgumentException(
-				"The Atari presentation candidate and direct Atari tube prototype are mutually exclusive.");
-		if (atariTubeRn000fDiagnosticEnabled && !atariTubePrototypeEnabled)
-			throw new ArgumentException(
-				"The conditional RN=$000F diagnostic requires the direct Atari tube prototype.");
-		if (atariTubeReferenceShapeDiagnosticEnabled && !atariTubePrototypeEnabled)
-			throw new ArgumentException(
-				"The reference-shape presentation diagnostic requires the direct Atari tube prototype.");
-		if (atariTubeReferenceShapeDiagnosticEnabled && atariTubeRn000fDiagnosticEnabled)
-			throw new ArgumentException(
-				"The reference-shape presentation and conditional RN=$000F diagnostics are mutually exclusive.");
 		this.game = game;
 		this.gameOverDensityMultiplier = gameOverDensityMultiplier;
 		this.atariPresentationEnabled = atariPresentationEnabled;
-		this.atariTubePrototypeEnabled = atariTubePrototypeEnabled;
-		this.atariTubeRn000fDiagnosticEnabled = atariTubeRn000fDiagnosticEnabled;
-		this.atariTubeReferenceShapeDiagnosticEnabled =
-			atariTubeReferenceShapeDiagnosticEnabled;
-		this.level7VisibleRuntimeDiagnostic = level7VisibleRuntimeDiagnostic;
 		projectFocalOpeningPoint = ProjectFocalOpeningPoint;
 	}
 
@@ -237,7 +212,7 @@ public sealed class VectorRenderer
 	private Vector2 ProjectApproachGeometry(Vector2 point, float depth) =>
 		ProjectWorldPoint(point.X, point.Y, depth);
 
-	// All world anchors share the active tube interval; Approach shifts the point and both ends.
+	// Tube vertices and entity anchors share this projector; Level 7 uses its production definition.
 	private Vector2 ProjectWorldPoint(float x, float y, float depth)
 	{
 		Vector2 mappedPoint = ProjectWorldPointWithoutExitCompensation(x, y, depth);
@@ -304,18 +279,6 @@ public sealed class VectorRenderer
 			configuration.Position + approachOffset,
 			configuration.Position + configuration.Depth + approachOffset);
 	}
-
-	private AtariLevel7LaneGeometry GetLevel7LaneGeometry(int lane, float projectedDepth)
-	{
-		LevelConfiguration configuration = game.CurrentLevel.Configuration;
-		return AtariLevel7EntityPresentation.MapLaneAtProjectedDepth(
-			lane, projectedDepth, configuration.Position, configuration.Depth);
-	}
-
-	private float GetLanePresentationScale(int lane, float projectedDepth) =>
-		UsesAtariLevel7PresentationCandidateForCurrentLevel
-			? GetLevel7LaneGeometry(lane, projectedDepth).LocalScale
-			: GetAtariLocalScale(projectedDepth, ApproachDepthOffset, ApproachVerticalOffset);
 
 	// Camera overrides let the stable-rim baseline use this same adapter without mutating live zoom state.
 	private AtariPresentationProjection ProjectAtariPresentation(
@@ -394,32 +357,6 @@ public sealed class VectorRenderer
 		game.State is LevelState.GameOver or LevelState.GameOverPresentation or
 			LevelState.GameOverAnimation;
 
-	public bool UsesAtariTubePrototypeForCurrentLevel =>
-		atariTubePrototypeEnabled &&
-		game.CurrentLevel.Configuration.DisplayedLevel == 7 &&
-		game.State == LevelState.Playing;
-
-	public bool UsesAtariTubeRn000fDiagnosticForCurrentLevel =>
-		atariTubeRn000fDiagnosticEnabled && UsesAtariTubePrototypeForCurrentLevel;
-
-	public bool UsesAtariTubeReferenceShapeDiagnosticForCurrentLevel =>
-		atariTubeReferenceShapeDiagnosticEnabled && UsesAtariTubePrototypeForCurrentLevel;
-
-	// This record-06 entity/tube path is exclusive to production Level 7.
-	public bool UsesAtariLevel7PresentationCandidateForCurrentLevel =>
-		atariPresentationEnabled &&
-		game.CurrentLevel.Configuration.DisplayedLevel == 7 &&
-		game.State == LevelState.Playing;
-
-	private bool IsGameOverRenderState =>
-		game.State is LevelState.GameOver or LevelState.GameOverPresentation or
-			LevelState.GameOverAnimation;
-
-	public bool HasUnsupportedAtariTubePrototypeState =>
-		atariTubePrototypeEnabled &&
-		!IsGameOverRenderState &&
-		!UsesAtariTubePrototypeForCurrentLevel;
-
 	// Screen-oriented artwork uses the scalar scale; tube-oriented glyphs use both Jacobian axes.
 	private float GetAtariLocalScale(
 		float depth,
@@ -493,12 +430,7 @@ public sealed class VectorRenderer
 	{
 		if (atariPresentationEnabled && presentationMode != PresentationMode.ExperimentalPortrait)
 			throw new InvalidOperationException("The Atari presentation candidate is portrait-only.");
-		if (atariTubePrototypeEnabled && presentationMode != PresentationMode.ExperimentalPortrait)
-			throw new InvalidOperationException("The direct Atari tube prototype is portrait-only.");
-
 		bool experimentalPortrait = presentationMode == PresentationMode.ExperimentalPortrait;
-		bool atariTubePrototypePresentation =
-			atariTubePrototypeEnabled && !IsGameOverRenderState;
 		Raylib.BeginDrawing();
 		Raylib.ClearBackground(Color.Black);
 		if (experimentalPortrait)
@@ -507,31 +439,7 @@ public sealed class VectorRenderer
 				0,
 				DisplayConfiguration.PortraitViewportWidth,
 				DisplayConfiguration.PortraitViewportHeight);
-		Raylib.BeginMode2D(atariTubePrototypePresentation
-			? DisplayConfiguration.ExperimentalPortraitHudCamera
-			: DisplayConfiguration.GetPlayfieldCamera(presentationMode));
-
-		if (atariTubePrototypePresentation)
-		{
-			if (UsesAtariTubePrototypeForCurrentLevel)
-				DrawAtariTubePrototype(
-					(start, end) => Raylib.DrawLineV(start, end, Color.Blue),
-					UsesAtariTubeRn000fDiagnosticForCurrentLevel,
-					UsesAtariTubeReferenceShapeDiagnosticForCurrentLevel);
-			else
-				DrawAtariTubePrototypeUnavailable();
-
-			Raylib.EndMode2D();
-			if (experimentalPortrait)
-			{
-				Raylib.EndScissorMode();
-				DrawPortraitOverlays(playbackStatus);
-				DrawPortraitViewportBorder();
-			}
-			beforeEndDrawing?.Invoke();
-			Raylib.EndDrawing();
-			return;
-		}
+		Raylib.BeginMode2D(DisplayConfiguration.GetPlayfieldCamera(presentationMode));
 
 		if (game.State == LevelState.GameOverAnimation)
 		{
@@ -831,31 +739,14 @@ public sealed class VectorRenderer
 			Vector2 farStart;
 			Vector2 nearEnd;
 			Vector2 farEnd;
-			if (UsesAtariLevel7PresentationCandidateForCurrentLevel)
-			{
-				int presentationLane =
-					AtariLevel7EntityPresentation.MapGameplayLaneToPresentationLane(
-						pulsar.EdgeIndex);
-				AtariLevel7LaneGeometry near = GetLevel7LaneGeometry(
-					presentationLane, configuration.Position);
-				AtariLevel7LaneGeometry far = GetLevel7LaneGeometry(
-					presentationLane, configuration.Position + configuration.Depth);
-				nearStart = near.Start;
-				nearEnd = near.End;
-				farStart = far.Start;
-				farEnd = far.End;
-			}
-			else
-			{
-				nearStart = ProjectWorldPoint(points[pulsar.EdgeIndex].X,
-					points[pulsar.EdgeIndex].Y, configuration.Position);
-				farStart = ProjectWorldPoint(points[pulsar.EdgeIndex].X,
-					points[pulsar.EdgeIndex].Y, configuration.Position + configuration.Depth);
-				nearEnd = ProjectWorldPoint(points[next].X, points[next].Y,
-					configuration.Position);
-				farEnd = ProjectWorldPoint(points[next].X, points[next].Y,
-					configuration.Position + configuration.Depth);
-			}
+			nearStart = ProjectWorldPoint(points[pulsar.EdgeIndex].X,
+				points[pulsar.EdgeIndex].Y, configuration.Position);
+			farStart = ProjectWorldPoint(points[pulsar.EdgeIndex].X,
+				points[pulsar.EdgeIndex].Y, configuration.Position + configuration.Depth);
+			nearEnd = ProjectWorldPoint(points[next].X, points[next].Y,
+				configuration.Position);
+			farEnd = ProjectWorldPoint(points[next].X, points[next].Y,
+				configuration.Position + configuration.Depth);
 
 			drawLine(nearStart, farStart, color);
 			drawLine(nearEnd, farEnd, color);
@@ -883,9 +774,7 @@ public sealed class VectorRenderer
 
 			float projectedDepth = ProjectEnemyDepth(effect.Height);
 			Vector2 center = ProjectLane(effect.EdgeIndex, projectedDepth);
-			float scale = UsesAtariLevel7PresentationCandidateForCurrentLevel
-				? GetLanePresentationScale(effect.EdgeIndex, projectedDepth)
-				: UsesAtariPresentationForCurrentLevel
+			float scale = UsesAtariPresentationForCurrentLevel
 				? GetAtariLocalScale(projectedDepth, ApproachDepthOffset, ApproachVerticalOffset)
 				: 1 / ((projectedDepth + Projection.ZOffset) / Projection.K);
 			Vector2 pen = Vector2.Zero;
@@ -1018,21 +907,7 @@ public sealed class VectorRenderer
 		{
 			Vector2 center = ProjectTankerCenter(tanker);
 			float depth = ProjectEnemyDepth(tanker.Height);
-			List<Vector2>? submittedCoordinates =
-				ShouldCaptureLevel7VisibleRuntime ? [] : null;
-			Action<Vector2, Vector2> submitLine = drawLine;
-			if (submittedCoordinates is not null)
-			{
-				submitLine = (start, end) =>
-				{
-					drawLine(start, end);
-					submittedCoordinates.Add(start);
-					submittedCoordinates.Add(end);
-				};
-			}
-			Vector2 scale = UsesAtariLevel7PresentationCandidateForCurrentLevel
-				? new Vector2(26 * GetLanePresentationScale(tanker.EdgeIndex, depth) + 1)
-				: UsesAtariPresentationForCurrentLevel
+			Vector2 scale = UsesAtariPresentationForCurrentLevel
 				? 26 * GetAtariLocalScaleAxes(
 					depth, ApproachDepthOffset, ApproachVerticalOffset) + Vector2.One
 				: new Vector2(26 / ((depth + Projection.ZOffset) / Projection.K) + 1);
@@ -1046,37 +921,22 @@ public sealed class VectorRenderer
 			Vector2 leftThird = center + new Vector2(-third.X, 0);
 			Vector2 rightThird = center + new Vector2(third.X, 0);
 
-			submitLine(topThird, left);
-			submitLine(top, rightThird);
-			submitLine(bottom, leftThird);
-			submitLine(bottomThird, right);
-			submitLine(bottom, right);
-			submitLine(bottom, left);
-			submitLine(top, right);
-			submitLine(top, left);
-			submitLine(bottomThird, rightThird);
-			submitLine(bottomThird, leftThird);
-			submitLine(topThird, rightThird);
-			submitLine(topThird, leftThird);
-			submitLine(bottomThird, center);
-			submitLine(topThird, center);
-			submitLine(rightThird, center + new Vector2(scale.X, 0));
-			submitLine(leftThird, center + new Vector2(-scale.X, 0));
-
-			if (submittedCoordinates is not null)
-			{
-				CaptureVisibleRuntimeEntity(
-					tanker,
-					"tanker",
-					tanker.State.ToString(),
-					tanker.EdgeIndex,
-					tanker.Height,
-					depth,
-					center,
-					scale.X,
-					submittedCoordinates,
-					16);
-			}
+			drawLine(topThird, left);
+			drawLine(top, rightThird);
+			drawLine(bottom, leftThird);
+			drawLine(bottomThird, right);
+			drawLine(bottom, right);
+			drawLine(bottom, left);
+			drawLine(top, right);
+			drawLine(top, left);
+			drawLine(bottomThird, rightThird);
+			drawLine(bottomThird, leftThird);
+			drawLine(topThird, rightThird);
+			drawLine(topThird, leftThird);
+			drawLine(bottomThird, center);
+			drawLine(topThird, center);
+			drawLine(rightThird, center + new Vector2(scale.X, 0));
+			drawLine(leftThird, center + new Vector2(-scale.X, 0));
 		}
 	}
 
@@ -1118,29 +978,8 @@ public sealed class VectorRenderer
 			Vector2 center = ProjectEnemyBullet(bullet);
 			LevelConfiguration configuration = game.CurrentLevel.Configuration;
 			float projectedDepth = configuration.Position + configuration.Depth - bullet.Height;
-			List<Vector2>? submittedCoordinates =
-				ShouldCaptureLevel7VisibleRuntime ? [] : null;
-			Action<Vector2, Vector2, Color> submitLine = drawLine;
-			Action<Vector2, Color> submitPoint = drawPoint;
-			if (submittedCoordinates is not null)
-			{
-				submitLine = (start, end, color) =>
-				{
-					drawLine(start, end, color);
-					submittedCoordinates.Add(start);
-					submittedCoordinates.Add(end);
-				};
-				submitPoint = (point, color) =>
-				{
-					drawPoint(point, color);
-					submittedCoordinates.Add(point);
-				};
-			}
 			// PROJECT TRANSLATION: normalize logical ROM units to the prior compact shot scale.
-			float coordinateScale = UsesAtariLevel7PresentationCandidateForCurrentLevel
-				? 6 * GetLanePresentationScale(bullet.EdgeIndex, projectedDepth) /
-					EnemyShotVectorProgram.MaximumLogicalExtent
-				: UsesAtariPresentationForCurrentLevel
+			float coordinateScale = UsesAtariPresentationForCurrentLevel
 				? 6 * GetAtariLocalScale(
 					projectedDepth, ApproachDepthOffset, ApproachVerticalOffset) /
 					EnemyShotVectorProgram.MaximumLogicalExtent
@@ -1151,27 +990,12 @@ public sealed class VectorRenderer
 				// ROM coordinates are Y-up; the projected screen coordinate system is Y-down.
 				Vector2 start = center + new Vector2(segment.Start.X, -segment.Start.Y) * coordinateScale;
 				Vector2 end = center + new Vector2(segment.End.X, -segment.End.Y) * coordinateScale;
-				submitLine(start, end, Color.White);
+				drawLine(start, end, Color.White);
 			}
 
 			// PROJECT TRANSLATION: a zero-displacement ROM draw is represented by one visible pixel.
 			foreach (Vector2 point in frame.Points)
-				submitPoint(center + new Vector2(point.X, -point.Y) * coordinateScale, Color.White);
-
-			if (submittedCoordinates is not null)
-			{
-				CaptureVisibleRuntimeEntity(
-					bullet,
-					"enemyBullet",
-					"Traveling",
-					bullet.EdgeIndex,
-					bullet.Height,
-					projectedDepth,
-					center,
-					coordinateScale,
-					submittedCoordinates,
-					frame.Segments.Count + frame.Points.Count);
-			}
+				drawPoint(center + new Vector2(point.X, -point.Y) * coordinateScale, Color.White);
 		}
 	}
 
@@ -1179,12 +1003,6 @@ public sealed class VectorRenderer
 	// Shared by every entity that renders centered on a lane rather than on a tube edge line.
 	private Vector2 ProjectLane(int lane, float depth)
 	{
-		if (UsesAtariLevel7PresentationCandidateForCurrentLevel)
-		{
-			AtariLevel7LaneGeometry geometry = GetLevel7LaneGeometry(lane, depth);
-			return geometry.Center;
-		}
-
 		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
 		Vector2 midpoint = (points[lane] + points[NextEdge(lane, points.Count)]) / 2;
 		return ProjectApproachGeometry(midpoint, depth);
@@ -1216,21 +1034,7 @@ public sealed class VectorRenderer
 		{
 			float depth = ProjectEnemyDepth(spiker.Height);
 			Vector2 center = ProjectLane(spiker.EdgeIndex, depth);
-			List<Vector2>? submittedCoordinates =
-				ShouldCaptureLevel7VisibleRuntime ? [] : null;
-			Action<Vector2, Vector2> submitLine = drawLine;
-			if (submittedCoordinates is not null)
-			{
-				submitLine = (start, end) =>
-				{
-					drawLine(start, end);
-					submittedCoordinates.Add(start);
-					submittedCoordinates.Add(end);
-				};
-			}
-			Vector2 scale = UsesAtariLevel7PresentationCandidateForCurrentLevel
-				? new Vector2(22 * GetLanePresentationScale(spiker.EdgeIndex, depth) + 2)
-				: UsesAtariPresentationForCurrentLevel
+			Vector2 scale = UsesAtariPresentationForCurrentLevel
 				? 22 * GetAtariLocalScaleAxes(
 					depth, ApproachDepthOffset, ApproachVerticalOffset) + new Vector2(2)
 				: new Vector2(22 / ((depth + Projection.ZOffset) / Projection.K) + 2);
@@ -1240,27 +1044,12 @@ public sealed class VectorRenderer
 				float angle2 = (spiker.Rotation + (segment + 1) * 60) * MathF.PI / 180;
 				Vector2 first = new(MathF.Sin(angle1), MathF.Cos(angle1));
 				Vector2 second = new(MathF.Sin(angle2), MathF.Cos(angle2));
-				submitLine(center + new Vector2(
+				drawLine(center + new Vector2(
 					first.X * segment * scale.X / 16,
 					first.Y * segment * scale.Y / 16),
 					center + new Vector2(
 						second.X * (segment + 1) * scale.X / 16,
 						second.Y * (segment + 1) * scale.Y / 16));
-			}
-			if (submittedCoordinates is not null)
-			{
-				CaptureVisibleRuntimeEntity(
-					spiker,
-					"spiker",
-					spiker.State.ToString(),
-					spiker.EdgeIndex,
-					spiker.Height,
-					depth,
-					center,
-					scale.X,
-					submittedCoordinates,
-					14,
-					spiker.Rotation);
 			}
 		}
 	}
@@ -1284,28 +1073,6 @@ public sealed class VectorRenderer
 			Vector2 anchor = ProjectEgg(egg);
 			Vector2 topLeft = anchor - Vector2.One;
 			drawPoint(topLeft, size);
-			if (ShouldCaptureLevel7VisibleRuntime)
-			{
-				LevelConfiguration configuration = game.CurrentLevel.Configuration;
-				float projectedDepth = configuration.Position + configuration.Depth -
-					egg.Height * 20;
-				CaptureVisibleRuntimeEntity(
-					egg,
-					"egg",
-					egg.State.ToString(),
-					egg.EdgeIndex,
-					egg.Height,
-					projectedDepth,
-					anchor,
-					EggPointSize,
-					[
-						topLeft,
-						new(topLeft.X + size.X, topLeft.Y),
-						new(topLeft.X + size.X, topLeft.Y + size.Y),
-						new(topLeft.X, topLeft.Y + size.Y)
-					],
-					1);
-			}
 		}
 	}
 
@@ -1344,21 +1111,6 @@ public sealed class VectorRenderer
 
 	public void DrawTube(Action<Vector2, Vector2, Color> drawLine)
 	{
-		if (UsesAtariLevel7PresentationCandidateForCurrentLevel)
-		{
-			DrawAtariLevel7PresentationTube(drawLine);
-			return;
-		}
-
-		if (UsesAtariTubePrototypeForCurrentLevel)
-		{
-			DrawAtariTubePrototype(
-				(start, end) => drawLine(start, end, Color.Blue),
-				UsesAtariTubeRn000fDiagnosticForCurrentLevel,
-				UsesAtariTubeReferenceShapeDiagnosticForCurrentLevel);
-			return;
-		}
-
 		IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
 		Vector2[] nearRim = new Vector2[points.Count];
 		Vector2[] farRim = new Vector2[points.Count];
@@ -1396,103 +1148,6 @@ public sealed class VectorRenderer
 		}
 	}
 
-	private void DrawAtariLevel7PresentationTube(Action<Vector2, Vector2, Color> drawLine)
-	{
-		IReadOnlyList<Vector2> near = AtariLevel7Presentation.NearPoints;
-		IReadOnlyList<Vector2> far = AtariLevel7Presentation.FarPoints;
-		Color tubeColor = Color.Blue;
-		Color railColor = ResolveSuperZapperRailColor();
-		int playerLane =
-			AtariLevel7EntityPresentation.MapGameplayLaneToPresentationLane(
-				game.Player.EdgeIndex);
-		int nextPlayerLaneBoundary =
-			AtariLevel7EntityPresentation.MapGameplayLaneToPresentationLane(
-				game.CurrentLevel.NextEdge(game.Player.EdgeIndex));
-		bool highlightPlayerLane = ShouldHighlightPlayerLane;
-		Color playerLaneColor = highlightPlayerLane ? ResolvePlayerLaneColor() : tubeColor;
-
-		for (int index = 0; index < near.Count; index++)
-		{
-			bool playerLaneBoundary = highlightPlayerLane &&
-				(index == playerLane || index == nextPlayerLaneBoundary);
-			drawLine(near[index], far[index],
-				playerLaneBoundary ? playerLaneColor : railColor);
-		}
-
-		for (int index = 0; index < near.Count; index++)
-		{
-			int next = (index + 1) % near.Count;
-			if (!IsPulsingLane(index))
-				drawLine(near[index], near[next], tubeColor);
-			drawLine(far[index], far[next], tubeColor);
-		}
-	}
-
-	private static void DrawAtariTubePrototype(
-		Action<Vector2, Vector2> drawLine,
-		bool useRn000fDiagnostic,
-		bool useReferenceShapeDiagnostic)
-	{
-		AtariTubeVectorList vectors =
-			AtariTubeVectorListBuilder.Build(
-				AtariTubeRecordCatalog.Level7Record06, useRn000fDiagnostic);
-		if (useReferenceShapeDiagnostic)
-		{
-			DrawAtariTubeReferenceShapeDiagnostic(vectors, drawLine);
-			return;
-		}
-
-		AtariDvgViewportMap viewport = AtariDvgViewportMap.DevelopmentOnlyProvisional;
-
-		foreach (AtariTubeVectorSegment rail in vectors.Rails)
-			drawLine(viewport.Map(rail.Start), viewport.Map(rail.End));
-		foreach (AtariTubeVectorSegment edge in vectors.NearRim)
-			drawLine(viewport.Map(edge.Start), viewport.Map(edge.End));
-		foreach (AtariTubeVectorSegment edge in vectors.FarRim)
-			drawLine(viewport.Map(edge.Start), viewport.Map(edge.End));
-	}
-
-	private static void DrawAtariTubeReferenceShapeDiagnostic(
-		AtariTubeVectorList vectors,
-		Action<Vector2, Vector2> drawLine)
-	{
-		Vector2[] near = vectors.NearPoints
-			.Select(AtariLevel7Presentation.MapNear)
-			.ToArray();
-		Vector2[] far = vectors.FarPoints
-			.Select(AtariLevel7Presentation.MapFar)
-			.ToArray();
-
-		for (int index = 0; index < vectors.Rails.Count; index++)
-			drawLine(near[index], far[index]);
-
-		for (int index = 0; index < vectors.NearRim.Count; index++)
-		{
-			int next = (index + 1) % near.Length;
-			drawLine(near[index], near[next]);
-		}
-
-		for (int index = 0; index < vectors.FarRim.Count; index++)
-		{
-			int next = (index + 1) % far.Length;
-			drawLine(far[index], far[next]);
-		}
-	}
-
-	private void DrawAtariTubePrototypeUnavailable()
-	{
-		string message =
-			$"DEVELOPMENT ONLY - Atari record-06 wireframe unavailable for Level " +
-			$"{game.CurrentLevel.Configuration.DisplayedLevel} in state {game.State}.";
-		Raylib.DrawTextEx(
-			Raylib.GetFontDefault(),
-			message,
-			new Vector2(30, DisplayConfiguration.PortraitLogicalHeight / 2f),
-			18,
-			1,
-			Color.Yellow);
-	}
-
 	// The ROM picture is static; only its external lane/depth projection and scale vary per shot.
 	private void DrawPlayerShots(IReadOnlyList<Vector2> points)
 	{
@@ -1514,16 +1169,12 @@ public sealed class VectorRenderer
 			Vector2 center = ProjectShot(shot, points);
 			float projectedDepth = game.CurrentLevel.Configuration.Depth - shot.Height +
 				game.CurrentLevel.Configuration.Position;
-			float scale = UsesAtariLevel7PresentationCandidateForCurrentLevel
-				? PlayerShotBaseSize * GetLanePresentationScale(shot.EdgeIndex, projectedDepth)
-				: UsesAtariPresentationForCurrentLevel
+			float scale = UsesAtariPresentationForCurrentLevel
 				? PlayerShotBaseSize * GetAtariLocalScale(
 					projectedDepth, ApproachDepthOffset, ApproachVerticalOffset)
 				: PlayerShotBaseSize /
 					((projectedDepth + Projection.ZOffset) / Projection.K);
 			float coordinateScale = scale / PlayerShotVectorProgram.MaximumPointRadius;
-			List<Vector2>? submittedCoordinates =
-				ShouldCaptureLevel7VisibleRuntime ? [] : null;
 			foreach (PlayerShotVectorPointGroup group in PlayerShotVectorProgram.Groups)
 			{
 				foreach (Vector2 point in group.Points)
@@ -1532,23 +1183,7 @@ public sealed class VectorRenderer
 					Vector2 screenOffset = new Vector2(point.X, -point.Y) * coordinateScale;
 					Vector2 submittedPoint = center + screenOffset;
 					drawPoint(submittedPoint, group.ProjectColor);
-					submittedCoordinates?.Add(submittedPoint);
 				}
-			}
-
-			if (submittedCoordinates is not null)
-			{
-				CaptureVisibleRuntimeEntity(
-					shot,
-					"playerShot",
-					"Traveling",
-					shot.EdgeIndex,
-					shot.Height,
-					projectedDepth,
-					center,
-					coordinateScale,
-					submittedCoordinates,
-					submittedCoordinates.Count);
 			}
 		}
 	}
@@ -1563,9 +1198,6 @@ public sealed class VectorRenderer
 	{
 		float projectedDepth = game.CurrentLevel.Configuration.Depth - shot.Height +
 			game.CurrentLevel.Configuration.Position;
-		if (UsesAtariLevel7PresentationCandidateForCurrentLevel)
-			return ProjectLane(shot.EdgeIndex, projectedDepth);
-
 		int next = NextEdge(shot.EdgeIndex, points.Count);
 		Vector2 midpoint = (points[shot.EdgeIndex] + points[next]) / 2;
 		return ProjectWorldPoint(midpoint.X, midpoint.Y, projectedDepth);
@@ -1581,40 +1213,7 @@ public sealed class VectorRenderer
 	{
 		float projectedDepth = ProjectEnemyDepth(flipper.Height);
 		(Vector2 p1, Vector2 p2) = ProjectFlipperEndpoints(flipper, points, projectedDepth);
-		int lane = flipper.State == FlipperState.Flipping
-			? flipper.SourceEdge
-			: flipper.EdgeIndex;
-		float localScale = UsesAtariLevel7PresentationCandidateForCurrentLevel
-			? GetLanePresentationScale(lane, projectedDepth)
-			: 0;
-		List<Vector2>? submittedCoordinates =
-			ShouldCaptureLevel7VisibleRuntime ? [] : null;
-		Action<Vector2, Vector2>? submitLine = submittedCoordinates is null
-			? null
-			: (start, end) =>
-			{
-				Raylib.DrawLineV(start, end, Color.Red);
-				submittedCoordinates.Add(start);
-				submittedCoordinates.Add(end);
-			};
-		DrawFlipperShape(p1, p2, projectedDepth, localScale, submitLine);
-		if (submittedCoordinates is not null)
-		{
-			Vector2 anchor = (p1 + p2) / 2;
-			CaptureVisibleRuntimeEntity(
-				flipper,
-				"flipper",
-				flipper.State.ToString(),
-				flipper.EdgeIndex,
-				flipper.Height,
-				projectedDepth,
-				anchor,
-				UsesAtariLevel7PresentationCandidateForCurrentLevel
-					? 20 * localScale
-					: null,
-				submittedCoordinates,
-				6);
-		}
+		DrawFlipperShape(p1, p2, projectedDepth);
 	}
 
 	public (Vector2 Start, Vector2 End) ProjectFlipperEndpoints(Flipper flipper)
@@ -1636,81 +1235,9 @@ public sealed class VectorRenderer
 				configuration.Position, configuration.Position + 2 * configuration.Depth);
 	}
 
-	private bool ShouldCaptureLevel7VisibleRuntime =>
-		level7VisibleRuntimeDiagnostic is { ShouldCaptureEntityGeometry: true } &&
-		game.CurrentLevel.Configuration.DisplayedLevel == 7 &&
-		game.State == LevelState.Playing;
-
-	private void CaptureVisibleRuntimeEntity(
-		object identity,
-		string entityType,
-		string entityState,
-		int lane,
-		float height,
-		float projectedDepth,
-		Vector2 rendererAnchor,
-		float? glyphScale,
-		IReadOnlyList<Vector2> submittedCoordinates,
-		int submittedPrimitiveCount,
-		float? rotationDegrees = null)
-	{
-		bool atariLevel7Presentation =
-			UsesAtariLevel7PresentationCandidateForCurrentLevel;
-		float? normalizedDepth = null;
-		Vector2? mappedAnchor = null;
-		float? localPresentationScale = null;
-		if (atariLevel7Presentation)
-		{
-			LevelConfiguration configuration = game.CurrentLevel.Configuration;
-			normalizedDepth = AtariLevel7EntityPresentation.NormalizeDepth(
-				projectedDepth, configuration.Position, configuration.Depth);
-			mappedAnchor = rendererAnchor;
-			localPresentationScale = GetLanePresentationScale(lane, projectedDepth);
-		}
-
-		level7VisibleRuntimeDiagnostic!.CaptureEntity(
-			identity,
-			entityType,
-			entityState,
-			lane,
-			height,
-			projectedDepth,
-			rendererAnchor,
-			normalizedDepth,
-			mappedAnchor,
-			localPresentationScale,
-			glyphScale,
-			submittedCoordinates,
-			submittedPrimitiveCount,
-			rotationDegrees);
-	}
-
 	private (Vector2 Start, Vector2 End) ProjectFlipperEndpoints(
 		Flipper flipper, IReadOnlyList<Vector2> points, float projectedDepth)
 	{
-		if (UsesAtariLevel7PresentationCandidateForCurrentLevel)
-		{
-			float normalizedDepth = AtariLevel7EntityPresentation.NormalizeDepth(
-				projectedDepth,
-				game.CurrentLevel.Configuration.Position,
-				game.CurrentLevel.Configuration.Depth);
-			if (flipper.State == FlipperState.Flipping)
-			{
-				DirectedLaneTransition transition = flipper.ActiveTransition ??
-					throw new InvalidOperationException(
-						"A rendered Flipper pivot requires an active transition.");
-				float progress = flipper.TotalTurnAngle <= 0
-					? 1
-					: Math.Clamp(flipper.TurnAngle / flipper.TotalTurnAngle, 0, 1);
-				return AtariLevel7EntityPresentation.MapFlipperTransition(
-					transition, progress, normalizedDepth);
-			}
-
-			AtariLevel7LaneGeometry lane =
-				GetLevel7LaneGeometry(flipper.EdgeIndex, projectedDepth);
-			return (lane.Start, lane.End);
-		}
-
 		if (flipper.State == FlipperState.Flipping)
 		{
 			DirectedLaneTransition transition = flipper.ActiveTransition ??
@@ -1742,7 +1269,6 @@ public sealed class VectorRenderer
 		Vector2 p1,
 		Vector2 p2,
 		float projectedDepth,
-		float level7LocalScale = 0,
 		Action<Vector2, Vector2>? drawLine = null)
 	{
 		float dx = p2.X - p1.X;
@@ -1752,9 +1278,7 @@ public sealed class VectorRenderer
 
 		float xn = -dy / length;
 		float yn = dx / length;
-		Vector2 height = UsesAtariLevel7PresentationCandidateForCurrentLevel
-			? new Vector2(20 * level7LocalScale)
-			: UsesAtariPresentationForCurrentLevel
+		Vector2 height = UsesAtariPresentationForCurrentLevel
 			? 20 * GetAtariLocalScaleAxes(
 				projectedDepth, ApproachDepthOffset, ApproachVerticalOffset)
 			: new Vector2(20 / ((projectedDepth + Projection.ZOffset) / Projection.K));
@@ -1819,42 +1343,12 @@ public sealed class VectorRenderer
 		Vector2 left2 = p2 - edgeVector * .3f;
 		Vector2 right1 = p2 - edgeVector * .7f;
 		Vector2 right2 = p2 - edgeVector * .8f;
-		List<Vector2>? submittedCoordinates =
-			ShouldCaptureLevel7VisibleRuntime ? [] : null;
 		drawLine(left1, outer1, Color.Yellow);
-		submittedCoordinates?.Add(left1);
-		submittedCoordinates?.Add(outer1);
 		drawLine(right1, outer1, Color.Yellow);
-		submittedCoordinates?.Add(right1);
-		submittedCoordinates?.Add(outer1);
 		drawLine(left1, left2, Color.Yellow);
-		submittedCoordinates?.Add(left1);
-		submittedCoordinates?.Add(left2);
 		drawLine(right1, right2, Color.Yellow);
-		submittedCoordinates?.Add(right1);
-		submittedCoordinates?.Add(right2);
 		drawLine(outer2, left2, Color.Yellow);
-		submittedCoordinates?.Add(outer2);
-		submittedCoordinates?.Add(left2);
 		drawLine(outer2, right2, Color.Yellow);
-		submittedCoordinates?.Add(outer2);
-		submittedCoordinates?.Add(right2);
-
-		if (submittedCoordinates is not null)
-		{
-			float projectedDepth = PlayerProjectedDepth;
-			CaptureVisibleRuntimeEntity(
-				game.Player,
-				"blaster",
-				"Active",
-				game.Player.EdgeIndex,
-				game.Player.Depth,
-				projectedDepth,
-				center,
-				clawHeight,
-				submittedCoordinates,
-				6);
-		}
 	}
 
 	private Vector2 GetOutwardBlasterClawOffset(
@@ -1867,26 +1361,15 @@ public sealed class VectorRenderer
 		int nextLane;
 		Vector2 farStart;
 		Vector2 farEnd;
-		if (UsesAtariLevel7PresentationCandidateForCurrentLevel)
-		{
-			int presentationLane =
-				AtariLevel7EntityPresentation.MapGameplayLaneToPresentationLane(lane);
-			nextLane = (presentationLane + 1) % AtariLevel7Presentation.FarPoints.Count;
-			farStart = AtariLevel7Presentation.FarPoints[presentationLane];
-			farEnd = AtariLevel7Presentation.FarPoints[nextLane];
-		}
-		else
-		{
-			nextLane = game.CurrentLevel.NextEdge(lane);
-			if (nextLane < 0)
-				throw new InvalidOperationException(
-					"The Blaster is not on an edge with a corresponding far rail.");
+		nextLane = game.CurrentLevel.NextEdge(lane);
+		if (nextLane < 0)
+			throw new InvalidOperationException(
+				"The Blaster is not on an edge with a corresponding far rail.");
 
-			LevelConfiguration configuration = game.CurrentLevel.Configuration;
-			float farDepth = configuration.Position + configuration.Depth;
-			farStart = ProjectApproachGeometry(points[lane], farDepth);
-			farEnd = ProjectApproachGeometry(points[nextLane], farDepth);
-		}
+		LevelConfiguration configuration = game.CurrentLevel.Configuration;
+		float farDepth = configuration.Position + configuration.Depth;
+		farStart = ProjectApproachGeometry(points[lane], farDepth);
+		farEnd = ProjectApproachGeometry(points[nextLane], farDepth);
 
 		Vector2 tangent = nearEnd - nearStart;
 		float tangentLength = tangent.Length();
@@ -1912,15 +1395,6 @@ public sealed class VectorRenderer
 	// player's projected edge during normal play and exit travel without a graphics window.
 	public void GetPlayerEdge(IReadOnlyList<Vector2> points, out Vector2 p1, out Vector2 p2)
 	{
-		if (UsesAtariLevel7PresentationCandidateForCurrentLevel)
-		{
-			AtariLevel7LaneGeometry lane =
-				GetLevel7LaneGeometry(game.Player.EdgeIndex, PlayerProjectedDepth);
-			p1 = lane.Start;
-			p2 = lane.End;
-			return;
-		}
-
 		int next = NextEdge(game.Player.EdgeIndex, points.Count);
 		p1 = ProjectApproachGeometry(points[game.Player.EdgeIndex], PlayerProjectedDepth);
 		p2 = ProjectApproachGeometry(points[next], PlayerProjectedDepth);

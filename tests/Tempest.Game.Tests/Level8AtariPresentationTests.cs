@@ -41,7 +41,6 @@ public sealed class Level8AtariPresentationTests
 			Assert.Equal((short)0x0060, metadata.ScreenYOffsetSigned);
 			Assert.Equal((byte)0xFF, metadata.OpenRaw);
 			Assert.Equal((25f / 14f, -1), AtariPresentationAdapter.GetModelFrameMapping(8));
-			Assert.False(renderer.UsesAtariLevel7PresentationCandidateForCurrentLevel);
 
 			renderer.DrawTube((start, end, _) => lines.Add((start, end)));
 

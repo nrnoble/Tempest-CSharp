@@ -2916,8 +2916,72 @@ used. These focal rules and the compensation architecture are project
 translations; the ROM does not designate either pivot or this C# architecture.
 
 **SCOPE AND PRESERVATION:** Level 10 remains diagnostic-only; it is not
-required for this manual acceptance. Level 7 remains outside this closeout,
-and its ExitZoom is not accepted here. Accepted ordinary Playing placement,
-including Level 8 `+212.28139`, Level 9 `+180.96825`, and diagnostic Level 10
-`+50`, remains unchanged. The separately accepted Blaster Exit/Approach scale
-correction remains unchanged.
+required for this manual acceptance. Level 7 was outside this focal-point
+milestone. Its later reconstruction acceptance covers compatibility with
+shared ExitZoom and Approach presentation, not a Level-7-specific focal rule.
+Accepted ordinary Playing placement, including Level 8 `+212.28139`, Level 9
+`+180.96825`, and diagnostic Level 10 `+50`, remains unchanged. The separately
+accepted Blaster Exit/Approach scale correction remains unchanged.
+
+## Level 7 Atari presentation reconstruction — manually accepted (2026-11-18)
+
+**NEAL MANUAL ACCEPTANCE — PASS:** The severe Level 7 Atari-presentation
+depth-motion bug is resolved and Level 7 now plays as expected. Enemy
+movement from deep to near, player-shot movement from near to deep, and rim
+movement appear normal. Tube and gameplay entities remain registered; the
+reconstructed tube structure is acceptable; Level 7 geometry needs no
+further correction; and no further Level-7-specific presentation work is
+wanted for this milestone. Neal also compared C# and MAME/arcade-reference
+captures side by side.
+
+**REFERENCE-DERIVED PRODUCTION AUTHORITY:** `LevelConfiguration.Level7Production`
+uses `LevelLoader.LoadLevel7Clover()` as the one authoritative production
+geometry, with its unchanged 16 ordered points and closed 16-lane topology.
+Tube and gameplay entities share that geometry and the
+`AtariPresentationAdapter` route. The adapter Jacobian remains the local-scale
+authority, the final translation is consistent, and the common portrait
+camera is applied once. No active ordinary Level 7 path uses record-06
+endpoint interpolation or the failed two-geometry architecture. This accepted
+production clover is not claimed to be a literal conversion of Atari record
+06.
+
+**PROJECT TRANSLATION — ACCEPTED PLACEMENT:** The accepted final logical
+vertical placement is `Level7VerticalPlacement = 228.99702f`; horizontal
+correction is zero. This placement preserves the shared gameplay geometry and
+does not alter gameplay. Normal Flipper presentation continues to use the
+gameplay-selected `DirectedLaneTransition`, production geometry, normal
+`CalculateFlipperPivotEndpoints` path, and shared adapter projection for
+ordinary and cargo Flippers.
+
+**ROM/ATARI EVIDENCE PRESERVED:** The raw record-06 bytes, metadata, ordering,
+closed topology, `AtariTubeRecordCatalog.Level7Record06`, Level 7
+`RomPresentationMetadataCatalog` entry, and raw-data/provenance tests remain
+preserved. Record 06 remains ROM/Atari-backed evidence but does not drive the
+ordinary visible Level 7 tube.
+
+**PRESERVED SYSTEMS:** The reconstruction changes presentation only.
+Gameplay geometry and rules, entity movement and timing, RNG, deterministic
+recording/playback, and rendering's read-only relationship to gameplay state
+remain unchanged. Shared Blaster presentation, ExitZoom focal compensation,
+Approach and transitions, accepted Levels 1-6, Level 8 `+212.28139`, Level 9
+`+180.96825`, and diagnostic Level 10 `+50` remain frozen. Option-off/legacy
+behavior is unchanged.
+
+**SEPARATE DEFERRED WHOLE-GAME VIEWPORT/SCREENSHOT-PROPORTION MILESTONE:**
+Neal's comparison indicates that the reconstructed C# tube and reference tube
+have the same recognizable Level 7 structure, with no accepted evidence of
+incorrect point order, connectivity, lane structure, or rail attachment. The
+C# capture appears horizontally broader relative to its height. This
+difference is not a Level 7 tube-geometry defect and must not be compensated
+by changing Level 7 geometry or placement. The future whole-game investigation
+may address portrait/playfield dimensions, X/Y scale, viewport aspect,
+gameplay-area proportions below the HUD, host/window mapping, screenshot
+output proportions, and cross-level consistency. This acceptance does not
+claim pixel-identical captures or close that future milestone.
+
+**RETIRED DEVELOPMENT DIAGNOSTICS:** The Level 7 visible-runtime and
+framebuffer diagnostics were dedicated to investigating this now-resolved
+presentation architecture and had no continuing general purpose. Their CLI
+options, parser/help support, Program wiring, renderer hooks, source, and
+tests are removed. Generic playback, screenshot capture, pause, stepping,
+and normal shared diagnostic infrastructure are preserved.

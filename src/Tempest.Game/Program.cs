@@ -21,16 +21,10 @@
 // process controls stay outside PlayerInput and the recording.
 // --legacy-presentation selects the established 4:3 rendering instead of the experimental portrait
 // presentation; --portrait-perspective calibrates only the shared portrait projection;
-// --atari-presentation opts into the Atari presentation candidate; Level 7 uses ROM record 06
-// with its visually calibrated project translation while leaving gameplay geometry unchanged;
+// --atari-presentation opts into the shared Atari presentation adapter; Level 7 uses its
+// production gameplay geometry for both the tube and gameplay entities;
 // diagnostic Level 10 uses its own open model geometry with the accepted +50 logical-pixel placement.
-// --atari-tube-prototype selects an isolated experimental record-06 Level 7 wireframe only.
-// --atari-tube-rn000f-diagnostic selects its DEVELOPMENT-ONLY conditional RN=$000F quotient experiment.
-// --atari-tube-reference-shape-diagnostic is a DEVELOPMENT-ONLY control sharing the Level 7 translation.
-// --level7-framebuffer-diagnostic captures bounded production Level 7 frames; file playback selects
-// the same fixed boundary windows in both Atari presentation modes.
 // Normal play progresses Level 1 through terminal Level 9.
-using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using Raylib_cs;
@@ -70,81 +64,8 @@ if (!DebugController.TryParseAtariPresentation(args,
     return 2;
 }
 
-if (!DebugController.TryParseAtariTubePrototype(args,
-    out bool atariTubePrototypeEnabled, out string? atariTubePrototypeError))
-{
-    Console.Error.WriteLine(atariTubePrototypeError);
-    return 2;
-}
-
-if (!DebugController.TryParseAtariTubeRn000fDiagnostic(args,
-    out bool atariTubeRn000fDiagnosticEnabled, out string? atariTubeRn000fDiagnosticError))
-{
-    Console.Error.WriteLine(atariTubeRn000fDiagnosticError);
-    return 2;
-}
-
-if (!DebugController.TryParseAtariTubeReferenceShapeDiagnostic(args,
-    out bool atariTubeReferenceShapeDiagnosticEnabled,
-    out string? atariTubeReferenceShapeDiagnosticError))
-{
-    Console.Error.WriteLine(atariTubeReferenceShapeDiagnosticError);
-    return 2;
-}
-
 bool legacyPresentationRequested = args.Contains("--legacy-presentation", StringComparer.Ordinal);
 bool headlessPlaybackAnalysis = HeadlessGameplayPlaybackCli.IsRequested(args);
-bool playbackFileSelected = args.Contains("--playback-file", StringComparer.Ordinal);
-if (!DebugController.TryParseLevel7VisibleRuntimeDiagnostic(
-	args, out string? level7RuntimeDiagnosticFileName,
-	out string? level7RuntimeDiagnosticError))
-{
-	Console.Error.WriteLine(level7RuntimeDiagnosticError);
-	return 2;
-}
-if (!DebugController.TryParseLevel7FramebufferDiagnostic(
-	args, out string? level7FramebufferDiagnosticFileName,
-	out string? level7FramebufferDiagnosticError))
-{
-	Console.Error.WriteLine(level7FramebufferDiagnosticError);
-	return 2;
-}
-if (!DebugController.TryValidateLevel7VisibleRuntimeDiagnosticContext(
-	level7RuntimeDiagnosticFileName is not null,
-	level7FramebufferDiagnosticFileName is not null,
-	atariPresentationEnabled,
-	playbackFileSelected,
-	headlessPlaybackAnalysis,
-	DebugController.UseInputDiagnostic(args),
-	atariTubePrototypeEnabled,
-	atariTubeRn000fDiagnosticEnabled,
-	atariTubeReferenceShapeDiagnosticEnabled,
-	out string? level7RuntimeContextError))
-{
-	Console.Error.WriteLine(level7RuntimeContextError);
-	return 2;
-}
-if (!DebugController.TryValidateLevel7FramebufferDiagnosticContext(
-	level7FramebufferDiagnosticFileName is not null,
-	level7RuntimeDiagnosticFileName is not null,
-	out string? level7FramebufferContextError))
-{
-	Console.Error.WriteLine(level7FramebufferContextError);
-	return 2;
-}
-if (!DebugController.TryValidateAtariTubePrototypeContext(
-    atariTubePrototypeEnabled,
-    args,
-    headlessPlaybackAnalysis,
-    DebugController.UseInputDiagnostic(args),
-    out string? atariTubePrototypeContextError,
-    atariTubeRn000fDiagnosticEnabled,
-    atariTubeReferenceShapeDiagnosticEnabled))
-{
-    Console.Error.WriteLine(atariTubePrototypeContextError);
-    return 2;
-}
-
 if (!DebugController.TryValidateAtariPresentationContext(
     atariPresentationEnabled,
     headlessPlaybackAnalysis,
@@ -263,38 +184,6 @@ if (!DebugController.TryParseStartingLevel(args,
     return 2;
 }
 
-if (level7RuntimeDiagnosticFileName is not null)
-{
-    bool hasLevel7Startup = startingProductionLevel == 7 ||
-        gameplayFileCommand?.Mode == GameplayFileMode.Playback;
-    if (!hasLevel7Startup)
-    {
-        Console.Error.WriteLine(
-            "--level7-visible-runtime-diagnostic requires --level 7 or a --playback-file that starts at Level 7.");
-        return 2;
-    }
-    if (args.Contains("--speed", StringComparer.Ordinal) ||
-        args.Contains("--rim-speed", StringComparer.Ordinal) ||
-        args.Contains("--level7-spiker-speed", StringComparer.Ordinal) ||
-        args.Contains("--spinner-sensitivity", StringComparer.Ordinal))
-    {
-        Console.Error.WriteLine(
-            "--level7-visible-runtime-diagnostic cannot be combined with --speed, --rim-speed, or --level7-spiker-speed.");
-        return 2;
-    }
-    if (gameplayFileCommand is null &&
-        (DebugController.UseLevel7Test(args) || DebugController.UseLevel2Test(args) ||
-         DebugController.UseLevel3Test(args) || DebugController.UseLevel4Test(args) ||
-         DebugController.UseLevel6Test(args) || DebugController.UseTankerTest(args) ||
-         DebugController.UseSpikerWave(args) || DebugController.UseFuseballTest(args) ||
-         DebugController.UsePulsarTest(args) || DebugController.UseEnemyBulletsTest(args)))
-    {
-        Console.Error.WriteLine(
-            "--level7-visible-runtime-diagnostic requires normal production gameplay, not a test scenario.");
-        return 2;
-    }
-}
-
 PresentationMode presentationMode = legacyPresentationRequested
     ? PresentationMode.Legacy
     : PresentationMode.ExperimentalPortrait;
@@ -323,24 +212,6 @@ if (atariPresentationEnabled)
 {
     Console.WriteLine(
         "DEVELOPMENT ONLY — Atari presentation candidate enabled for production Levels 1-9 and diagnostic Level 10.");
-}
-
-if (atariTubePrototypeEnabled)
-{
-    Console.WriteLine(
-        "DEVELOPMENT ONLY / EXPERIMENTAL — direct Atari record-06 Level 7 tube wireframe enabled; gameplay objects are hidden and the option is not recorded.");
-}
-
-if (atariTubeRn000fDiagnosticEnabled)
-{
-    Console.WriteLine(
-        "DEVELOPMENT ONLY — Level 7 direct-Atari RN=$000F conditional quotient diagnostic enabled: floor(128 * magnitude / depth). RN.high=0 remains unresolved at the normal Level 7 operation; this is not established normal Atari behavior.");
-}
-
-if (atariTubeReferenceShapeDiagnosticEnabled)
-{
-    Console.WriteLine(
-        "DEVELOPMENT ONLY / VISUAL DIAGNOSTIC — Level 7 record-06 endpoint presentation uses a shared anisotropic gain and far-set translation; no Atari calibration is implied.");
 }
 
 if (level7SpikerSpeedOverride is float fixedSpikerSpeed)
@@ -409,13 +280,6 @@ try
         gameplayStartupConfiguration = file.StartupConfiguration;
         playback = file.Replay;
         loadedPlaybackPath = playbackPath;
-        if (level7RuntimeDiagnosticFileName is not null &&
-            gameplayStartupConfiguration.StartingDisplayedLevel != 7)
-        {
-            Console.Error.WriteLine(
-                "--level7-visible-runtime-diagnostic requires the playback recording to start at Level 7.");
-            return 2;
-        }
         Console.WriteLine($"Gameplay file playback active: {playbackPath}");
     }
     else
@@ -432,99 +296,6 @@ catch (Exception exception) when (exception is IOException or UnauthorizedAccess
 {
     Console.Error.WriteLine($"Could not prepare gameplay file mode: {exception.Message}");
     return 2;
-}
-
-Level7VisibleRuntimeDiagnostic? level7RuntimeDiagnostic = null;
-Level7FramebufferDiagnostic? level7FramebufferDiagnostic = null;
-string level7FramebufferOutputRoot = Path.Combine(
-    ApplicationPaths.Current.DevelopmentRoot,
-    "TEMP",
-    "Diagnostics",
-    "Level7Framebuffer");
-if (level7FramebufferDiagnosticFileName is not null)
-{
-    try
-    {
-        string outputDirectory = Level7FramebufferDiagnostic.GetOutputDirectory(
-            level7FramebufferOutputRoot,
-            level7FramebufferDiagnosticFileName);
-        if (Directory.Exists(outputDirectory) || File.Exists(outputDirectory))
-            throw new IOException(
-                $"Framebuffer diagnostic output already exists: {outputDirectory}");
-    }
-    catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or
-        ArgumentException or NotSupportedException or System.Security.SecurityException)
-    {
-        Console.Error.WriteLine(
-            $"Could not create Level 7 framebuffer diagnostic: {exception.Message}");
-        return 2;
-    }
-}
-if (level7RuntimeDiagnosticFileName is not null)
-{
-    string runtimeMode = gameplayFileCommand?.Mode switch
-    {
-        GameplayFileMode.Playback => "recordedPlayback",
-        GameplayFileMode.Record => "manualGameplayRecording",
-        _ when playback is not null => "scriptedPlayback",
-        _ => "manualGameplay"
-    };
-    string outputPath = Path.Combine(
-        ApplicationPaths.Current.DevelopmentRoot,
-        "TEMP",
-        "Diagnostics",
-        "Level7VisibleRuntime",
-        level7RuntimeDiagnosticFileName);
-    try
-    {
-        level7RuntimeDiagnostic = new(
-            outputPath, runtimeMode, loadedPlaybackPath, presentationMode.ToString(),
-            speedOptions.TargetFramesPerSecond,
-            framebufferCaptureEnabled: level7FramebufferDiagnosticFileName is not null,
-            atariPresentationEnabled: atariPresentationEnabled);
-        Console.WriteLine(
-            $"Level 7 visible-runtime diagnostic active: {level7RuntimeDiagnostic.OutputPath}");
-    }
-    catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or
-        ArgumentException or NotSupportedException or System.Security.SecurityException)
-    {
-        Console.Error.WriteLine(
-            $"Could not create Level 7 visible-runtime diagnostic: {exception.Message}");
-        return 2;
-    }
-}
-if (level7FramebufferDiagnosticFileName is not null)
-{
-    try
-    {
-        level7FramebufferDiagnostic = new(
-            level7FramebufferOutputRoot,
-            level7FramebufferDiagnosticFileName,
-            Console.Out,
-            Console.Error,
-            playbackFilePath: loadedPlaybackPath,
-            atariPresentationEnabled: atariPresentationEnabled);
-        Console.WriteLine(
-            $"Level 7 framebuffer diagnostic active: {level7FramebufferDiagnostic.OutputDirectory}; " +
-            (loadedPlaybackPath is not null
-                ? $"captures playback boundaries {string.Join(", ", Level7FramebufferDiagnostic.PlaybackCaptureBoundaries)}; " +
-                    $"limits are {Level7FramebufferDiagnostic.MaximumPlaybackFrames} frames, " +
-                    $"{Level7FramebufferDiagnostic.MaximumPngFileBytes} bytes per PNG, and " +
-                    $"{Level7FramebufferDiagnostic.MaximumPlaybackBytes} PNG bytes total."
-                : $"limits are {Level7FramebufferDiagnostic.MaximumBursts} bursts x " +
-                    $"{Level7FramebufferDiagnostic.MaximumFramesPerBurst} frames, " +
-                    $"{Level7FramebufferDiagnostic.MaximumTotalFrames} frames total, " +
-                    $"{Level7FramebufferDiagnostic.MaximumPngFileBytes} bytes per PNG, and " +
-                    $"{Level7FramebufferDiagnostic.MaximumTotalBytes} bytes total."));
-    }
-    catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or
-        ArgumentException or NotSupportedException or System.Security.SecurityException)
-    {
-        level7RuntimeDiagnostic?.Dispose();
-        Console.Error.WriteLine(
-            $"Could not create Level 7 framebuffer diagnostic: {exception.Message}");
-        return 2;
-    }
 }
 
 int? deterministicSeed = gameplayStartupConfiguration?.RandomSeed ??
@@ -593,10 +364,7 @@ try
                 level9SpikerSpeedOverride: level9SpikerSpeedOverride));
     InputSystem input = new();
     VectorRenderer renderer = new(
-        game, gameOverDensityMultiplier, atariPresentationEnabled,
-        atariTubePrototypeEnabled, atariTubeRn000fDiagnosticEnabled,
-        atariTubeReferenceShapeDiagnosticEnabled,
-        level7RuntimeDiagnostic);
+        game, gameOverDensityMultiplier, atariPresentationEnabled);
     PlaybackScreenshotCapture screenshotCapture = new(
         ApplicationPaths.Current, Raylib.TakeScreenshot, Console.Out, Console.Error);
     PlaybackScreenshotKeyDiagnostic? screenshotKeyDiagnostic =
@@ -606,10 +374,8 @@ try
             : null;
     int activeDisplayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
     int simulationTick = 0;
-    long renderFrameSequence = 0;
     bool livePaused = false;
     bool playbackCompletionReported = false;
-    bool runtimeDiagnosticLimitReported = false;
 
     while (true)
     {
@@ -744,49 +510,7 @@ try
                     game.CurrentLevel.Configuration.DisplayedLevel, simulationTick);
         }
 
-        if (level7RuntimeDiagnostic is not null)
-        {
-            long renderStartTimestamp = Stopwatch.GetTimestamp();
-            string runtimeInputMode = visiblePlaybackController is { IsActive: true }
-                ? "recordedPlayback"
-                : playback is not null && playback.IsActiveAt(simulationTick)
-                    ? "scriptedPlayback"
-                    : recording is not null
-                        ? "manualGameplayRecording"
-                        : "manualGameplay";
-            level7RuntimeDiagnostic.BeginFrame(
-                renderFrameSequence++,
-                simulationTick,
-                visiblePlaybackController?.Session.CurrentBoundary,
-                game.CurrentLevel.Configuration.DisplayedLevel,
-                game.State,
-                livePaused || visiblePlaybackController?.IsPaused == true,
-                DisplayConfiguration.GetPlayfieldCamera(presentationMode),
-                renderStartTimestamp,
-                runtimeInputMode);
-        }
-        if (level7FramebufferDiagnostic is not null &&
-            level7RuntimeDiagnostic is not null)
-        {
-            // VectorRenderer invokes this after production drawing and before EndDrawing swaps.
-            renderer.Draw(overlayStatus, () =>
-            {
-                screenshotCaptureAfterRender?.Invoke();
-                level7RuntimeDiagnostic.CaptureFramebufferFrame(level7FramebufferDiagnostic);
-            }, presentationMode);
-        }
-        else
-        {
-            renderer.Draw(overlayStatus, screenshotCaptureAfterRender, presentationMode);
-        }
-        level7RuntimeDiagnostic?.EndFrame(Stopwatch.GetTimestamp());
-        if (!runtimeDiagnosticLimitReported &&
-            level7RuntimeDiagnostic?.IsLimitReached == true)
-        {
-            Console.Error.WriteLine(
-                $"Level 7 visible-runtime diagnostic stopped after {Level7VisibleRuntimeDiagnostic.MaximumLevel7RenderFrames} rendered Level 7 frames; gameplay continues without further diagnostic output.");
-            runtimeDiagnosticLimitReported = true;
-        }
+        renderer.Draw(overlayStatus, screenshotCaptureAfterRender, presentationMode);
         }
 
     if (recording is not null)
@@ -808,8 +532,6 @@ try
 }
 finally
 {
-	level7FramebufferDiagnostic?.Dispose();
-	level7RuntimeDiagnostic?.Dispose();
     Raylib.EnableCursor();
     if (Raylib.IsAudioDeviceReady())
         Raylib.CloseAudioDevice();

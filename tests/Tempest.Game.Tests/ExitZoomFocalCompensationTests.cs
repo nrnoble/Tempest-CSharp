@@ -19,6 +19,7 @@ public sealed class ExitZoomFocalCompensationTests
 	[InlineData(4)]
 	[InlineData(5)]
 	[InlineData(6)]
+	[InlineData(7)]
 	[InlineData(8)]
 	[InlineData(9)]
 	[InlineData(10)]
@@ -145,6 +146,7 @@ public sealed class ExitZoomFocalCompensationTests
 	[Theory]
 	[InlineData(1)]
 	[InlineData(5)]
+	[InlineData(7)]
 	[InlineData(8)]
 	[InlineData(9)]
 	[InlineData(10)]
@@ -195,8 +197,11 @@ public sealed class ExitZoomFocalCompensationTests
 		}
 	}
 
-	[Fact]
-	public void TubeBlasterAndSpikesShareCompensationWithoutChangingBlasterScale()
+	[Theory]
+	[InlineData(7)]
+	[InlineData(8)]
+	public void TubeBlasterAndSpikesShareCompensationWithoutChangingBlasterScale(
+		int displayedLevel)
 	{
 		float originalK = Projection.K;
 		float originalZOffset = Projection.ZOffset;
@@ -207,7 +212,8 @@ public sealed class ExitZoomFocalCompensationTests
 			Projection.ZOffset = ExitZoomZOffset;
 			Projection.PortraitPerspective = Projection.PortraitPerspectiveDefault;
 
-			TempestGame game = new(startingProductionLevel: 8, random: new Random(1));
+			TempestGame game = new(
+				startingProductionLevel: displayedLevel, random: new Random(1));
 			game.CurrentLevel.State = LevelState.ExitZoom;
 			VectorRenderer latchedRenderer = new(game, atariPresentationEnabled: true);
 			Vector2 openingAtOnset = GetOpening(

@@ -4219,5 +4219,66 @@ not ROM behavior. Accepted ordinary Playing placement is unchanged, including
 Level 8 `+212.28139`, Level 9 `+180.96825`, and diagnostic Level 10 `+50`.
 The separately accepted Blaster Exit/Approach scale correction remains
 unchanged. Level 10 remains diagnostic-only and is not required for this
-acceptance. Level 7 remains outside this milestone; its ExitZoom is not
-accepted here.
+acceptance. Level 7 was outside this focal-point milestone. Its later
+reconstruction acceptance covers compatibility with shared ExitZoom and
+Approach presentation, not a Level-7-specific focal rule.
+
+## Level 7 Atari presentation reconstruction — manually accepted (2026-11-18)
+
+**NEAL MANUAL ACCEPTANCE — PASS:** The severe Level 7 Atari-presentation
+depth-motion bug is resolved; Level 7 now plays as expected. Enemy movement
+from deep to near appears normal, player-shot movement from near to deep
+appears normal, and rim movement appears normal. The tube and gameplay
+entities remain registered, the reconstructed tube structure is acceptable,
+Level 7 geometry does not need further correction, and no further
+Level-7-specific presentation work is wanted for this milestone. Neal also
+compared C# and MAME/arcade-reference captures side by side.
+
+**REFERENCE-DERIVED PRODUCTION AUTHORITY:** `LevelConfiguration.Level7Production`
+continues to use `LevelLoader.LoadLevel7Clover()` as the one authoritative
+production geometry: its 16 ordered points and closed 16-lane topology are
+shared by tube and gameplay-entity presentation through
+`AtariPresentationAdapter`. The adapter Jacobian remains the local-scale
+authority; the final presentation translation is applied consistently and
+the common portrait camera is applied once. The removed record-06
+two-geometry runtime path is not active. The production clover is not claimed
+to be a literal conversion of Atari record 06.
+
+**PROJECT TRANSLATION — ACCEPTED PLACEMENT:** The accepted adapter placement
+is `Level7VerticalPlacement = 228.99702f`; horizontal correction is zero.
+This placement does not change production points, order, center, offset,
+position, depth, topology, lane count, or any gameplay rule. The accepted
+normal Flipper path uses gameplay-selected directed transitions, production
+geometry, and shared adapter projection, including ordinary and cargo
+Flippers.
+
+**PRESERVED EVIDENCE AND BEHAVIOR:** Raw Level 7 record-06 coordinates,
+metadata, point order, closed topology, catalog data, Level 7 ROM presentation
+metadata, and provenance tests remain preserved as ROM/Atari-backed evidence;
+record 06 does not drive the ordinary visible Level 7 tube. The reconstruction
+is presentation-only: gameplay state, timing, RNG, recording/playback
+determinism, and rendering's read-only relationship to simulation are
+unchanged. Accepted Blaster presentation and ExitZoom focal compensation,
+Approach/transition behavior, and Levels 8 (+212.28139), 9 (+180.96825), and
+diagnostic Level 10 (+50) remain frozen. Legacy/off-option behavior remains
+unchanged.
+
+**SEPARATE DEFERRED WHOLE-GAME PRESENTATION MILESTONE:** Neal's side-by-side
+comparison found the recognizable Level 7 structure consistent between C#
+and the reference, with no accepted evidence of incorrect point order,
+connectivity, lane structure, or rail attachment. The C# capture appears
+horizontally broader relative to its height. This is a whole-game
+viewport/screenshot-proportion issue, not a Level 7 geometry defect; the
+captures are not claimed to be pixel-identical. Investigate logical
+portrait/playfield dimensions, X/Y scale, viewport aspect, gameplay-area
+proportions below the HUD, host/window mapping, screenshot output, and
+cross-level consistency only in that separate milestone. No viewport, camera,
+HUD, tube geometry, or per-level placement changes are authorized by this
+acceptance.
+
+**RETIRED DEVELOPMENT DIAGNOSTICS:** The Level 7 visible-runtime trace and
+framebuffer-capture switches, their dedicated renderer instrumentation,
+source files, and tests were specific to investigating the reconstructed
+presentation and have no continuing general purpose. They are removed after
+manual acceptance. Generic playback, screenshot capture, pause, stepping,
+and shared diagnostic facilities remain.
