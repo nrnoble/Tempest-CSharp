@@ -92,12 +92,21 @@ The Egg/hatching work should receive its own commit only after full manual valid
 
 Preserve unless intentionally revisited:
 
-- Logical rendering/projection canvas: 800 x 600.
-- Windowed client area: 1280 x 960 (PROJECT DECISION candidate; manual
-  acceptance pending), uniformly scaling the logical canvas by
-  1.6 with one Raylib camera transform. The full scene, text and HUD share the
-  same 4:3 presentation scale; gameplay geometry and HUD coordinates remain
-  on the 800 x 600 canvas.
+- Logical rendering/projection canvas: 800 x 600; portrait HUD canvas:
+  600 x 800.
+- Windowed client area: 1600 x 1280 (PROJECT DECISION; Neal manually accepted
+  2026-11-18). The normal portrait viewport is 960 x 1280 at (320,0), exactly
+  3:4, with equal 320-pixel side margins and no top/bottom margins.
+- The viewport is a uniform 4/3 physical enlargement of the prior 720 x 960
+  viewport. Portrait HUD output scale is 1.6; the shared playfield camera zoom
+  is 1.68 including its unchanged 1.05 playfield factor. Logical coordinates,
+  projection, camera target, geometry, and accepted per-level placements
+  remain unchanged.
+- `--atari-presentation` enables the presentation adapter; it does not select
+  the window or viewport. Without it, normal rendering still uses the portrait
+  viewport. The separate `--legacy-presentation` option keeps the 800 x 600
+  4:3 canvas, uniformly scaled by 2 to 1600 x 1200 and centered vertically
+  with 40-pixel margins in the same host window.
 - `Projection.K = 70`.
 - `Projection.ZOffset = 5`.
 - Level 1 uses the established 16-segment circular tube geometry.
@@ -128,12 +137,10 @@ The checked-in Incitti implementation also declares an 800 x 600 logical
 canvas and opens that size directly in windowed mode, with no separate
 presentation upscaling. It defaults to windowed mode and toggles between
 windowed and fullscreen with F12; fullscreen requests an available
-800 x 600 display mode. The larger C# window keeps Incitti's fixed-canvas
-approach while applying one uniform 1.6x output transform. This does not
-change the 60 Hz simulation or relative mouse/controller input. Fullscreen is
-not currently implemented; the larger fixed window is the display target.
-Manually validate the enlarged native window and gameplay presentation before
-treating the display change as visually accepted.
+800 x 600 display mode. Incitti remains an engineering reference, not
+authority for this accepted C# host/viewport decision. The fixed C# window
+does not change the 60 Hz simulation or relative mouse/controller input.
+Fullscreen is not currently implemented.
 
 The original cabinet's vertical vector monitor is not a reason to switch
 this recreation to portrait or alter its established projection/model
@@ -142,14 +149,15 @@ pre-existing Projection type initializer of K = 65 is not a presentation
 setting and remains unchanged. Existing exit/reverse zoom animation remains
 unchanged.
 
-For Neal's 1920 x 1080 desktop, 960 client pixels leave only 120 vertical
-pixels for the title bar, borders, taskbar and placement margins at 100%
-desktop scaling. Decorations and DPI scaling can reduce usable space further;
-manually check the entire outer window against the desktop work area.
-Do not silently shrink the 1280 x 960 candidate to address this concern.
-The camera changes drawing only, not raw relative mouse deltas, cursor
-capture, keyboard/controller mappings or the standalone diagnostic's event
-logging. Native visual quality and input feel remain manual checks.
+The accepted 1600 x 1280 client area exceeds a 1920 x 1080 desktop's vertical
+resolution at 100% scaling. Window decorations, DPI scaling, and display
+placement are environment-specific; do not silently shrink the accepted
+target. Neal manually accepted the enlarged application and portrait
+composition on 2026-11-18. That acceptance does not establish fit on every
+desktop or accept arcade/MAME screenshot-proportion matching, which remains a
+separate milestone. The camera changes drawing only, not raw relative mouse
+deltas, cursor capture, keyboard/controller mappings, or standalone
+diagnostic event logging.
 
 ## Player Controls
 

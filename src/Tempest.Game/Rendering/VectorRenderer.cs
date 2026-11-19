@@ -25,7 +25,6 @@ public sealed class VectorRenderer
 	public const float PlayerShotBaseSize = 4.5f;
 	// Experimental viewpoint elevation, in pre-projection units; not a measured Atari angle.
 	public const float InitialApproachVerticalOffset = 96;
-	private const float PortraitViewportBorderThickness = 1;
 	private static readonly Color SpikerColor = new(0, 255, 0, 255);
 	private static readonly Color TankerColor = new(255, 0, 255, 255);
 	private static readonly Color PulsarColor = new(0, 255, 255, 255);
@@ -561,7 +560,7 @@ public sealed class VectorRenderer
 	private static void DrawPortraitViewportBorder() =>
 		Raylib.DrawRectangleLinesEx(
 			DisplayConfiguration.PortraitViewport,
-			PortraitViewportBorderThickness,
+			DisplayConfiguration.PortraitViewportBorderThickness,
 			PortraitViewportBorderColor);
 
 	private static void DrawPortraitPlaybackStatus(PlaybackOverlayStatus status)

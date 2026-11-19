@@ -70,10 +70,14 @@ public sealed class Level8AtariPresentationTests
 			(float MinX, float MaxX, float MinY, float MaxY) prePlacementBounds =
 				GetBounds(prePlacementLogicalPoints.Select(ToHost));
 
-			Assert.InRange(MathF.Abs(prePlacementBounds.MinX - 319.27274f), 0, 0.01f);
-			Assert.InRange(MathF.Abs(prePlacementBounds.MaxX - 960.7273f), 0, 0.01f);
-			Assert.InRange(MathF.Abs(prePlacementBounds.MinY - -25.40182f), 0, 0.01f);
-			Assert.InRange(MathF.Abs(prePlacementBounds.MaxY - 616.05273f), 0, 0.01f);
+			Assert.InRange(MathF.Abs(prePlacementBounds.MinX -
+				PreviousPortraitHostTransform.ToCurrentHost(new(319.27274f, 0)).X), 0, 0.01f);
+			Assert.InRange(MathF.Abs(prePlacementBounds.MaxX -
+				PreviousPortraitHostTransform.ToCurrentHost(new(960.7273f, 0)).X), 0, 0.01f);
+			Assert.InRange(MathF.Abs(prePlacementBounds.MinY -
+				PreviousPortraitHostTransform.ToCurrentHost(new(0, -25.40182f)).Y), 0, 0.01f);
+			Assert.InRange(MathF.Abs(prePlacementBounds.MaxY -
+				PreviousPortraitHostTransform.ToCurrentHost(new(0, 616.05273f)).Y), 0, 0.01f);
 
 			float hudBottom = (120 + 18) * DisplayConfiguration.PortraitOutputScale;
 			Vector2 gameplayCenter = new(

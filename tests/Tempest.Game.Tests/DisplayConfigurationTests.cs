@@ -11,38 +11,36 @@ namespace Tempest.Game.Tests;
 public sealed class DisplayConfigurationTests
 {
     [Fact]
-    public void WindowPresentationUniformlyScalesTheLogicalFourByThreeCanvas()
+    public void LegacyPresentationFitsLogicalFourByThreeCanvasUniformly()
     {
         Assert.Equal(800, DisplayConfiguration.LogicalWidth);
         Assert.Equal(600, DisplayConfiguration.LogicalHeight);
-        Assert.Equal(1.6f, DisplayConfiguration.WindowScale);
-        Assert.Equal(1280, DisplayConfiguration.WindowWidth);
-        Assert.Equal(960, DisplayConfiguration.WindowHeight);
+        Assert.Equal(2f, DisplayConfiguration.WindowScale);
+        Assert.Equal(1600, DisplayConfiguration.WindowWidth);
+        Assert.Equal(1280, DisplayConfiguration.WindowHeight);
+        Assert.Equal(new Vector2(800, 640),
+            new Vector2(DisplayConfiguration.WindowWidth / 2f, DisplayConfiguration.WindowHeight / 2f));
         Assert.Equal(DisplayConfiguration.WindowWidth, VectorRenderer.ScreenWidth);
         Assert.Equal(DisplayConfiguration.WindowHeight, VectorRenderer.ScreenHeight);
         Assert.Equal(800f, Projection.Width);
         Assert.Equal(600f, Projection.Height);
-        Assert.Equal(
-            DisplayConfiguration.WindowWidth / (float)DisplayConfiguration.LogicalWidth,
-            DisplayConfiguration.WindowHeight / (float)DisplayConfiguration.LogicalHeight);
-        Assert.Equal(
-            DisplayConfiguration.LogicalWidth * DisplayConfiguration.WindowHeight,
-            DisplayConfiguration.LogicalHeight * DisplayConfiguration.WindowWidth);
         var camera = DisplayConfiguration.PresentationCamera;
         Assert.Equal(DisplayConfiguration.WindowScale, camera.Zoom);
         Assert.Equal(Vector2.Zero, camera.Target);
-        Assert.Equal(Vector2.Zero, camera.Offset);
+        Assert.Equal(new Vector2(0, 40), camera.Offset);
         Assert.Equal(0, camera.Rotation);
+        Assert.Equal(new Vector2(800, 640),
+            Raylib.GetWorldToScreen2D(new Vector2(400, 300), camera));
     }
 
     [Theory]
-    [InlineData(0, 0, 0, 0)]
-    [InlineData(800, 0, 1280, 0)]
-    [InlineData(0, 600, 0, 960)]
-    [InlineData(800, 600, 1280, 960)]
-    [InlineData(400, 300, 640, 480)]
-    [InlineData(640, 10, 1024, 16)]
-    [InlineData(12.5f, 22.5f, 20, 36)]
+    [InlineData(0, 0, 0, 40)]
+    [InlineData(800, 0, 1600, 40)]
+    [InlineData(0, 600, 0, 1240)]
+    [InlineData(800, 600, 1600, 1240)]
+    [InlineData(400, 300, 800, 640)]
+    [InlineData(640, 10, 1280, 60)]
+    [InlineData(12.5f, 22.5f, 25, 85)]
     public void NativeCameraMapsLogicalCoordinatesToPhysicalCoordinates(
         float x, float y, float physicalX, float physicalY)
     {
@@ -93,9 +91,15 @@ public sealed class DisplayConfigurationTests
         {
             Vector2 physicalStart = Raylib.GetWorldToScreen2D(start, DisplayConfiguration.PresentationCamera);
             Vector2 physicalEnd = Raylib.GetWorldToScreen2D(end, DisplayConfiguration.PresentationCamera);
-            Assert.InRange(Vector2.Distance(start * 1.6f, physicalStart), 0, .001f);
-            Assert.InRange(Vector2.Distance(end * 1.6f, physicalEnd), 0, .001f);
-            Assert.InRange(Vector2.Distance((end - start) * 1.6f, physicalEnd - physicalStart), 0, .001f);
+            Vector2 expectedStart = start * DisplayConfiguration.WindowScale +
+                DisplayConfiguration.PresentationCamera.Offset;
+            Vector2 expectedEnd = end * DisplayConfiguration.WindowScale +
+                DisplayConfiguration.PresentationCamera.Offset;
+            Assert.InRange(Vector2.Distance(expectedStart, physicalStart), 0, .001f);
+            Assert.InRange(Vector2.Distance(expectedEnd, physicalEnd), 0, .001f);
+            Assert.InRange(Vector2.Distance(
+                (end - start) * DisplayConfiguration.WindowScale,
+                physicalEnd - physicalStart), 0, .001f);
             Assert.InRange(physicalStart.X, 0, DisplayConfiguration.WindowWidth);
             Assert.InRange(physicalStart.Y, 0, DisplayConfiguration.WindowHeight);
             Assert.InRange(physicalEnd.X, 0, DisplayConfiguration.WindowWidth);
@@ -111,20 +115,72 @@ public sealed class DisplayConfigurationTests
     {
         Assert.Equal(600, DisplayConfiguration.PortraitLogicalWidth);
         Assert.Equal(800, DisplayConfiguration.PortraitLogicalHeight);
-        Assert.Equal(720, DisplayConfiguration.PortraitViewportWidth);
-        Assert.Equal(960, DisplayConfiguration.PortraitViewportHeight);
-        Assert.Equal(280, DisplayConfiguration.PortraitViewportLeft);
-        Assert.Equal(new Rectangle(280, 0, 720, 960), DisplayConfiguration.PortraitViewport);
-        Assert.Equal(1.2f, DisplayConfiguration.PortraitOutputScale);
+        Assert.Equal(960, DisplayConfiguration.PortraitViewportWidth);
+        Assert.Equal(1280, DisplayConfiguration.PortraitViewportHeight);
+        Assert.Equal(320, DisplayConfiguration.PortraitViewportLeft);
+        Assert.Equal(new Rectangle(320, 0, 960, 1280), DisplayConfiguration.PortraitViewport);
+        Assert.Equal(320, DisplayConfiguration.PortraitViewportLeft);
+        Assert.Equal(320, DisplayConfiguration.WindowWidth -
+            DisplayConfiguration.PortraitViewportLeft - DisplayConfiguration.PortraitViewportWidth);
+        Assert.Equal(0f, DisplayConfiguration.PortraitViewport.Y);
+        Assert.Equal(0, DisplayConfiguration.WindowHeight -
+            DisplayConfiguration.PortraitViewportHeight);
+        Assert.Equal(
+            DisplayConfiguration.PortraitViewportWidth /
+                (float)DisplayConfiguration.PortraitLogicalWidth,
+            DisplayConfiguration.PortraitViewportHeight /
+                (float)DisplayConfiguration.PortraitLogicalHeight);
+        Assert.Equal(3f / 4f,
+            DisplayConfiguration.PortraitViewportWidth /
+            (float)DisplayConfiguration.PortraitViewportHeight);
+        Assert.Equal(4f / 3f,
+            DisplayConfiguration.PortraitViewportWidth / 720f);
+        Assert.Equal(4f / 3f,
+            DisplayConfiguration.PortraitViewportHeight / 960f);
+        Assert.Equal(1.6f, DisplayConfiguration.PortraitOutputScale);
+        Assert.Equal(1.2f * 4f / 3f, DisplayConfiguration.PortraitOutputScale);
         Assert.Equal(1.05f, DisplayConfiguration.PortraitPlayfieldScale);
         Assert.Equal(-33.1f, DisplayConfiguration.PortraitPlayfieldVerticalTranslation);
-        Assert.Equal(1.26f, DisplayConfiguration.PortraitPlayfieldZoom);
+        Assert.Equal(1.68f, DisplayConfiguration.PortraitPlayfieldZoom);
+        Assert.Equal(1f, DisplayConfiguration.PortraitViewportBorderThickness);
 
         Camera2D camera = DisplayConfiguration.ExperimentalPortraitPlayfieldCamera;
         Vector2 center = Raylib.GetWorldToScreen2D(new(400, 300), camera);
-        Assert.InRange(Vector2.Distance(new(640, 338.28f), center), 0, .001f);
+        Assert.InRange(Vector2.Distance(new(800, 451.04f), center), 0, .001f);
+        Assert.Equal(new Vector2(800, 640), camera.Offset);
+        Assert.InRange(MathF.Abs(camera.Target.Y - 412.4762f), 0, 0.0001f);
+
+        Camera2D previousCamera = new()
+        {
+            Target = camera.Target,
+            Offset = new Vector2(640, 480),
+            Rotation = camera.Rotation,
+            Zoom = 1.26f
+        };
+        Vector2[] logicalPoints =
+        [
+            Vector2.Zero, new(400, 300), new(800, 600), new(251.25f, 471.75f)
+        ];
+        foreach (Vector2 logicalPoint in logicalPoints)
+        {
+            Vector2 previous = Raylib.GetWorldToScreen2D(logicalPoint, previousCamera);
+            Vector2 enlarged = Raylib.GetWorldToScreen2D(logicalPoint, camera);
+            Vector2 expected = new Vector2(800, 640) +
+                (previous - new Vector2(640, 480)) * (4f / 3f);
+            Assert.InRange(Vector2.Distance(expected, enlarged), 0, .001f);
+        }
+
         Assert.Equal(DisplayConfiguration.PresentationCamera.Zoom,
             DisplayConfiguration.GetPlayfieldCamera(PresentationMode.Legacy).Zoom);
+    }
+
+    [Fact]
+    public void AcceptedAtariLevelPlacementsRemainLogicalCoordinates()
+    {
+        Assert.Equal(228.99702f, AtariPresentationAdapter.Level7VerticalPlacement);
+        Assert.Equal(212.28139f, AtariPresentationAdapter.Level8VerticalPlacement);
+        Assert.Equal(180.96825f, AtariPresentationAdapter.Level9VerticalPlacement);
+        Assert.Equal(50f, AtariPresentationAdapter.Level10VerticalPlacement);
     }
 
     [Fact]
@@ -175,8 +231,28 @@ public sealed class DisplayConfigurationTests
             new(DisplayConfiguration.PortraitLogicalWidth, DisplayConfiguration.PortraitLogicalHeight),
             camera);
 
-        Assert.Equal(new Vector2(280, 0), topLeft);
-        Assert.InRange(Vector2.Distance(new(1000, 960), bottomRight), 0, .001f);
+        Assert.Equal(new Vector2(320, 0), topLeft);
+        Assert.InRange(Vector2.Distance(new(1280, 1280), bottomRight), 0, .001f);
+
+        Camera2D previousCamera = new()
+        {
+            Target = Vector2.Zero,
+            Offset = new Vector2(280, 0),
+            Rotation = 0,
+            Zoom = 1.2f
+        };
+        Vector2[] logicalPoints =
+        [
+            Vector2.Zero, new(300, 400), new(600, 800), new(120, 60)
+        ];
+        foreach (Vector2 logicalPoint in logicalPoints)
+        {
+            Vector2 previous = Raylib.GetWorldToScreen2D(logicalPoint, previousCamera);
+            Vector2 enlarged = Raylib.GetWorldToScreen2D(logicalPoint, camera);
+            Vector2 expected = new Vector2(800, 640) +
+                (previous - new Vector2(640, 480)) * (4f / 3f);
+            Assert.InRange(Vector2.Distance(expected, enlarged), 0, .001f);
+        }
     }
 
     [Fact]

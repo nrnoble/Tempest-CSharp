@@ -97,10 +97,14 @@ public sealed class Level9AtariPresentationTests
 			Assert.InRange(MathF.Abs(logicalBounds.MaxX - 654.54547f), 0, 0.01f);
 			Assert.InRange(MathF.Abs(logicalBounds.MinY - 119.44444f), 0, 0.01f);
 			Assert.InRange(MathF.Abs(logicalBounds.MaxY - 475f), 0, 0.01f);
-			Assert.InRange(MathF.Abs(prePlacementHostBounds.MinX - 319.27274f), 0, 0.01f);
-			Assert.InRange(MathF.Abs(prePlacementHostBounds.MaxX - 960.7273f), 0, 0.01f);
-			Assert.InRange(MathF.Abs(prePlacementHostBounds.MinY - 110.78f), 0, 0.01f);
-			Assert.InRange(MathF.Abs(prePlacementHostBounds.MaxY - 558.78f), 0, 0.01f);
+			Assert.InRange(MathF.Abs(prePlacementHostBounds.MinX -
+				PreviousPortraitHostTransform.ToCurrentHost(new(319.27274f, 0)).X), 0, 0.01f);
+			Assert.InRange(MathF.Abs(prePlacementHostBounds.MaxX -
+				PreviousPortraitHostTransform.ToCurrentHost(new(960.7273f, 0)).X), 0, 0.01f);
+			Assert.InRange(MathF.Abs(prePlacementHostBounds.MinY -
+				PreviousPortraitHostTransform.ToCurrentHost(new(0, 110.78f)).Y), 0, 0.01f);
+			Assert.InRange(MathF.Abs(prePlacementHostBounds.MaxY -
+				PreviousPortraitHostTransform.ToCurrentHost(new(0, 558.78f)).Y), 0, 0.01f);
 
 			float hudBottom = (120 + 18) * DisplayConfiguration.PortraitOutputScale;
 			Vector2 gameplayCenter = new(
@@ -120,10 +124,14 @@ public sealed class Level9AtariPresentationTests
 				GetBounds(projectedPoints.Select(ToHost));
 			Assert.InRange(MathF.Abs(finalBounds.MinX - prePlacementHostBounds.MinX), 0, 0.001f);
 			Assert.InRange(MathF.Abs(finalBounds.MaxX - prePlacementHostBounds.MaxX), 0, 0.001f);
-			Assert.InRange(MathF.Abs(finalBounds.MinX - 319.27274f), 0, 0.01f);
-			Assert.InRange(MathF.Abs(finalBounds.MaxX - 960.7273f), 0, 0.01f);
-			Assert.InRange(MathF.Abs(finalBounds.MinY - 338.8f), 0, 0.01f);
-			Assert.InRange(MathF.Abs(finalBounds.MaxY - 786.8f), 0, 0.01f);
+			Assert.InRange(MathF.Abs(finalBounds.MinX -
+				PreviousPortraitHostTransform.ToCurrentHost(new(319.27274f, 0)).X), 0, 0.01f);
+			Assert.InRange(MathF.Abs(finalBounds.MaxX -
+				PreviousPortraitHostTransform.ToCurrentHost(new(960.7273f, 0)).X), 0, 0.01f);
+			Assert.InRange(MathF.Abs(finalBounds.MinY -
+				PreviousPortraitHostTransform.ToCurrentHost(new(0, 338.8f)).Y), 0, 0.01f);
+			Assert.InRange(MathF.Abs(finalBounds.MaxY -
+				PreviousPortraitHostTransform.ToCurrentHost(new(0, 786.8f)).Y), 0, 0.01f);
 			Assert.InRange(MathF.Abs(
 				(finalBounds.MinX + finalBounds.MaxX) / 2 - gameplayCenter.X), 0, 0.001f);
 			Assert.InRange(MathF.Abs(

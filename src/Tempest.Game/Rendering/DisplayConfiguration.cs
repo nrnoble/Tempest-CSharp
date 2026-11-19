@@ -13,34 +13,37 @@ public static class DisplayConfiguration
 {
 	public const int LogicalWidth = 800;
 	public const int LogicalHeight = 600;
-	public const float WindowScale = 1.6f;
-	public const int WindowWidth = (int)(LogicalWidth * WindowScale);
-	public const int WindowHeight = (int)(LogicalHeight * WindowScale);
+	public const int WindowWidth = 1600;
+	public const int WindowHeight = 1280;
+	public const float WindowScale = 2f;
 	public const int PortraitLogicalWidth = 600;
 	public const int PortraitLogicalHeight = 800;
-	public const int PortraitViewportWidth = 720;
-	public const int PortraitViewportHeight = 960;
+	public const int PortraitViewportHeight = WindowHeight;
+	public const int PortraitViewportWidth =
+		PortraitViewportHeight * PortraitLogicalWidth / PortraitLogicalHeight;
 	public const int PortraitViewportLeft = (WindowWidth - PortraitViewportWidth) / 2;
-	public const float PortraitOutputScale = 1.2f;
+	public const float PortraitOutputScale = PortraitViewportHeight / (float)PortraitLogicalHeight;
 	public const float PortraitPlayfieldScale = 1.05f;
+	public const float PortraitViewportBorderThickness = 1;
 	// PROJECT TRANSLATION: one shared placement fits the production Levels 1-9 tube envelope.
-	// Level 6 sets the upper bound; -33.1 leaves about 0.14 host pixels of top-edge clearance.
+	// Level 6 sets the upper bound; -33.1 leaves about 0.19 host pixels of top-edge clearance.
 	public const float PortraitPlayfieldVerticalTranslation = -33.1f;
 	public const float PortraitPlayfieldZoom = PortraitOutputScale * PortraitPlayfieldScale;
 	public static Rectangle PortraitViewport => new(
 		PortraitViewportLeft, 0, PortraitViewportWidth, PortraitViewportHeight);
 
-	// Legacy remains the accepted 800x600 drawing surface uniformly scaled to the host window.
+	// Fit the legacy 4:3 canvas uniformly to the host width and center it vertically.
 	public static Camera2D PresentationCamera => new()
 	{
 		Target = Vector2.Zero,
-		Offset = Vector2.Zero,
+		Offset = new Vector2(
+			(WindowWidth - LogicalWidth * WindowScale) / 2f,
+			(WindowHeight - LogicalHeight * WindowScale) / 2f),
 		Rotation = 0,
 		Zoom = WindowScale
 	};
 
-	// These are experimental project translations: the portrait viewport is centered in the
-	// unchanged host window, while one camera uniformly scales and shifts the complete playfield.
+	// The portrait viewport is centered in the host window; only its uniform host scale changes.
 	// Projection/model coordinates stay in the legacy 800x600 space and are never rewritten.
 	public static Camera2D ExperimentalPortraitPlayfieldCamera
 	{

@@ -2968,16 +2968,18 @@ Approach and transitions, accepted Levels 1-6, Level 8 `+212.28139`, Level 9
 behavior is unchanged.
 
 **SEPARATE DEFERRED WHOLE-GAME VIEWPORT/SCREENSHOT-PROPORTION MILESTONE:**
-Neal's comparison indicates that the reconstructed C# tube and reference tube
-have the same recognizable Level 7 structure, with no accepted evidence of
-incorrect point order, connectivity, lane structure, or rail attachment. The
-C# capture appears horizontally broader relative to its height. This
-difference is not a Level 7 tube-geometry defect and must not be compensated
-by changing Level 7 geometry or placement. The future whole-game investigation
-may address portrait/playfield dimensions, X/Y scale, viewport aspect,
-gameplay-area proportions below the HUD, host/window mapping, screenshot
-output proportions, and cross-level consistency. This acceptance does not
-claim pixel-identical captures or close that future milestone.
+At the time of this Level 7 closeout, Neal's comparison indicated that the
+reconstructed C# tube and reference tube had the same recognizable structure,
+with no accepted evidence of incorrect point order, connectivity, lane
+structure, or rail attachment. The C# capture appeared horizontally broader
+relative to its height. This was not a Level 7 tube-geometry defect and was
+not to be compensated by changing Level 7 geometry or placement. The later
+physical window/viewport enlargement is recorded in the accepted section
+below; it does not resolve screenshot-proportion matching. The remaining
+separate investigation may compare C# and arcade/MAME screenshot proportions
+and gameplay-area proportions. It does not authorize silently changing
+accepted geometry or viewport dimensions. This acceptance does not claim
+pixel-identical captures.
 
 **RETIRED DEVELOPMENT DIAGNOSTICS:** The Level 7 visible-runtime and
 framebuffer diagnostics were dedicated to investigating this now-resolved
@@ -2985,3 +2987,43 @@ presentation architecture and had no continuing general purpose. Their CLI
 options, parser/help support, Program wiring, renderer hooks, source, and
 tests are removed. Generic playback, screenshot capture, pause, stepping,
 and normal shared diagnostic infrastructure are preserved.
+
+## Whole-game host-window and portrait viewport enlargement — manually accepted (2026-11-18)
+
+**NEAL MANUAL ACCEPTANCE — PASS:** The larger application window and portrait
+viewport meet the requested physical enlargement. The viewport is centered
+with equal side margins, fills the window height, and presents the accepted
+tubes and HUD uniformly larger without reshaping their composition. Entity
+registration, gameplay, clipping, viewport border, ExitZoom, and Approach
+remain acceptable for this sizing milestone.
+
+**PROJECT DECISION — ACCEPTED WINDOW AND VIEWPORT:** The normal windowed
+client area is `1600 x 1280`. The portrait viewport is `960 x 1280`, origin
+`(320,0)`, exact `3:4`, with `320` pixels on each side and no top/bottom
+margins. The viewport border remains one host pixel. Full-window screenshot
+capture continues to use the whole host back buffer; no viewport-only capture
+mode was added.
+
+**PROJECT TRANSLATION — UNIFORM HOST ENLARGEMENT:** The accepted portrait
+viewport enlarged from `720 x 960` by exactly `4/3` on both axes. The portrait
+HUD output scale is `1.6`; the shared playfield zoom is `1.68`, retaining the
+existing `1.05` playfield factor. Logical coordinates, projection `K`,
+`ZOffset`, perspective, logical camera target, geometry, shared placement,
+and per-level adapter inputs are unchanged. The accepted Level 7, Level 8,
+Level 9, and diagnostic Level 10 logical vertical placements remain
+`+228.99702`, `+212.28139`, `+180.96825`, and `+50`, respectively.
+
+**OPTION AND LEGACY BOUNDARIES:** `--atari-presentation` remains an adapter
+opt-in and does not control host or viewport sizing. Without it, normal
+rendering still uses the portrait viewport. The separate
+`--legacy-presentation` option preserves the `800 x 600` logical canvas and
+uniformly maps it at `2x` to `1600 x 1200`, centered vertically in the
+`1600 x 1280` host. Gameplay state, input cadence, recording/playback schema
+and determinism, timing, level progression, and transitions are unchanged.
+
+**SCOPE AND FIDELITY BOUNDARY:** This is an accepted physical-size and
+viewport-layout decision, not evidence of Atari ROM behavior or arcade/MAME
+proportion matching. The separate C# versus arcade/MAME screenshot-proportion
+investigation remains deferred; it must not be conflated with or used to
+silently retune this accepted uniform enlargement or individual level
+geometry.

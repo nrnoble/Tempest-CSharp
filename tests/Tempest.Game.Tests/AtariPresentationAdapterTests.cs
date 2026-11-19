@@ -35,6 +35,7 @@ public sealed class AtariPresentationAdapterTests
 			Vector2 host = ToHost(origin.Position);
 			Assert.InRange(MathF.Abs(host.X - viewportCenter.X), 0, .001f);
 			float expectedOffset = level == 1 ? 9.7091f : level == 2 ? -.3709f : 0;
+			expectedOffset *= 4f / 3f;
 			Assert.InRange(MathF.Abs(host.Y - viewportCenter.Y - expectedOffset), 0, .001f);
 		}
 
@@ -44,7 +45,7 @@ public sealed class AtariPresentationAdapterTests
 			.SelectMany(depth => level4.Definition.Points.Select(point =>
 				ToHost(Project(level4, metadata4, point.X, point.Y, depth).Position).Y))
 			.Min();
-		// Normal score, lives and wave text end above host Y=165.6 in portrait mode.
+		// Normal score, lives and wave text end above the portrait HUD boundary.
 		Assert.True(minHostY > (120 + 18) * DisplayConfiguration.PortraitOutputScale);
 	}
 
@@ -349,10 +350,14 @@ public sealed class AtariPresentationAdapterTests
 					point.X, point.Y, nearDepth, definition.CenterY, definition.YOffset,
 					nearDepth, farDepth)))
 				.ToArray();
-			Assert.InRange(MathF.Abs(legacyHostNear.Min(point => point.X) - 365.778f), 0, .01f);
-			Assert.InRange(MathF.Abs(legacyHostNear.Max(point => point.X) - 914.222f), 0, .01f);
-			Assert.InRange(MathF.Abs(legacyHostNear.Min(point => point.Y) - .142f), 0, .01f);
-			Assert.InRange(MathF.Abs(legacyHostNear.Max(point => point.Y) - 582.262f), 0, .01f);
+			Assert.InRange(MathF.Abs(legacyHostNear.Min(point => point.X) -
+				PreviousPortraitHostTransform.ToCurrentHost(new(365.778f, 0)).X), 0, .01f);
+			Assert.InRange(MathF.Abs(legacyHostNear.Max(point => point.X) -
+				PreviousPortraitHostTransform.ToCurrentHost(new(914.222f, 0)).X), 0, .01f);
+			Assert.InRange(MathF.Abs(legacyHostNear.Min(point => point.Y) -
+				PreviousPortraitHostTransform.ToCurrentHost(new(0, .142f)).Y), 0, .01f);
+			Assert.InRange(MathF.Abs(legacyHostNear.Max(point => point.Y) -
+				PreviousPortraitHostTransform.ToCurrentHost(new(0, 582.262f)).Y), 0, .01f);
 			Vector2[] hostNear = definition.Points
 				.Select(point => ToHost(ProjectLevel6(
 					configuration, point.X, point.Y, nearDepth).Position))
@@ -638,10 +643,14 @@ public sealed class AtariPresentationAdapterTests
 		float hostTop = ToHostY(placedTop);
 		float hostBottom = ToHostY(placedBottom);
 
-		Assert.InRange(MathF.Abs(ToHostY(originalTop) - 77.8f), 0, .1f);
-		Assert.InRange(MathF.Abs(ToHostY(originalBottom) - 594.2f), 0, .1f);
-		Assert.InRange(MathF.Abs(hostTop - 140.4f), 0, .2f);
-		Assert.InRange(MathF.Abs(hostBottom - 818.9f), 0, .2f);
+		Assert.InRange(MathF.Abs(ToHostY(originalTop) -
+			PreviousPortraitHostTransform.ToCurrentHost(new(0, 77.8f)).Y), 0, .1f);
+		Assert.InRange(MathF.Abs(ToHostY(originalBottom) -
+			PreviousPortraitHostTransform.ToCurrentHost(new(0, 594.2f)).Y), 0, .1f);
+		Assert.InRange(MathF.Abs(hostTop -
+			PreviousPortraitHostTransform.ToCurrentHost(new(0, 140.4f)).Y), 0, .2f);
+		Assert.InRange(MathF.Abs(hostBottom -
+			PreviousPortraitHostTransform.ToCurrentHost(new(0, 818.9f)).Y), 0, .2f);
 		Assert.True(hostTop > 100);
 		Assert.True(DisplayConfiguration.PortraitViewportHeight - hostBottom > 100);
 		Assert.True(hostTop >= 0);
@@ -982,8 +991,10 @@ public sealed class AtariPresentationAdapterTests
 
 		float placedTop = placedEnvelope.Min(point => ToHostY(point.Y));
 		float placedBottom = placedEnvelope.Max(point => ToHostY(point.Y));
-		Assert.InRange(MathF.Abs(placedTop - 164.08f), 0, .1f);
-		Assert.InRange(MathF.Abs(placedBottom - 795.92f), 0, .1f);
+		Assert.InRange(MathF.Abs(placedTop -
+			PreviousPortraitHostTransform.ToCurrentHost(new(0, 164.08f)).Y), 0, .1f);
+		Assert.InRange(MathF.Abs(placedBottom -
+			PreviousPortraitHostTransform.ToCurrentHost(new(0, 795.92f)).Y), 0, .1f);
 		Assert.True(placedTop > 150);
 		Assert.True(DisplayConfiguration.PortraitViewportHeight - placedBottom > 150);
 
