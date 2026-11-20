@@ -92,7 +92,9 @@ public sealed class DiagnosticLevel10Tests
     {
         TempestGame level10Game = new(startingProductionLevel: 10);
         TempestGame level7Game = new(startingProductionLevel: 7);
-        VectorRenderer renderer = new(level10Game, atariPresentationEnabled: true);
+        VectorRenderer renderer = new(
+            level10Game, atariPresentationEnabled: true,
+            tubeYGain: 1, tubeScale: 1, tubeVerticalOffset: 0);
         LevelConfiguration configuration = LevelConfiguration.Level10Diagnostic;
         RomPresentationMetadata metadata =
             RomPresentationMetadataCatalog.ForDisplayedLevel(10);
@@ -150,7 +152,9 @@ public sealed class DiagnosticLevel10Tests
             Projection.K = 70;
             Projection.ZOffset = 5;
             TempestGame game = new(startingProductionLevel: 10);
-            VectorRenderer renderer = new(game, atariPresentationEnabled: true);
+            VectorRenderer renderer = new(
+                game, atariPresentationEnabled: true,
+                tubeYGain: 1, tubeScale: 1, tubeVerticalOffset: 0);
             List<(Vector2 Start, Vector2 End)> lines = [];
             renderer.DrawTube((start, end, _) => lines.Add((start, end)));
 
@@ -214,7 +218,8 @@ public sealed class DiagnosticLevel10Tests
                 new(recording.StartupConfiguration, recording.Replay);
             _ = new VectorRenderer(standardPlayback.Game);
             VectorRenderer atariRenderer = new(
-                atariPlayback.Game, atariPresentationEnabled: true);
+                atariPlayback.Game, atariPresentationEnabled: true,
+                tubeYGain: 1, tubeScale: 1, tubeVerticalOffset: 0);
 
             Assert.Equal(10, recording.StartupConfiguration.StartingDisplayedLevel);
             Assert.Equal(1, recording.Replay.DurationTicks);

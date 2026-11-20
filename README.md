@@ -181,6 +181,38 @@ non-blocking, and deferred; no cause has been established. It did not isolate
 a level or trigger, and no relationship to the separate Level 5-specific
 observation below has been established.
 
+## Development-only tube presentation calibration
+
+With `--atari-presentation`, the renderer automatically uses the manually
+selected first-pass Y gain, uniform scale, and vertical offset for the level
+currently displayed. The values and evidence classification are recorded in
+the [behavior specification](TEMPEST-BEHAVIOR-SPEC.md#first-pass-per-level-atari-presentation-calibration).
+They are presentation-only project decisions based on Neal's manual visual
+selection, not ROM-derived gameplay geometry; a later milestone may fine-tune
+individual levels.
+
+The independent `--tube-y-gain`, `--tube-scale`, and
+`--tube-vertical-offset` diagnostics remain available as absolute overrides
+for their corresponding dimensions. An omitted option keeps that level's
+selected value. Y gain and uniform scale accept positive finite values;
+vertical offset accepts any finite signed value in logical screen coordinates
+(positive moves down and negative moves up). There is no automatic
+repositioning or recentering. Overrides remain presentation-only and are not
+stored in gameplay recordings.
+
+The fixed yellow viewport calibration guides are development-only and normally
+off. Add `--calibration-guides` with `--atari-presentation` to restore them
+for calibration and screenshots; they stay fixed independently of the three
+tube diagnostics.
+
+For example:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --atari-presentation --level 2
+dotnet run --project src\Tempest.Game -- --atari-presentation --level 7 --tube-scale 1.1
+dotnet run --project src\Tempest.Game -- --atari-presentation --level 7 --tube-y-gain 1 --tube-scale 1 --tube-vertical-offset 0
+```
+
 ## Production Level 1 four-Flipper maximum
 
 Normal production Level 1 now permits at most four concurrent active
@@ -500,6 +532,17 @@ file playback, remains outside `PlayerInput`, and does not move simulation,
 cursor or RNG state. Running playback, live gameplay and headless playback do
 not request captures. Capture failures report both paths without resuming or
 advancing playback. No recording format or gameplay/playback semantics changed.
+
+### Live screenshots
+
+During live play, **F9** toggles pause and **F10** requests a Tempest-owned
+screenshot. F10 remains available while paused; repeated captures at the
+unchanged simulation tick receive distinct
+`live-level-<level>-tick-<tick>-NNN.png` names beneath the development root's
+`UserData\Screenshots\` directory. Run the game from the repository root to
+keep that directory beside `Temp\`. Raylib's native **F12** shortcut is
+separate and writes `screenshotNNN.png` in the process working directory; it
+is not the Tempest capture command.
 
 The separate Blaster-hit enemy explosion remains deferred; Neal observes a
 brief arcade explosion while the current C# enemy disappears immediately.

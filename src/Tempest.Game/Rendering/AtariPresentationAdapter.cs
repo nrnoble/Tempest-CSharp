@@ -92,6 +92,7 @@ public static class AtariPresentationAdapter
 	public const float Level9VerticalPlacement = 180.96825f;
 	// PROJECT TRANSLATION: center the shared production Level 7 envelope below the portrait HUD.
 	public const float Level7VerticalPlacement = 228.99702f;
+	public const float DefaultTubeYGain = 1f;
 	// PROJECT TRANSLATION: diagnostic Level 10 final screen-space Y offset. Applied after
 	// projection so the existing horizontal mapping, scale, and depth response stay unchanged.
 	public const float Level10VerticalPlacement = 50;
@@ -243,12 +244,16 @@ public static class AtariPresentationAdapter
 		float k,
 		float zOffset,
 		RomPresentationMetadata metadata,
-		float level2VerticalAspectFactor = Level2VerticalAspectFactor)
+		float level2VerticalAspectFactor = Level2VerticalAspectFactor,
+		float tubeYGain = DefaultTubeYGain)
 	{
 		ArgumentNullException.ThrowIfNull(metadata);
 		if (!float.IsFinite(level2VerticalAspectFactor) || level2VerticalAspectFactor <= 0)
 			throw new ArgumentOutOfRangeException(nameof(level2VerticalAspectFactor),
 				"The Level 2 vertical aspect factor must be positive and finite.");
+		if (!float.IsFinite(tubeYGain) || tubeYGain <= 0)
+			throw new ArgumentOutOfRangeException(nameof(tubeYGain),
+				"The development tube Y gain must be positive and finite.");
 		(float unitsPerRawUnit, int yOrientation) = displayedLevel == 4
 			? (1, 1)
 			: GetModelFrameMapping(displayedLevel);
@@ -303,12 +308,17 @@ public static class AtariPresentationAdapter
 			// The affine fit relates C# coordinates to Atari comparison coordinates. The renderer
 			// consumes C# model units, so correspondence coefficients must not become screen gains.
 			float level4ScreenX = LogicalCenterX + x * depthScale;
-			float level4ScreenY = centerY + (y + verticalOffset) * depthScale +
+			float level4ScreenY = centerY + (y * tubeYGain + verticalOffset) * depthScale +
 				Level4VerticalPlacement;
+			float level4LocalScaleY = depthScale * tubeYGain;
 			EnsureFinite(level4ScreenX, "Level 4 screen X");
 			EnsureFinite(level4ScreenY, "Level 4 screen Y");
+			EnsureFinite(level4LocalScaleY, "Level 4 vertical local Jacobian");
 			return new AtariPresentationProjection(
-				new Vector2(level4ScreenX, level4ScreenY), depthScale);
+				new Vector2(level4ScreenX, level4ScreenY), depthScale)
+			{
+				LocalScaleY = level4LocalScaleY
+			};
 		}
 
 		if (displayedLevel == 1)
@@ -326,13 +336,19 @@ public static class AtariPresentationAdapter
 				throw new InvalidOperationException("The Level 1 depth scale must be non-zero.");
 			float level1LocalScale = 1 / depthScale;
 			float level1ScreenX = LogicalCenterX + x / depthScale;
-			float level1ScreenY = centerY + (y + verticalOffset) / depthScale +
+			float level1ScreenY = centerY +
+				(tubeYGain * y + verticalOffset) / depthScale +
 				Level1VerticalPlacement;
+			float level1LocalScaleY = level1LocalScale * tubeYGain;
 			EnsureFinite(level1LocalScale, "Level 1 local Jacobian");
+			EnsureFinite(level1LocalScaleY, "Level 1 vertical local Jacobian");
 			EnsureFinite(level1ScreenX, "Level 1 screen X");
 			EnsureFinite(level1ScreenY, "Level 1 screen Y");
 			return new AtariPresentationProjection(
-				new Vector2(level1ScreenX, level1ScreenY), level1LocalScale);
+				new Vector2(level1ScreenX, level1ScreenY), level1LocalScale)
+			{
+				LocalScaleY = level1LocalScaleY
+			};
 		}
 
 		if (displayedLevel == 2)
@@ -352,10 +368,11 @@ public static class AtariPresentationAdapter
 			float level2ScreenX = LogicalCenterX + x / depthScale;
 			float level2ProjectedCenterY = centerY + verticalOffset / depthScale;
 			float level2ProjectedY = level2ProjectedCenterY +
-				level2VerticalAspectFactor * y / depthScale;
+				level2VerticalAspectFactor * tubeYGain * y / depthScale;
 			// PROJECT TRANSLATION: move the complete Level 2 candidate after projection.
 			float level2ScreenY = level2ProjectedY + Level2VerticalPlacement;
-			float level2LocalScaleY = level2LocalScale * level2VerticalAspectFactor;
+			float level2LocalScaleY =
+				level2LocalScale * level2VerticalAspectFactor * tubeYGain;
 			EnsureFinite(level2LocalScale, "Level 2 local Jacobian");
 			EnsureFinite(level2LocalScaleY, "Level 2 vertical local Jacobian");
 			EnsureFinite(level2ProjectedCenterY, "Level 2 projected tube center");
@@ -383,13 +400,18 @@ public static class AtariPresentationAdapter
 				throw new InvalidOperationException("The Level 3 depth scale must be non-zero.");
 			float level3LocalScale = 1 / depthScale;
 			float level3ScreenX = LogicalCenterX + x / depthScale;
-			float level3ScreenY = centerY + (y + verticalOffset) / depthScale +
+			float level3ScreenY = centerY + (tubeYGain * y + verticalOffset) / depthScale +
 				Level3VerticalPlacement;
+			float level3LocalScaleY = level3LocalScale * tubeYGain;
 			EnsureFinite(level3LocalScale, "Level 3 local Jacobian");
+			EnsureFinite(level3LocalScaleY, "Level 3 vertical local Jacobian");
 			EnsureFinite(level3ScreenX, "Level 3 screen X");
 			EnsureFinite(level3ScreenY, "Level 3 screen Y");
 			return new AtariPresentationProjection(
-				new Vector2(level3ScreenX, level3ScreenY), level3LocalScale);
+				new Vector2(level3ScreenX, level3ScreenY), level3LocalScale)
+			{
+				LocalScaleY = level3LocalScaleY
+			};
 		}
 
 		float normalizedDepth = (z - zNear) / depthInterval;
@@ -412,7 +434,7 @@ public static class AtariPresentationAdapter
 		EnsureFinite(logicalScale, "logical scale");
 
 		float xRawDelta = x / unitsPerRawUnit;
-		float yRawDelta = yOrientation * (y + verticalOffset) / unitsPerRawUnit +
+		float yRawDelta = yOrientation * (tubeYGain * y + verticalOffset) / unitsPerRawUnit +
 			AtariCenter - metadata.CameraHeightRaw;
 		EnsureFinite(xRawDelta, "raw X displacement");
 		EnsureFinite(yRawDelta, "raw Y displacement");
@@ -444,10 +466,15 @@ public static class AtariPresentationAdapter
 		if (localScaleDenominator == 0)
 			throw new InvalidOperationException("The Atari local Jacobian denominator must be non-zero.");
 		float localScale = logicalScale * 256 / localScaleDenominator;
+		float localScaleY = localScale * tubeYGain;
 		EnsureFinite(screenX, "screen X");
 		EnsureFinite(screenY, "screen Y");
 		EnsureFinite(localScale, "local Jacobian");
-		return new AtariPresentationProjection(new Vector2(screenX, screenY), localScale);
+		EnsureFinite(localScaleY, "vertical local Jacobian");
+		return new AtariPresentationProjection(new Vector2(screenX, screenY), localScale)
+		{
+			LocalScaleY = localScaleY
+		};
 	}
 
 	public static void ValidateTopology(RomPresentationMetadata metadata, bool continuous)

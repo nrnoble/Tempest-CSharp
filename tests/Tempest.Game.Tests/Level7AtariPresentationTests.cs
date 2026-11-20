@@ -124,7 +124,7 @@ public sealed class Level7AtariPresentationTests
 		{
 			TempestGame game = new(startingProductionLevel: 7, random: new Random(1));
 			LevelConfiguration configuration = game.CurrentLevel.Configuration;
-			VectorRenderer renderer = new(game, atariPresentationEnabled: true);
+			VectorRenderer renderer = CreateIdentityAtariRenderer(game);
 			List<(Vector2 Start, Vector2 End, Color Color)> lines = [];
 
 			renderer.DrawTube((start, end, color) => lines.Add((start, end, color)));
@@ -209,7 +209,7 @@ public sealed class Level7AtariPresentationTests
 		{
 			TempestGame game = new(startingProductionLevel: 7, random: new Random(1));
 			LevelConfiguration configuration = game.CurrentLevel.Configuration;
-			VectorRenderer renderer = new(game, atariPresentationEnabled: true);
+			VectorRenderer renderer = CreateIdentityAtariRenderer(game);
 			int lane = 3;
 			int next = game.CurrentLevel.NextEdge(lane);
 			Vector2 midpoint = (ProductionPoints[lane] + ProductionPoints[next]) / 2;
@@ -289,7 +289,7 @@ public sealed class Level7AtariPresentationTests
 			TempestGame game = new(startingProductionLevel: 7, random: new Random(1));
 			Level level = game.CurrentLevel;
 			LevelConfiguration configuration = level.Configuration;
-			VectorRenderer renderer = new(game, atariPresentationEnabled: true);
+			VectorRenderer renderer = CreateIdentityAtariRenderer(game);
 			PropertyInfo directionProperty = typeof(Flipper).GetProperty(
 				nameof(Flipper.Direction),
 				BindingFlags.Instance | BindingFlags.Public)
@@ -386,7 +386,7 @@ public sealed class Level7AtariPresentationTests
 		try
 		{
 			TempestGame game = new(startingProductionLevel: 7, random: new Random(1));
-			VectorRenderer renderer = new(game, atariPresentationEnabled: true);
+			VectorRenderer renderer = CreateIdentityAtariRenderer(game);
 			LevelDefinition definition = game.CurrentLevel.Definition;
 			Vector2[] pointsBefore = definition.Points.ToArray();
 			int playerLaneBefore = game.Player.EdgeIndex;
@@ -447,8 +447,7 @@ public sealed class Level7AtariPresentationTests
 			Projection.PortraitPerspective = 0;
 			GameplayPlaybackSession presentationOn = new(
 				recording.StartupConfiguration, recording.Replay);
-			VectorRenderer renderer = new(
-				presentationOn.Game, atariPresentationEnabled: true);
+			VectorRenderer renderer = CreateIdentityAtariRenderer(presentationOn.Game);
 			AssertEquivalentSummary(
 				initialOffBoundary,
 				presentationOn.GetStateSummary());
@@ -563,4 +562,8 @@ public sealed class Level7AtariPresentationTests
 		Projection.ZOffset = zOffset;
 		Projection.PortraitPerspective = perspective;
 	}
+
+	private static VectorRenderer CreateIdentityAtariRenderer(TempestGame game) =>
+		new(game, atariPresentationEnabled: true,
+			tubeYGain: 1, tubeScale: 1, tubeVerticalOffset: 0);
 }

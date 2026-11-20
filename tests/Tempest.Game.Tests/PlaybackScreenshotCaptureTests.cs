@@ -290,6 +290,54 @@ public sealed class PlaybackScreenshotCaptureTests
 	}
 
 	[Fact]
+	public void F9PauseAndF10LiveCapturesUseIncrementingUserDataPaths()
+	{
+		string applicationRoot = CreateTemporaryDirectory();
+		try
+		{
+			List<string> requestedPaths = [];
+			PlaybackScreenshotCapture capture = new(
+				new ApplicationPaths(applicationRoot),
+				path =>
+				{
+					requestedPaths.Add(path);
+					File.WriteAllBytes(Path.Combine(applicationRoot, path), [137, 80, 78, 71]);
+				},
+				TextWriter.Null,
+				TextWriter.Null);
+
+			LiveControlInput pauseControls = InputSystem.CreateLiveControlInput(
+				f9Pressed: true, f10Pressed: false);
+			bool paused = InputSystem.ToggleLivePause(false, pauseControls.PauseTogglePressed);
+			Assert.True(paused);
+
+			for (int index = 0; index < 2; index++)
+			{
+				LiveControlInput screenshotControls = InputSystem.CreateLiveControlInput(
+					f9Pressed: false, f10Pressed: true);
+				paused = InputSystem.ToggleLivePause(paused, screenshotControls.PauseTogglePressed);
+				Assert.True(paused);
+				Assert.True(screenshotControls.ScreenshotPressed);
+				Assert.True(capture.TryCaptureLive(displayedLevel: 1, simulationTick: 42));
+			}
+
+			Assert.Equal(
+				[
+					"UserData/Screenshots/live-level-1-tick-000042-001.png",
+					"UserData/Screenshots/live-level-1-tick-000042-002.png"
+				],
+				requestedPaths);
+			string outputDirectory = Path.Combine(applicationRoot, "UserData", "Screenshots");
+			Assert.Equal(2, Directory.GetFiles(outputDirectory).Length);
+			Assert.All(requestedPaths, path => Assert.False(Path.IsPathRooted(path)));
+		}
+		finally
+		{
+			Directory.Delete(applicationRoot, recursive: true);
+		}
+	}
+
+	[Fact]
 	public void LiveCaptureFailureIsReportedAndIncompleteReservationIsRemoved()
 	{
 		string applicationRoot = CreateTemporaryDirectory();

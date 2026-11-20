@@ -38,7 +38,9 @@ public sealed class ExitZoomFocalCompensationTests
 				startingProductionLevel: displayedLevel,
 				startingLives: 5,
 				random: new Random(1));
-			VectorRenderer renderer = new(game, atariPresentationEnabled: true);
+			float tubeYGain = displayedLevel is 1 or 7 ? 1.31f : 1f;
+			VectorRenderer renderer = new(
+				game, atariPresentationEnabled: true, tubeYGain: tubeYGain);
 			TubeLine[] playingTube = CaptureTube(renderer);
 			game.CurrentLevel.State = LevelState.ExitZoom;
 			TubeLine[] onsetTube = CaptureTube(renderer);
@@ -123,7 +125,8 @@ public sealed class ExitZoomFocalCompensationTests
 			Assert.Equal(16, definition.Points.Count);
 
 			TubeLine[] tube = CaptureTube(
-				new VectorRenderer(game, atariPresentationEnabled: true));
+				new VectorRenderer(game, atariPresentationEnabled: true,
+					tubeYGain: 1, tubeScale: 1, tubeVerticalOffset: 0));
 			RailFit fit = FitRails(tube, definition.Points.Count);
 
 			Assert.Equal(definition.Points.Count, fit.ValidRailCount);

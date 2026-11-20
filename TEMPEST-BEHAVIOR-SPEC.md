@@ -2772,6 +2772,50 @@ timing, simulation state, Level 7 behavior, Levels 1-9, or production
 progression. Recording/playback continues to preserve direct diagnostic
 Level 10 startup identity in both standard and Atari-presentation modes.
 
+## First-pass per-level Atari-presentation calibration
+
+**PROJECT DECISION — MANUALLY SELECTED FIRST PASS:** Neal manually tested the
+implemented/diagnostic Atari presentations with fixed viewport guides and
+selected the following good-enough values. They are presentation calibrations
+based on Neal's manual visual selection, not ROM-derived gameplay geometry or
+claims about Atari tube dimensions. The values are intentionally level-specific;
+do not infer a shared formula or normalize them. A later milestone may fine-tune
+individual levels; later levels may reuse the calibration tooling. Neal manually
+tested the encoded defaults for all ten levels and accepted the first pass.
+Manual gameplay remains the final authority for visual fidelity and playability.
+
+| Displayed level | Tube Y gain | Tube scale | Vertical offset |
+|---:|---:|---:|---:|
+| 1 | 1.4 | 0.8 | +35 |
+| 2 | 1.0 | 1.1 | +35 |
+| 3 | 1.2 | 0.97 | +35 |
+| 4 | 1.0 | 1.0 | +35 |
+| 5 | 1.0 | 1.2 | +15 |
+| 6 | 1.0 | 1.28 | +15 |
+| 7 | 1.3 | 0.9 | -25 |
+| 8 | 1.0 | 1.0 | -75 |
+| 9 | 1.5 | 1.05 | -150 |
+| 10 (diagnostic) | 1.2 | 0.9 | +15 |
+
+When Atari presentation is enabled and no diagnostic value is supplied, all
+three selected values follow the currently displayed level during direct
+startup, progression, visible playback, and presentation transitions. The
+diagnostic Level 10 remains outside campaign progression and retains its
+existing gameplay role. Legacy/non-Atari presentation is unchanged.
+
+**DEVELOPMENT ONLY:** The fixed yellow calibration guides are normally off.
+`--calibration-guides` with `--atari-presentation` enables the accepted
+yellow guides spanning the portrait viewport at host Y=180 and Y=1210,
+including in paused frames and screenshots. They remain fixed in final
+presentation coordinates; presentation diagnostics do not transform them.
+
+`--tube-y-gain`, `--tube-scale`, and `--tube-vertical-offset` remain
+presentation-only absolute per-dimension overrides: an explicit value replaces
+only that dimension's selected level value, while omitted dimensions continue
+to use the table. These values do not enter gameplay state, recording data,
+geometry, or simulation timing. Tube and attached presentation remain
+registered, and the accepted frozen ExitZoom focal behavior is preserved.
+
 ## Level 8 Atari presentation - manually accepted (2026-11-17)
 
 **ROM-BACKED INPUT / PROJECT TRANSLATION:** Displayed Level 8 uses the already

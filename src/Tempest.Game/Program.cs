@@ -23,6 +23,10 @@
 // presentation; --portrait-perspective calibrates only the shared portrait projection;
 // --atari-presentation opts into the shared Atari presentation adapter; Level 7 uses its
 // production gameplay geometry for both the tube and gameplay entities;
+// --calibration-guides enables fixed DEVELOPMENT-ONLY viewport guides;
+// --tube-y-gain changes DEVELOPMENT-ONLY vertical tube proportion;
+// --tube-scale uniformly scales the DEVELOPMENT-ONLY presented tube and attached artwork;
+// --tube-vertical-offset translates the complete DEVELOPMENT-ONLY presentation in screen space;
 // diagnostic Level 10 uses its own open model geometry with the accepted +50 logical-pixel placement.
 // Normal play progresses Level 1 through terminal Level 9.
 using System.Globalization;
@@ -61,6 +65,35 @@ if (!DebugController.TryParseAtariPresentation(args,
     out bool atariPresentationEnabled, out string? atariPresentationError))
 {
     Console.Error.WriteLine(atariPresentationError);
+    return 2;
+}
+
+if (!DebugController.TryParseCalibrationGuides(args,
+    out bool calibrationGuidesEnabled, out string? calibrationGuidesError))
+{
+    Console.Error.WriteLine(calibrationGuidesError);
+    return 2;
+}
+
+if (!DebugController.TryParseTubeYGainOptions(args,
+    out TubeYGainOptions tubeYGainOptions, out string? tubeYGainError))
+{
+    Console.Error.WriteLine(tubeYGainError);
+    return 2;
+}
+
+if (!DebugController.TryParseTubeScaleOptions(args,
+    out TubeScaleOptions tubeScaleOptions, out string? tubeScaleError))
+{
+    Console.Error.WriteLine(tubeScaleError);
+    return 2;
+}
+
+if (!DebugController.TryParseTubeVerticalOffsetOptions(args,
+    out TubeVerticalOffsetOptions tubeVerticalOffsetOptions,
+    out string? tubeVerticalOffsetError))
+{
+    Console.Error.WriteLine(tubeVerticalOffsetError);
     return 2;
 }
 
@@ -214,6 +247,27 @@ if (atariPresentationEnabled)
         "DEVELOPMENT ONLY — Atari presentation candidate enabled for production Levels 1-9 and diagnostic Level 10.");
 }
 
+if (tubeYGainOptions.WasExplicitlySpecified)
+{
+    Console.WriteLine(
+        $"DEVELOPMENT ONLY — tube source cross-section Y gain {tubeYGainOptions.Gain.ToString("G", CultureInfo.InvariantCulture)}; " +
+        "applies across the active Atari-presentation level; perspective is unchanged.");
+}
+
+if (tubeScaleOptions.WasExplicitlySpecified)
+{
+    Console.WriteLine(
+        $"DEVELOPMENT ONLY — presented tube uniform scale {tubeScaleOptions.Scale.ToString("G", CultureInfo.InvariantCulture)}; " +
+        "applies across the active Atari-presentation level.");
+}
+
+if (tubeVerticalOffsetOptions.WasExplicitlySpecified)
+{
+    Console.WriteLine(
+        $"DEVELOPMENT ONLY — presented tube vertical offset {tubeVerticalOffsetOptions.Offset.ToString("G", CultureInfo.InvariantCulture)}; " +
+        "positive values move down and negative values move up.");
+}
+
 if (level7SpikerSpeedOverride is float fixedSpikerSpeed)
 {
     Console.WriteLine(
@@ -364,7 +418,13 @@ try
                 level9SpikerSpeedOverride: level9SpikerSpeedOverride));
     InputSystem input = new();
     VectorRenderer renderer = new(
-        game, gameOverDensityMultiplier, atariPresentationEnabled);
+        game, gameOverDensityMultiplier, atariPresentationEnabled,
+        tubeYGainOptions.WasExplicitlySpecified ? tubeYGainOptions.Gain : null,
+        tubeScaleOptions.WasExplicitlySpecified ? tubeScaleOptions.Scale : null,
+        tubeVerticalOffsetOptions.WasExplicitlySpecified
+            ? tubeVerticalOffsetOptions.Offset
+            : null,
+        calibrationGuidesEnabled);
     PlaybackScreenshotCapture screenshotCapture = new(
         ApplicationPaths.Current, Raylib.TakeScreenshot, Console.Out, Console.Error);
     PlaybackScreenshotKeyDiagnostic? screenshotKeyDiagnostic =

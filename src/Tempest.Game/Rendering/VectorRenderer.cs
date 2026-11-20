@@ -23,6 +23,8 @@ public sealed class VectorRenderer
 	public const int ScreenHeight = DisplayConfiguration.WindowHeight;
 	public const int EggPointSize = 3;
 	public const float PlayerShotBaseSize = 4.5f;
+	public const int DevelopmentPortraitGuideTopY = 180;
+	public const int DevelopmentPortraitGuideBottomY = 1210;
 	// Experimental viewpoint elevation, in pre-projection units; not a measured Atari angle.
 	public const float InitialApproachVerticalOffset = 96;
 	private static readonly Color SpikerColor = new(0, 255, 0, 255);
@@ -144,6 +146,10 @@ public sealed class VectorRenderer
 	private TempestGame game;
 	private readonly double gameOverDensityMultiplier;
 	private readonly bool atariPresentationEnabled;
+	private readonly bool calibrationGuidesEnabled;
+	private readonly float? tubeYGainOverride;
+	private readonly float? tubeScaleOverride;
+	private readonly float? tubeVerticalOffsetOverride;
 	private readonly ExitZoomFocalCompensation exitZoomFocalCompensation = new();
 	private readonly Func<Vector2, float, Vector2> projectFocalOpeningPoint;
 	private readonly HashSet<int> legacyFallbackLevels = [];
@@ -190,17 +196,70 @@ public sealed class VectorRenderer
 	public VectorRenderer(
 		TempestGame game,
 		double gameOverDensityMultiplier = 2.0,
-		bool atariPresentationEnabled = false)
+		bool atariPresentationEnabled = false,
+		float? tubeYGain = null,
+		float? tubeScale = null,
+		float? tubeVerticalOffset = null,
+		bool calibrationGuidesEnabled = false)
 	{
 		ArgumentNullException.ThrowIfNull(game);
 		if (!double.IsFinite(gameOverDensityMultiplier) || gameOverDensityMultiplier <= 0)
 			throw new ArgumentOutOfRangeException(nameof(gameOverDensityMultiplier),
 				"The Game Over density multiplier must be a positive finite value.");
+		if (tubeYGain is float yGain && (!float.IsFinite(yGain) || yGain <= 0))
+			throw new ArgumentOutOfRangeException(nameof(tubeYGain),
+				"The development tube Y gain must be positive and finite.");
+		if (!atariPresentationEnabled &&
+			tubeYGain is float explicitYGain &&
+			explicitYGain != AtariPresentationAdapter.DefaultTubeYGain)
+			throw new ArgumentException(
+				"The development tube Y gain requires Atari presentation.",
+				nameof(tubeYGain));
+		if (tubeScale is float scale && (!float.IsFinite(scale) || scale <= 0))
+			throw new ArgumentOutOfRangeException(nameof(tubeScale),
+				"The development tube scale must be positive and finite.");
+		if (!atariPresentationEnabled && tubeScale is float explicitScale &&
+			explicitScale != TubeScaleOptions.DefaultScale)
+			throw new ArgumentException(
+				"The development tube scale requires Atari presentation.",
+				nameof(tubeScale));
+		if (tubeVerticalOffset is float offset && !float.IsFinite(offset))
+			throw new ArgumentOutOfRangeException(nameof(tubeVerticalOffset),
+				"The development tube vertical offset must be finite.");
+		if (!atariPresentationEnabled && tubeVerticalOffset is float explicitOffset &&
+			explicitOffset != TubeVerticalOffsetOptions.DefaultOffset)
+			throw new ArgumentException(
+				"The development tube vertical offset requires Atari presentation.",
+				nameof(tubeVerticalOffset));
+		if (calibrationGuidesEnabled && !atariPresentationEnabled)
+			throw new ArgumentException(
+				"The development calibration guides require Atari presentation.",
+				nameof(calibrationGuidesEnabled));
 		this.game = game;
 		this.gameOverDensityMultiplier = gameOverDensityMultiplier;
 		this.atariPresentationEnabled = atariPresentationEnabled;
+		this.calibrationGuidesEnabled = calibrationGuidesEnabled;
+		tubeYGainOverride = tubeYGain;
+		tubeScaleOverride = tubeScale;
+		tubeVerticalOffsetOverride = tubeVerticalOffset;
 		projectFocalOpeningPoint = ProjectFocalOpeningPoint;
 	}
+
+	private AtariPresentationCalibration CurrentCalibration =>
+		atariPresentationEnabled
+			? AtariPresentationCalibration.Resolve(
+				game.CurrentLevel.Configuration.DisplayedLevel,
+				tubeYGainOverride,
+				tubeScaleOverride,
+				tubeVerticalOffsetOverride)
+			: new(
+				AtariPresentationAdapter.DefaultTubeYGain,
+				TubeScaleOptions.DefaultScale,
+				TubeVerticalOffsetOptions.DefaultOffset);
+
+	private float TubeYGain => CurrentCalibration.TubeYGain;
+	private float TubeScale => CurrentCalibration.TubeScale;
+	private float TubeVerticalOffset => CurrentCalibration.VerticalOffset;
 
 	public void SetGame(TempestGame game)
 	{
@@ -230,7 +289,13 @@ public sealed class VectorRenderer
 			Projection.ZOffset,
 			Projection.PortraitPerspective,
 			projectFocalOpeningPoint);
-		return mappedPoint + compensation;
+		mappedPoint += compensation;
+		if (TubeVerticalOffset != 0)
+		{
+			// DEVELOPMENT ONLY: translate the finished presentation, after ExitZoom compensation.
+			mappedPoint.Y += TubeVerticalOffset;
+		}
+		return mappedPoint;
 	}
 
 	private Vector2 ProjectFocalOpeningPoint(Vector2 point, float depth) =>
@@ -238,8 +303,10 @@ public sealed class VectorRenderer
 
 	private Vector2 ProjectWorldPointWithoutExitCompensation(float x, float y, float depth)
 	{
-		if (!atariPresentationEnabled || IsLevel6GameOverState)
+		if (!atariPresentationEnabled)
 			return ProjectWorldPointLegacy(x, y, depth);
+		if (IsLevel6GameOverState)
+			return ProjectDiagnosticsOnLegacyPoint(x, y, depth);
 
 		int displayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
 		if (displayedLevel == 5)
@@ -268,6 +335,20 @@ public sealed class VectorRenderer
 		return ProjectWorldPointLegacy(x, y, depth);
 	}
 
+	private Vector2 ProjectDiagnosticsOnLegacyPoint(float x, float y, float depth)
+	{
+		Vector2 position = ProjectWorldPointLegacy(x, y * TubeYGain, depth);
+		if (TubeScale == TubeScaleOptions.DefaultScale)
+			return position;
+
+		Vector2 anchor = ProjectWorldPointLegacy(0, 0, depth);
+		Vector2 scaled = anchor + (position - anchor) * TubeScale;
+		if (!float.IsFinite(scaled.X) || !float.IsFinite(scaled.Y))
+			throw new InvalidOperationException(
+				"The development tube scale produced a non-finite presentation.");
+		return scaled;
+	}
+
 	private Vector2 ProjectWorldPointLegacy(float x, float y, float depth)
 	{
 		LevelConfiguration configuration = game.CurrentLevel.Configuration;
@@ -289,15 +370,70 @@ public sealed class VectorRenderer
 		float? projectionK = null,
 		float? projectionZOffset = null)
 	{
+		AtariPresentationProjection projection = ProjectAtariPresentationCore(
+			x, y, depth, approachDepthOffset, approachVerticalOffset,
+			projectionK, projectionZOffset);
+		EnsureFinitePresentationProjection(projection);
+		if (TubeScale == TubeScaleOptions.DefaultScale)
+			return projection;
+
+		// Keep each depth's existing zero-coordinate anchor; scaling must not recenter the tube.
+		AtariPresentationProjection anchor = ProjectAtariPresentationCore(
+			0, 0, depth, approachDepthOffset, approachVerticalOffset,
+			projectionK, projectionZOffset);
+		EnsureFinitePresentationProjection(anchor);
+		Vector2 position = anchor.Position + (projection.Position - anchor.Position) * TubeScale;
+		float localScale = projection.LocalScale * TubeScale;
+		float localScaleX = projection.LocalScaleX * TubeScale;
+		float localScaleY = projection.LocalScaleY * TubeScale;
+		if (!float.IsFinite(position.X) || !float.IsFinite(position.Y) ||
+			!float.IsFinite(localScale) || !float.IsFinite(localScaleX) ||
+			!float.IsFinite(localScaleY))
+		{
+			throw new InvalidOperationException(
+				"The development tube scale produced a non-finite presentation.");
+		}
+
+		return new AtariPresentationProjection(position, localScale)
+		{
+			LocalScaleX = localScaleX,
+			LocalScaleY = localScaleY
+		};
+	}
+
+	private static void EnsureFinitePresentationProjection(
+		AtariPresentationProjection projection)
+	{
+		if (!float.IsFinite(projection.Position.X) ||
+			!float.IsFinite(projection.Position.Y) ||
+			!float.IsFinite(projection.LocalScale) ||
+			!float.IsFinite(projection.LocalScaleX) ||
+			!float.IsFinite(projection.LocalScaleY))
+		{
+			throw new InvalidOperationException(
+				"The development tube diagnostics produced a non-finite presentation.");
+		}
+	}
+
+	private AtariPresentationProjection ProjectAtariPresentationCore(
+		float x,
+		float y,
+		float depth,
+		float approachDepthOffset,
+		float approachVerticalOffset,
+		float? projectionK,
+		float? projectionZOffset)
+	{
 		LevelConfiguration configuration = game.CurrentLevel.Configuration;
 		int displayedLevel = configuration.DisplayedLevel;
 		float k = projectionK ?? Projection.K;
 		float zOffset = projectionZOffset ?? Projection.ZOffset;
 		if (displayedLevel == 5)
 		{
-			return AtariPresentationAdapter.ProjectLevel5(
+			// These dedicated C# projection paths bypass the shared adapter's Y-gain handling.
+			AtariPresentationProjection projection = AtariPresentationAdapter.ProjectLevel5(
 				x,
-				y,
+				y * TubeYGain,
 				depth,
 				game.CurrentLevel.Definition.CenterY,
 				game.CurrentLevel.Definition.YOffset,
@@ -307,12 +443,17 @@ public sealed class VectorRenderer
 				approachVerticalOffset,
 				k,
 				zOffset);
+			return projection with
+			{
+				LocalScaleY = projection.LocalScaleY * TubeYGain
+			};
 		}
 		if (displayedLevel == 6)
 		{
-			return AtariPresentationAdapter.ProjectLevel6(
+			// Keep Level 6's presentation mapping while transforming its source Y axis uniformly.
+			AtariPresentationProjection projection = AtariPresentationAdapter.ProjectLevel6(
 				x,
-				y,
+				y * TubeYGain,
 				depth,
 				game.CurrentLevel.Definition.CenterY,
 				game.CurrentLevel.Definition.YOffset,
@@ -322,6 +463,10 @@ public sealed class VectorRenderer
 				approachVerticalOffset,
 				k,
 				zOffset);
+			return projection with
+			{
+				LocalScaleY = projection.LocalScaleY * TubeYGain
+			};
 		}
 
 		RomPresentationMetadata metadata =
@@ -340,7 +485,8 @@ public sealed class VectorRenderer
 			approachVerticalOffset,
 			k,
 			zOffset,
-			metadata);
+			metadata,
+			tubeYGain: TubeYGain);
 	}
 
 	private bool UsesAtariPresentationForCurrentLevel =>
@@ -403,20 +549,27 @@ public sealed class VectorRenderer
 		return new Vector2(projection.LocalScaleX, projection.LocalScaleY);
 	}
 
+	private float TubeLocalPresentationScale => TubeScale;
+
 	private Vector2 ApplyAtariLocalPresentationToOffset(Vector2 offset) =>
 		!atariPresentationEnabled
 			? offset
 			: game.CurrentLevel.Configuration.DisplayedLevel switch
 			{
-				2 => new Vector2(offset.X,
-					offset.Y * AtariPresentationAdapter.Level2VerticalAspectFactor),
+				2 => ScaleLocalOffset(offset, new Vector2(
+					TubeScale,
+					TubeScale * TubeYGain *
+						AtariPresentationAdapter.Level2VerticalAspectFactor)),
 				6 => ScaleLocalOffset(offset, new Vector2(
-					AtariPresentationAdapter.Level6HorizontalPresentationScale,
-					AtariPresentationAdapter.Level6VerticalPresentationScale)),
+					TubeScale * AtariPresentationAdapter.Level6HorizontalPresentationScale,
+					TubeScale * TubeYGain *
+						AtariPresentationAdapter.Level6VerticalPresentationScale)),
 				5 => ScaleLocalOffset(offset, new Vector2(
-					AtariPresentationAdapter.Level5HorizontalPresentationScale,
-					AtariPresentationAdapter.Level5VerticalPresentationScale)),
-				_ => offset
+					TubeScale * AtariPresentationAdapter.Level5HorizontalPresentationScale,
+					TubeScale * TubeYGain *
+						AtariPresentationAdapter.Level5VerticalPresentationScale)),
+				_ => ScaleLocalOffset(offset,
+					new Vector2(TubeScale, TubeScale * TubeYGain))
 			};
 
 	private static Vector2 ScaleLocalOffset(Vector2 offset, Vector2 scale) =>
@@ -452,6 +605,8 @@ public sealed class VectorRenderer
 				Raylib.EndScissorMode();
 				if (playbackStatus is PlaybackOverlayStatus portraitStatus)
 					DrawPortraitPlaybackStatus(portraitStatus);
+				DrawDevelopmentPortraitCalibrationGuides(
+					(start, end, color) => Raylib.DrawLineV(start, end, color));
 				DrawPortraitViewportBorder();
 			}
 			beforeEndDrawing?.Invoke();
@@ -524,11 +679,27 @@ public sealed class VectorRenderer
 		{
 			Raylib.EndScissorMode();
 			DrawPortraitOverlays(playbackStatus);
+			DrawDevelopmentPortraitCalibrationGuides(
+				(start, end, color) => Raylib.DrawLineV(start, end, color));
 			DrawPortraitViewportBorder();
 		}
 		// Raylib reads the completed back buffer here; EndDrawing swaps it for presentation.
 		beforeEndDrawing?.Invoke();
 		Raylib.EndDrawing();
+	}
+
+	public void DrawDevelopmentPortraitCalibrationGuides(
+		Action<Vector2, Vector2, Color> drawLine)
+	{
+		ArgumentNullException.ThrowIfNull(drawLine);
+		if (!calibrationGuidesEnabled)
+			return;
+		float left = DisplayConfiguration.PortraitViewportLeft;
+		float right = left + DisplayConfiguration.PortraitViewportWidth - 1;
+		drawLine(new Vector2(left, DevelopmentPortraitGuideTopY),
+			new Vector2(right, DevelopmentPortraitGuideTopY), Color.Yellow);
+		drawLine(new Vector2(left, DevelopmentPortraitGuideBottomY),
+			new Vector2(right, DevelopmentPortraitGuideBottomY), Color.Yellow);
 	}
 
 	private void DrawPortraitOverlays(PlaybackOverlayStatus? playbackStatus)
@@ -651,7 +822,8 @@ public sealed class VectorRenderer
 			float depth = ProjectEnemyDepth(fuseball.Height);
 			Vector2 scale = UsesAtariPresentationForCurrentLevel
 				? (8 * GetAtariLocalScaleAxes(
-					depth, ApproachDepthOffset, ApproachVerticalOffset) + new Vector2(.25f)) / 6
+					depth, ApproachDepthOffset, ApproachVerticalOffset) +
+					new Vector2(.25f * TubeLocalPresentationScale)) / 6
 				: new Vector2((8 / ((depth + Projection.ZOffset) / Projection.K) + .25f) / 6);
 			for (int arm = 0; arm < 5; arm++)
 			{
@@ -908,7 +1080,8 @@ public sealed class VectorRenderer
 			float depth = ProjectEnemyDepth(tanker.Height);
 			Vector2 scale = UsesAtariPresentationForCurrentLevel
 				? 26 * GetAtariLocalScaleAxes(
-					depth, ApproachDepthOffset, ApproachVerticalOffset) + Vector2.One
+					depth, ApproachDepthOffset, ApproachVerticalOffset) +
+					Vector2.One * TubeLocalPresentationScale
 				: new Vector2(26 / ((depth + Projection.ZOffset) / Projection.K) + 1);
 			Vector2 third = scale / 3;
 			Vector2 top = center + new Vector2(0, -scale.Y);
@@ -1035,7 +1208,8 @@ public sealed class VectorRenderer
 			Vector2 center = ProjectLane(spiker.EdgeIndex, depth);
 			Vector2 scale = UsesAtariPresentationForCurrentLevel
 				? 22 * GetAtariLocalScaleAxes(
-					depth, ApproachDepthOffset, ApproachVerticalOffset) + new Vector2(2)
+					depth, ApproachDepthOffset, ApproachVerticalOffset) +
+					new Vector2(2 * TubeLocalPresentationScale)
 				: new Vector2(22 / ((depth + Projection.ZOffset) / Projection.K) + 2);
 			for (int segment = 0; segment >= -13; segment--)
 			{

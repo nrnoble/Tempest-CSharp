@@ -16,6 +16,22 @@ public sealed record GameplayFileCommand(
 	bool ScreenshotKeyDiagnostic = false, float? Level7SpikerSpeedOverride = null,
 	float? Level9SpikerSpeedOverride = null);
 
+public readonly record struct TubeYGainOptions(float Gain, bool WasExplicitlySpecified)
+{
+	public const float DefaultGain = AtariPresentationAdapter.DefaultTubeYGain;
+}
+
+public readonly record struct TubeScaleOptions(float Scale, bool WasExplicitlySpecified)
+{
+	public const float DefaultScale = 1f;
+}
+
+public readonly record struct TubeVerticalOffsetOptions(
+	float Offset, bool WasExplicitlySpecified)
+{
+	public const float DefaultOffset = 0f;
+}
+
 /// <summary>
 /// Parses the development/testing command-line switches. These are controlled engineering tools
 /// for exercising one mechanic in isolation; they are not the finished arcade level-selection or
@@ -30,6 +46,10 @@ public sealed record GameplayFileCommand(
 /// --spinner-sensitivity scales live horizontal mouse/spinner input only.
 /// --portrait-perspective calibrates the shared portrait projection only and is not recording data.
 /// --atari-presentation enables an opt-in development-only portrait transform; it is not recording data.
+/// --calibration-guides enables fixed development-only guides in Atari presentation.
+/// --tube-y-gain changes the rendered source cross-section Y proportion.
+/// --tube-scale uniformly scales the presented tube and attached artwork.
+/// --tube-vertical-offset translates the complete presentation in screen space.
 /// --gameplay-playback selects a seeded Level 1 profile;
 /// --gameplay-playback-level4 selects a distinct profile on the production Level 4 configuration.
 /// Both playback commands return to live input when their seeded profile ends.
@@ -213,12 +233,252 @@ public sealed class DebugController
 			error = "--atari-presentation applies only to interactive rendering, not headless playback analysis.";
 			return false;
 		}
+
 		if (inputDiagnostic)
 		{
 			error = "--atari-presentation applies only to interactive Tempest rendering, not --input-diagnostic.";
 			return false;
 		}
 		return true;
+	}
+
+	public static bool TryParseCalibrationGuides(
+		IReadOnlyList<string> arguments,
+		out bool enabled,
+		out string? error)
+	{
+		enabled = false;
+		error = null;
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index].StartsWith("--calibration-guides=", StringComparison.Ordinal))
+			{
+				error = "--calibration-guides does not take a value.";
+				return false;
+			}
+			if (arguments[index] != "--calibration-guides")
+				continue;
+			if (enabled)
+			{
+				error = "--calibration-guides may be specified only once.";
+				return false;
+			}
+			if (index + 1 < arguments.Count &&
+				!arguments[index + 1].StartsWith("--", StringComparison.Ordinal))
+			{
+				error = "--calibration-guides does not take a value.";
+				return false;
+			}
+			enabled = true;
+		}
+		if (enabled && !arguments.Contains("--atari-presentation", StringComparer.Ordinal))
+		{
+			error = "--calibration-guides requires --atari-presentation.";
+			return false;
+		}
+		return true;
+	}
+
+	public static bool TryParseTubeYGainOptions(
+		IReadOnlyList<string> arguments,
+		out TubeYGainOptions options,
+		out string? error)
+	{
+		options = new TubeYGainOptions(TubeYGainOptions.DefaultGain, false);
+		error = null;
+		int optionIndex = -1;
+
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index].StartsWith("--tube-y-gain=", StringComparison.Ordinal))
+			{
+				error = "--tube-y-gain requires a separate value argument.";
+				return false;
+			}
+			if (arguments[index] != "--tube-y-gain")
+				continue;
+			if (optionIndex >= 0)
+			{
+				error = "--tube-y-gain may be specified only once.";
+				return false;
+			}
+			optionIndex = index;
+		}
+
+		if (optionIndex < 0)
+			return true;
+
+		const string requirement = "--tube-y-gain requires a positive finite invariant-culture value.";
+		if (optionIndex + 1 >= arguments.Count ||
+			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
+		{
+			error = requirement;
+			return false;
+		}
+		if (!float.TryParse(arguments[optionIndex + 1], NumberStyles.Float,
+			CultureInfo.InvariantCulture, out float parsed) ||
+			!float.IsFinite(parsed) ||
+			parsed <= 0)
+		{
+			error = requirement;
+			return false;
+		}
+
+		if (!TryParseAtariPresentation(arguments, out bool atariPresentationEnabled,
+			out error))
+			return false;
+		if (!atariPresentationEnabled)
+		{
+			error = "--tube-y-gain requires --atari-presentation.";
+			return false;
+		}
+
+		if (!TryParseStartingLevel(arguments, out int? startingLevel, out error))
+			return false;
+		if (startingLevel is not null ||
+			arguments.Contains("--playback-file", StringComparer.Ordinal))
+		{
+			options = new TubeYGainOptions(parsed, true);
+			return true;
+		}
+
+		error = "--tube-y-gain requires --level or --playback-file.";
+		return false;
+	}
+
+	public static bool TryParseTubeScaleOptions(
+		IReadOnlyList<string> arguments,
+		out TubeScaleOptions options,
+		out string? error)
+	{
+		options = new TubeScaleOptions(TubeScaleOptions.DefaultScale, false);
+		error = null;
+		int optionIndex = -1;
+
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index].StartsWith("--tube-scale=", StringComparison.Ordinal))
+			{
+				error = "--tube-scale requires a separate value argument.";
+				return false;
+			}
+			if (arguments[index] != "--tube-scale")
+				continue;
+			if (optionIndex >= 0)
+			{
+				error = "--tube-scale may be specified only once.";
+				return false;
+			}
+			optionIndex = index;
+		}
+
+		if (optionIndex < 0)
+			return true;
+
+		const string requirement =
+			"--tube-scale requires a positive finite invariant-culture value.";
+		if (optionIndex + 1 >= arguments.Count ||
+			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
+		{
+			error = requirement;
+			return false;
+		}
+		if (!float.TryParse(arguments[optionIndex + 1], NumberStyles.Float,
+			CultureInfo.InvariantCulture, out float parsed) ||
+			!float.IsFinite(parsed) || parsed <= 0)
+		{
+			error = requirement;
+			return false;
+		}
+
+		if (!TryParseAtariPresentation(arguments, out bool atariPresentationEnabled,
+			out error))
+			return false;
+		if (!atariPresentationEnabled)
+		{
+			error = "--tube-scale requires --atari-presentation.";
+			return false;
+		}
+
+		if (!TryParseStartingLevel(arguments, out int? startingLevel, out error))
+			return false;
+		if (startingLevel is not null ||
+			arguments.Contains("--playback-file", StringComparer.Ordinal))
+		{
+			options = new TubeScaleOptions(parsed, true);
+			return true;
+		}
+
+		error = "--tube-scale requires --level or --playback-file.";
+		return false;
+	}
+
+	public static bool TryParseTubeVerticalOffsetOptions(
+		IReadOnlyList<string> arguments,
+		out TubeVerticalOffsetOptions options,
+		out string? error)
+	{
+		options = new TubeVerticalOffsetOptions(
+			TubeVerticalOffsetOptions.DefaultOffset, false);
+		error = null;
+		int optionIndex = -1;
+
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index].StartsWith("--tube-vertical-offset=", StringComparison.Ordinal))
+			{
+				error = "--tube-vertical-offset requires a separate value argument.";
+				return false;
+			}
+			if (arguments[index] != "--tube-vertical-offset")
+				continue;
+			if (optionIndex >= 0)
+			{
+				error = "--tube-vertical-offset may be specified only once.";
+				return false;
+			}
+			optionIndex = index;
+		}
+
+		if (optionIndex < 0)
+			return true;
+
+		const string requirement =
+			"--tube-vertical-offset requires a finite signed invariant-culture value.";
+		if (optionIndex + 1 >= arguments.Count ||
+			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
+		{
+			error = requirement;
+			return false;
+		}
+		if (!float.TryParse(arguments[optionIndex + 1], NumberStyles.Float,
+			CultureInfo.InvariantCulture, out float parsed) ||
+			!float.IsFinite(parsed))
+		{
+			error = requirement;
+			return false;
+		}
+
+		if (!TryParseAtariPresentation(arguments, out bool atariPresentationEnabled,
+			out error))
+			return false;
+		if (!atariPresentationEnabled)
+		{
+			error = "--tube-vertical-offset requires --atari-presentation.";
+			return false;
+		}
+
+		if (!TryParseStartingLevel(arguments, out int? startingLevel, out error))
+			return false;
+		if (startingLevel is not null ||
+			arguments.Contains("--playback-file", StringComparer.Ordinal))
+		{
+			options = new TubeVerticalOffsetOptions(parsed, true);
+			return true;
+		}
+
+		error = "--tube-vertical-offset requires --level or --playback-file.";
+		return false;
 	}
 
 	public static bool TryParseGameOverDensityMultiplier(
@@ -528,6 +788,12 @@ public sealed class DebugController
 
 		if (optionIndex < 0)
 			return true;
+		if (!TryParseTubeYGainOptions(arguments, out _, out error))
+			return false;
+		if (!TryParseTubeScaleOptions(arguments, out _, out error))
+			return false;
+		if (!TryParseTubeVerticalOffsetOptions(arguments, out _, out error))
+			return false;
 		int pathIndex = optionIndex + 1;
 		if (pathIndex >= arguments.Count || string.IsNullOrWhiteSpace(arguments[pathIndex]) ||
 			arguments[pathIndex].StartsWith("--", StringComparison.Ordinal))
@@ -657,8 +923,29 @@ public sealed class DebugController
 					return false;
 				continue;
 			}
-			if (option == "--atari-presentation")
+			if (option is "--atari-presentation" or "--calibration-guides")
 				continue;
+
+			if (option == "--tube-y-gain")
+			{
+				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
+					return false;
+				continue;
+			}
+
+			if (option == "--tube-scale")
+			{
+				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
+					return false;
+				continue;
+			}
+
+			if (option == "--tube-vertical-offset")
+			{
+				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
+					return false;
+				continue;
+			}
 
 			if (option == "--spinner-sensitivity")
 			{

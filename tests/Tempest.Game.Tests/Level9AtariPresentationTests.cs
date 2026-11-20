@@ -35,7 +35,7 @@ public sealed class Level9AtariPresentationTests
 			RomPresentationMetadata metadata =
 				RomPresentationMetadataCatalog.ForDisplayedLevel(9);
 			Vector2[] originalPoints = definition.Points.ToArray();
-			VectorRenderer renderer = new(game, atariPresentationEnabled: true);
+			VectorRenderer renderer = CreateIdentityAtariRenderer(game);
 			List<(Vector2 Start, Vector2 End)> lines = [];
 
 			Assert.Equal(9, metadata.DisplayedLevel);
@@ -170,7 +170,7 @@ public sealed class Level9AtariPresentationTests
 			IReadOnlyList<Vector2> points = level.Definition.Points;
 			RomPresentationMetadata metadata =
 				RomPresentationMetadataCatalog.ForDisplayedLevel(9);
-			VectorRenderer renderer = new(game, atariPresentationEnabled: true);
+			VectorRenderer renderer = CreateIdentityAtariRenderer(game);
 			List<(Vector2 Start, Vector2 End)> tubeLines = [];
 			renderer.DrawTube((start, end, _) => tubeLines.Add((start, end)));
 
@@ -304,7 +304,7 @@ public sealed class Level9AtariPresentationTests
 
 			TempestGame control = new(startingProductionLevel: 9, random: new Random(1981));
 			TempestGame rendered = new(startingProductionLevel: 9, random: new Random(1981));
-			VectorRenderer renderer = new(rendered, atariPresentationEnabled: true);
+			VectorRenderer renderer = CreateIdentityAtariRenderer(rendered);
 
 			for (int tick = 0; tick < 96; tick++)
 			{
@@ -369,7 +369,8 @@ public sealed class Level9AtariPresentationTests
 			GameplayPlaybackSession atariPlayback =
 				new(recording.StartupConfiguration, recording.Replay);
 			VectorRenderer renderer = new(
-				atariPlayback.Game, atariPresentationEnabled: true);
+				atariPlayback.Game, atariPresentationEnabled: true,
+				tubeYGain: 1, tubeScale: 1, tubeVerticalOffset: 0);
 
 			for (int tick = 0; tick < recording.Replay.DurationTicks; tick++)
 			{
@@ -478,6 +479,10 @@ public sealed class Level9AtariPresentationTests
 			expected.Spikes.Select(spike => (spike.EdgeIndex, spike.Height)),
 			actual.Spikes.Select(spike => (spike.EdgeIndex, spike.Height)));
 	}
+
+	private static VectorRenderer CreateIdentityAtariRenderer(TempestGame game) =>
+		new(game, atariPresentationEnabled: true,
+			tubeYGain: 1, tubeScale: 1, tubeVerticalOffset: 0);
 
 	private static (float MinX, float MaxX, float MinY, float MaxY) GetBounds(
 		IEnumerable<Vector2> points)

@@ -31,7 +31,7 @@ public sealed class Level8AtariPresentationTests
 			LevelConfiguration configuration = game.CurrentLevel.Configuration;
 			RomPresentationMetadata metadata =
 				RomPresentationMetadataCatalog.ForDisplayedLevel(8);
-			VectorRenderer renderer = new(game, atariPresentationEnabled: true);
+			VectorRenderer renderer = CreateIdentityAtariRenderer(game);
 			Vector2[] originalPoints = game.CurrentLevel.Definition.Points.ToArray();
 			List<(Vector2 Start, Vector2 End)> lines = [];
 
@@ -134,7 +134,7 @@ public sealed class Level8AtariPresentationTests
 			IReadOnlyList<Vector2> points = level.Definition.Points;
 			RomPresentationMetadata metadata =
 				RomPresentationMetadataCatalog.ForDisplayedLevel(8);
-			VectorRenderer renderer = new(game, atariPresentationEnabled: true);
+			VectorRenderer renderer = CreateIdentityAtariRenderer(game);
 			List<(Vector2 Start, Vector2 End)> tubeLines = [];
 			renderer.DrawTube((start, end, _) => tubeLines.Add((start, end)));
 
@@ -401,4 +401,8 @@ public sealed class Level8AtariPresentationTests
 			values.Min(point => point.Y),
 			values.Max(point => point.Y));
 	}
+
+	private static VectorRenderer CreateIdentityAtariRenderer(TempestGame game) =>
+		new(game, atariPresentationEnabled: true,
+			tubeYGain: 1, tubeScale: 1, tubeVerticalOffset: 0);
 }

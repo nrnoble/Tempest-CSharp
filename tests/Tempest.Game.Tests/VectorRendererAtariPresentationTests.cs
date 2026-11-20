@@ -52,7 +52,7 @@ public sealed class VectorRendererAtariPresentationTests
 			int originalEnemyCount = game.Eggs.Count + game.Flippers.Count +
 				game.Spikers.Count + game.Tankers.Count + game.Fuseballs.Count +
 				game.Pulsars.Count + game.EnemyBullets.Count;
-			VectorRenderer candidate = new(game, atariPresentationEnabled: true);
+			VectorRenderer candidate = CreateIdentityAtariRenderer(game);
 			List<(Vector2 Start, Vector2 End, Color Color)> lines = [];
 
 			candidate.DrawTube((start, end, color) => lines.Add((start, end, color)));
@@ -169,7 +169,7 @@ public sealed class VectorRendererAtariPresentationTests
 			Projection.PortraitPerspective = 0;
 			TempestGame game = new(GetConfiguration(6), random: new Random(1));
 			VectorRenderer legacy = new(game);
-			VectorRenderer candidate = new(game, atariPresentationEnabled: true);
+			VectorRenderer candidate = CreateIdentityAtariRenderer(game);
 
 			game.RunOneStep(new PlayerInput(false, 80, false, false));
 			for (int tick = 0; tick < 3; tick++)
@@ -330,7 +330,7 @@ public sealed class VectorRendererAtariPresentationTests
 			Projection.PortraitPerspective = 0;
 			TempestGame game = new(GetConfiguration(5), random: new Random(1));
 			VectorRenderer legacy = new(game);
-			VectorRenderer candidate = new(game, atariPresentationEnabled: true);
+			VectorRenderer candidate = CreateIdentityAtariRenderer(game);
 
 			game.RunOneStep(new PlayerInput(false, 80, false, false));
 			for (int tick = 0; tick < 3; tick++)
@@ -482,7 +482,7 @@ public sealed class VectorRendererAtariPresentationTests
 			Projection.PortraitPerspective = 0;
 			TempestGame game = new(GetConfiguration(2), random: new Random(1));
 			VectorRenderer legacy = new(game);
-			VectorRenderer candidate = new(game, atariPresentationEnabled: true);
+			VectorRenderer candidate = CreateIdentityAtariRenderer(game);
 			List<(Vector2 Start, Vector2 End, Color Color)> legacyLines = [];
 			List<(Vector2 Start, Vector2 End, Color Color)> candidateLines = [];
 
@@ -583,7 +583,7 @@ public sealed class VectorRendererAtariPresentationTests
 			LevelConfiguration configuration = GetConfiguration(4);
 			TempestGame game = new(configuration, random: new Random(1));
 			VectorRenderer legacy = new(game);
-			VectorRenderer candidate = new(game, atariPresentationEnabled: true);
+			VectorRenderer candidate = CreateIdentityAtariRenderer(game);
 			List<(Vector2 Start, Vector2 End, Color Color)> legacyLines = [];
 			List<(Vector2 Start, Vector2 End, Color Color)> candidateLines = [];
 
@@ -653,7 +653,7 @@ public sealed class VectorRendererAtariPresentationTests
 			Projection.PortraitPerspective = 0;
 			TempestGame game = new(GetConfiguration(4), random: new Random(1));
 			VectorRenderer legacy = new(game);
-			VectorRenderer candidate = new(game, atariPresentationEnabled: true);
+			VectorRenderer candidate = CreateIdentityAtariRenderer(game);
 			game.RunOneStep(new PlayerInput(false, 80, false, false));
 			for (int tick = 0; tick < 3; tick++)
 				game.RunOneStep(default);
@@ -734,7 +734,7 @@ public sealed class VectorRendererAtariPresentationTests
 			Projection.PortraitPerspective = 0;
 			TempestGame game = new(GetConfiguration(1), random: new Random(1));
 			VectorRenderer legacy = new(game);
-			VectorRenderer candidate = new(game, atariPresentationEnabled: true);
+			VectorRenderer candidate = CreateIdentityAtariRenderer(game);
 
 			game.RunOneStep(new PlayerInput(false, 80, false, false));
 			for (int tick = 0; tick < 3; tick++)
@@ -798,7 +798,7 @@ public sealed class VectorRendererAtariPresentationTests
 			Projection.PortraitPerspective = 0;
 			TempestGame game = new(GetConfiguration(2), random: new Random(1));
 			VectorRenderer legacy = new(game);
-			VectorRenderer candidate = new(game, atariPresentationEnabled: true);
+			VectorRenderer candidate = CreateIdentityAtariRenderer(game);
 
 			game.RunOneStep(new PlayerInput(false, 80, false, false));
 			for (int tick = 0; tick < 3; tick++)
@@ -886,7 +886,7 @@ public sealed class VectorRendererAtariPresentationTests
 			Projection.PortraitPerspective = 0;
 			TempestGame game = new(GetConfiguration(3), random: new Random(1));
 			VectorRenderer legacy = new(game);
-			VectorRenderer candidate = new(game, atariPresentationEnabled: true);
+			VectorRenderer candidate = CreateIdentityAtariRenderer(game);
 
 			game.RunOneStep(new PlayerInput(false, 80, false, false));
 			for (int tick = 0; tick < 3; tick++)
@@ -982,7 +982,7 @@ public sealed class VectorRendererAtariPresentationTests
 			}
 
 			TempestGame game = new(GetConfiguration(level), random: new Random(1));
-			VectorRenderer renderer = new(game, atariPresentationEnabled: true);
+			VectorRenderer renderer = CreateIdentityAtariRenderer(game);
 			Egg egg = game.Eggs[0];
 			IReadOnlyList<Vector2> points = game.CurrentLevel.Definition.Points;
 			int next = (egg.EdgeIndex + 1) % points.Count;
@@ -1119,7 +1119,7 @@ public sealed class VectorRendererAtariPresentationTests
 			game.RunOneStep();
 		}
 		VectorRenderer legacy = new(game);
-		VectorRenderer candidate = new(game, atariPresentationEnabled: true);
+		VectorRenderer candidate = CreateIdentityAtariRenderer(game);
 		List<(Vector2 Start, Vector2 End, Color Color)> legacyMarks = [];
 		List<(Vector2 Start, Vector2 End, Color Color)> candidateMarks = [];
 
@@ -1141,7 +1141,7 @@ public sealed class VectorRendererAtariPresentationTests
 		TempestGame game = new(GetConfiguration(6), random: new Random(1));
 		game.CurrentLevel.State = state;
 		VectorRenderer legacy = new(game);
-		VectorRenderer candidate = new(game, atariPresentationEnabled: true);
+		VectorRenderer candidate = CreateIdentityAtariRenderer(game);
 		List<(Vector2 Start, Vector2 End, Color Color)> legacyLines = [];
 		List<(Vector2 Start, Vector2 End, Color Color)> candidateLines = [];
 
@@ -1155,7 +1155,7 @@ public sealed class VectorRendererAtariPresentationTests
 	public void Level6PresentationCandidateDoesNotUseLegacyFallback()
 	{
 		TempestGame game = new(GetConfiguration(6), random: new Random(1));
-		VectorRenderer candidate = new(game, atariPresentationEnabled: true);
+		VectorRenderer candidate = CreateIdentityAtariRenderer(game);
 		using StringWriter diagnostics = new();
 		TextWriter previousError = Console.Error;
 		try
@@ -1175,8 +1175,8 @@ public sealed class VectorRendererAtariPresentationTests
 	[Fact]
 	public void CandidateRendererRejectsLegacyPresentationBeforeDrawing()
 	{
-		VectorRenderer renderer = new(new TempestGame(random: new Random(1)),
-			atariPresentationEnabled: true);
+		VectorRenderer renderer = CreateIdentityAtariRenderer(
+			new TempestGame(random: new Random(1)));
 
 		Assert.Throws<InvalidOperationException>(() =>
 			renderer.Draw(presentationMode: PresentationMode.Legacy));
@@ -1275,4 +1275,8 @@ public sealed class VectorRendererAtariPresentationTests
 		Assert.InRange(MathF.Abs(corrected.X - original.X), 0, .001f);
 		Assert.InRange(MathF.Abs(corrected.Y - expectedY), 0, .001f);
 	}
+
+	private static VectorRenderer CreateIdentityAtariRenderer(TempestGame game) =>
+		new(game, atariPresentationEnabled: true,
+			tubeYGain: 1, tubeScale: 1, tubeVerticalOffset: 0);
 }
