@@ -1,8 +1,8 @@
-# Selective AI-Logs and Reference tracking — ready for commit
+# Selective AI-Logs and Reference tracking — completed
 
 ## Status
 
-**READY** for commit/push after validation. `Reference/arcade/MBUCOD.V05.txt` remains excluded at Neal's direction because its Atari copyright notice restricts unauthorized distribution.
+**COMPLETE.** Commit `c1fa6b11990006e5424b209685d7f3ad4d94f991` was pushed to `origin/master`. `Reference/arcade/MBUCOD.V05.txt` remains excluded at Neal's direction because its Atari copyright notice restricts unauthorized distribution.
 
 ## Initial repository state
 
@@ -24,7 +24,7 @@
 - The `.gitignore` and `.github/copilot-instructions.md` edits implement the requested policy update. The `.gitignore` continues to ignore `bin/`, `obj/`, `.vscode/`, `*.user`, `*.suo`, `/Videos/`, `/Temp/`, `/UserData/`, and `/Reference/arcade/roms.rev2/`; neither `AI-Logs/` nor general `Reference/` is ignored.
 - The Copilot instructions retain the prompt/report convention, describe AI-Logs as tracked historical development records, permit normal staging/commits, and preserve the rule against rewriting old reports and treating them as current project authority.
 - Staged inventory: 637 files (634 AI-Logs files, one `Reference/arcade/MBUDOC.DOC`, `.gitignore`, and `.github/copilot-instructions.md`). No unexpected paths, ROM files, source/test/project files, `MBUCOD.V05.txt`, or `screenshot000.png` are staged.
-- The staged inventory and relevant policy/reference/prompt/report diffs were inspected. No Tempest game or gameplay test suite was run.
+- The staged inventory and relevant policy/reference/prompt/report diffs were inspected. Commit `c1fa6b11990006e5424b209685d7f3ad4d94f991` was created with message `Add AI logs and reference material` and pushed normally to `origin/master`. No Tempest game or gameplay test suite was run.
 
 ## Protected/local material
 
@@ -34,15 +34,17 @@ The ROM directory was not opened, hashed, content-analyzed, or staged. During an
 
 ## Validation and remaining work
 
-- Starting and pre-commit HEAD: `bb9538f21bd0035e8ccafc0b45979201e2360556`; resulting commit SHA pending.
-- Commit message: `Add AI logs and reference material` (pending).
-- Push result: pending.
+- Starting HEAD: `bb9538f21bd0035e8ccafc0b45979201e2360556`
+- Resulting commit: `c1fa6b11990006e5424b209685d7f3ad4d94f991`
+- Commit message: `Add AI logs and reference material`
+- Push result: **PASS**; pushed normally to `origin/master`.
 - `git diff --cached --check`: **PASS** (exit code 0; no diagnostics).
-- Index: 637 selectively staged files; no ROM paths.
-- `master` remains at the starting commit and tracks `origin/master` at `0/0`.
-- The task prompt and this report are included in the staged AI-Logs set. After commit/push, this report must be updated with the resulting SHA and left for the next ordinary commit rather than amending.
-- Remaining unstaged local files: `Reference/arcade/MBUCOD.V05.txt` (intentionally excluded) and `screenshot000.png` (protected local screenshot). No source changes or other unrelated files were staged.
+- AI-Logs files committed: 634. Reference files committed: 1 (`Reference/arcade/MBUDOC.DOC`).
+- No file beneath `Reference/arcade/roms.rev2/` is in the commit; the post-push tree query returned zero ROM paths.
+- `master`, `HEAD`, and `origin/master` all resolve to `c1fa6b11990006e5424b209685d7f3ad4d94f991`; ahead/behind is `0/0`.
+- The task prompt and pre-push report are in the commit. This completed report is updated after push to record the resulting SHA and intentionally remains unstaged for the next ordinary commit; no amend or second bookkeeping commit was made.
+- Index is clean. Remaining worktree material: this post-push report update, `Reference/arcade/MBUCOD.V05.txt` (intentionally excluded), and `screenshot000.png` (protected local screenshot). No source changes or other unrelated files were staged.
 
 ## Next steps
 
-Commit the staged set on `master` with the requested message, push normally to `origin/master`, verify the remote commit and tracked paths, then finalize this report with the resulting SHA without amending.
+No further milestone was started. Commit/push verification is complete; leave this post-push report update for the next ordinary commit.
