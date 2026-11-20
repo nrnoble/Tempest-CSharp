@@ -1,0 +1,37 @@
+@'
+TEMPEST RECOVERY NOTE
+
+Current clean checkpoint:
+8f26e9b Add Spiker retreat bullet
+
+Current uncommitted work:
+Direct-hatched Fuseball development milestone.
+
+Fuseball implementation report:
+AI-Logs\Reports\2026-10-30-fuseball-implementation-report.md
+
+Current validation status:
+- dotnet build succeeds with 0 errors.
+- An intermediate focused Fuseball run passed 38 tests.
+- Current code expects 204 discovered tests.
+- All tests are presently blocked before execution because Windows Application
+  Control refuses to load Tempest.Game.dll.
+- Error: 0x800711C7.
+- The DLL has no Zone.Identifier stream.
+- Do not commit, revert, or change Windows security policy yet.
+
+After reboot:
+1. Open PowerShell in the Tempest repository.
+2. Run: dotnet test
+3. If tests run, expect 204 total and zero failures.
+4. If 0x800711C7 remains, collect recent CodeIntegrity Operational events and
+   identify the blocking policy before changing security settings.
+5. Run git status --short.
+6. Preserve all current uncommitted Fuseball files.
+7. Manual Fuseball gameplay testing remains pending.
+'@ | Set-Content "AI-Logs\2026-10-30-fuseball-validation-recovery.txt"
+
+
+
+cd C:\Users\nrnob\source\repos\Tempest
+dotnet run --project src/Tempest.Game -- --fuseball-test --lives 10

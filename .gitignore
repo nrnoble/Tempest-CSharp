@@ -7,9 +7,6 @@ obj/
 *.user
 *.suo
 
-# Copilot working/history artifacts
-/AI-Logs/
-
 # Local reference and gameplay artifacts
 /Videos/
 /Temp/

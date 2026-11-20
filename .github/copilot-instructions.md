@@ -165,9 +165,22 @@ findings, validation and results, unresolved issues, and remaining manual
 acceptance. Keep logging proportional; routine questions and minor checks do
 not need dedicated records.
 
-`AI-Logs/` is ignored historical/working material. Never stage or commit it
-unless Neal explicitly changes that policy. Do not rewrite an earlier report
-when a milestone advances; create an appropriate follow-up report.
+The required AI-Logs prompt and report files are an explicit exception to
+read-only investigation constraints. Unless Neal explicitly prohibits logging
+for the current task, instructions such as "read-only," "do not modify files,"
+"leave the repository unchanged," or "make no repository changes" apply to
+project source, tests, configuration, durable documentation, tracked assets,
+protected user/reference material, and Git state; they do not prohibit creating
+the task's required records under AI-Logs/Prompts/ and
+AI-Logs/Reports/. A report returned only in Copilot chat does not satisfy the
+paired-report requirement. The task is not complete until both required files
+have been written to their designated AI-Logs directories.
+
+
+`AI-Logs/` contains historical development records and is tracked repository
+material. It may be staged and committed normally when appropriate. Do not
+rewrite an earlier report when a milestone advances; create an appropriate
+follow-up report.
 
 Investigation findings and implementation candidates are not accepted
 behavior. After Neal manually accepts a behavior, its closeout should update

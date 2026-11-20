@@ -1,0 +1,158 @@
+
+The DLLs have only the normal :$DATA stream. There is noZone.Identifier, so this is not a downloaded-file marker and Unblock-File would not help.
+
+All 204 tests are failing before their code executes because the same Tempest.Game.dll is blocked. The next step is to identify which App Control policy and event is responsible. Microsoft says executable/DLL blocks are logged under Applications and Services Logs → Microsoft → Windows → CodeIntegrity → Operational, and enforced-policy blocks commonly appear as Event ID 3077.
+
+1. Retrieve the recent Code Integrity events
+
+Open PowerShell as Administrator and run:
+
+PowerShell
+Get-WinEvent -LogName "Microsoft-Windows-CodeIntegrity/Operational" -MaxEvents 50 |
+Where-Object {
+$_.Message -match "Tempest.Game.dll|testhost|dotnet"
+} |
+Select-Object TimeCreated, Id, LevelDisplayName, Message |
+Format-List
+
+If that returns nothing, run the broader query:
+
+PowerShell
+Get-WinEvent -LogName "Microsoft-Windows-CodeIntegrity/Operational" -MaxEvents 30 |
+Select-Object TimeCreated, Id, LevelDisplayName, Message |
+Format-List
+
+Please paste the relevant event, especially:
+
+Event ID
+policy name or policy GUID
+file path
+signing or reputation explanation
+2. List the active App Control policies
+
+If CiTool.exe is available:
+
+PowerShell
+CiTool.exe -lp -json
+
+If the output is very long, save it:
+
+PowerShell
+CiTool.exe -lp -json > "$env:TEMP\Tempest-AppControl-Policies.json"
+notepad "$env:TEMP\Tempest-AppControl-Policies.json"
+
+Microsoft documents CiTool.exe -lp -json as the way to inventory App Control policies on the device.
+
+Look for policy names such as:
+
+Plain Text
+VerifiedAndReputableDesktop
+Windows10S_Lockdown_Policy
+
+Microsoft identifies VerifiedAndReputableDesktop as the inbox policy used when Smart App Control is turned on.
+
+Do not change security settings yet
+
+For now, do not:
+
+disable Smart App Control;
+add Defender exclusions;
+switch out of S mode;
+run Unblock-File;
+commit the Fuseball changes.
+
+We first need the Code Integrity event because it should tell us whether this is Smart App Control reputation enforcement, S mode, an organization policy, or another signing rule.
+
+The Fuseball code remains unverified beyond the earlier 38-test run, but this output does not indicate 204 coding defects. It indicates one blocked assembly load repeated across 204 discovered tests.
+
+Reasoned for 1s
+Sources
+I have not restarted Windows yet. I am concerned that after reboot, this chat session will be unavailable. It has happened before.
+
+That concern is reasonable. Do not rely on this conversation surviving the reboot. The project itself is safe, but this chat is not the durable record.
+
+Before restarting Windows, save a short recovery note locally. Run this in PowerShell from the Tempest repository:
+
+PowerShell
+@'
+TEMPEST RECOVERY NOTE
+ 
+Current clean checkpoint:
+8f26e9b Add Spiker retreat bullet
+ 
+Current uncommitted work:
+Direct-hatched Fuseball development milestone.
+ 
+Fuseball implementation report:
+AI-Logs\Reports\2026-10-30-fuseball-implementation-report.md
+ 
+Current validation status:
+- dotnet build succeeds with 0 errors.
+- An intermediate focused Fuseball run passed 38 tests.
+- Current code expects 204 discovered tests.
+- All tests are presently blocked before execution because Windows Application
+Control refuses to load Tempest.Game.dll.
+- Error: 0x800711C7.
+- The DLL has no Zone.Identifier stream.
+- Do not commit, revert, or change Windows security policy yet.
+ 
+After reboot:
+1. Open PowerShell in the Tempest repository.
+2. Run: dotnet test
+3. If tests run, expect 204 total and zero failures.
+4. If 0x800711C7 remains, collect recent CodeIntegrity Operational events and
+identify the blocking policy before changing security settings.
+5. Run git status --short.
+6. Preserve all current uncommitted Fuseball files.
+7. Manual Fuseball gameplay testing remains pending.
+'@ | Set-Content "AI-Logs\2026-10-30-fuseball-validation-recovery.txt"
+ 
+
+Confirm it exists:
+
+PowerShell
+Test-Path "AI-Logs\2026-10-30-fuseball-validation-recovery.txt"
+
+It should return:
+
+Plain Text
+True
+
+Then restart Windows.
+
+After reboot, first run:
+
+PowerShell
+dotnet test
+
+If this chat is unavailable afterward, open a new Copilot conversation and provide:
+
+Plain Text
+Continue the Tempest Fuseball validation from:
+AI-Logs\2026-10-30-fuseball-validation-recovery.txt
+
+Then paste the new dotnet test result. The clean Git checkpoint, uncommitted source changes, archived prompt, implementation report, and recovery note will provide enough durable context to continue without this conversation.
+
+Reasoned for 1s
+
+
+Yes. I just saved a concise Tempest Fuseball recovery state to my persistent memory.
+
+It includes the important points:
+
+Last clean checkpoint: 8f26e9b (Add Spiker retreat bullet)
+Fuseball implementation is currently uncommitted
+Fuseball build succeeds
+Earlier focused Fuseball tests passed 38 tests
+Current testing is blocked by Windows Application Control error 0x800711C7
+Tempest.Game.dll has no Zone.Identifier
+Do not commit, revert, or alter Windows security policy yet
+After reboot, first run dotnet test
+If still blocked, investigate Code Integrity/App Control events
+Fuseball prompt and report are preserved under AI-Logs
+
+So if this conversation disappears after reboot, in a new conversation you can simply say:
+
+Continue the Tempest Fuseball work from the saved recovery state.
+
+I should then have enough durable context to pick up from here. The local recovery note and AI logs provide an additional independent backup.
