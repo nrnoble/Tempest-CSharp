@@ -97,6 +97,14 @@ if (!DebugController.TryParseTubeVerticalOffsetOptions(args,
     return 2;
 }
 
+if (!DebugController.TryParseAtariHudCalibrationOptions(args,
+    out AtariHudCalibrationOptions hudCalibrationOptions,
+    out string? hudCalibrationError))
+{
+    Console.Error.WriteLine(hudCalibrationError);
+    return 2;
+}
+
 bool legacyPresentationRequested = args.Contains("--legacy-presentation", StringComparer.Ordinal);
 bool headlessPlaybackAnalysis = HeadlessGameplayPlaybackCli.IsRequested(args);
 if (!DebugController.TryValidateAtariPresentationContext(
@@ -268,6 +276,13 @@ if (tubeVerticalOffsetOptions.WasExplicitlySpecified)
         "positive values move down and negative values move up.");
 }
 
+if (hudCalibrationOptions.HasExplicitOverrides)
+{
+    Console.WriteLine(
+        "DEVELOPMENT ONLY — Atari HUD calibration overrides active; " +
+        "HUD X/Y values use 600x800 portrait logical coordinates, positive X moves right, and positive Y moves down.");
+}
+
 if (level7SpikerSpeedOverride is float fixedSpikerSpeed)
 {
     Console.WriteLine(
@@ -424,7 +439,8 @@ try
         tubeVerticalOffsetOptions.WasExplicitlySpecified
             ? tubeVerticalOffsetOptions.Offset
             : null,
-        calibrationGuidesEnabled);
+        calibrationGuidesEnabled,
+        hudCalibrationOptions);
     PlaybackScreenshotCapture screenshotCapture = new(
         ApplicationPaths.Current, Raylib.TakeScreenshot, Console.Out, Console.Error);
     PlaybackScreenshotKeyDiagnostic? screenshotKeyDiagnostic =

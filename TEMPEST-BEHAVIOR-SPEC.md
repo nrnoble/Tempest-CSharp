@@ -3071,3 +3071,42 @@ proportion matching. The separate C# versus arcade/MAME screenshot-proportion
 investigation remains deferred; it must not be conflated with or used to
 silently retune this accepted uniform enlargement or individual level
 geometry.
+
+## Atari vector gameplay HUD — manually accepted (2026-11-20)
+
+**NEAL MANUAL ACCEPTANCE — PASS:** Neal manually accepted the Atari-presentation
+vector gameplay HUD across all currently implemented and tested levels. The
+result is assessed as extremely close to the Atari arcade presentation; the
+remaining small visual differences are not worth further tuning for this
+milestone and must not be reopened.
+
+**ROM/DISASSEMBLY BACKED GLYPHS:** The displayed digits 0-9 and uppercase A
+use coordinates documented by the local Atari ROM/disassembly reference.
+The reserve-life Blaster geometry uses the documented Atari/disassembly
+reserve-life evidence where applicable. Digit 1 is a one-stroke vertical
+segment: it has no top stroke or backward-7 stroke.
+
+**PROJECT TRANSLATION — HUD LAYOUT AND PALETTE:** The portrait HUD placement,
+scale, spacing, stable field edges, and Raylib RGB choices are project
+translations for modern C# rendering. Accepted defaults are exact: current
+score right edge `250`, score baseline `75`, score scale `1.50`; level baseline
+`75`; reserve-life baseline `100`. Score and high score/initials are green,
+the level is blue, and reserve-life Blasters are yellow.
+
+**DYNAMIC HUD STATE:** Current score and displayed level are live from game
+state. Score is fixed at six right-justified positions and grows leftward;
+positive values have blank leading positions, while a zero score visibly
+renders one rightmost `0`. The high score remains fixed at `38930` and initials
+remain fixed as uppercase `AAA`. Future high-score persistence, initials
+entry, and leaderboard/front-end work remain deferred.
+
+**PROJECT DECISION — RESERVE-LIFE PRESENTATION:** Reserve-life symbols are
+`max(totalLives - 1, 0)`, so the active Blaster is excluded. HUD rendering
+caps the number of reserve-life symbols at 25; it never clamps or mutates
+`Player.Lives`. Development-only `--hud-*` absolute calibration overrides
+remain available outside the portrait viewport and must not alter game state
+or narrowing of accepted diagnostic ranges.
+
+**FROZEN BOUNDARY:** No junction-brightness artifact, further visual tuning,
+presentation retuning, scoring/lives/gameplay changes, or ROM-backed
+promotion of layout and palette choices is authorized by this acceptance.

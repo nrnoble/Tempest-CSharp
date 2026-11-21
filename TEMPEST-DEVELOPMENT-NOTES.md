@@ -4290,3 +4290,27 @@ source files, and tests were specific to investigating the reconstructed
 presentation and have no continuing general purpose. They are removed after
 manual acceptance. Generic playback, screenshot capture, pause, stepping,
 and shared diagnostic facilities remain.
+
+## Atari vector gameplay HUD — closeout (2026-11-20)
+
+- **NEAL MANUAL ACCEPTANCE — PASS:** The Atari-presentation vector HUD was
+  manually accepted across all implemented/tested levels. It is considered
+  extremely close to the arcade presentation; remaining small differences are
+  not worth further tuning for this milestone.
+- **ROM/DISASSEMBLY EVIDENCE:** Digits 0-9 and uppercase A use documented
+  DVG glyph coordinates. Reserve-life Blaster geometry uses the applicable
+  documented Atari/disassembly evidence. Digit 1 is one visible vertical
+  stroke.
+- **PROJECT TRANSLATION:** Layout constants, glyph scales, spacing, stable
+  score edge, Raylib palette choices, and the 25-symbol reserve display cap
+  are project presentation decisions. Accepted defaults remain score right
+  edge `250`, score baseline `75`, score scale `1.50`, level baseline `75`,
+  and reserve-life baseline `100`.
+- **LIVE STATE:** Score and level remain live. Zero displays as one `0`;
+  positive score leading positions remain blank. High score is fixed at
+  `38930`, initials are fixed at `AAA`, and reserve-life rendering excludes
+  the active Blaster. Drawing may cap at 25 but never mutates player lives.
+- **DIAGNOSTICS:** HUD `--hud-*` controls remain development-only absolute
+  overrides. The accepted HUD state is frozen; no junction-brightness artifact,
+  visual retuning, or deferred persistence/leaderboard work belongs to this
+  milestone.

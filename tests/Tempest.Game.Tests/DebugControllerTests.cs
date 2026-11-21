@@ -1,4 +1,5 @@
 using Tempest.Game.Debug;
+using Tempest.Game.Rendering;
 using Xunit;
 
 namespace Tempest.Game.Tests;
@@ -503,5 +504,100 @@ public sealed class DebugControllerTests
             ["--level", "5", "--level7-test"]));
         Assert.True(DebugController.HasConflictingScenarios(
             ["--level", "5", "--gameplay-playback"]));
+    }
+
+    [Fact]
+    public void AtariHudCalibrationOmittedPreservesDefaults()
+    {
+        Assert.True(DebugController.TryParseAtariHudCalibrationOptions(
+            ["--atari-presentation"],
+            out AtariHudCalibrationOptions options,
+            out string? error));
+        Assert.Null(error);
+        Assert.False(options.HasExplicitOverrides);
+        Assert.Equal(AtariHudVector.ScoreRight, options.ResolvedScoreRight);
+        Assert.Equal(AtariHudVector.HighScoreStartX, options.ResolvedHighScoreStartX);
+        Assert.Equal(AtariHudVector.LevelStartX, options.ResolvedLevelStartX);
+        Assert.Equal(AtariHudVector.ReserveLifeAdvance, options.ResolvedReserveLifeAdvance);
+    }
+
+    [Theory]
+    [InlineData("--hud-score-x")]
+    [InlineData("--hud-score-y")]
+    [InlineData("--hud-high-x")]
+    [InlineData("--hud-high-y")]
+    [InlineData("--hud-level-x")]
+    [InlineData("--hud-level-y")]
+    [InlineData("--hud-lives-x")]
+    [InlineData("--hud-lives-y")]
+    [InlineData("--hud-lives-advance")]
+    public void AtariHudCoordinateOptionsAcceptSignedFiniteValues(string option)
+    {
+        foreach (string value in new[] { "-1000", "-1.25", "0", "+1.25", "1000" })
+        {
+            Assert.True(DebugController.TryParseAtariHudCalibrationOptions(
+                ["--atari-presentation", option, value],
+                out _, out string? error));
+            Assert.Null(error);
+        }
+    }
+
+    [Theory]
+    [InlineData("--hud-score-scale")]
+    [InlineData("--hud-high-scale")]
+    [InlineData("--hud-level-scale")]
+    [InlineData("--hud-lives-scale")]
+    public void AtariHudScaleOptionsAcceptPositiveFiniteValues(string option)
+    {
+        foreach (string value in new[] { "0.0001", "1", "1.25", "100000" })
+        {
+            Assert.True(DebugController.TryParseAtariHudCalibrationOptions(
+                ["--atari-presentation", option, value],
+                out _, out string? error));
+            Assert.Null(error);
+        }
+    }
+
+    [Fact]
+    public void AtariHudCalibrationRejectsMalformedNonFiniteZeroAndDuplicateValues()
+    {
+        foreach (string[] arguments in new[]
+        {
+            new[] { "--atari-presentation", "--hud-score-x" },
+            new[] { "--atari-presentation", "--hud-score-x", "bad" },
+            new[] { "--atari-presentation", "--hud-score-y", "NaN" },
+            new[] { "--atari-presentation", "--hud-score-scale", "0" },
+            new[] { "--atari-presentation", "--hud-high-scale", "-1" },
+            new[] { "--atari-presentation", "--hud-level-scale", "Infinity" },
+            new[] { "--atari-presentation", "--hud-lives-advance", "1e100" },
+            new[] { "--atari-presentation", "--hud-score-x", "1", "--hud-score-x", "2" },
+            new[] { "--atari-presentation", "--hud-level-y=12" }
+        })
+        {
+            Assert.False(DebugController.TryParseAtariHudCalibrationOptions(
+                arguments, out AtariHudCalibrationOptions options, out string? error));
+            Assert.False(options.HasExplicitOverrides);
+            Assert.NotNull(error);
+        }
+    }
+
+    [Fact]
+    public void AtariHudCalibrationRequiresAtariPresentationAndPartialOverridesPreserveDefaults()
+    {
+        Assert.False(DebugController.TryParseAtariHudCalibrationOptions(
+            ["--hud-score-x", "250"],
+            out _, out string? contextError));
+        Assert.Contains("--atari-presentation", contextError);
+
+        Assert.True(DebugController.TryParseAtariHudCalibrationOptions(
+            ["--atari-presentation", "--hud-score-x", "250", "--hud-lives-scale", "0.8"],
+            out AtariHudCalibrationOptions options,
+            out string? error));
+        Assert.Null(error);
+        Assert.Equal(250f, options.ResolvedScoreRight);
+        Assert.Equal(AtariHudVector.ScoreBaselineY, options.ResolvedScoreBaselineY);
+        Assert.Equal(AtariHudVector.HighScoreStartX, options.ResolvedHighScoreStartX);
+        Assert.Equal(0.8f, options.ResolvedReserveLifeScale);
+        Assert.Equal(AtariHudVector.ReserveLifeAdvance, options.ResolvedReserveLifeAdvance);
     }
 }

@@ -481,6 +481,125 @@ public sealed class DebugController
 		return false;
 	}
 
+	public static bool TryParseAtariHudCalibrationOptions(
+		IReadOnlyList<string> arguments,
+		out AtariHudCalibrationOptions options,
+		out string? error)
+	{
+		options = new AtariHudCalibrationOptions();
+		error = null;
+
+		float? scoreRight = null;
+		float? scoreBaselineY = null;
+		float? scoreScale = null;
+		float? highScoreStartX = null;
+		float? highScoreBaselineY = null;
+		float? highScoreScale = null;
+		float? levelStartX = null;
+		float? levelBaselineY = null;
+		float? levelScale = null;
+		float? reserveLifeStartX = null;
+		float? reserveLifeBaselineY = null;
+		float? reserveLifeScale = null;
+		float? reserveLifeAdvance = null;
+		HashSet<string> seen = new(StringComparer.Ordinal);
+
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			string argument = arguments[index];
+			if (argument.StartsWith("--hud-", StringComparison.Ordinal))
+			{
+				int equalsIndex = argument.IndexOf('=');
+				if (equalsIndex >= 0)
+				{
+					error = $"{argument[..equalsIndex]} requires a separate value argument.";
+					return false;
+				}
+			}
+
+			bool isScale = argument is "--hud-score-scale" or "--hud-high-scale" or
+				"--hud-level-scale" or "--hud-lives-scale";
+			bool isCoordinate = argument is "--hud-score-x" or "--hud-score-y" or
+				"--hud-high-x" or "--hud-high-y" or "--hud-level-x" or
+				"--hud-level-y" or "--hud-lives-x" or "--hud-lives-y";
+			bool isLivesAdvance = argument == "--hud-lives-advance";
+			if (!isScale && !isCoordinate && !isLivesAdvance)
+				continue;
+
+			if (!seen.Add(argument))
+			{
+				error = $"{argument} may be specified only once.";
+				return false;
+			}
+			if (index + 1 >= arguments.Count ||
+				arguments[index + 1].StartsWith("--", StringComparison.Ordinal))
+			{
+				error = isScale
+					? $"{argument} requires a positive finite invariant-culture value."
+					: $"{argument} requires a finite signed invariant-culture value.";
+				return false;
+			}
+
+			string value = arguments[++index];
+			if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture,
+					out float parsed) ||
+				!float.IsFinite(parsed) ||
+				(isScale && parsed <= 0))
+			{
+				error = isScale
+					? $"{argument} requires a positive finite invariant-culture value."
+					: $"{argument} requires a finite signed invariant-culture value.";
+				return false;
+			}
+
+			switch (argument)
+			{
+				case "--hud-score-x": scoreRight = parsed; break;
+				case "--hud-score-y": scoreBaselineY = parsed; break;
+				case "--hud-score-scale": scoreScale = parsed; break;
+				case "--hud-high-x": highScoreStartX = parsed; break;
+				case "--hud-high-y": highScoreBaselineY = parsed; break;
+				case "--hud-high-scale": highScoreScale = parsed; break;
+				case "--hud-level-x": levelStartX = parsed; break;
+				case "--hud-level-y": levelBaselineY = parsed; break;
+				case "--hud-level-scale": levelScale = parsed; break;
+				case "--hud-lives-x": reserveLifeStartX = parsed; break;
+				case "--hud-lives-y": reserveLifeBaselineY = parsed; break;
+				case "--hud-lives-scale": reserveLifeScale = parsed; break;
+				case "--hud-lives-advance": reserveLifeAdvance = parsed; break;
+			}
+		}
+
+		bool anyExplicit = seen.Count > 0;
+		if (anyExplicit)
+		{
+			if (!TryParseAtariPresentation(arguments, out bool atariPresentationEnabled,
+				out error))
+				return false;
+			if (!atariPresentationEnabled)
+			{
+				error = "Atari HUD calibration controls require --atari-presentation.";
+				return false;
+			}
+		}
+
+		options = new AtariHudCalibrationOptions(
+			scoreRight,
+			scoreBaselineY,
+			scoreScale,
+			highScoreStartX,
+			highScoreBaselineY,
+			highScoreScale,
+			levelStartX,
+			levelBaselineY,
+			levelScale,
+			reserveLifeStartX,
+			reserveLifeBaselineY,
+			reserveLifeScale,
+			reserveLifeAdvance);
+		return true;
+	}
+
 	public static bool TryParseGameOverDensityMultiplier(
 		IReadOnlyList<string> arguments,
 		out double multiplier,
@@ -794,6 +913,8 @@ public sealed class DebugController
 			return false;
 		if (!TryParseTubeVerticalOffsetOptions(arguments, out _, out error))
 			return false;
+		if (!TryParseAtariHudCalibrationOptions(arguments, out _, out error))
+			return false;
 		int pathIndex = optionIndex + 1;
 		if (pathIndex >= arguments.Count || string.IsNullOrWhiteSpace(arguments[pathIndex]) ||
 			arguments[pathIndex].StartsWith("--", StringComparison.Ordinal))
@@ -941,6 +1062,17 @@ public sealed class DebugController
 			}
 
 			if (option == "--tube-vertical-offset")
+			{
+				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
+					return false;
+				continue;
+			}
+
+			if (option is "--hud-score-x" or "--hud-score-y" or "--hud-score-scale" or
+				"--hud-high-x" or "--hud-high-y" or "--hud-high-scale" or
+				"--hud-level-x" or "--hud-level-y" or "--hud-level-scale" or
+				"--hud-lives-x" or "--hud-lives-y" or "--hud-lives-scale" or
+				"--hud-lives-advance")
 			{
 				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
 					return false;

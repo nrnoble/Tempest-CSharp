@@ -71,6 +71,10 @@ public static class DisplayConfiguration
 		Zoom = PortraitOutputScale
 	};
 
+	public const int DevelopmentDiagnosticHostLeft = 12;
+	public const int DevelopmentDiagnosticHostTop = 72;
+	public const int DevelopmentDiagnosticHostLineAdvance = 24;
+
 	public static Camera2D GetPlayfieldCamera(PresentationMode mode) =>
 		mode switch
 		{

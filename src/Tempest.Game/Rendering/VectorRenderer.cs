@@ -150,6 +150,7 @@ public sealed class VectorRenderer
 	private readonly float? tubeYGainOverride;
 	private readonly float? tubeScaleOverride;
 	private readonly float? tubeVerticalOffsetOverride;
+	private readonly AtariHudCalibrationOptions hudCalibration;
 	private readonly ExitZoomFocalCompensation exitZoomFocalCompensation = new();
 	private readonly Func<Vector2, float, Vector2> projectFocalOpeningPoint;
 	private readonly HashSet<int> legacyFallbackLevels = [];
@@ -200,7 +201,8 @@ public sealed class VectorRenderer
 		float? tubeYGain = null,
 		float? tubeScale = null,
 		float? tubeVerticalOffset = null,
-		bool calibrationGuidesEnabled = false)
+		bool calibrationGuidesEnabled = false,
+		AtariHudCalibrationOptions? hudCalibration = null)
 	{
 		ArgumentNullException.ThrowIfNull(game);
 		if (!double.IsFinite(gameOverDensityMultiplier) || gameOverDensityMultiplier <= 0)
@@ -235,6 +237,39 @@ public sealed class VectorRenderer
 			throw new ArgumentException(
 				"The development calibration guides require Atari presentation.",
 				nameof(calibrationGuidesEnabled));
+		AtariHudCalibrationOptions resolvedHudCalibration =
+			hudCalibration ?? new AtariHudCalibrationOptions();
+		if (!atariPresentationEnabled && resolvedHudCalibration.HasExplicitOverrides)
+			throw new ArgumentException(
+				"Atari HUD calibration controls require Atari presentation.",
+				nameof(hudCalibration));
+		float[] hudCoordinates =
+		[
+			resolvedHudCalibration.ResolvedScoreRight,
+			resolvedHudCalibration.ResolvedScoreBaselineY,
+			resolvedHudCalibration.ResolvedHighScoreStartX,
+			resolvedHudCalibration.ResolvedHighScoreBaselineY,
+			resolvedHudCalibration.ResolvedLevelStartX,
+			resolvedHudCalibration.ResolvedLevelBaselineY,
+			resolvedHudCalibration.ResolvedReserveLifeStartX,
+			resolvedHudCalibration.ResolvedReserveLifeBaselineY,
+			resolvedHudCalibration.ResolvedReserveLifeAdvance
+		];
+		if (hudCoordinates.Any(value => !float.IsFinite(value)))
+			throw new ArgumentOutOfRangeException(
+				nameof(hudCalibration),
+				"Atari HUD coordinates must be finite.");
+		float[] hudScales =
+		[
+			resolvedHudCalibration.ResolvedScoreScale,
+			resolvedHudCalibration.ResolvedHighScoreScale,
+			resolvedHudCalibration.ResolvedLevelScale,
+			resolvedHudCalibration.ResolvedReserveLifeScale
+		];
+		if (hudScales.Any(scale => !float.IsFinite(scale) || scale <= 0))
+			throw new ArgumentOutOfRangeException(
+				nameof(hudCalibration),
+				"Atari HUD scales must be positive and finite.");
 		this.game = game;
 		this.gameOverDensityMultiplier = gameOverDensityMultiplier;
 		this.atariPresentationEnabled = atariPresentationEnabled;
@@ -242,6 +277,7 @@ public sealed class VectorRenderer
 		tubeYGainOverride = tubeYGain;
 		tubeScaleOverride = tubeScale;
 		tubeVerticalOffsetOverride = tubeVerticalOffset;
+		this.hudCalibration = resolvedHudCalibration;
 		projectFocalOpeningPoint = ProjectFocalOpeningPoint;
 	}
 
@@ -726,6 +762,7 @@ public sealed class VectorRenderer
 					DisplayConfiguration.PortraitLogicalHeight - 40));
 		Raylib.EndMode2D();
 		Raylib.EndScissorMode();
+		DrawPortraitDevelopmentDiagnostics();
 	}
 
 	private static void DrawPortraitViewportBorder() =>
@@ -1629,28 +1666,33 @@ public sealed class VectorRenderer
 		int logicalWidth = portrait
 			? DisplayConfiguration.PortraitLogicalWidth
 			: DisplayConfiguration.LogicalWidth;
-		Raylib.DrawText(game.Score.Score.ToString(), 10, 10, 28, Color.Yellow);
-		Raylib.DrawText($"LIVES {game.Player.Lives}", 10, 44, 20, Color.Yellow);
-		string levelText = $"LEVEL {game.CurrentLevel.Configuration.DisplayedLevel}";
-		int levelX = portrait
-			? logicalWidth - 10 - Raylib.MeasureText(levelText, 20)
-			: 640;
-		Raylib.DrawText(levelText, levelX, 10, 20, Color.Yellow);
-		IReadOnlyList<string> waveLines = GetWaveHudLines();
-		for (int index = 0; index < waveLines.Count; index++)
+		if (portrait)
 		{
-			Color color = index == 0 ? Color.Red :
-				(game.TankerTest || game.CurrentLevel.UsesProductionLedger) && index == 1
-					? TankerColor
-					: Color.Gray;
-			Raylib.DrawText(waveLines[index], 10, 72 + index * 24, 18, color);
+			foreach (AtariHudLine line in AtariHudVector.Render(game, hudCalibration))
+				Raylib.DrawLineV(line.Start, line.End, line.Color);
 		}
-		if (game.Level2Test)
-			Raylib.DrawText("LEVEL 2 TEST - DEVELOPMENT ONLY", 10, 120, 16, Color.Gray);
-		else if (game.Level3Test)
-			Raylib.DrawText("LEVEL 3 MIXED WAVE TEST - DEVELOPMENT ONLY", 10, 144, 16, Color.Gray);
-		else if (game.Level3GeometryTest)
-			Raylib.DrawText("LEVEL 3 GEOMETRY DIAGNOSTIC - DEVELOPMENT ONLY", 10, 120, 16, Color.Gray);
+		else
+		{
+			Raylib.DrawText(game.Score.Score.ToString(), 10, 10, 28, Color.Yellow);
+			Raylib.DrawText($"LIVES {game.Player.Lives}", 10, 44, 20, Color.Yellow);
+			string levelText = $"LEVEL {game.CurrentLevel.Configuration.DisplayedLevel}";
+			Raylib.DrawText(levelText, 640, 10, 20, Color.Yellow);
+			IReadOnlyList<string> waveLines = GetWaveHudLines();
+			for (int index = 0; index < waveLines.Count; index++)
+			{
+				Color color = index == 0 ? Color.Red :
+					(game.TankerTest || game.CurrentLevel.UsesProductionLedger) && index == 1
+						? TankerColor
+						: Color.Gray;
+				Raylib.DrawText(waveLines[index], 10, 72 + index * 24, 18, color);
+			}
+			if (game.Level2Test)
+				Raylib.DrawText("LEVEL 2 TEST - DEVELOPMENT ONLY", 10, 120, 16, Color.Gray);
+			else if (game.Level3Test)
+				Raylib.DrawText("LEVEL 3 MIXED WAVE TEST - DEVELOPMENT ONLY", 10, 144, 16, Color.Gray);
+			else if (game.Level3GeometryTest)
+				Raylib.DrawText("LEVEL 3 GEOMETRY DIAGNOSTIC - DEVELOPMENT ONLY", 10, 120, 16, Color.Gray);
+		}
 
 		if (game.GameOver)
 		{
@@ -1688,6 +1730,32 @@ public sealed class VectorRenderer
 				portrait ? 190 : game.Level3Test ? 168 :
 				game.TankerTest || game.Level2Test || game.Level3GeometryTest ? 144 : 120,
 				18, Color.Red);
+	}
+
+	private void DrawPortraitDevelopmentDiagnostics()
+	{
+		IReadOnlyList<string> waveLines = GetWaveHudLines();
+		for (int index = 0; index < waveLines.Count; index++)
+		{
+			Color color = index == 0 ? Color.Red :
+				(game.TankerTest || game.CurrentLevel.UsesProductionLedger) && index == 1
+					? TankerColor
+					: Color.Gray;
+			int y = DisplayConfiguration.DevelopmentDiagnosticHostTop +
+				index * DisplayConfiguration.DevelopmentDiagnosticHostLineAdvance;
+			Raylib.DrawText(waveLines[index],
+				DisplayConfiguration.DevelopmentDiagnosticHostLeft, y, 18, color);
+		}
+
+		if (game.Level2Test)
+			Raylib.DrawText("LEVEL 2 TEST - DEVELOPMENT ONLY",
+				DisplayConfiguration.DevelopmentDiagnosticHostLeft, 120, 16, Color.Gray);
+		else if (game.Level3Test)
+			Raylib.DrawText("LEVEL 3 MIXED WAVE TEST - DEVELOPMENT ONLY",
+				DisplayConfiguration.DevelopmentDiagnosticHostLeft, 144, 16, Color.Gray);
+		else if (game.Level3GeometryTest)
+			Raylib.DrawText("LEVEL 3 GEOMETRY DIAGNOSTIC - DEVELOPMENT ONLY",
+				DisplayConfiguration.DevelopmentDiagnosticHostLeft, 120, 16, Color.Gray);
 	}
 
 	public IReadOnlyList<string> GetWaveHudLines()
