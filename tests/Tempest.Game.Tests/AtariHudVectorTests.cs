@@ -107,6 +107,17 @@ public sealed class AtariHudVectorTests
 			line.Color.G == Color.Yellow.G && line.Color.B == Color.Yellow.B);
 	}
 
+	[Fact]
+	public void DirectLevelFifteenRendersItsDisplayedNumberInTheHud()
+	{
+		TempestGame game = new(startingProductionLevel: 15);
+
+		Assert.Equal("15", new string(AtariHudVector.FormatFixedTwoPositionLevel(
+			game.CurrentLevel.Configuration.DisplayedLevel)));
+		Assert.Contains(AtariHudVector.Render(game),
+			line => line.Color == AtariHudVector.LevelColor);
+	}
+
 	[Theory]
 	[InlineData(3, 2)]
 	[InlineData(1, 0)]

@@ -563,7 +563,8 @@ public sealed class Level9ProductionTests
         Assert.Same(LevelConfiguration.Level9Production, direct.CurrentLevel.Configuration);
         Assert.Equal(7, direct.Player.EdgeIndex);
         Assert.True(direct.NaturalProgressionEnabled);
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level9Production));
+        Assert.Same(LevelConfiguration.Level11Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level9Production));
     }
 
     [Fact]

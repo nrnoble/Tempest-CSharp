@@ -7,6 +7,7 @@ public enum FuseballState
     Lateral,
     Climbing,
     Descending,
+    TerminalRimward,
     KillingPlayer
 }
 
@@ -19,16 +20,19 @@ public sealed class Fuseball : Enemy
     // Unscaled term of Incitti's 3.3 + lv/20; this development wave does not simulate progression.
     public const float DevelopmentClimbSpeed = 3.3f;
 
-    public Fuseball(int edgeIndex = 0, float climbSpeed = DevelopmentClimbSpeed)
+    public Fuseball(int edgeIndex = 0, float climbSpeed = DevelopmentClimbSpeed,
+        int originalSlotId = -1)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(climbSpeed);
         EdgeIndex = edgeIndex;
         ClimbSpeed = climbSpeed;
+        OriginalSlotId = originalSlotId;
     }
 
+    public int OriginalSlotId { get; }
     public FuseballState State { get; private set; }
     // w/8 interpolates from the lane's first tube point to its next point, not its midpoint.
-    // At 0/8 the Fuseball hugs a radial boundary and cannot be shot or kill the player.
+    // At 0/8 the cycling Fuseball hugs a radial boundary and cannot be shot or kill the player.
     public int W { get; private set; }
     public int Direction { get; private set; } = 1;
     public int StateTicks { get; private set; }
@@ -36,8 +40,13 @@ public sealed class Fuseball : Enemy
     public int KillScore => (int)((Level.Depth - Height) / 100 + 1) * 250;
 
     public void Update(Level level, int playerEdge, Func<int, int, int> randomInclusive,
-        bool hurryUp = false)
+        bool hurryUp = false, int? pendingGenericSupply = null)
     {
+        ArgumentNullException.ThrowIfNull(level);
+        ArgumentNullException.ThrowIfNull(randomInclusive);
+        if (pendingGenericSupply is < 0)
+            throw new ArgumentOutOfRangeException(nameof(pendingGenericSupply));
+
         StateTicks++;
         switch (State)
         {
@@ -82,7 +91,9 @@ public sealed class Fuseball : Enemy
                 }
                 if (W is 0 or 8)
                 {
-                    State = randomInclusive(1, 2) == 1 ? FuseballState.Climbing : FuseballState.Descending;
+                    State = randomInclusive(1, 2) == 1
+                        ? FuseballState.Climbing
+                        : FuseballState.Descending;
                     if (hurryUp || Height == 0)
                         State = FuseballState.Climbing;
                 }
@@ -91,12 +102,28 @@ public sealed class Fuseball : Enemy
             case FuseballState.Climbing:
                 if (Height < Level.Depth)
                 {
+                    if (pendingGenericSupply == 0 &&
+                        Height + ClimbSpeed >= Level.Depth)
+                    {
+                        // PROJECT TRANSLATION: Climbing is the toward-player/rim leg. C# has no
+                        // along-tube player_along coordinate, so its final rimward step is the
+                        // closest state boundary; test before normal endpoint/reversal handling.
+                        State = FuseballState.TerminalRimward;
+                        StateTicks = 0;
+                        break;
+                    }
+
                     // Incitti applies its existing climb term twice under rimit, not descent speed.
                     Height += ClimbSpeed;
                     if (hurryUp)
                         Height += ClimbSpeed;
                     Height = MathF.Min(Level.Depth, Height);
                     CheckVerticalDuration(randomInclusive);
+                }
+                else if (pendingGenericSupply == 0)
+                {
+                    State = FuseballState.TerminalRimward;
+                    StateTicks = 0;
                 }
                 else
                     ResumeLateral();
@@ -106,6 +133,12 @@ public sealed class Fuseball : Enemy
                 // Incitti keeps rolling at height zero; it does not immediately resume lateral.
                 Height = MathF.Max(0, Height - ClimbSpeed);
                 CheckVerticalDuration(randomInclusive);
+                break;
+
+            case FuseballState.TerminalRimward:
+                // PROJECT TRANSLATION: the ROM retains its toward-player direction; C# represents
+                // that as normal-speed height growth, with no later random return to cycling.
+                Height = MathF.Min(Level.Depth, Height + ClimbSpeed);
                 break;
 
             case FuseballState.KillingPlayer:
@@ -130,7 +163,9 @@ public sealed class Fuseball : Enemy
     public bool IsHitBy(Shot shot)
     {
         float separation = Height - shot.Height;
-        return shot.EdgeIndex == EdgeIndex && separation > 0 && separation < 16 && W > 1 && W < 7;
+        // Terminal movement holds at a lane endpoint instead of cycling W through its interior.
+        bool isShootable = State == FuseballState.TerminalRimward || W > 1 && W < 7;
+        return shot.EdgeIndex == EdgeIndex && separation > 0 && separation < 16 && isShootable;
     }
 
     // Only lateral rim travel is lethal; neither vertical state nor player sub-lane position

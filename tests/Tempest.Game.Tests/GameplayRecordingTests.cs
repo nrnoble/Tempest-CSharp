@@ -84,6 +84,30 @@ public sealed class GameplayRecordingTests
 	}
 
 	[Fact]
+	public void LevelFifteenDirectStartIdentityRoundTripsThroughRecordingAndPlayback()
+	{
+		GameplayStartupConfiguration startup = new(15, 3, 1.0, 1981);
+		PlayerInputRecorder recorder = new(startup);
+		recorder.CaptureTick(0, default);
+
+		WithTemporaryDirectory(directory =>
+		{
+			string path = Path.Combine(directory, "level15.json");
+			GameplayRecordingFile.SaveNew(path, recorder);
+			GameplayRecording recording = GameplayRecordingFile.LoadRecording(path);
+			GameplayPlaybackSession playback = new(
+				recording.StartupConfiguration, recording.Replay);
+
+			Assert.Equal(15, recording.StartupConfiguration.StartingDisplayedLevel);
+			Assert.Equal(15, recording.Replay.StartingConfiguration.DisplayedLevel);
+			Assert.Same(LevelConfiguration.Level15DirectStartCandidate,
+				recording.Replay.StartingConfiguration);
+			Assert.Equal(15, playback.Game.CurrentLevel.Configuration.DisplayedLevel);
+			Assert.Equal(default, recording.Replay.GetFrame(0).Input);
+		});
+	}
+
+	[Fact]
 	public void DefaultVersionTwoRecordingStoresEffectiveProductionDefaults()
 	{
 		PlayerInputRecorder recorder = new(
@@ -379,7 +403,7 @@ public sealed class GameplayRecordingTests
 
 	[Theory]
 	[InlineData(0)]
-	[InlineData(11)]
+	[InlineData(12)]
 	[InlineData(-1)]
 	public void VersionTwoRejectsUnsupportedStartingLevels(int level)
 	{

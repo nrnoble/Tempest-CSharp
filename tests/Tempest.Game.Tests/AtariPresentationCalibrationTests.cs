@@ -23,6 +23,7 @@ public sealed class AtariPresentationCalibrationTests
 	[InlineData(8, 1f, 1f, -75f)]
 	[InlineData(9, 1.5f, 1.05f, -150f)]
 	[InlineData(10, 1.2f, .9f, 15f)]
+	[InlineData(11, 1.5f, 1.1f, 0f)]
 	public void SelectedDefaultsMatchTheFirstPassTable(
 		int displayedLevel, float yGain, float scale, float verticalOffset)
 	{
@@ -75,6 +76,22 @@ public sealed class AtariPresentationCalibrationTests
 			tubeVerticalOffset: 0));
 		Assert.Equal(expected, CaptureTube(new VectorRenderer(
 			game, atariPresentationEnabled: true, tubeVerticalOffset: 0)));
+	}
+
+	[Fact]
+	public void LevelFifteenHasAnUncalibratedDefaultAndRetainsTubeOverrides()
+	{
+		Assert.Equal(new AtariPresentationCalibration(1f, 1f, 0f),
+			AtariPresentationCalibration.ForDisplayedLevel(15));
+		Assert.Equal(new AtariPresentationCalibration(1.1f, .9f, 12f),
+			AtariPresentationCalibration.Resolve(
+				15, tubeYGainOverride: 1.1f, tubeScaleOverride: .9f,
+				verticalOffsetOverride: 12f));
+
+		TempestGame game = new(startingProductionLevel: 15);
+		Assert.NotEmpty(CaptureTube(new VectorRenderer(
+			game, atariPresentationEnabled: true,
+			tubeYGain: 1.1f, tubeScale: .9f, tubeVerticalOffset: 12f)));
 	}
 
 	[Fact]

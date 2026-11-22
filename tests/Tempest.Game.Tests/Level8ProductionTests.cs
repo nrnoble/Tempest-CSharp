@@ -152,6 +152,45 @@ public sealed class Level8ProductionTests
     }
 
     [Fact]
+    public void LevelElevenLegacySpinnerMovesClockwiseLeftAndCounterclockwiseRight()
+    {
+        TempestGame game = CreatePlayerControlGame(11);
+        game.Player.ResetPosition(7, 0);
+        Vector2 start = GetBlasterGeometryPosition(game);
+
+        Assert.Equal(-1, game.CurrentLevel.ClockwiseLaneIndexDelta);
+        Assert.Equal(15, game.CurrentLevel.PlayableLaneCount);
+        Assert.False(game.CurrentLevel.Continuous);
+
+        game.RunOneStep(new PlayerInput(false, 80, false, false));
+        Assert.InRange(game.Player.EdgeIndex, 0, 14);
+        Assert.True(GetBlasterGeometryPosition(game).X < start.X);
+
+        game.Player.ResetPosition(7, 0);
+        start = GetBlasterGeometryPosition(game);
+        game.RunOneStep(new PlayerInput(false, -80, false, false));
+        Assert.InRange(game.Player.EdgeIndex, 0, 14);
+        Assert.True(GetBlasterGeometryPosition(game).X > start.X);
+    }
+
+    [Fact]
+    public void LevelElevenCollinearWindingFallbackKeepsLaneAndEndpointStateExplicit()
+    {
+        Level level = new(LevelConfiguration.Level11Production);
+
+        Assert.Equal(-1, level.ClockwiseLaneIndexDelta);
+        Assert.Equal(15, level.PlayableLaneCount);
+        Assert.All(level.Definition.Points,
+            point => Assert.InRange(MathF.Abs(point.Y - level.Definition.Points[0].Y), 0, 0.0001f));
+        Assert.True(level.TryGetAdjacentLane(0, -1, out _) == false);
+        Assert.True(level.TryGetAdjacentLane(14, 1, out _) == false);
+        Assert.True(level.TryGetAdjacentLane(0, 1, out int inwardFromLeft));
+        Assert.Equal(1, inwardFromLeft);
+        Assert.True(level.TryGetAdjacentLane(14, -1, out int inwardFromRight));
+        Assert.Equal(13, inwardFromRight);
+    }
+
+    [Fact]
     public void SpinnerMovementClampsAtBothOpenEndpointsAndReversalMovesInward()
     {
         TempestGame game = CreatePlayerControlGame(8);
@@ -474,7 +513,7 @@ public sealed class Level8ProductionTests
     }
 
     [Fact]
-    public void DirectLevelNineUsesProductionWaveAndTerminalRestartBeginsLevelOne()
+    public void DirectLevelNineUsesProductionWaveAndProgressesToEleven()
     {
         TempestGame game = new(startingProductionLevel: 9, startingLives: 5);
         game.Score.Add(88);
@@ -485,14 +524,8 @@ public sealed class Level8ProductionTests
         Assert.Equal(15, game.Spikes.Count);
         Assert.Same(LevelConfiguration.Level9Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level8Production));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level9Production));
-
-        game.CurrentLevel.State = LevelState.Complete;
-        game.RunOneStep(restartPressed: true);
-
-        Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
-        Assert.Equal(0, game.Score.Score);
-        Assert.Equal(5, game.Player.Lives);
+        Assert.Same(LevelConfiguration.Level11Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level9Production));
     }
 
     [Fact]
@@ -675,19 +708,19 @@ public sealed class Level8ProductionTests
     }
 
     [Fact]
-    public void HoldingFireClearsTheExitLaneSpikeBeforeLevelNineTerminalCompletion()
+    public void HoldingFireClearsTheExitLaneSpikeBeforeLevelFifteenCandidateCompletion()
     {
-        TempestGame game = new(startingProductionLevel: 9);
+        TempestGame game = new(startingProductionLevel: 15);
         game.CurrentLevel.State = LevelState.ExitZoom;
         Spike exitLaneSpike = game.Spikes.Single(spike => spike.EdgeIndex == game.Player.EdgeIndex);
 
-        for (int tick = 0; tick < 140 && game.State == LevelState.ExitZoom; tick++)
+        for (int tick = 0; tick < 250 && game.State == LevelState.ExitZoom; tick++)
             game.RunOneStep(new PlayerInput(true, 0, false, false));
 
         Assert.True(exitLaneSpike.IsDepleted);
         Assert.DoesNotContain(game.Spikes, spike => spike.EdgeIndex == game.Player.EdgeIndex);
+        Assert.Same(LevelConfiguration.Level15DirectStartCandidate, game.CurrentLevel.Configuration);
         Assert.Equal(LevelState.Complete, game.State);
-        Assert.Null(LevelProgression.GetNextProductionLevel(game.CurrentLevel.Configuration));
     }
 
     [Fact]

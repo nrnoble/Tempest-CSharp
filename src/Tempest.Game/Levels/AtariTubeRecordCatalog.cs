@@ -66,12 +66,58 @@ public static class AtariTubeRecordCatalog
     private static readonly AtariTubeRecord Level7Record = CreateLevel7Record();
 
     public static AtariTubeRecord Level7Record06 => Level7Record;
+    // ROM-BACKED Rev 2 shape row 08 for displayed Level 11.
+    private static readonly AtariTubeRecord Level11Record =
+        new(
+            recordIndex: 8,
+            rawXPoints:
+            [
+                0x10, 0x1E, 0x2D, 0x3C, 0x4B, 0x5A, 0x69, 0x78,
+                0x87, 0x96, 0xA5, 0xB4, 0xC3, 0xD2, 0xE1, 0xF0
+            ],
+            rawYPoints:
+            [
+                0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
+                0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40
+            ],
+            scaleRaw: RomPresentationMetadataCatalog.ForDisplayedLevel(11).ScaleRaw,
+            cameraHeightRaw: RomPresentationMetadataCatalog.ForDisplayedLevel(11).CameraHeightRaw,
+            screenYOffset: RomPresentationMetadataCatalog.ForDisplayedLevel(11).ScreenYOffsetSigned,
+            openRaw: RomPresentationMetadataCatalog.ForDisplayedLevel(11).OpenRaw);
+
+    public static AtariTubeRecord Level11Record08 => Level11Record;
+
+    // DEVELOPMENT ONLY: manually identified Level 15 tube, selected as Rev. 2 shape row 10.
+    private static readonly AtariTubeRecord Level15Record =
+        new(
+            recordIndex: 10,
+            rawXPoints:
+            [
+                0x10, 0x24, 0x30, 0x36, 0x3E, 0x49, 0x5A, 0x75,
+                0x94, 0xA4, 0xAC, 0xBA, 0xDA, 0xE2, 0xEA, 0xF0
+            ],
+            rawYPoints:
+            [
+                0xC0, 0xA6, 0x8A, 0x6A, 0x4A, 0x2F, 0x14, 0x24,
+                0x20, 0x39, 0x59, 0x75, 0x72, 0x90, 0xB0, 0xD0
+            ],
+            scaleRaw: RomPresentationMetadataCatalog.ForDisplayedLevel(15).ScaleRaw,
+            cameraHeightRaw: RomPresentationMetadataCatalog.ForDisplayedLevel(15).CameraHeightRaw,
+            screenYOffset: RomPresentationMetadataCatalog.ForDisplayedLevel(15).ScreenYOffsetSigned,
+            openRaw: RomPresentationMetadataCatalog.ForDisplayedLevel(15).OpenRaw);
+
+    public static AtariTubeRecord Level15Record10 => Level15Record;
 
     public static AtariTubeRecord ForRecordIndex(int recordIndex) =>
         recordIndex == Level7Record.RecordIndex
             ? Level7Record
-            : throw new ArgumentOutOfRangeException(
-                nameof(recordIndex), recordIndex, "Only Atari tube record 06 is cataloged.");
+            : recordIndex == Level11Record.RecordIndex
+                ? Level11Record
+                : recordIndex == Level15Record.RecordIndex
+                    ? Level15Record
+                    : throw new ArgumentOutOfRangeException(
+                        nameof(recordIndex), recordIndex,
+                        "Only Atari tube records 06, 08 and 10 are cataloged.");
 
     private static AtariTubeRecord CreateLevel7Record()
     {

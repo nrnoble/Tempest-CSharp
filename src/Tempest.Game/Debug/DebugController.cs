@@ -88,7 +88,7 @@ public sealed class DebugController
 
 		int highestLevel = LevelProgression.GetLastProductionLevel().DisplayedLevel;
 		string requirement =
-			$"--level requires an implemented production level from 1 through {highestLevel} or diagnostic Level 10.";
+			$"--level requires an implemented production level from 1 through {highestLevel}, diagnostic Level 10, or direct-only Level 15.";
 		if (optionIndex + 1 >= arguments.Count ||
 			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
 		{
@@ -1003,7 +1003,7 @@ public sealed class DebugController
 					if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture,
 						out int level) || LevelProgression.GetDirectStartLevel(level) is null)
 					{
-						error = $"--level requires an implemented production level from 1 through {highestLevel} or diagnostic Level 10.";
+						error = $"--level requires an implemented production level from 1 through {highestLevel}, diagnostic Level 10, or direct-only Level 15.";
 						return false;
 					}
 					startingLevel = level;

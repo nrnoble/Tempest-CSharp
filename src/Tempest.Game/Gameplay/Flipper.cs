@@ -45,6 +45,7 @@ internal enum ProgrammedFlipperRouteStep
 public sealed class Flipper : Enemy
 {
     private static readonly int[] Level7ObservedFlipCounts = [2, 3, 2, 2, 2];
+    private static readonly int[] Repeating24FlipCounts = [2, 3];
 
     private int programmedPhaseIndex;
     private int programmedFlipsRemaining;
@@ -55,6 +56,7 @@ public sealed class Flipper : Enemy
     private bool useLevel9SpikeSensitiveProgram;
     private bool useLevel9StraightCargoProgram;
     private int level6StraightAdvances;
+    private bool useRepeating24Program;
 
     public Flipper(int edge = 0, float height = 0)
     {
@@ -94,6 +96,13 @@ public sealed class Flipper : Enemy
     public void Update(Level level, int playerEdge, Func<int, int, int>? randomInclusive = null)
     {
         FlipperConfiguration tuning = level.Configuration.Flipper;
+        if (programmedRouteStep == ProgrammedFlipperRouteStep.Disabled &&
+            !IsTankerCargo &&
+            level.Configuration.BelowRimFlipperProgram ==
+                BelowRimFlipperProgram.Level11Repeating24)
+            InitializeRepeating24Route(
+                level.Configuration.ProgrammedFlipperInitialDirection);
+
         if (programmedRouteStep == ProgrammedFlipperRouteStep.Disabled &&
             !IsTankerCargo &&
             level.Configuration.BelowRimFlipperProgram ==
@@ -227,6 +236,17 @@ public sealed class Flipper : Enemy
             flipper.programmedRouteStep = flipper.useLevel9SpikeSensitiveProgram
                 ? ProgrammedFlipperRouteStep.Level9Turning
                 : ProgrammedFlipperRouteStep.Level9StraightTurning;
+        }
+        else if (tankerCargoMovementProgram == TankerCargoMovementProgram.Repeating24)
+        {
+            flipper.InitializeRepeating24Route(cargo.Direction);
+            // The release pivot is the first turn in the repeating sequence.
+            flipper.programmedRouteStep = ProgrammedFlipperRouteStep.Turning;
+        }
+        else if (tankerCargoMovementProgram == TankerCargoMovementProgram.Straight07)
+        {
+            flipper.useLevel8StraightCargoProgram = true;
+            flipper.InitializeLevel8CargoRoute(cargo.Direction, constantFlipProgram: false);
         }
         else if (tankerCargoMovementProgram != TankerCargoMovementProgram.Existing)
             throw new ArgumentOutOfRangeException(nameof(tankerCargoMovementProgram));
@@ -364,6 +384,18 @@ public sealed class Flipper : Enemy
 
         programmedPhaseIndex = 0;
         programmedFlipsRemaining = Level7ObservedFlipCounts[programmedPhaseIndex];
+        Direction = initialDirection;
+        programmedRouteStep = ProgrammedFlipperRouteStep.LeadIn;
+    }
+
+    private void InitializeRepeating24Route(int initialDirection)
+    {
+        if (initialDirection is not (-1 or 1))
+            throw new ArgumentOutOfRangeException(nameof(initialDirection));
+
+        useRepeating24Program = true;
+        programmedPhaseIndex = 0;
+        programmedFlipsRemaining = Repeating24FlipCounts[programmedPhaseIndex];
         Direction = initialDirection;
         programmedRouteStep = ProgrammedFlipperRouteStep.LeadIn;
     }
@@ -763,8 +795,11 @@ public sealed class Flipper : Enemy
         }
 
         Direction = -Direction;
-        programmedPhaseIndex = (programmedPhaseIndex + 1) % Level7ObservedFlipCounts.Length;
-        programmedFlipsRemaining = Level7ObservedFlipCounts[programmedPhaseIndex];
+        int[] flipCounts = useRepeating24Program
+            ? Repeating24FlipCounts
+            : Level7ObservedFlipCounts;
+        programmedPhaseIndex = (programmedPhaseIndex + 1) % flipCounts.Length;
+        programmedFlipsRemaining = flipCounts[programmedPhaseIndex];
         if (programmedPhaseIndex != 0)
         {
             BeginProgrammedPivot(level);

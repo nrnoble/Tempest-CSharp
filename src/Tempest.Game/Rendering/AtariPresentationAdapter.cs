@@ -124,7 +124,7 @@ public static class AtariPresentationAdapter
 	public const float Level6VerticalPlacement = 177.21448f;
 
 	public static bool HasModelFrameMapping(int displayedLevel) =>
-		displayedLevel is 1 or 2 or 3 or 4 or 7 or 8 or 9 or 10;
+		displayedLevel is 1 or 2 or 3 or 4 or 7 or 8 or 9 or 10 or 11 or 15;
 
 	public static AtariPresentationProjection ProjectLevel5(
 		float x,
@@ -502,9 +502,9 @@ public static class AtariPresentationAdapter
 			3 => (1.756696429f, 1),
 			// PROJECT TRANSLATION: Level 7's established model-frame mapping.
 			7 => (1.678958593f, 1),
-			// Reuse the established raw-shape normalization for the open Level 8-10 definitions;
-			// Level 10's +50 final screen-space placement was manually accepted and is frozen.
-			8 or 9 or 10 => (25f / 14f, -1),
+			// Reuse established open-tube normalization. Level 11 is genuine
+			// row-8 geometry; Level 15 placement remains uncalibrated.
+			8 or 9 or 10 or 11 or 15 => (25f / 14f, -1),
 			_ => throw new ArgumentOutOfRangeException(nameof(displayedLevel), displayedLevel,
 				"No Atari presentation model-frame mapping is established for this level.")
 		};

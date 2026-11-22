@@ -4314,3 +4314,67 @@ and shared diagnostic facilities remain.
   overrides. The accepted HUD state is frozen; no junction-brightness artifact,
   visual retuning, or deferred persistence/leaderboard work belongs to this
   milestone.
+
+## Level 15 tube identity and Level 11 remap correction — 2026-11-21
+
+- **ARCADE-OBSERVED:** Neal identifies the preserved open tube as the arcade
+  Level 15 tube. Gameplay is generally good and runs normally; detailed Level
+  15 gameplay fidelity is not formally accepted, and presentation tuning is
+  pending as needed.
+- **ROM/DISASSEMBLY-BACKED:** `get_tube_no` uses zero-based `p1_level` as the
+  lookup index into `lev_remap`, then uses the returned shape row for geometry
+  and tube metadata. Displayed Levels 11-16 map respectively to shape rows
+  `8, 12, 14, 15, 10, 11`.
+- **RECOVERY CORRECTION:** The prior candidate copied geometry and metadata
+  row 10 but called it Level 11 because it treated `lev_remap[10]=$08` as the
+  geometry-row identity. The value `$08` is the correct shape row for genuine
+  Level 11; displayed Level 15 uses lookup index 14 and
+  `lev_remap[14]=$0A`, selecting row 10. The prior C# recovery conflated the
+  lookup index with the selected row.
+- **LEVEL 11 HANDOFF:** Genuine row 8 is open and has X
+  `10 1E 2D 3C 4B 5A 69 78 87 96 A5 B4 C3 D2 E1 F0`, Y all `40`, and angle
+  bytes all `00`; scale `$0A`, camera height `$A0`, Y offset `$0100`,
+  Flipper scale `$02D0` (low `$50`, high `$05`), and open `$FF`. It is ROM
+  evidence only; Level 11 remains unimplemented.
+- **PARAMETER SEPARATION:** `curlevel+1` selects effective gameplay
+  parameters, independently of the tube lookup/remap. The Level 15 direct
+  candidate retains the displayed-Level-11 parameter row only as an explicit
+  development baseline. No Level 15-specific gameplay evidence or acceptance
+  is claimed. Generic Fuseball identity conservation and $24/$07 Tanker-cargo
+  Flipper factory support remain independent of tube identity.
+- **PROGRESSION AND PRESENTATION:** Production progression stops at Level 9;
+  diagnostic Level 10 is unchanged; Levels 11-14 are not skipped or
+  fabricated. Direct Level 15 preserves row-10 geometry without joining the
+  campaign. The neutral Atari-presentation default only enables existing
+  calibration controls; Level 15 presentation fine-tuning remains pending.
+
+## Genuine Level 11 final closeout - 2026-11-22
+
+- **ARCADE-OBSERVED — FINAL ACCEPTANCE:** Neal accepted genuine row-8 Level 11
+  tube identity and open-tube playability, overall gameplay, spinner direction
+  (clockwise -> left; counterclockwise -> right), direct Fuseball behavior,
+  initial Spike length, normal Spike collision/growth/routing, terminal
+  Spiker-to-Tanker conversion, ordinary $24 Flipper routing, $07/$24
+  Tanker-cargo behavior, enemy systems, firing, Super Zapper, death/re-entry,
+  HUD, wave completion, and the ROM-backed terminal Fuseball correction.
+- **PROJECT DECISION — PRESENTATION:** Level 11's accepted Atari-presentation
+  calibration is Y gain `1.5`, tube scale `1.1`, and vertical offset `0`.
+  These are now production defaults. Existing CLI values remain absolute
+  overrides and Levels 1-10 retain their accepted calibration.
+- **ROM-BACKED MAPPING:** The displayed-level-to-shape-row correction remains
+  frozen. Displayed Level 11 uses lookup index 10 and remapped shape row 8;
+  direct Level 15 uses lookup index 14 and remapped row 10.
+- **PROJECT TRANSLATION — GENERIC CORRECTNESS:** The direct Fuseball runtime
+  identity correction preserves stable original identity, shot/zap collision
+  resolution, active-enemy and all-rim accounting, death/re-entry, completion,
+  and fail-closed representation. Tanker cargo retains generic $24 repeating
+  and $07 straight routes. Terminal Fuseball behavior is supply-state driven
+  at the translated toward-rim boundary and has no fixed extra-cycle count.
+- **PROJECT TRANSLATION — LEVEL 11:** Generic pending supply is 27; the
+  production policy has seven physical enemy slots, dynamic selection,
+  direct Fuseball eligibility, corrected initial Spike translation from the
+  ROM `$B0` tip source, and terminal Spiker-to-Tanker conversion.
+- **PROGRESSIONS:** Genuine Level 11 is the terminal production level. Level 12
+  remains unimplemented; Level 15 remains direct-only with unaccepted gameplay
+  and presentation fidelity. Future visual fine-tuning is deferred and does not
+  block this closeout.

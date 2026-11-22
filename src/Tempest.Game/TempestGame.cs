@@ -303,8 +303,7 @@ public sealed class TempestGame
         this.level6Test = level6Test;
         this.level7Test = level7Test;
         this.level3GeometryTest = level3GeometryTest;
-        // Direct production starts keep the campaign's simulation rules. Diagnostic Level 10
-        // uses those same rules, but its terminal restart remains on the diagnostic configuration.
+        // Direct starts keep the production simulation rules; direct-only tube candidates remain terminal.
         naturalProgressionEnabled = startingProductionLevel is not null ||
             startingConfiguration is null &&
             !level2Test && !level3Test && !level4Test && !level6Test && !level7Test &&
@@ -939,6 +938,13 @@ public sealed class TempestGame
     {
         Level3WaveLedger ledger = CurrentLevel.Level3Ledger
             ?? throw new InvalidOperationException("Level 3 mixed wave has no identity ledger.");
+        // Reserve one additional physical slot per carrier for its eventual second child.
+        // A blocked hatch stays an Egg, including cargo re-entry, until capacity is available.
+        if ((CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
+             CurrentLevel.Configuration.UsesLevel11ParameterDevelopmentBaseline) &&
+            (CountProductionActiveEnemyUnits() >= Level11WaveSelection.MaximumActiveEnemies ||
+             CountProductionActiveEnemyUnits() + tankers.Count >= Level11WaveSelection.MaximumPhysicalEnemySlots))
+            return null;
         Level3OriginalType? diagnosticType = null;
         if (HasLevel3MixedAdmissionDiagnostic &&
             !TrySelectLevel3DiagnosticType(egg, ledger, out diagnosticType))
@@ -1016,6 +1022,20 @@ public sealed class TempestGame
                     return null;
                 selectedType = level9SelectedType.Value;
             }
+            else if (CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
+                     CurrentLevel.Configuration.UsesLevel11ParameterDevelopmentBaseline)
+            {
+                Level3OriginalType? level11SelectedType = Level11WaveSelection.SelectOriginalType(
+                    NextRandomInclusive,
+                    tankers.Count,
+                    spikers.Count,
+                    fuseballs.Count,
+                    CountProductionActiveEnemyUnits(),
+                    CountActiveAndLatentFlipperTypeUnits());
+                if (level11SelectedType is null)
+                    return null;
+                selectedType = level11SelectedType.Value;
+            }
             else
             {
                 selectedType = CurrentLevel.Configuration.NormalEnemyComposition ==
@@ -1042,7 +1062,7 @@ public sealed class TempestGame
                 : CurrentLevel.Configuration.UsesLevel9RomWavePolicy
                     ? level9SpikerSpeedOverride ??
                         LevelConfiguration.Level9ProductionSpikerSpeed
-                    : CurrentLevel.Configuration.ProgressionIndex / 48f +
+                    : (CurrentLevel.Configuration.EffectiveGameplayParameterLevel - 1) / 48f +
                         2.5f + (float)(random.NextDouble() * 2);
             Spiker spiker = new(egg.EdgeIndex, speed, originalId);
             if (ledger.GetOriginalState(originalId) == Level3OriginalState.Egg)
@@ -1052,9 +1072,16 @@ public sealed class TempestGame
 
         if (selectedType == Level3OriginalType.Tanker)
         {
+            if ((CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
+                 CurrentLevel.Configuration.UsesLevel11ParameterDevelopmentBaseline) &&
+                CountProductionActiveEnemyUnits() + tankers.Count + 2 >
+                    Level11WaveSelection.MaximumPhysicalEnemySlots)
+                return null;
             int maximumTankers = CurrentLevel.Configuration.UsesLevel7RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel8RomWavePolicy ||
-                CurrentLevel.Configuration.UsesLevel9RomWavePolicy ? 2 : 6;
+                CurrentLevel.Configuration.UsesLevel9RomWavePolicy ||
+                (CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
+                 CurrentLevel.Configuration.UsesLevel11ParameterDevelopmentBaseline) ? 2 : 6;
             if (!HasLevel3MixedAdmissionDiagnostic && !HasLevel4AdmissionDiagnostic &&
                 !HasLevel5AdmissionDiagnostic && !HasLevel6AdmissionDiagnostic &&
                 !HasLevel7AdmissionDiagnostic &&
@@ -1068,6 +1095,15 @@ public sealed class TempestGame
             if (ledger.GetOriginalState(originalId) == Level3OriginalState.Egg)
                 ledger.CommitOriginalAsTanker(originalId);
             return tanker;
+        }
+
+        if (selectedType == Level3OriginalType.Fuseball)
+        {
+            if (fuseballs.Count >= Level11WaveSelection.MaximumFuseballs)
+                return null;
+            if (ledger.GetOriginalState(originalId) == Level3OriginalState.Egg)
+                ledger.CommitOriginalAsFuseball(originalId);
+            return new Fuseball(egg.EdgeIndex, originalSlotId: originalId);
         }
 
         if (selectedType != Level3OriginalType.Flipper)
@@ -1275,7 +1311,8 @@ public sealed class TempestGame
             CurrentLevel.Configuration.AllowsOrdinaryFlipperSelection);
 
     private int CountProductionActiveEnemyUnits() =>
-        flippers.Count + tankers.Count + spikers.Count + shotReleasedCargoPendingActivation.Count;
+        flippers.Count + tankers.Count + spikers.Count + fuseballs.Count +
+        shotReleasedCargoPendingActivation.Count;
 
     // The ROM reserves two latent Flipper slots for every active Tanker.
     private int CountActiveAndLatentFlipperTypeUnits() =>
@@ -1352,7 +1389,10 @@ public sealed class TempestGame
                 case Fuseball fuseball when fuseball.IsHitBy(shot):
                     fuseballs.Remove(fuseball);
                     developmentCollisionOrder.Remove(fuseball);
-                    CurrentLevel.RecordEnemyDestroyed();
+                    if (CurrentLevel.UsesProductionLedger)
+                        CurrentLevel.Level3Ledger!.MarkOriginalDestroyed(fuseball.OriginalSlotId);
+                    else
+                        CurrentLevel.RecordEnemyDestroyed();
                     // Incitti rewards deeper kills: 250 at the rim, 1250 only at height zero.
                     Score.Add(fuseball.KillScore);
                     fuseballScorePopups.Add(new FuseballScorePopup(
@@ -1472,7 +1512,8 @@ public sealed class TempestGame
                 continue;
 
             int pendingGenericOriginals = HasLevel7AdmissionDiagnostic ||
-                CurrentLevel.Configuration.UsesLevel9RomWavePolicy
+                CurrentLevel.Configuration.UsesLevel9RomWavePolicy ||
+                CurrentLevel.Configuration.UsesLevel11RomWavePolicy
                 ? CurrentLevel.Level3Ledger!.PendingGenericOriginalCount
                 : 0;
             if (HasLevel7AdmissionDiagnostic &&
@@ -1482,6 +1523,12 @@ public sealed class TempestGame
                 continue;
             }
             if (CurrentLevel.Configuration.UsesLevel9RomWavePolicy &&
+                pendingGenericOriginals > 0)
+            {
+                spiker.RestartForPendingSupply();
+                continue;
+            }
+            if (CurrentLevel.Configuration.UsesLevel11RomWavePolicy &&
                 pendingGenericOriginals > 0)
             {
                 spiker.RestartForPendingSupply();
@@ -1504,6 +1551,9 @@ public sealed class TempestGame
             bool level7Conversion = Level7WaveSelection.ShouldConvertTerminalSpiker(
                 CurrentLevel.Configuration,
                 pendingGenericOriginals);
+            bool level11Conversion =
+                CurrentLevel.Configuration.UsesLevel11RomWavePolicy &&
+                pendingGenericOriginals == 0;
             bool genericRomConversion = level7Conversion ||
                 (CurrentLevel.Configuration.UsesLevel8RomWavePolicy &&
                  CurrentLevel.PendingGenericEnemyUnits == 0) ||
@@ -1513,7 +1563,7 @@ public sealed class TempestGame
                     tankers.Count,
                     CountActiveAndLatentFlipperTypeUnits());
             if (terminalLevel4Conversion || terminalLevel5Conversion ||
-                terminalLevel6Conversion || genericRomConversion)
+                terminalLevel6Conversion || level11Conversion || genericRomConversion)
             {
                 // ROM conversion follows generic pending supply; this C# height-zero retreat
                 // boundary is an approximation, not literal ROM coordinate or timing fidelity.
@@ -1538,7 +1588,10 @@ public sealed class TempestGame
             {
                 fuseballs.RemoveAt(index--);
                 developmentCollisionOrder.Remove(fuseball);
-                CurrentLevel.RecordEnemyDestroyed();
+                if (CurrentLevel.UsesProductionLedger)
+                    CurrentLevel.Level3Ledger!.MarkOriginalDestroyed(fuseball.OriginalSlotId);
+                else
+                    CurrentLevel.RecordEnemyDestroyed();
                 int points = fuseball.KillScore;
                 Score.Add(points);
                 fuseballScorePopups.Add(new FuseballScorePopup(
@@ -1547,7 +1600,12 @@ public sealed class TempestGame
                 continue;
             }
 
-            fuseball.Update(CurrentLevel, Player.EdgeIndex, NextRandomInclusive, HurryUp);
+            int? pendingGenericSupply =
+                CurrentLevel.Configuration.UsesLevel11RomWavePolicy
+                    ? CurrentLevel.Level3Ledger!.PendingGenericOriginalCount
+                    : null;
+            fuseball.Update(CurrentLevel, Player.EdgeIndex, NextRandomInclusive, HurryUp,
+                pendingGenericSupply);
         }
     }
 
@@ -2185,6 +2243,15 @@ public sealed class TempestGame
                 Level3RepresentationLocation.ActiveEnemy));
         }
 
+        foreach (Fuseball fuseball in fuseballs)
+        {
+            ledger.ValidateOriginalRuntimeType(
+                fuseball.OriginalSlotId, Level3OriginalType.Fuseball);
+            represented.Add(new Level3WaveRepresentation(
+                new Level3Identity(Level3IdentityKind.Original, fuseball.OriginalSlotId),
+                Level3RepresentationLocation.ActiveEnemy));
+        }
+
         foreach (Spiker spiker in spikers)
         {
             ledger.ValidateOriginalRuntimeType(
@@ -2205,7 +2272,7 @@ public sealed class TempestGame
 
         ledger.ValidateRuntimeRepresentations(represented);
 
-        HashSet<Enemy> expectedTargets = [.. flippers, .. tankers, .. spikers, .. enemyBullets];
+        HashSet<Enemy> expectedTargets = [.. flippers, .. tankers, .. spikers, .. fuseballs, .. enemyBullets];
         List<Enemy> orderedTargets = developmentCollisionOrder.OfType<Enemy>().ToList();
         if (orderedTargets.Count != expectedTargets.Count ||
             orderedTargets.Distinct().Count() != orderedTargets.Count ||
@@ -2227,7 +2294,7 @@ public sealed class TempestGame
             ledger.HasPendingShotActivation)
             return false;
 
-        List<Enemy> active = [.. flippers, .. tankers, .. spikers];
+        List<Enemy> active = [.. flippers, .. tankers, .. spikers, .. fuseballs];
         if (active.Count == 0 || active.Any(enemy => !(enemy.Height >= Level.Depth)))
             return false;
 
@@ -2239,6 +2306,7 @@ public sealed class TempestGame
             {
                 Tanker tanker => representedOriginals.Add(tanker.OriginalSlotId),
                 Spiker spiker => representedOriginals.Add(spiker.OriginalSlotId),
+                Fuseball fuseball => representedOriginals.Add(fuseball.OriginalSlotId),
                 Flipper flipper when flipper.IsTankerCargo =>
                     representedCargo.Add(flipper.CargoUnitId),
                 Flipper flipper => representedOriginals.Add(flipper.OriginalSlotId),
@@ -2266,6 +2334,10 @@ public sealed class TempestGame
                 case Spiker spiker:
                     spikers.Remove(spiker);
                     ledger.MarkOriginalRimCleared(spiker.OriginalSlotId);
+                    break;
+                case Fuseball fuseball:
+                    fuseballs.Remove(fuseball);
+                    ledger.MarkOriginalRimCleared(fuseball.OriginalSlotId);
                     break;
                 case Flipper flipper when flipper.IsTankerCargo:
                     flippers.Remove(flipper);

@@ -47,12 +47,37 @@ public sealed class RomPresentationMetadata
     public bool IsOpen => OpenRaw == 0xFF;
 }
 
+public static class RomTubeMappingCatalog
+{
+    private static readonly IReadOnlyList<int> ShapeRowsByDisplayedLevel =
+        Array.AsReadOnly(new[] { 0, 1, 2, 3, 4, 5, 6, 7, 13, 9, 8, 12, 14, 15, 10, 11 });
+
+    public static IReadOnlyList<int> DisplayedLevels1To16 => ShapeRowsByDisplayedLevel;
+
+    public static int ShapeRowForDisplayedLevel(int displayedLevel)
+    {
+        if (displayedLevel is < 1 or > 16)
+            throw new ArgumentOutOfRangeException(nameof(displayedLevel), displayedLevel,
+                "Rev. 2 tube remapping is defined for displayed Levels 1 through 16.");
+
+        return ShapeRowsByDisplayedLevel[displayedLevel - 1];
+    }
+}
+
 public static class RomPresentationMetadataCatalog
 {
     // ROM-BACKED raw Rev 2 metadata for displayed Level 10 / shape row 9.
     // The C# projection translation and final placement were manually accepted on 2026-11-17.
     private static readonly RomPresentationMetadata Level10 =
         new(10, 9, 0x18, 0x50, 0x20, 0xFF, 0xFF);
+    // ROM-BACKED Level 11 metadata is shape row 8; it is evidence only, not a production definition.
+    private static readonly RomPresentationMetadata Level11 =
+        new(11, RomTubeMappingCatalog.ShapeRowForDisplayedLevel(11),
+            0x0A, 0xA0, 0x00, 0x01, 0xFF);
+    // DEVELOPMENT ONLY: row 10 is the manually identified Level 15 tube; placement remains uncalibrated.
+    private static readonly RomPresentationMetadata Level15 =
+        new(15, RomTubeMappingCatalog.ShapeRowForDisplayedLevel(15),
+            0x10, 0x90, 0x40, 0x00, 0xFF);
 
     private static readonly IReadOnlyList<RomPresentationMetadata> ProductionLevels =
         Array.AsReadOnly(new[]
@@ -74,11 +99,15 @@ public static class RomPresentationMetadataCatalog
     {
         if (displayedLevel == Level10.DisplayedLevel)
             return Level10;
+        if (displayedLevel == Level11.DisplayedLevel)
+            return Level11;
+        if (displayedLevel == Level15.DisplayedLevel)
+            return Level15;
         if (displayedLevel < 1 || displayedLevel > ProductionLevels.Count)
             throw new ArgumentOutOfRangeException(
                 nameof(displayedLevel),
                 displayedLevel,
-                "ROM presentation metadata is defined only for displayed Levels 1 through 9 and diagnostic Level 10.");
+                "ROM presentation metadata is defined only for Levels 1 through 11 and direct-start Level 15.");
 
         return ProductionLevels[displayedLevel - 1];
     }

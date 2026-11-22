@@ -21,7 +21,9 @@ public enum TankerCargoMovementProgram
     Level6Deep0B,
     Level6Straight07,
     Level9SpikeSensitive53,
-    Level9Straight07
+    Level9Straight07,
+    Repeating24,
+    Straight07
 }
 
 public readonly record struct TankerReleaseResult(
@@ -189,6 +191,11 @@ public sealed class Tanker : Enemy
         if (!ReferenceEquals(configuration, LevelConfiguration.Level6Production) ||
             releaseKind == TankerReleaseKind.SuperZapperDestruction)
         {
+            if (configuration.UsesLevel11RomWavePolicy ||
+                configuration.UsesLevel11ParameterDevelopmentBaseline)
+                return RomAlongPositionForHeight(Height) >= 0x20
+                    ? TankerCargoMovementProgram.Repeating24
+                    : TankerCargoMovementProgram.Straight07;
             if (configuration.UsesLevel9RomWavePolicy)
                 return GetLevel9CargoMovementProgram(Height, releaseKind);
             return TankerCargoMovementProgram.Existing;

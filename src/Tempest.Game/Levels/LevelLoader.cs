@@ -72,6 +72,80 @@ public static class LevelLoader
 		});
 	}
 
+	// ROM-BACKED Level 11 geometry evidence only; no production definition is created from this row.
+	public static class Level11RomEvidence
+	{
+		public static RomPresentationMetadata PresentationMetadata =>
+			RomPresentationMetadataCatalog.ForDisplayedLevel(11);
+
+		public const byte LookupIndex = 10;
+		public static byte ShapeRemap => checked((byte)PresentationMetadata.TubeTableIndex);
+		public static byte Scale => PresentationMetadata.ScaleRaw;
+		public static byte Y3d => PresentationMetadata.CameraHeightRaw;
+		public static byte Y2dLow => PresentationMetadata.ScreenYOffsetLowRaw;
+		public static byte Y2dHigh => PresentationMetadata.ScreenYOffsetHighRaw;
+		public static ushort Y2d => PresentationMetadata.ScreenYOffsetCombinedRaw;
+		public static byte Open => PresentationMetadata.OpenRaw;
+		public const byte FlipperScaleLow = 0x50;
+		public const byte FlipperScaleHigh = 0x05;
+		public const ushort FlipperScale = 0x02D0;
+
+		public static IReadOnlyList<byte> X { get; } = Array.AsReadOnly(new byte[]
+		{
+			0x10, 0x1E, 0x2D, 0x3C, 0x4B, 0x5A, 0x69, 0x78,
+			0x87, 0x96, 0xA5, 0xB4, 0xC3, 0xD2, 0xE1, 0xF0
+		});
+
+		public static IReadOnlyList<byte> Y { get; } = Array.AsReadOnly(new byte[]
+		{
+			0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
+			0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40
+		});
+
+		public static IReadOnlyList<byte> Angles { get; } = Array.AsReadOnly(new byte[]
+		{
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+		});
+	}
+
+	// DEVELOPMENT ONLY: the manually identified Level 15 candidate uses geometry shape row 10.
+	public static class Level15RomEvidence
+	{
+		public static RomPresentationMetadata PresentationMetadata =>
+			RomPresentationMetadataCatalog.ForDisplayedLevel(15);
+
+		public const byte LookupIndex = 14;
+		public static byte ShapeRemap => checked((byte)PresentationMetadata.TubeTableIndex);
+		public static byte Scale => PresentationMetadata.ScaleRaw;
+		public static byte Y3d => PresentationMetadata.CameraHeightRaw;
+		public static byte Y2dLow => PresentationMetadata.ScreenYOffsetLowRaw;
+		public static byte Y2dHigh => PresentationMetadata.ScreenYOffsetHighRaw;
+		public static ushort Y2d => PresentationMetadata.ScreenYOffsetCombinedRaw;
+		public static byte Open => PresentationMetadata.OpenRaw;
+		public const byte FlipperScaleLow = 0x50;
+		public const byte FlipperScaleHigh = 0x04;
+		public const ushort FlipperScale = 0x0250;
+
+		public static IReadOnlyList<byte> X { get; } = Array.AsReadOnly(new byte[]
+		{
+			0x10, 0x24, 0x30, 0x36, 0x3E, 0x49, 0x5A, 0x75,
+			0x94, 0xA4, 0xAC, 0xBA, 0xDA, 0xE2, 0xEA, 0xF0
+		});
+
+		public static IReadOnlyList<byte> Y { get; } = Array.AsReadOnly(new byte[]
+		{
+			0xC0, 0xA6, 0x8A, 0x6A, 0x4A, 0x2F, 0x14, 0x24,
+			0x20, 0x39, 0x59, 0x75, 0x72, 0x90, 0xB0, 0xD0
+		});
+
+		public static IReadOnlyList<byte> Angles { get; } = Array.AsReadOnly(new byte[]
+		{
+			0x0E, 0x0D, 0x0C, 0x0D, 0x0D, 0x0D, 0x01, 0x0F,
+			0x02, 0x03, 0x03, 0x00, 0x03, 0x03, 0x03, 0x00
+		});
+	}
+
 	public static LevelDefinition LoadLevel1() => new(true, 400, -80,
 		new Vector2[]
 		{
@@ -188,5 +262,33 @@ public static class LevelLoader
 				-(Level10RomEvidence.Y[index] - 128) * scale);
 
 		return new(false, 300, 0, Array.AsReadOnly(points), "Level 10 - Rev 2 open shape 9");
+	}
+
+	// DEVELOPMENT ONLY: preserve the manually identified Rev. 2 row-10 tube exactly.
+	// Centering, scaling and Y reflection use the established open-tube translation.
+	public static LevelDefinition LoadLevel15OpenTube()
+	{
+		const float scale = 25f / 14f;
+		Vector2[] points = new Vector2[Level15RomEvidence.X.Count];
+		for (int index = 0; index < points.Length; index++)
+			points[index] = new Vector2(
+				(Level15RomEvidence.X[index] - 128) * scale,
+				-(Level15RomEvidence.Y[index] - 128) * scale);
+
+		return new(false, 300, 0, Array.AsReadOnly(points), "Level 15 - Rev 2 open shape 10");
+	}
+
+	// ROM-BACKED Rev 2 shape row 8. The zero-based lookup index is 10,
+	// while the selected geometry record index is 8.
+	public static LevelDefinition LoadLevel11OpenTube()
+	{
+		const float scale = 25f / 14f;
+		Vector2[] points = new Vector2[Level11RomEvidence.X.Count];
+		for (int index = 0; index < points.Length; index++)
+			points[index] = new Vector2(
+				(Level11RomEvidence.X[index] - 128) * scale,
+				-(Level11RomEvidence.Y[index] - 128) * scale);
+
+		return new(false, 300, 0, Array.AsReadOnly(points), "Level 11 - Rev 2 open shape 8");
 	}
 }

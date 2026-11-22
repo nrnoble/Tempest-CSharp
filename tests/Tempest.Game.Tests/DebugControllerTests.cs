@@ -1,4 +1,5 @@
 using Tempest.Game.Debug;
+using Tempest.Game.Levels;
 using Tempest.Game.Rendering;
 using Xunit;
 
@@ -279,7 +280,7 @@ public sealed class DebugControllerTests
     [Theory]
     [InlineData("0")]
     [InlineData("-1")]
-    [InlineData("11")]
+    [InlineData("12")]
     [InlineData("999")]
     [InlineData("not-a-number")]
     public void RejectsUnsupportedOrMalformedStartingLevels(string value)
@@ -287,7 +288,7 @@ public sealed class DebugControllerTests
         Assert.False(DebugController.TryParseStartingLevel(
             ["--level", value], out int? selected, out string? error));
         Assert.Null(selected);
-        Assert.Contains("implemented production level from 1 through 9", error);
+        Assert.Contains("implemented production level from 1 through 11", error);
     }
 
     [Fact]
@@ -297,6 +298,18 @@ public sealed class DebugControllerTests
             ["--level", "8"], out int? selected, out string? error));
         Assert.Equal(8, selected);
         Assert.Null(error);
+    }
+
+    [Fact]
+    public void LevelFifteenIsAcceptedOnlyAsADirectTubeCandidate()
+    {
+        Assert.True(DebugController.TryParseStartingLevel(
+            ["--level", "15"], out int? selected, out string? error));
+        Assert.Equal(15, selected);
+        Assert.Null(error);
+        Assert.Null(LevelProgression.GetProductionLevel(15));
+        Assert.Same(LevelConfiguration.Level15DirectStartCandidate,
+            LevelProgression.GetDirectStartLevel(15));
     }
 
     [Fact]

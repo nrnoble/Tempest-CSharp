@@ -354,10 +354,6 @@ public sealed class LevelProgressionTests
         Assert.Equal(spikes, game.Spikes);
 
         game.RunOneStep(restartPressed: true);
-        Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
-        Assert.Equal(LevelState.Playing, game.State);
-        Assert.Equal(0, game.Score.Score);
-        Assert.Equal(5, game.Player.Lives);
     }
 
     [Theory]
@@ -664,7 +660,7 @@ public sealed class LevelProgressionTests
     }
 
     [Fact]
-    public void NaturalLevelSevenEntersLevelEightThenNineAndNineCompletionIsTerminal()
+    public void NaturalLevelSevenEntersLevelEightNineAndEleven()
     {
         TempestGame game = CreateNaturalLevel6(startingLives: 5);
         CompleteProductionLedgerWave(game);
@@ -718,17 +714,12 @@ public sealed class LevelProgressionTests
         for (int tick = 0; tick < 250 && !game.LevelComplete; tick++)
             game.RunOneStep();
 
-        Assert.True(game.LevelComplete);
-        Assert.Same(levelNine, game.CurrentLevel);
-        Assert.Same(LevelConfiguration.Level9Production, game.CurrentLevel.Configuration);
-        Assert.Null(LevelProgression.GetNextProductionLevel(game.CurrentLevel.Configuration));
+        Assert.NotSame(levelNine, game.CurrentLevel);
+        Assert.Same(LevelConfiguration.Level11Production, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Approach, game.State);
+        Assert.Same(LevelConfiguration.Level11Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level9Production));
         Assert.Empty(levelNineLedger.UnresolvedOriginalIds);
-
-        game.RunOneStep(restartPressed: true);
-        Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
-        Assert.Equal(LevelState.Playing, game.State);
-        Assert.Equal(0, game.Score.Score);
-        Assert.Equal(5, game.Player.Lives);
     }
 
     private static TempestGame CreateNaturalLevel5(

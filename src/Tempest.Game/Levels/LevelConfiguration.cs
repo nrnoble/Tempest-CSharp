@@ -27,7 +27,8 @@ public enum BelowRimFlipperProgram
     // ROM Level 9 $53, translated using post-move live C# Spike and Flipper heights.
     Level9SpikeSensitive,
     Level7ArcadeObserved,
-    Level8ConstantFlip
+    Level8ConstantFlip,
+    Level11Repeating24
 }
 
 // REFERENCE VERIFIED: Incitti lv=0/1 values; exact gameplay fidelity remains unverified.
@@ -64,8 +65,12 @@ public sealed record LevelConfiguration(
 {
     public int VertexCount => Definition.VertexCount;
     public int PlayableLaneCount => Definition.PlayableLaneCount;
-    // Medium/default ROM values for ordinary displayed production Levels 1-6.
-    public int FlipperShotHoldoffTicks => DisplayedLevel switch
+    // Gameplay parameter rows are independent of displayed identity and tube-table selection.
+    public int? EffectiveGameplayParameterLevelOverride { get; init; }
+    public int EffectiveGameplayParameterLevel =>
+        EffectiveGameplayParameterLevelOverride ?? DisplayedLevel;
+    // Medium/default ROM values for ordinary effective gameplay Levels 1-6.
+    public int FlipperShotHoldoffTicks => EffectiveGameplayParameterLevel switch
     {
         1 => 80,
         2 => 77,
@@ -79,8 +84,9 @@ public sealed record LevelConfiguration(
         8 => 62,
         // PROJECT APPROXIMATION: the ROM's 56 holdoff parameter is used as the C# cadence.
         9 => 56,
+        11 => 56,
         _ => throw new InvalidOperationException(
-            $"No arcade Flipper shot holdoff is defined for displayed Level {DisplayedLevel}.")
+            $"No arcade Flipper shot holdoff is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
     public bool UsesLevel7SpikerFiringPolicy =>
         UsesLevel7RomWavePolicy;
@@ -90,7 +96,7 @@ public sealed record LevelConfiguration(
     public bool UsesLevel9SpikerFiringPolicy =>
         UsesLevel9RomWavePolicy;
     public int Level9SpikerShotHoldoffTicks => FlipperShotHoldoffTicks;
-    public int MaximumActiveEnemyShots => DisplayedLevel switch
+    public int MaximumActiveEnemyShots => EffectiveGameplayParameterLevel switch
     {
         1 or 2 or 3 => 2,
         4 => 3,
@@ -99,8 +105,9 @@ public sealed record LevelConfiguration(
         7 or 10 => 3,
         8 => 4,
         9 => 4,
+        11 => 4,
         _ => throw new InvalidOperationException(
-            $"No arcade enemy-shot capacity is defined for displayed Level {DisplayedLevel}.")
+            $"No arcade enemy-shot capacity is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
     public FlipperConfiguration Flipper { get; init; } = new(false, 2, 8, 21, 24);
     public bool FlipperCanFlip => Flipper.CanFlip;
@@ -112,10 +119,15 @@ public sealed record LevelConfiguration(
         ReferenceEquals(this, Level10Diagnostic);
     public bool UsesLevel8RomWavePolicy { get; init; }
     public bool UsesLevel9RomWavePolicy { get; init; }
+    public bool UsesLevel11RomWavePolicy { get; init; }
+    // DEVELOPMENT ONLY: the preserved Level 15 candidate may retain the separately
+    // recovered Level 11 parameter baseline; genuine Level 11 uses UsesLevel11RomWavePolicy.
+    public bool UsesLevel11ParameterDevelopmentBaseline { get; init; }
     // Canonical ROM-policy levels share generic reconstruction; copied configurations stay isolated.
     public bool UsesGenericRomDeathReconstruction =>
         UsesLevel7RomWavePolicy || UsesLevel8RomWavePolicy ||
-        UsesLevel9RomWavePolicy ||
+        UsesLevel9RomWavePolicy || UsesLevel11RomWavePolicy ||
+        UsesLevel11ParameterDevelopmentBaseline ||
         ReferenceEquals(this, Level5Production) ||
         ReferenceEquals(this, Level6Production);
     // The Level 5 ROM's zero Flipper minimum excludes ordinary bottom entries, not Tanker cargo.
@@ -129,6 +141,8 @@ public sealed record LevelConfiguration(
     public const float Level7DeepCargoMaximumHeight = 370;
     public const float Level8StartingSpikeHeight = 40f * Level.Depth / 224f;
     public const float Level9StartingSpikeHeight = 48f * Level.Depth / 224f;
+    public const float Level11StartingSpikeHeight =
+        (0xF0 - Level11WaveSelection.StartingSpikeHeightRaw) * Level.Depth / 224f;
     // PROJECT CALIBRATION: manually accepted relative projectile lead; not a ROM speed measurement.
     public const float Level9ProductionSpikerSpeed = 2.0f;
 
@@ -340,7 +354,8 @@ public sealed record LevelConfiguration(
         {
             DisplayedLevel = 10,
             Definition = LevelLoader.LoadLevel10OpenTube(),
-            SpawnLaneSequence = Array.AsReadOnly(Enumerable.Range(0, 15).ToArray())
+            SpawnLaneSequence = Array.AsReadOnly(Enumerable.Range(0, 15).ToArray()),
+            EffectiveGameplayParameterLevelOverride = 7
         };
 
     // Rev 2 shape row 7 is open; the resulting geometry, placement, color, player lane,
@@ -404,5 +419,70 @@ public sealed record LevelConfiguration(
         AllowsOrdinaryFlipperSelection = false,
         ProgrammedFlipperInitialDirection = 1,
         StartingSpikeHeight = Level9StartingSpikeHeight
+    };
+
+    // ROM-backed shape row 8 and recovered Level 11 gameplay parameter policy.
+    public static LevelConfiguration Level11Production { get; } = new(
+        ProgressionIndex: 10,
+        DisplayedLevel: 11,
+        BoardIndex: 10,
+        PaletteIndex: 0,
+        Definition: LevelLoader.LoadLevel11OpenTube(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: Level11WaveSelection.OrdinaryEnemySupply,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(Enumerable.Range(0, 15).ToArray()),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.Standard,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersTankersAndSpikers)
+    {
+        EffectiveGameplayParameterLevelOverride = 11,
+        Flipper = new(true, 2, 9, 0, 23),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        BelowRimFlipperProgram = BelowRimFlipperProgram.Level11Repeating24,
+        UsesLevel11RomWavePolicy = true,
+        AllowsOrdinaryFlipperSelection = false,
+        ProgrammedFlipperInitialDirection = 1,
+        StartingSpikeHeight = Level11StartingSpikeHeight
+    };
+
+    // DEVELOPMENT ONLY: the manually identified Level 15 tube is direct-start only.
+    // It does not inherit genuine Level 11 production identity or gameplay policy.
+    public static LevelConfiguration Level15DirectStartCandidate { get; } = new(
+        ProgressionIndex: 14,
+        DisplayedLevel: 15,
+        BoardIndex: 14,
+        PaletteIndex: 0,
+        Definition: LevelLoader.LoadLevel15OpenTube(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: 27,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(Enumerable.Range(0, 15).ToArray()),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.Standard,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersTankersAndSpikers)
+    {
+        EffectiveGameplayParameterLevelOverride = 11,
+        Flipper = new(true, 2, 9, 0, 23),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        BelowRimFlipperProgram = BelowRimFlipperProgram.Level11Repeating24,
+        UsesLevel11ParameterDevelopmentBaseline = true,
+        AllowsOrdinaryFlipperSelection = false,
+        ProgrammedFlipperInitialDirection = 1,
+        StartingSpikeHeight = 0xB0 * Level.Depth / 224f
     };
 }

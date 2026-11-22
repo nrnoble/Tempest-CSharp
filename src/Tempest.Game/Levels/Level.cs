@@ -802,8 +802,16 @@ public sealed class Level
         }
 
         if (!double.IsFinite(twiceArea) || Math.Abs(twiceArea) < 0.0001)
+        {
+            // Genuine row-8 Level 11 is a collinear open-tube outline. It has no
+            // arcade winding area. PROJECT TRANSLATION: increasing lane order reads
+            // left-to-right on this horizontal geometry, so select the sign that
+            // maps clockwise physical spinner movement to logical lane-left movement.
+            if (points.All(point => Math.Abs(point.Y - points[0].Y) < 0.0001f))
+                return -1;
             throw new InvalidOperationException(
                 "Winding-dependent movement requires a finite, nondegenerate tube outline.");
+        }
 
         // The same winding sign classifies convex/reflex turns and selects the inward spatial arc.
         return Math.Sign(twiceArea);

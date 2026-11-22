@@ -1240,6 +1240,41 @@ public sealed class AtariPresentationAdapterTests
 	}
 
 	[Fact]
+	public void LevelElevenHasAValidRuntimeModelFrameAndPreservesLevelOneThroughTenAndFifteen()
+	{
+		Assert.True(AtariPresentationAdapter.HasModelFrameMapping(11));
+		Assert.Equal((25f / 14f, -1),
+			AtariPresentationAdapter.GetModelFrameMapping(11));
+
+		LevelConfiguration level11 =
+			LevelProgression.GetDirectStartLevel(11) ??
+			throw new InvalidOperationException("Direct Level 11 startup is missing.");
+		RomPresentationMetadata level11Metadata =
+			RomPresentationMetadataCatalog.ForDisplayedLevel(11);
+		foreach (Vector2 point in level11.Definition.Points)
+		{
+			AtariPresentationProjection projection = Project(
+				level11, level11Metadata, point.X, point.Y, level11.Position);
+			Assert.True(float.IsFinite(projection.Position.X));
+			Assert.True(float.IsFinite(projection.Position.Y));
+			Assert.True(float.IsFinite(projection.LocalScale));
+		}
+
+		Assert.True(AtariPresentationAdapter.HasModelFrameMapping(10));
+		Assert.True(AtariPresentationAdapter.HasModelFrameMapping(15));
+		Assert.Equal((25f / 14f, -1),
+			AtariPresentationAdapter.GetModelFrameMapping(10));
+		Assert.Equal((25f / 14f, -1),
+			AtariPresentationAdapter.GetModelFrameMapping(15));
+		foreach (int level in new[] { 1, 2, 3, 4, 7, 8, 9 })
+			Assert.True(AtariPresentationAdapter.HasModelFrameMapping(level));
+		Assert.False(AtariPresentationAdapter.HasModelFrameMapping(5));
+		Assert.False(AtariPresentationAdapter.HasModelFrameMapping(6));
+		Assert.Throws<ArgumentOutOfRangeException>(() =>
+			AtariPresentationAdapter.GetModelFrameMapping(12));
+	}
+
+	[Fact]
 	public void ModelFrameMappingsAreLimitedToEstablishedCandidateLevels()
 	{
 		foreach (int level in new[] { 1, 2, 3, 4, 7, 8, 9 })

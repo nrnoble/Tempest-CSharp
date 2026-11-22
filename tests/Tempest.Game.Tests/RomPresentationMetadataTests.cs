@@ -57,7 +57,39 @@ public sealed class RomPresentationMetadataTests
         Assert.Throws<ArgumentOutOfRangeException>(
             () => RomPresentationMetadataCatalog.ForDisplayedLevel(0));
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => RomPresentationMetadataCatalog.ForDisplayedLevel(11));
+            () => RomPresentationMetadataCatalog.ForDisplayedLevel(12));
+    }
+
+    [Fact]
+    public void Rev2EncounterOrderMapsDisplayedLevelsElevenThroughSixteenToTheirShapeRows()
+    {
+        Assert.Equal(new[] { 8, 12, 14, 15, 10, 11 },
+            RomTubeMappingCatalog.DisplayedLevels1To16.Skip(10));
+
+        for (int displayedLevel = 11; displayedLevel <= 16; displayedLevel++)
+        {
+            Assert.Equal(RomTubeMappingCatalog.DisplayedLevels1To16[displayedLevel - 1],
+                RomTubeMappingCatalog.ShapeRowForDisplayedLevel(displayedLevel));
+        }
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => RomTubeMappingCatalog.ShapeRowForDisplayedLevel(0));
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => RomTubeMappingCatalog.ShapeRowForDisplayedLevel(17));
+    }
+
+    [Fact]
+    public void LevelElevenAndFifteenMetadataFollowTheirRemappedShapeRows()
+    {
+        RomPresentationMetadata level11 = RomPresentationMetadataCatalog.ForDisplayedLevel(11);
+        RomPresentationMetadata level15 = RomPresentationMetadataCatalog.ForDisplayedLevel(15);
+
+        Assert.Equal((8, (byte)0x0A, (byte)0xA0, (ushort)0x0100, (byte)0xFF),
+            (level11.TubeTableIndex, level11.ScaleRaw, level11.CameraHeightRaw,
+             level11.ScreenYOffsetCombinedRaw, level11.OpenRaw));
+        Assert.Equal((10, (byte)0x10, (byte)0x90, (ushort)0x0040, (byte)0xFF),
+            (level15.TubeTableIndex, level15.ScaleRaw, level15.CameraHeightRaw,
+             level15.ScreenYOffsetCombinedRaw, level15.OpenRaw));
     }
 
     [Fact]

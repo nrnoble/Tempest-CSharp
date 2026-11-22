@@ -2772,6 +2772,71 @@ timing, simulation state, Level 7 behavior, Levels 1-9, or production
 progression. Recording/playback continues to preserve direct diagnostic
 Level 10 startup identity in both standard and Atari-presentation modes.
 
+## Level 15 tube identity correction and Levels 11-16 mapping
+
+**ARCADE-OBSERVED:** Neal identifies the preserved open tube candidate as the
+arcade Level 15 tube. Its gameplay has played normally and is generally good;
+detailed Level 15 gameplay fidelity is not formally accepted, and presentation
+fine-tuning remains pending as needed. This is not Level 15 closure.
+
+**ROM/DISASSEMBLY-BACKED MAPPING:** The ROM stores `p1_level` zero-based;
+displayed Level `N` uses lookup index `N-1`. The geometry setup calls
+`get_tube_no`, indexes `lev_remap` by that lookup index, then indexes the
+ordered `lev_x`, `lev_y`, `lev_angle`, and per-tube presentation arrays by the
+remapped shape row. The relevant encounter-order remap entries are:
+
+| Displayed level | Lookup index | Shape row |
+|---:|---:|---:|
+| 11 | 10 | 8 |
+| 12 | 11 | 12 |
+| 13 | 12 | 14 |
+| 14 | 13 | 15 |
+| 15 | 14 | 10 |
+| 16 | 15 | 11 |
+
+The previous candidate copied `lev_x[10]`, `lev_y[10]`, and
+`lev_angle[10]` (shape row 10), and copied row-10 metadata, but labeled those
+bytes using the different value `lev_remap[10]=$08`. That conflated the
+lookup index with its remapped table row. `lev_remap[10]=$08` correctly
+identifies displayed Level 11's genuine shape row 8; it does not identify the
+candidate geometry. `lev_remap[14]=$0A` identifies shape row 10 as displayed
+Level 15. This is an indexing/translation error in the prior C# recovery, not
+a ROM level-cycle exception or an off-by-one in the ROM lookup.
+
+**LEVEL 11 GEOMETRY EVIDENCE — ROM-BACKED, NOT IMPLEMENTED:** Shape row 8 is
+open (`lev_open=$FF`), with ordered X values
+`10 1E 2D 3C 4B 5A 69 78 87 96 A5 B4 C3 D2 E1 F0`, ordered Y values all
+`40`, and 16 zero angle bytes. Its raw presentation values are scale `$0A`,
+camera height `$A0`, Y offset `$0100`, and Flipper scale `$02D0` (low `$50`,
+high `$05`). This is evidence for a future
+Level 11 implementation, not a C# production level or manual geometry
+acceptance. Displayed Levels 12-14 and 16 have established shape-row mapping
+only; their geometry/configuration is not implemented here.
+
+**DISPLAY, TUBE, AND GAMEPLAY IDENTITIES:** Geometry lookup index, remapped
+shape row, and effective gameplay-parameter level are separate. At
+`$92C5-$92D4`, the gameplay loader converts zero-based `curlevel` to effective
+parameter level `curlevel+1`; geometry selection uses zero-based
+`p1_level` and `lev_remap`. The direct-only Level 15 tube candidate preserves
+the recovered row-10 geometry and uses displayed identity 15, lookup index
+14, shape row 10. Its current development configuration explicitly retains
+the separately established displayed-Level-11 gameplay parameter row only
+as an unaccepted test baseline; it does not claim those parameters belong to
+Level 15 or that Level 15 mechanics passed arcade-fidelity acceptance.
+
+**PROGRESSION BOUNDARY:** Production progression remains terminal at Level 9.
+Diagnostic Level 10 keeps its existing geometry and role. Levels 11-14 remain
+unimplemented in production; direct Level 11 does not fall back to the
+Level 15 tube. Direct `--level 15` is available only to preserve/test the
+recovered tube and does not add Level 15 to the production chain.
+
+**PRESENTATION STATUS:** The Level 15 direct-start candidate uses the existing
+open-tube presentation path and a neutral uncalibrated default solely to keep
+the existing `--tube-y-gain`, `--tube-scale`, `--tube-vertical-offset`, and
+`--calibration-guides` controls available. No Level 15 presentation tuning
+or acceptance is claimed. Levels 1-10 first-pass calibrations remain
+unchanged.
+
 ## First-pass per-level Atari-presentation calibration
 
 **PROJECT DECISION — MANUALLY SELECTED FIRST PASS:** Neal manually tested the
@@ -2796,12 +2861,15 @@ Manual gameplay remains the final authority for visual fidelity and playability.
 | 8 | 1.0 | 1.0 | -75 |
 | 9 | 1.5 | 1.05 | -150 |
 | 10 (diagnostic) | 1.2 | 0.9 | +15 |
+| 11 | 1.5 | 1.1 | 0 |
 
 When Atari presentation is enabled and no diagnostic value is supplied, all
 three selected values follow the currently displayed level during direct
 startup, progression, visible playback, and presentation transitions. The
 diagnostic Level 10 remains outside campaign progression and retains its
-existing gameplay role. Legacy/non-Atari presentation is unchanged.
+existing gameplay role. Direct-only Level 15 uses the uncalibrated neutral
+`(1, 1, 0)` placeholder; its values are not part of this accepted table.
+Legacy/non-Atari presentation is unchanged.
 
 **DEVELOPMENT ONLY:** The fixed yellow calibration guides are normally off.
 `--calibration-guides` with `--atari-presentation` enables the accepted
@@ -2815,6 +2883,37 @@ only that dimension's selected level value, while omitted dimensions continue
 to use the table. These values do not enter gameplay state, recording data,
 geometry, or simulation timing. Tube and attached presentation remain
 registered, and the accepted frozen ExitZoom focal behavior is preserved.
+
+## Accepted Level 11 closeout
+
+**ARCADE-OBSERVED — MANUAL ACCEPTANCE:** Neal accepted genuine Level 11
+production gameplay and its accepted Level 11 Atari-presentation calibration.
+Displayed Level 11 uses ROM shape row 8, open topology, 16 ordered ROM points,
+15 playable lanes, corrected collinear orientation, and valid model-frame
+mapping. Spinner convention is clockwise -> left and counterclockwise -> right.
+Direct Fuseball behavior, initial Spike length, Spike routing/collision/growth,
+terminal Spiker-to-Tanker conversion, ordinary $24 Flipper routing,
+$07/$24 Tanker-cargo behavior, enemies, firing, Super Zapper, death/re-entry,
+HUD, and wave completion passed manual gameplay testing.
+
+**PROJECT DECISION — PRESENTATION:** Level 11's accepted first-pass calibration
+is tube Y gain `1.5`, tube scale `1.1`, and vertical offset `0`. It is now the
+normal Level 11 default; `--tube-y-gain`, `--tube-scale`,
+`--tube-vertical-offset`, and `--calibration-guides` remain absolute diagnostic
+controls. This does not change Levels 1-10.
+
+**ROM-BACKED + PROJECT TRANSLATION:** The terminal Fuseball pending-supply
+correction uses pending generic supply as the terminal decision state and
+translated toward-rim boundaries in the C# movement state machine. It does not
+use a fixed extra-cycle count. The ROM-backed result is accepted as good enough;
+remaining late-wave visible timing uncertainty is deferred and must not block
+Level 11 closure.
+
+**PRODUCTION BOUNDARY:** Genuine Level 11 is the terminal production level.
+Level 12 remains unimplemented and Levels 13-14 are not fabricated. Direct
+Level 15 preserves genuine row-10 geometry and production-independent display
+identity, but its gameplay and presentation remain explicitly unaccepted
+development baselines and it remains outside campaign progression.
 
 ## Level 8 Atari presentation - manually accepted (2026-11-17)
 
