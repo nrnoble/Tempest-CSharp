@@ -51,7 +51,7 @@ The objective is to determine the real Atari mechanism before deciding whether a
 Determine:
 
 1. What exact Atari state causes a Fuseball to stop ordinary up/down cycling and begin its terminal movement to the rim?
-2. Does Atari use: 
+2. Does Atari use:
 - generic pending-enemy supply;
 - number of active enemies;
 - Fuseball being the final below-rim enemy;

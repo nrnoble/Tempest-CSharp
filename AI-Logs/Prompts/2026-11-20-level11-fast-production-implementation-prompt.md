@@ -132,11 +132,11 @@ Do not fine-tune Level 11's tube presentation automatically.
 
 Get Level 11 into the established presentation path and let Neal perform visual calibration afterward using the existing development options:
 
---tube-y-gain 
+--tube-y-gain
 
---tube-scale 
+--tube-scale
 
---tube-vertical-offset 
+--tube-vertical-offset
 
 and, when useful:
 

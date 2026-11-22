@@ -98,10 +98,10 @@ Preserve the established Level 11 evidence:
 - ordinary pending-enemy supply: 27;
 - Flipper program $24;
 - $24 ordinary Flipper behavior: two flips, reverse, three flips, reverse, repeat;
-- Tanker-released Flipper depth distinction: 
+- Tanker-released Flipper depth distinction:
 - below raw along-position $20, use straight program $07;
 - at or beyond $20, use the current-level $24 program;
-- dynamic selection limits: 
+- dynamic selection limits:
 - Flippers 0/5;
 - Tankers 1/2;
 - Spikers 2/3;

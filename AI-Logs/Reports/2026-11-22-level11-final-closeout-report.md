@@ -41,7 +41,7 @@ available; Levels 1-10 calibration remains unchanged.
 
 ## Repository Closeout
 
-- Final commit SHA: pending final commit.
+- Final closeout commit SHA: `064665e` (full SHA recorded after repository verification).
 - Commit message: `Complete accepted Level 11`.
 - Push result: pending push verification.
 - Final branch/upstream and worktree state: pending post-push verification.
