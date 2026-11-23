@@ -2,12 +2,60 @@ using System.Numerics;
 using Raylib_cs;
 using Tempest.Game.Levels;
 using Tempest.Game.Rendering;
+using Tempest.Game.Gameplay;
 using Xunit;
 
 namespace Tempest.Game.Tests;
 
 public sealed class AtariHudVectorTests
 {
+	[Fact]
+	public void FuseballPopupUsesAcceptedDigitGeometryAndDeterministicCenteredBounds()
+	{
+		FuseballScorePopup popup = new(3, 320, 1000);
+		IReadOnlyList<AtariHudLine> first = AtariHudVector.RenderCenteredText(
+			popup.Points.ToString(), new Vector2(400, 500), popup.AtariGlyphScale, Color.White);
+		IReadOnlyList<AtariHudLine> second = AtariHudVector.RenderCenteredText(
+			popup.Points.ToString(), new Vector2(400, 500), popup.AtariGlyphScale, Color.White);
+
+		Assert.Equal(first, second);
+		Assert.NotEmpty(first);
+		Assert.All(first, line =>
+		{
+			Assert.True(float.IsFinite(line.Start.X));
+			Assert.True(float.IsFinite(line.Start.Y));
+			Assert.True(float.IsFinite(line.End.X));
+			Assert.True(float.IsFinite(line.End.Y));
+		});
+		Assert.NotEqual(AtariHudVector.HudGlyphScale, popup.AtariGlyphScale);
+		Assert.True(popup.AtariGlyphScale > 0);
+		Assert.Equal(30, popup.RemainingTicks);
+	}
+
+	[Fact]
+	public void FuseballPopupDigitOneRemainsOneAcceptedVerticalStroke()
+	{
+		IReadOnlyList<AtariHudLine> lines = AtariHudVector.RenderCenteredText(
+			"1", new Vector2(400, 500), 0.5f, Color.White);
+
+		AtariHudLine line = Assert.Single(lines);
+		Assert.Equal(line.Start.X, line.End.X);
+		Assert.True(line.Start.Y > line.End.Y);
+	}
+
+	[Fact]
+	public void FuseballPopupMultiDigitTextKeepsDigitOrderAndOnlyDecimalDigits()
+	{
+		IReadOnlyList<AtariHudLine> lines = AtariHudVector.RenderCenteredText(
+			"123", new Vector2(400, 500), 0.5f, Color.White);
+		Assert.Contains(lines, line => line.Start.X < 400 &&
+			line.End.X < 400);
+		Assert.Contains(lines, line => line.Start.X > 400 &&
+			line.End.X > 400);
+		Assert.Throws<ArgumentException>(() =>
+			AtariHudVector.RenderCenteredText(
+				"A", new Vector2(400, 500), 0.5f, Color.White));
+	}
 	[Theory]
 	[InlineData(0, "     0")]
 	[InlineData(930, "   930")]

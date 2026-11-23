@@ -6,6 +6,84 @@ namespace Tempest.Game.Tests;
 
 public sealed class RimPursuitTests
 {
+    [Fact]
+    public void OpenLevel10RightEndpointSynchronizesPursuitAndContinuesInward()
+    {
+        Level level = new(LevelConfiguration.Level10Diagnostic);
+        Flipper flipper = new(edge: 12, height: Level.Depth);
+
+        StartRimPivot(flipper, level, playerEdge: 14);
+        CompletePivot(flipper, level, playerEdge: 14);
+        Assert.Equal(13, flipper.EdgeIndex);
+
+        StartNextPivot(flipper, level, playerEdge: 14);
+        CompletePivot(flipper, level, playerEdge: 14);
+        Assert.Equal(14, flipper.EdgeIndex);
+
+        StartNextPivot(flipper, level, playerEdge: 14);
+        Assert.Equal(13, flipper.DestinationEdge);
+        Assert.Equal(1, flipper.Direction);
+        Assert.Equal(1, flipper.RimPursuitDirection);
+
+        CompletePivot(flipper, level, playerEdge: 14);
+        Assert.Equal(13, flipper.EdgeIndex);
+
+        StartNextPivot(flipper, level, playerEdge: 0);
+        Assert.Equal(12, flipper.DestinationEdge);
+        Assert.Equal(1, flipper.Direction);
+        Assert.Equal(1, flipper.RimPursuitDirection);
+    }
+
+    [Fact]
+    public void OpenLevel10LeftEndpointSynchronizesPursuitAndContinuesInward()
+    {
+        Level level = new(LevelConfiguration.Level10Diagnostic);
+        Flipper flipper = new(edge: 2, height: Level.Depth);
+
+        StartRimPivot(flipper, level, playerEdge: 0);
+        CompletePivot(flipper, level, playerEdge: 0);
+        Assert.Equal(1, flipper.EdgeIndex);
+
+        StartNextPivot(flipper, level, playerEdge: 0);
+        CompletePivot(flipper, level, playerEdge: 0);
+        Assert.Equal(0, flipper.EdgeIndex);
+
+        StartNextPivot(flipper, level, playerEdge: 0);
+        Assert.Equal(1, flipper.DestinationEdge);
+        Assert.Equal(-1, flipper.Direction);
+        Assert.Equal(-1, flipper.RimPursuitDirection);
+
+        CompletePivot(flipper, level, playerEdge: 0);
+        Assert.Equal(1, flipper.EdgeIndex);
+
+        StartNextPivot(flipper, level, playerEdge: 14);
+        Assert.Equal(2, flipper.DestinationEdge);
+        Assert.Equal(-1, flipper.Direction);
+        Assert.Equal(-1, flipper.RimPursuitDirection);
+    }
+
+    [Fact]
+    public void ClosedLevel12WrapPreservesDirectionAndPursuitLatch()
+    {
+        Level level = new(LevelConfiguration.Level12Production);
+        Flipper flipper = new(edge: 15, height: Level.Depth);
+
+        StartRimPivot(flipper, level, playerEdge: 1);
+
+        Assert.Equal(-1, flipper.Direction);
+        Assert.Equal(-1, flipper.RimPursuitDirection);
+        Assert.Equal(0, flipper.DestinationEdge);
+        Assert.False(level.IsOpenEndpoint(15));
+
+        CompletePivot(flipper, level, playerEdge: 1);
+        Assert.Equal(0, flipper.EdgeIndex);
+
+        StartNextPivot(flipper, level, playerEdge: 1);
+        Assert.Equal(-1, flipper.Direction);
+        Assert.Equal(-1, flipper.RimPursuitDirection);
+        Assert.Equal(1, flipper.DestinationEdge);
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(-1)]
@@ -317,6 +395,15 @@ public sealed class RimPursuitTests
     }
 
     private static Level Square() => new(LevelConfiguration.Level2Square);
+
+    private static void StartRimPivot(
+        Flipper flipper, Level level, int playerEdge)
+    {
+        flipper.Update(level, playerEdge, UnexpectedRandom);
+        for (int tick = 0; tick < level.Configuration.Flipper.RimPauseTicks; tick++)
+            flipper.Update(level, playerEdge, UnexpectedRandom);
+        Assert.Equal(FlipperState.Flipping, flipper.State);
+    }
 
     private static Flipper BeginRimPivot(Level level, int source, int direction)
     {

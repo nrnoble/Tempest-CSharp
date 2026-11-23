@@ -682,8 +682,15 @@ public sealed class VectorRenderer
 			DrawEnemyDestructionEffects((start, end, color) => Raylib.DrawLineV(start, end, color));
 
 		if (!approaching)
-			DrawFuseballScorePopups((text, position, scale) =>
-				Raylib.DrawTextEx(Raylib.GetFontDefault(), text, position, scale * 7, scale, Color.White));
+		{
+			if (UsesAtariPresentationForCurrentLevel)
+				DrawAtariFuseballScorePopups((start, end, color) =>
+					Raylib.DrawLineV(start, end, color));
+			else
+				DrawFuseballScorePopups((text, position, scale) =>
+					Raylib.DrawTextEx(Raylib.GetFontDefault(), text, position,
+						scale * 7, scale, Color.White));
+		}
 
 		if (!experimentalPortrait)
 			DrawAvoidSpikesWarning((start, end, color) => Raylib.DrawLineV(start, end, color));
@@ -969,6 +976,20 @@ public sealed class VectorRenderer
 			Vector2 center = ProjectLane(popup.EdgeIndex,
 				configuration.Position + configuration.Depth - popup.Height);
 			drawText(popup.Points.ToString(), center - new Vector2(popup.Scale * 1.5f, 0), popup.Scale);
+		}
+	}
+
+	public void DrawAtariFuseballScorePopups(Action<Vector2, Vector2, Color> drawLine)
+	{
+		ArgumentNullException.ThrowIfNull(drawLine);
+		foreach (FuseballScorePopup popup in game.FuseballScorePopups)
+		{
+			LevelConfiguration configuration = game.CurrentLevel.Configuration;
+			Vector2 center = ProjectLane(popup.EdgeIndex,
+				configuration.Position + configuration.Depth - popup.Height);
+			foreach (AtariHudLine line in AtariHudVector.RenderCenteredText(
+				popup.Points.ToString(), center, popup.AtariGlyphScale, Color.White))
+				drawLine(line.Start, line.End, line.Color);
 		}
 	}
 

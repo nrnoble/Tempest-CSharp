@@ -1,8 +1,8 @@
 namespace Tempest.Game.Rendering;
 
 /// <summary>
-/// First-pass Atari-presentation defaults. Levels 1-10 are manually accepted project decisions;
-/// Level 11 is accepted; Level 15 remains a neutral placeholder. Diagnostic values remain absolute overrides.
+/// First-pass Atari-presentation defaults. Levels 1-12 are manually accepted project decisions;
+/// Level 15 remains a neutral placeholder. Diagnostic values remain absolute overrides.
 /// </summary>
 public readonly record struct AtariPresentationCalibration(
 	float TubeYGain,
@@ -36,6 +36,7 @@ public readonly record struct AtariPresentationCalibration(
 			9 => new(1.5f, 1.05f, -150),
 			10 => new(1.2f, .9f, 15),
 			11 => new(1.5f, 1.1f, 0),
+			12 => new(1.3f, .8f, 0),
 			15 => new(1f, 1f, 0),
 			_ => throw new ArgumentOutOfRangeException(
 				nameof(displayedLevel), displayedLevel,

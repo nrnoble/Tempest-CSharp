@@ -253,7 +253,7 @@ if (spinnerSensitivityOptions.WasExplicitlySpecified)
 if (atariPresentationEnabled)
 {
     Console.WriteLine(
-        "DEVELOPMENT ONLY — Atari presentation candidate enabled for production Levels 1-11, diagnostic Level 10, and direct-only Level 15.");
+        "DEVELOPMENT ONLY — Atari presentation candidate enabled for production Levels 1-12, diagnostic Level 10, and direct-only Level 15.");
 }
 
 if (tubeYGainOptions.WasExplicitlySpecified)

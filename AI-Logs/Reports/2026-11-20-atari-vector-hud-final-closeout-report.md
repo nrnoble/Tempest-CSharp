@@ -33,8 +33,12 @@ gameplay HUD milestone. Manual acceptance was supplied before closeout.
 
 ## Commit and Push
 
-Pending commit. Final commit SHA and push verification will be added as a
-post-push closeout update rather than by amending this commit.
+Final commit SHA: `5915096903d78cb43a6edad6c2d2cb071be73fff`
+Commit message: `Complete accepted Atari vector HUD`
+Push result: `origin/master` received the commit normally.
+Branch/upstream: `master` tracks `origin/master`.
+Post-push verification: local `HEAD` and `origin/master` resolve to the same
+commit; ahead/behind is `0/0`.
 
 ## Accepted HUD Defaults and Frozen Behavior
 

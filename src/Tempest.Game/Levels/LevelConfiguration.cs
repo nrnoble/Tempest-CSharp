@@ -28,7 +28,9 @@ public enum BelowRimFlipperProgram
     Level9SpikeSensitive,
     Level7ArcadeObserved,
     Level8ConstantFlip,
-    Level11Repeating24
+    Level11Repeating24,
+    // ROM Level 12 $19: flip constantly, moving on ticks between flips.
+    Level12ConstantFlip
 }
 
 // REFERENCE VERIFIED: Incitti lv=0/1 values; exact gameplay fidelity remains unverified.
@@ -85,6 +87,8 @@ public sealed record LevelConfiguration(
         // PROJECT APPROXIMATION: the ROM's 56 holdoff parameter is used as the C# cadence.
         9 => 56,
         11 => 56,
+        // PROJECT APPROXIMATION: the ROM's 47 holdoff parameter is used as C# ticks.
+        12 => 47,
         _ => throw new InvalidOperationException(
             $"No arcade Flipper shot holdoff is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
@@ -106,6 +110,7 @@ public sealed record LevelConfiguration(
         8 => 4,
         9 => 4,
         11 => 4,
+        12 => 2,
         _ => throw new InvalidOperationException(
             $"No arcade enemy-shot capacity is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
@@ -120,6 +125,7 @@ public sealed record LevelConfiguration(
     public bool UsesLevel8RomWavePolicy { get; init; }
     public bool UsesLevel9RomWavePolicy { get; init; }
     public bool UsesLevel11RomWavePolicy { get; init; }
+    public bool UsesLevel12RomWavePolicy { get; init; }
     // DEVELOPMENT ONLY: the preserved Level 15 candidate may retain the separately
     // recovered Level 11 parameter baseline; genuine Level 11 uses UsesLevel11RomWavePolicy.
     public bool UsesLevel11ParameterDevelopmentBaseline { get; init; }
@@ -127,6 +133,7 @@ public sealed record LevelConfiguration(
     public bool UsesGenericRomDeathReconstruction =>
         UsesLevel7RomWavePolicy || UsesLevel8RomWavePolicy ||
         UsesLevel9RomWavePolicy || UsesLevel11RomWavePolicy ||
+        UsesLevel12RomWavePolicy ||
         UsesLevel11ParameterDevelopmentBaseline ||
         ReferenceEquals(this, Level5Production) ||
         ReferenceEquals(this, Level6Production);
@@ -143,6 +150,8 @@ public sealed record LevelConfiguration(
     public const float Level9StartingSpikeHeight = 48f * Level.Depth / 224f;
     public const float Level11StartingSpikeHeight =
         (0xF0 - Level11WaveSelection.StartingSpikeHeightRaw) * Level.Depth / 224f;
+    public const float Level12StartingSpikeHeight =
+        (0xF0 - Level12WaveSelection.StartingSpikeHeightRaw) * Level.Depth / 224f;
     // PROJECT CALIBRATION: manually accepted relative projectile lead; not a ROM speed measurement.
     public const float Level9ProductionSpikerSpeed = 2.0f;
 
@@ -451,6 +460,38 @@ public sealed record LevelConfiguration(
         AllowsOrdinaryFlipperSelection = false,
         ProgrammedFlipperInitialDirection = 1,
         StartingSpikeHeight = Level11StartingSpikeHeight
+    };
+
+    // ROM-backed shape row 12 and recovered Level 12 gameplay parameter policy.
+    public static LevelConfiguration Level12Production { get; } = new(
+        ProgressionIndex: 11,
+        DisplayedLevel: 12,
+        BoardIndex: 11,
+        PaletteIndex: 0,
+        Definition: LevelLoader.LoadLevel12ClosedTube(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: Level12WaveSelection.OrdinaryEnemySupply,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(Enumerable.Range(0, 16).ToArray()),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.Standard,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersTankersAndSpikers)
+    {
+        EffectiveGameplayParameterLevelOverride = 12,
+        Flipper = new(true, 2, 9, 0, 23),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        BelowRimFlipperProgram = BelowRimFlipperProgram.Level12ConstantFlip,
+        UsesLevel12RomWavePolicy = true,
+        AllowsOrdinaryFlipperSelection = true,
+        ProgrammedFlipperInitialDirection = 1,
+        StartingSpikeHeight = Level12StartingSpikeHeight
     };
 
     // DEVELOPMENT ONLY: the manually identified Level 15 tube is direct-start only.

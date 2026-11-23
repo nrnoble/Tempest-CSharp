@@ -33,6 +33,7 @@ public sealed class DirectLevelStartupTests
     [InlineData(8)]
     [InlineData(9)]
     [InlineData(11)]
+    [InlineData(12)]
     public void DirectLevelStartsTheFreshProductionConfiguration(int displayedLevel)
     {
         TempestGame game = new(startingProductionLevel: displayedLevel, startingLives: 9);
@@ -65,8 +66,9 @@ public sealed class DirectLevelStartupTests
             LevelProgression.GetDirectStartLevel(15));
         Assert.Same(LevelConfiguration.Level11Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level9Production));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level11Production));
-        Assert.Same(LevelConfiguration.Level11Production, LevelProgression.GetLastProductionLevel());
+        Assert.Same(LevelConfiguration.Level12Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level11Production));
+        Assert.Same(LevelConfiguration.Level12Production, LevelProgression.GetLastProductionLevel());
 
         TempestGame levelEleven = new(startingProductionLevel: 11);
         Assert.Same(LevelConfiguration.Level11Production,
@@ -86,8 +88,10 @@ public sealed class DirectLevelStartupTests
         Assert.Same(LevelConfiguration.Level15DirectStartCandidate.Definition,
             levelFifteen.CurrentLevel.Definition);
 
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new GameplayStartupConfiguration(12, 3, 1.0, 1981));
+        TempestGame levelTwelve = new(startingProductionLevel: 12);
+        Assert.Same(LevelConfiguration.Level12Production,
+            levelTwelve.CurrentLevel.Configuration);
+        Assert.Equal(12, levelTwelve.CurrentLevel.Configuration.DisplayedLevel);
     }
 
     [Fact]

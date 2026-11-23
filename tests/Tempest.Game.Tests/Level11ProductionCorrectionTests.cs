@@ -65,7 +65,7 @@ public sealed class Level11ProductionCorrectionTests
     [Fact]
     public void LevelElevenTerminalSpikerConvertsInPlaceWithTwoCargoAndNoPendingLoss()
     {
-        TempestGame game = new(startingProductionLevel: 11);
+        TempestGame game = new(startingProductionLevel: 11, random: new Random(1981));
         Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger!;
 
         int originalId = ledger.OriginalIdsInReserve().First();
@@ -74,23 +74,33 @@ public sealed class Level11ProductionCorrectionTests
         ResolveOtherOriginalSupply(ledger, originalId);
 
         Assert.Equal(0, ledger.PendingGenericOriginalCount);
+        Assert.Equal(Level3OriginalType.Spiker, ledger.GetOriginalType(originalId));
+        Assert.Empty(game.Spikers);
         Spiker spiker = new(edgeIndex: 7, speed: 3, originalSlotId: originalId);
         GetGameList<Spiker>(game, "spikers").Add(spiker);
         GetGameList<object>(game, "developmentCollisionOrder").Add(spiker);
         RemoveAllEggs(game);
 
-        for (int tick = 0; tick < 500 && game.Tankers.Count == 0; tick++)
+        int pendingBefore = ledger.PendingGenericOriginalCount;
+        for (int tick = 0; tick < 500 &&
+             !game.Tankers.Any(candidate => candidate.OriginalSlotId == originalId); tick++)
             game.RunOneStep();
 
-        Assert.DoesNotContain(game.Spikers, _ => true);
-        Tanker tanker = Assert.Single(game.Tankers);
-        Assert.Equal(originalId, tanker.OriginalSlotId);
         Assert.Equal(Level3OriginalType.Tanker, ledger.GetOriginalType(originalId));
         Assert.Equal(Level3OriginalState.ActiveTanker, ledger.GetOriginalState(originalId));
-        Assert.Equal(0, ledger.PendingGenericOriginalCount);
-        Assert.Equal(2, ledger.GetCargoIdsForOriginal(originalId).Count);
-        Assert.All(ledger.GetCargoIdsForOriginal(originalId),
-            cargoId => Assert.Equal(Level3CargoState.Latent, ledger.GetCargoState(cargoId)));
+        Tanker tanker = Assert.Single(game.Tankers,
+            candidate => candidate.OriginalSlotId == originalId);
+        Assert.DoesNotContain(game.Spikers,
+            remainingSpiker => remainingSpiker.OriginalSlotId == originalId);
+        Assert.Equal(pendingBefore, ledger.PendingGenericOriginalCount);
+        int[] cargoIds = ledger.GetCargoIdsForOriginal(originalId).ToArray();
+        Assert.Equal(2, cargoIds.Length);
+        Assert.Equal(2, cargoIds.Distinct().Count());
+        Assert.All(cargoIds, cargoId =>
+        {
+            Assert.Equal(originalId, ledger.GetCargoOwner(cargoId));
+            Assert.Equal(Level3CargoState.Latent, ledger.GetCargoState(cargoId));
+        });
     }
 
     [Fact]

@@ -403,7 +403,7 @@ public sealed class GameplayRecordingTests
 
 	[Theory]
 	[InlineData(0)]
-	[InlineData(12)]
+	[InlineData(13)]
 	[InlineData(-1)]
 	public void VersionTwoRejectsUnsupportedStartingLevels(int level)
 	{

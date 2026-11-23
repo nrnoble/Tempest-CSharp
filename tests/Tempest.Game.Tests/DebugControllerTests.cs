@@ -280,7 +280,6 @@ public sealed class DebugControllerTests
     [Theory]
     [InlineData("0")]
     [InlineData("-1")]
-    [InlineData("12")]
     [InlineData("999")]
     [InlineData("not-a-number")]
     public void RejectsUnsupportedOrMalformedStartingLevels(string value)
@@ -288,7 +287,7 @@ public sealed class DebugControllerTests
         Assert.False(DebugController.TryParseStartingLevel(
             ["--level", value], out int? selected, out string? error));
         Assert.Null(selected);
-        Assert.Contains("implemented production level from 1 through 11", error);
+        Assert.Contains("implemented production level from 1 through 12", error);
     }
 
     [Fact]

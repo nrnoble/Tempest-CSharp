@@ -106,6 +106,16 @@ public sealed class Flipper : Enemy
         if (programmedRouteStep == ProgrammedFlipperRouteStep.Disabled &&
             !IsTankerCargo &&
             level.Configuration.BelowRimFlipperProgram ==
+                BelowRimFlipperProgram.Level12ConstantFlip)
+        {
+            useLevel8ConstantFlipProgram = true;
+            InitializeLevel12ConstantFlipRoute(
+                level.Configuration.ProgrammedFlipperInitialDirection);
+        }
+
+        if (programmedRouteStep == ProgrammedFlipperRouteStep.Disabled &&
+            !IsTankerCargo &&
+            level.Configuration.BelowRimFlipperProgram ==
                 BelowRimFlipperProgram.Level7ArcadeObserved)
             InitializeProgrammedRoute(level.Configuration.ProgrammedFlipperInitialDirection);
 
@@ -398,6 +408,14 @@ public sealed class Flipper : Enemy
         programmedFlipsRemaining = Repeating24FlipCounts[programmedPhaseIndex];
         Direction = initialDirection;
         programmedRouteStep = ProgrammedFlipperRouteStep.LeadIn;
+    }
+
+    private void InitializeLevel12ConstantFlipRoute(int initialDirection)
+    {
+        if (initialDirection is not (-1 or 1))
+            throw new ArgumentOutOfRangeException(nameof(initialDirection));
+        Direction = initialDirection;
+        programmedRouteStep = ProgrammedFlipperRouteStep.Level8Along;
     }
 
     private void InitializeProgrammedCargoRoute(int initialDirection)
@@ -731,7 +749,8 @@ public sealed class Flipper : Enemy
     {
         SourceEdge = EdgeIndex;
         int direction = Direction;
-        DestinationEdge = GetDirectedNeighborLane(level, EdgeIndex, ref direction);
+        DestinationEdge = GetDirectedNeighborLane(
+            level, EdgeIndex, ref direction, out _);
         Direction = direction;
         ActiveTransition = level.CalculateDirectedLaneTransition(
             SourceEdge, DestinationEdge, Direction);
@@ -839,8 +858,16 @@ public sealed class Flipper : Enemy
 
         SourceEdge = EdgeIndex;
         int direction = Direction;
-        DestinationEdge = GetDirectedNeighborLane(level, EdgeIndex, ref direction);
+        DestinationEdge = GetDirectedNeighborLane(
+            level, EdgeIndex, ref direction, out bool openEndpointFallback);
         Direction = direction;
+        if (Height >= Level.Depth &&
+            RimPursuitDirection.HasValue &&
+            openEndpointFallback)
+        {
+            // A forced open-end reversal must become the rim pursuit latch.
+            RimPursuitDirection = Direction;
+        }
         DirectedLaneTransition transition = level.CalculateDirectedLaneTransition(
             SourceEdge, DestinationEdge, Direction);
         ActiveTransition = transition;
@@ -849,14 +876,19 @@ public sealed class Flipper : Enemy
         State = FlipperState.Flipping;
     }
 
-    private static int GetDirectedNeighborLane(Level level, int sourceLane, ref int direction)
+    private static int GetDirectedNeighborLane(
+        Level level, int sourceLane, ref int direction, out bool openEndpointFallback)
     {
         int laneIndexDelta = direction > 0 ? -1 : 1;
         if (level.TryGetAdjacentLane(sourceLane, laneIndexDelta, out int destination))
+        {
+            openEndpointFallback = false;
             return destination;
+        }
 
         direction = -direction;
         laneIndexDelta = -laneIndexDelta;
+        openEndpointFallback = level.IsOpenEndpoint(sourceLane);
         if (!level.TryGetAdjacentLane(sourceLane, laneIndexDelta, out destination))
             throw new InvalidOperationException("A Flipper has no adjacent playable lane.");
         return destination;

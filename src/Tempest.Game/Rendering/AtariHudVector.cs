@@ -61,6 +61,8 @@ public static class AtariHudVector
 	public const int MaximumDisplayReserveLives = 25;
 	public const int ScoreFieldPositions = 6;
 	public const int LevelFieldPositions = 2;
+	public const float DigitAdvance = 24;
+	public const float DigitHeight = 24;
 
 	public const float ReserveLifeStartX = 30;
 	public const float ReserveLifeBaselineY = 100;
@@ -142,6 +144,42 @@ public static class AtariHudVector
 		int displayed = (int)(magnitude % 100);
 		string text = displayed.ToString("D2");
 		return text.ToCharArray();
+	}
+
+	public static IReadOnlyList<AtariHudLine> RenderCenteredText(
+		string text,
+		Vector2 center,
+		float scale,
+		Color color)
+	{
+		ArgumentNullException.ThrowIfNull(text);
+		if (text.Any(character => character is < '0' or > '9'))
+			throw new ArgumentException("Fuseball bonus text must contain decimal digits only.",
+				nameof(text));
+		if (!float.IsFinite(scale) || scale <= 0)
+			throw new ArgumentOutOfRangeException(nameof(scale));
+		if (!float.IsFinite(center.X) || !float.IsFinite(center.Y))
+			throw new ArgumentOutOfRangeException(nameof(center));
+		if (text.Length == 0)
+			return [];
+
+		float visibleWidth = text.Length * DigitAdvance - 8;
+		float originX = center.X - visibleWidth * scale / 2;
+		float baselineY = center.Y + DigitHeight * scale / 2;
+		List<AtariHudLine> lines = [];
+		foreach (char character in text)
+		{
+			AddGlyph(character, originX, baselineY, scale, color, lines);
+			originX += DigitAdvance * scale;
+		}
+
+		foreach (AtariHudLine line in lines)
+		{
+			if (!float.IsFinite(line.Start.X) || !float.IsFinite(line.Start.Y) ||
+				!float.IsFinite(line.End.X) || !float.IsFinite(line.End.Y))
+				throw new InvalidOperationException("Atari digit geometry must remain finite.");
+		}
+		return lines;
 	}
 
 	public static int GetReserveLifeCount(int totalLives)
@@ -270,7 +308,7 @@ public static class AtariHudVector
 		}
 	}
 
-	private static void AddGlyph(
+	public static void AddGlyph(
 		char character,
 		float originX,
 		float baselineY,

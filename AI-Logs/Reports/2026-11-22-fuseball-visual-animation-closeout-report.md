@@ -51,11 +51,21 @@ presentation behavior are unchanged.
   `dotnet test TempestCSharp.slnx --configuration Release --no-restore --blame-hang-timeout 5min`
 - **PASS:** `dotnet build TempestCSharp.slnx --configuration Release --no-restore`:
   zero warnings and zero errors.
-- **PASS:** `git diff --check`.
-- Staged whitespace check, final Git state, commit SHA and push result:
-  pending commit and post-push verification.
+- **PASS:** `git diff --check` and `git diff --cached --check`.
 
-## Intended commit inventory
+## Commit and push
+
+- Final commit: `aa6b7110fe845cf36173a80b7dc5d11c1f067806`
+- Commit message: `Animate production Fuseballs`.
+- **PASS:** normal push to `origin/master`.
+- **PASS:** local `master`, `origin/master`, and the remote's actual
+  `refs/heads/master` resolve to the final commit; ahead/behind is `0/0`.
+- **PASS:** index empty; no protected/local asset was included in the commit.
+- This post-push report update is intentionally unstaged for the next normal
+  project commit. The pre-existing unrelated HUD report update and untracked
+  reference file remain untouched.
+
+## Exact committed inventory
 
 - `src/Tempest.Game/TempestGame.cs`
 - `tests/Tempest.Game.Tests/FuseballTerminalMovementTests.cs`
@@ -68,5 +78,4 @@ presentation behavior are unchanged.
 - `AI-Logs/Prompts/2026-11-22-fuseball-visual-animation-closeout-prompt.md`
 - `AI-Logs/Reports/2026-11-22-fuseball-visual-animation-closeout-report.md`
 
-Commit message: `Animate production Fuseballs`.
 No Level 12 work was started.

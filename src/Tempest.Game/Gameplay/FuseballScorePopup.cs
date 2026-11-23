@@ -6,10 +6,13 @@ namespace Tempest.Game.Gameplay;
 /// </summary>
 public sealed class FuseballScorePopup(int edgeIndex, float height, int points)
 {
+    public const float AtariGlyphScaleFactor = 0.18f;
+
     public int EdgeIndex { get; } = edgeIndex;
     public float Height { get; } = height;
     public int Points { get; } = points;
     public float Scale => Height / 64 + .5f;
+    public float AtariGlyphScale => Scale * AtariGlyphScaleFactor;
     public int RemainingTicks { get; private set; } = 30;
     public bool IsExpired => RemainingTicks <= 0;
 

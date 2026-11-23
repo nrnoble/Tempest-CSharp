@@ -3225,3 +3225,75 @@ or narrowing of accepted diagnostic ranges.
 **FROZEN BOUNDARY:** No junction-brightness artifact, further visual tuning,
 presentation retuning, scoring/lives/gameplay changes, or ROM-backed
 promotion of layout and palette choices is authorized by this acceptance.
+
+## Accepted Level 12 closeout - 2026-11-23
+
+**ARCADE VERIFIED — FINAL MANUAL ACCEPTANCE:** Level 12 is closed. No further
+issues remain that block its acceptance. Neal accepted genuine Level 12 tube
+identity and geometry, corrected enclosed/closed topology, normal gameplay,
+spinner behavior, enemy behavior observed in normal play, Flippers, Tankers
+and cargo, Spikers, Fuseballs, starting Spikes, firing, Super Zapper,
+death/re-entry, wave completion, HUD level 12, Atari presentation, the
+accepted Atari-style vector-digit Fuseball bonus popup, and closed-rim Flipper
+behavior. Pulsars are not part of Level 12 acceptance.
+
+**ROM/DISASSEMBLY BACKED — LEVEL 12 GEOMETRY:** Displayed Level 12 maps to
+shape row 12 and uses the recovered ordered geometry, angle data, closed
+topology, and presentation metadata. C# `Continuous = true` yields 16
+playable lanes and correct final-to-first wraparound. The bounded topology
+validator remains fail-closed.
+
+**PROJECT TRANSLATION — MODEL FRAME:** Atari presentation reuses the
+established open-tube model-frame normalization. This is not ROM-backed and
+does not claim a Level-12-specific arcade camera.
+
+**PROJECT DECISION — PRESENTATION CALIBRATION:** Level 12's accepted first-pass
+default is Y gain `1.3`, tube scale `0.8`, and vertical offset `0`. The
+diagnostic tube calibration values remain absolute overrides; accepted
+Levels 1-11 and direct Level 15 are unchanged.
+
+**ROM/DISASSEMBLY BACKED + PROJECT TRANSLATION — ENEMY ELIGIBILITY:** Raw
+enemy parameter-table values do not automatically establish production
+species eligibility or reachability. Although the Level 12 raw table contains
+Pulsar parameter values, the production selector does not select Pulsars.
+Neal established that Pulsars do not appear before Level 17; Level 12 does not
+introduce them. Level 12 remains terminal production until Level 13 is
+implemented.
+
+**DEVELOPMENT ONLY — HEADLESS PRODUCTION SOAK:** A seeded Level 12 production
+simulation soak bounded to 1,200 ticks checks production admission, enemy
+lifecycle, playable lanes, and ledger identity conservation. It supplements,
+but does not replace, Neal's manual gameplay acceptance.
+
+**PROJECT TRANSLATION — GLOBAL FUSEBALL BONUS DIGITS:** Atari presentation
+renders Fuseball bonus values with the accepted Atari HUD vector-digit
+geometry, including the accepted digit `1`. The existing score amount, popup
+lifetime and gameplay/tube position are preserved; legacy text rendering
+remains unchanged. Scoring semantics, Fuseball animation, and gameplay are
+unchanged. This correction applies globally to future levels containing
+Fuseballs.
+
+**PROJECT TRANSLATION — OPEN-RIM PURSUIT LATCH:** A forced reversal caused by
+missing adjacency at an open endpoint synchronizes live direction with the
+rim-pursuit latch, allowing continued travel away from either endpoint.
+Below-rim programmed routes and closed-tube behavior remain unchanged. The
+latch was introduced earlier; the exact stale-latch oscillation became
+possible when open-end fallback was later added without latch synchronization.
+It predates current Level 12 work and was only discovered during its testing.
+
+**DEVELOPMENT ONLY — LEVEL 11 TEST CORRECTION:** The terminal-Spiker regression
+now tracks the converting original identity and its cargo instead of asserting
+that all other legitimate Spikers disappear. This is a test-only correction;
+Level 11 production behavior is unchanged.
+
+**PROJECT DECISION — DEFERRED EXITZOOM:** The generic Level 12 ExitZoom is
+visually imperfect. A geometry-derived Level-12-specific correction was
+implemented and manually judged worse; it was rejected and removed, restoring
+the pre-candidate generic path. The presentation-only discrepancy does not
+block Level 12 gameplay acceptance. No arcade match is claimed, and no further
+ExitZoom correction is part of this closeout.
+
+**PROJECT DECISION — BLASTER-DEATH:** Fidelity experiments were rejected and
+the accepted pre-refinement Blaster-death presentation was restored. Preserve
+the historical AI-Logs investigation and rejection reports; no experimental
+production or test code is included in this closeout.

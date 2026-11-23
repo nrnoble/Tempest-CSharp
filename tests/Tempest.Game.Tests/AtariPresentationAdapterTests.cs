@@ -1270,7 +1270,8 @@ public sealed class AtariPresentationAdapterTests
 			Assert.True(AtariPresentationAdapter.HasModelFrameMapping(level));
 		Assert.False(AtariPresentationAdapter.HasModelFrameMapping(5));
 		Assert.False(AtariPresentationAdapter.HasModelFrameMapping(6));
-		Assert.Throws<ArgumentOutOfRangeException>(() =>
+		Assert.True(AtariPresentationAdapter.HasModelFrameMapping(12));
+		Assert.Equal((25f / 14f, -1),
 			AtariPresentationAdapter.GetModelFrameMapping(12));
 	}
 

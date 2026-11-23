@@ -206,7 +206,7 @@ public sealed class LevelConfigurationTests
     }
 
     [Fact]
-    public void ProductionProgressionContainsImplementedCampaignEdgesAndStopsAtLevelNine()
+    public void ProductionProgressionContainsImplementedCampaignEdgesAndStopsAtLevelTwelve()
     {
         Assert.Same(LevelConfiguration.Level2Square,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level1));
@@ -226,7 +226,9 @@ public sealed class LevelConfigurationTests
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level8Production));
         Assert.Same(LevelConfiguration.Level11Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level9Production));
-        Assert.Same(LevelConfiguration.Level11Production, LevelProgression.GetLastProductionLevel());
+        Assert.Same(LevelConfiguration.Level12Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level11Production));
+        Assert.Same(LevelConfiguration.Level12Production, LevelProgression.GetLastProductionLevel());
         Assert.Same(LevelConfiguration.Level11Production, LevelProgression.GetProductionLevel(11));
         Assert.Null(LevelProgression.GetProductionLevel(15));
         Assert.Same(LevelConfiguration.Level15DirectStartCandidate,

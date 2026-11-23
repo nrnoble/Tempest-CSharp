@@ -192,6 +192,7 @@ public sealed class Tanker : Enemy
             releaseKind == TankerReleaseKind.SuperZapperDestruction)
         {
             if (configuration.UsesLevel11RomWavePolicy ||
+                configuration.UsesLevel12RomWavePolicy ||
                 configuration.UsesLevel11ParameterDevelopmentBaseline)
                 return RomAlongPositionForHeight(Height) >= 0x20
                     ? TankerCargoMovementProgram.Repeating24

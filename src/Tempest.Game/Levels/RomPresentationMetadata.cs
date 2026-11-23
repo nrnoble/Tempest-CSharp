@@ -19,7 +19,9 @@ public sealed class RomPresentationMetadata
         byte cameraHeightRaw,
         byte screenYOffsetLowRaw,
         byte screenYOffsetHighRaw,
-        byte openRaw)
+        byte openRaw,
+        byte flipperScaleLowRaw = 0,
+        byte flipperScaleHighRaw = 0)
     {
         if (openRaw != 0x00 && openRaw != 0xFF)
             throw new ArgumentOutOfRangeException(
@@ -32,6 +34,8 @@ public sealed class RomPresentationMetadata
         ScreenYOffsetLowRaw = screenYOffsetLowRaw;
         ScreenYOffsetHighRaw = screenYOffsetHighRaw;
         OpenRaw = openRaw;
+        FlipperScaleLowRaw = flipperScaleLowRaw;
+        FlipperScaleHighRaw = flipperScaleHighRaw;
     }
 
     public int DisplayedLevel { get; }
@@ -44,6 +48,10 @@ public sealed class RomPresentationMetadata
         (ushort)(ScreenYOffsetLowRaw | (ScreenYOffsetHighRaw << 8));
     public short ScreenYOffsetSigned => unchecked((short)ScreenYOffsetCombinedRaw);
     public byte OpenRaw { get; }
+    public byte FlipperScaleLowRaw { get; }
+    public byte FlipperScaleHighRaw { get; }
+    public ushort FlipperScaleCombinedRaw =>
+        (ushort)(FlipperScaleLowRaw | (FlipperScaleHighRaw << 8));
     public bool IsOpen => OpenRaw == 0xFF;
 }
 
@@ -74,6 +82,10 @@ public static class RomPresentationMetadataCatalog
     private static readonly RomPresentationMetadata Level11 =
         new(11, RomTubeMappingCatalog.ShapeRowForDisplayedLevel(11),
             0x0A, 0xA0, 0x00, 0x01, 0xFF);
+    // ROM-BACKED Level 12 metadata is shape row 12.
+    private static readonly RomPresentationMetadata Level12 =
+        new(12, RomTubeMappingCatalog.ShapeRowForDisplayedLevel(12),
+            0x18, 0x20, 0xA0, 0xFE, 0x00, 0x00, 0x04);
     // DEVELOPMENT ONLY: row 10 is the manually identified Level 15 tube; placement remains uncalibrated.
     private static readonly RomPresentationMetadata Level15 =
         new(15, RomTubeMappingCatalog.ShapeRowForDisplayedLevel(15),
@@ -101,6 +113,8 @@ public static class RomPresentationMetadataCatalog
             return Level10;
         if (displayedLevel == Level11.DisplayedLevel)
             return Level11;
+        if (displayedLevel == Level12.DisplayedLevel)
+            return Level12;
         if (displayedLevel == Level15.DisplayedLevel)
             return Level15;
         if (displayedLevel < 1 || displayedLevel > ProductionLevels.Count)
