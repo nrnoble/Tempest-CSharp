@@ -144,7 +144,8 @@ public sealed class TempestGame
         enemyShotAnimationSteps / EnemyShotAnimationTicksPerFrame;
     public bool Pulsing { get; private set; }
     public float PulseZh => pulseZh;
-    // Incitti shares four animation frames across all Fuseballs, changing frame every four ticks.
+    // PROJECT TRANSLATION: the shared visual clock uses four frames and changes every four ticks.
+    // It is simulation-tick driven and intentionally independent of Fuseball gameplay state.
     public int FuseballAnimationFrame => fuseballAnimationTicks / 4;
     public IReadOnlyList<Spike> Spikes => CurrentLevel.Spikes;
     private bool SpikeExitEnabled =>
@@ -472,8 +473,10 @@ public sealed class TempestGame
             if (input.ZapPressed && State == LevelState.Playing)
                 SuperZapper.TryActivate(GetZapperSourceOrder(), Player.EdgeIndex,
                     CurrentLevel.Definition.Points.Count, CurrentLevel.Continuous);
-            if (FuseballTest)
-                fuseballAnimationTicks = (fuseballAnimationTicks + 1) % 16;
+            // Shared presentation state advances once in active play, including production Fuseballs
+            // and the FuseballTest/Hurry-Up scenario. The modulo-16 clock wraps without touching
+            // any entity gameplay state.
+            fuseballAnimationTicks = (fuseballAnimationTicks + 1) % 16;
             UpdatePlayerShots();
             UpdateEnemyBullets();
             if (CheckForLevelComplete())

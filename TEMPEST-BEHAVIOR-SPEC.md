@@ -1223,6 +1223,22 @@ unchanged by this calibration.
   numeric collision boundaries, score formula and thresholds, animation frame
   timing, and reference speed remain source-derived; they were not established
   by the manual observations above.
+- **ROM-BACKED / PROJECT TRANSLATION — VISUAL ANIMATION:** The tracked Atari
+  disassembly contains four Fuseball vector-picture records with changing
+  vector presentation; it does not establish the exact arcade animation
+  clock. Production previously remained on phase zero because the shared
+  counter advanced only in `FuseballTest`. Normal active play now advances
+  the existing simulation-tied modulo-16 clock once per step, selecting one
+  of the existing four phases by dividing by four. Both legacy and Atari
+  presentation use that shared phase. The existing five color groups and
+  25-line structure remain unchanged; geometry and colors were not redesigned.
+  The cadence is an accepted project translation, not frame-exact Atari timing.
+- **PROJECT DECISION — MANUAL ACCEPTANCE:** Neal judged the production
+  animation near perfect: its subtle four-phase motion and cadence look
+  appropriate during normal play, rather than a rigid shape translating
+  through the tube. Movement and gameplay remain normal. Freeze the current
+  implementation; no geometry, color, phase-order, cadence, or other Fuseball
+  visual-animation tuning is wanted.
 - **PROJECT DECISION** — In the implemented all-rim path, Fuseball
   qualification is height-based and does not depend on lateral position or
   action state. The all-rim observation in the Fuseball development scenario

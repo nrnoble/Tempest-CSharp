@@ -1,13 +1,90 @@
 using System.Reflection;
+using System.Numerics;
 using Tempest.Game;
 using Tempest.Game.Gameplay;
 using Tempest.Game.Levels;
+using Tempest.Game.Rendering;
+using Raylib_cs;
 using Xunit;
 
 namespace Tempest.Game.Tests;
 
 public sealed class FuseballTerminalMovementTests
 {
+    [Fact]
+    public void ProductionFuseballCyclesFourVisualPhasesWithoutChangingGameplay()
+    {
+        TempestGame game = CreateLevelElevenGame(withRimFlipper: false,
+            out _, out Fuseball fuseball);
+        Set(fuseball, nameof(Fuseball.Height), 100f);
+        Set(fuseball, nameof(Fuseball.State), FuseballState.Lateral);
+        game.CurrentLevel.State = LevelState.Playing;
+        VectorRenderer renderer = new(game);
+        HashSet<int> frames = [];
+        bool sawActiveFuseball = false;
+
+        for (int tick = 0; tick < 16; tick++)
+        {
+            Assert.Equal(tick % 16 / 4, game.FuseballAnimationFrame);
+            frames.Add(game.FuseballAnimationFrame);
+
+            if (game.Fuseballs.Count == 1)
+            {
+                sawActiveFuseball = true;
+                float height = fuseball.Height;
+                int edgeIndex = fuseball.EdgeIndex;
+                int w = fuseball.W;
+                int direction = fuseball.Direction;
+                FuseballState state = fuseball.State;
+                List<(Vector2 Start, Vector2 End, Color Color)> lines = [];
+                renderer.DrawFuseballs((start, end, color) => lines.Add((start, end, color)));
+                Assert.Equal(25, lines.Count);
+                Assert.Equal(5, lines.Select(line => line.Color).Distinct().Count());
+                Assert.Equal(height, fuseball.Height);
+                Assert.Equal(edgeIndex, fuseball.EdgeIndex);
+                Assert.Equal(w, fuseball.W);
+                Assert.Equal(direction, fuseball.Direction);
+                Assert.Equal(state, fuseball.State);
+            }
+
+            game.RunOneStep();
+        }
+
+        Assert.True(sawActiveFuseball);
+        Assert.Equal(new[] { 0, 1, 2, 3 }, frames.OrderBy(frame => frame).ToArray());
+        Assert.Equal(0, game.FuseballAnimationFrame);
+    }
+
+    [Fact]
+    public void ProductionFuseballAnimationWrapsAtModuloSixteen()
+    {
+        TempestGame game = new(startingProductionLevel: 11);
+        game.CurrentLevel.State = LevelState.Playing;
+        typeof(TempestGame).GetField("fuseballAnimationTicks",
+            BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(game, 15);
+        game.RunOneStep();
+        Assert.Equal(0, game.FuseballAnimationFrame);
+    }
+
+    [Fact]
+    public void ProductionAndDirectRestartStartWithDeterministicVisualPhase()
+    {
+        TempestGame first = new(startingProductionLevel: 11);
+        TempestGame second = new(startingProductionLevel: 11);
+
+        Assert.Equal(0, first.FuseballAnimationFrame);
+        Assert.Equal(0, second.FuseballAnimationFrame);
+        for (int tick = 0; tick < 64; tick++)
+        {
+            first.RunOneStep();
+            second.RunOneStep();
+            Assert.Equal(first.FuseballAnimationFrame, second.FuseballAnimationFrame);
+        }
+
+        Assert.Equal(0, first.FuseballAnimationFrame);
+    }
+
     [Fact]
     public void PendingSupplyPreservesOrdinaryRandomizedFuseballCycling()
     {

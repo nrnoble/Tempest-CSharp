@@ -4378,3 +4378,23 @@ and shared diagnostic facilities remain.
   remains unimplemented; Level 15 remains direct-only with unaccepted gameplay
   and presentation fidelity. Future visual fine-tuning is deferred and does not
   block this closeout.
+
+## Production Fuseball visual-animation closeout - 2026-11-22
+
+- **ROM-BACKED:** The tracked Atari disassembly contains four Fuseball
+  vector-picture records with changing vector presentation. The exact
+  original animation clock remains unresolved; neither frame-exact timing
+  nor coordinate equivalence of the existing project geometry is claimed.
+- **PROJECT TRANSLATION:** The existing shared simulation-tied modulo-16
+  visual counter selects four existing phases by division by four. Previously
+  it advanced only in the development `FuseballTest` path, leaving production
+  on phase zero; it now advances once per qualifying active-play step in both
+  production and the development scenario. Legacy and Atari presentation
+  select the same phase. The existing geometry, five color groups and 25-line
+  structure were not redesigned. Fuseball gameplay and other presentation
+  systems are unchanged.
+- **PROJECT DECISION — MANUAL ACCEPTANCE:** Neal judged the subtle production
+  animation and cadence near perfect, with normal movement and gameplay; the
+  figure no longer appears rigidly static while moving. Freeze this accepted
+  translation: no additional geometry, color, phase-order or cadence tuning
+  is wanted.
