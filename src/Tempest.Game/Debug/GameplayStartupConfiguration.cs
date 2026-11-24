@@ -27,7 +27,7 @@ public sealed record GameplayStartupConfiguration
 	{
 		if (LevelProgression.GetDirectStartLevel(startingDisplayedLevel) is null)
 			throw new ArgumentOutOfRangeException(nameof(startingDisplayedLevel),
-				"The starting level must be an implemented production level or diagnostic Level 10.");
+				"The starting level must be an implemented production level or direct-only Level 15.");
 		if (startingLives <= 0)
 			throw new ArgumentOutOfRangeException(nameof(startingLives),
 				"Starting lives must be positive.");

@@ -287,7 +287,8 @@ public sealed class DebugControllerTests
         Assert.False(DebugController.TryParseStartingLevel(
             ["--level", value], out int? selected, out string? error));
         Assert.Null(selected);
-        Assert.Contains("implemented production level from 1 through 12", error);
+        Assert.Contains("implemented production campaign level (currently ending at Level 12)", error);
+        Assert.Contains("direct-only Level 15", error);
     }
 
     [Fact]

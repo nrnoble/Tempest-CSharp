@@ -660,7 +660,7 @@ public sealed class LevelProgressionTests
     }
 
     [Fact]
-    public void NaturalLevelSevenEntersLevelEightNineAndEleven()
+    public void NaturalLevelSevenEntersLevelEightNineAndTen()
     {
         TempestGame game = CreateNaturalLevel6(startingLives: 5);
         CompleteProductionLedgerWave(game);
@@ -711,13 +711,13 @@ public sealed class LevelProgressionTests
         foreach (Spike spike in game.Spikes)
             spike.Height = 0;
         Step(game, 21);
-        for (int tick = 0; tick < 250 && !game.LevelComplete; tick++)
+        for (int tick = 0; tick < 250 && ReferenceEquals(levelNine, game.CurrentLevel); tick++)
             game.RunOneStep();
 
         Assert.NotSame(levelNine, game.CurrentLevel);
-        Assert.Same(LevelConfiguration.Level11Production, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level10Production, game.CurrentLevel.Configuration);
         Assert.Equal(LevelState.Approach, game.State);
-        Assert.Same(LevelConfiguration.Level11Production,
+        Assert.Same(LevelConfiguration.Level10Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level9Production));
         Assert.Empty(levelNineLedger.UnresolvedOriginalIds);
     }

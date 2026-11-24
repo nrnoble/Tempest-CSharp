@@ -3959,8 +3959,11 @@ override metadata remain compatible.
 **PROGRESSION AND BOUNDARY:** Natural Level 8→9 progression, direct `--level 9`,
 recording/playback startup and the terminal Level 9 boundary are implemented.
 The handoff is covered by automated progression tests, with no separate manual
-acceptance claim. Production Level 10 remains unimplemented; the later
-development-only diagnostic candidate is recorded separately below.
+acceptance claim. At this 2026-11-12 closeout, production Level 10 remained
+unimplemented; the later development-only diagnostic candidate is recorded
+separately below. The 2026-11-23 accepted integration supersedes this boundary:
+the current production chain is `9 -> 10 -> 11 -> 12`, with Level 12 terminal
+until Level 13 is implemented.
 Accepted Levels 1–8 are frozen and unchanged by this milestone.
 
 **DEFERRED POST-LEVEL-9 MILESTONES (not Level 9 blockers):**
@@ -4028,6 +4031,12 @@ closeout and validation record.
 
 ## Diagnostic Level 10 Atari presentation — manually accepted (2026-11-17)
 
+**HISTORICAL SCOPE:** The campaign exclusion below was the boundary of this
+2026-11-17 closeout. The same Level 10 configuration was later integrated
+between production Levels 9 and 11, and Neal manually accepted startup and
+progression on 2026-11-23. Its Level-7-like gameplay remains a PROJECT
+TRANSLATION, not a claim of authentic arcade Level 10 mechanics.
+
 **ROM-BACKED / PROJECT TRANSLATION:** Diagnostic Level 10 uses the recovered
 Rev. 2 shape-row-9 open geometry, its raw Level 10 presentation metadata, and
 the established raw-shape normalization used for the open Level 8 and 9
@@ -4050,12 +4059,12 @@ projection/perspective, raw geometry, open topology, and tube/entity
 registration. The Level 10 presentation is frozen unless a future
 independently demonstrated regression requires reopening it.
 
-**DEVELOPMENT-ONLY GAMEPLAY BOUNDARY:** Diagnostic Level 10 remains outside
-production campaign progression. It uses Level-7-like enemy supply, timing,
-movement, wave and firing behavior on genuine Level 10 geometry; its 15-lane
-spawn sequence is the geometry-required adaptation. This closeout does not
-alter simulation behavior, enemy movement or timing, Levels 1-9, the Level 7
-slowdown investigation, or the terminal production Level 9 boundary.
+**HISTORICAL DEVELOPMENT-ONLY GAMEPLAY BOUNDARY (2026-11-17):** At this
+closeout, diagnostic Level 10 was outside production campaign progression. It
+used Level-7-like enemy supply, timing, movement, wave and firing behavior on
+genuine Level 10 geometry; its 15-lane spawn sequence was the geometry-required
+adaptation. The later production integration preserves those mechanics as a
+PROJECT TRANSLATION; it does not establish arcade Level 10 gameplay.
 
 **AUTOMATED VALIDATION:** Closeout reruns the focused DiagnosticLevel10Tests,
 full regression suite, Release build, and `git diff --check`; the final
@@ -4224,9 +4233,9 @@ data does not designate the closed far-rim center or open rail-convergence
 point as an ExitZoom focal point, and does not specify this C# compensation
 architecture. Neal's manual testing establishes the accepted project result,
 not ROM behavior. Accepted ordinary Playing placement is unchanged, including
-Level 8 `+212.28139`, Level 9 `+180.96825`, and diagnostic Level 10 `+50`.
-The separately accepted Blaster Exit/Approach scale correction remains
-unchanged. Level 10 remains diagnostic-only and is not required for this
+Level 8 `+212.28139`, Level 9 `+180.96825`, and Level 10 `+50`. The separately
+accepted Blaster Exit/Approach scale correction remains unchanged. At this
+2026-11-18 milestone, Level 10 was diagnostic-only and not required for this
 acceptance. Level 7 was outside this focal-point milestone. Its later
 reconstruction acceptance covers compatibility with shared ExitZoom and
 Approach presentation, not a Level-7-specific focal rule.
@@ -4374,10 +4383,11 @@ and shared diagnostic facilities remain.
   production policy has seven physical enemy slots, dynamic selection,
   direct Fuseball eligibility, corrected initial Spike translation from the
   ROM `$B0` tip source, and terminal Spiker-to-Tanker conversion.
-- **PROGRESSIONS:** Genuine Level 11 is the terminal production level. Level 12
-  remains unimplemented; Level 15 remains direct-only with unaccepted gameplay
-  and presentation fidelity. Future visual fine-tuning is deferred and does not
-  block this closeout.
+- **HISTORICAL PROGRESSION BOUNDARY:** At this Level 11 closeout, Level 11 was
+  terminal and Level 12 remained unimplemented. The 2026-11-23 accepted
+  integration implemented production Level 12 and made it terminal until
+  Level 13 is implemented. Level 15 remains direct-only with unaccepted
+  gameplay and presentation fidelity; future visual fine-tuning is deferred.
 
 ## Production Fuseball visual-animation closeout - 2026-11-22
 
@@ -4461,3 +4471,32 @@ and shared diagnostic facilities remain.
   experiments were rejected and restored to the accepted pre-refinement
   presentation. Their investigation and rejection history remains in
   AI-Logs; experimental production and test code is not part of this closeout.
+
+## Accepted production start selectors and Level 10 integration — 2026-11-23
+
+- **PROJECT DECISION — SELECTOR SEMANTICS:** `--start-level N` starts a fresh
+  game at a production campaign member and then follows normal progression.
+  Production `--level N` starts already use that same continuing production
+  behavior; the selectors differ only in eligibility. `--level` also retains
+  direct-only Level 15, which is not a production campaign member.
+- **PROJECT DECISION — FRESH START:** Both production selectors use ordinary
+  fresh-game initialization at the selected level, without synthetic history
+  for skipped levels. Level-specific `--levelN-test` and scenario selectors
+  remain separate development diagnostics.
+- **NEAL MANUAL ACCEPTANCE — PASS:** Neal verified `--start-level 10` startup
+  and continuation into Level 11, and normal play through Level 9 -> 10 -> 11
+  -> 12 with score and lives carried. No further selector or Level 10
+  progression adjustment is required.
+- **PROJECT DECISION — PRODUCTION CHAIN:** Level 10 is a production member in
+  `9 -> 10 -> 11 -> 12`. Level 11 continues to Level 12; Level 12 remains the
+  terminal production level until Level 13 is implemented. Direct-only Level
+  15 is not inserted into this chain.
+- **ROM-BACKED / PROJECT TRANSLATION — LEVEL 10:** Established Level 10 raw
+  geometry and presentation metadata retain their ROM/disassembly-backed
+  status. Its preserved Level-7-like gameplay remains a PROJECT TRANSLATION
+  where arcade Level 10 mechanics have not been independently established.
+  Manual integration acceptance does not upgrade that gameplay evidence.
+- **RECORDING / PLAYBACK:** Recording format, deterministic seed and input
+  semantics are unchanged. Existing recordings that continue beyond Level 10
+  completion or Game Over follow the corrected production progression and
+  restart behavior.

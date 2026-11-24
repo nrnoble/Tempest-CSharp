@@ -3,8 +3,9 @@
 // it stays headless-testable. Keep it that way — logic added here is invisible to the test suite.
 //
 // Development command-line modes (see DebugController): --level N starts a fresh supported
-// production game; direct Level 10 is a diagnostic and direct Level 15 preserves a tube candidate,
-// both outside the production campaign chain; --gameplay-playback runs the seeded Level 1 input
+// production game and continues progression; --start-level N limits this to campaign levels.
+// Direct Level 15 preserves a tube candidate outside the production campaign chain;
+// --gameplay-playback runs the seeded Level 1 input
 // profile; --gameplay-playback-level4 runs the distinct profile on production Level 4;
 // --level2-test, --level3-test, --level4-test, --level6-test and --level7-test
 // select direct development configurations;
@@ -15,8 +16,8 @@
 // scenarios. --game-over-density only changes the procedural visible speck count, not mark size;
 // --level7-spiker-speed and --level9-spiker-speed fix their level's Spiker movement only for calibration runs;
 // --spinner-sensitivity scales only live horizontal mouse/spinner input;
-// File recordings use --record-gameplay <file> with optional production, diagnostic Level 10,
-// or direct-only Level 15 tube-candidate startup;
+// File recordings use --record-gameplay <file> with optional production or direct-only
+// Level 15 tube-candidate startup;
 // file playback restores startup identity, pauses with Space, steps with Right, and reconstructs
 // backward with Left while paused. F9 pauses live play and F10 requests a screenshot; these
 // process controls stay outside PlayerInput and the recording.
@@ -28,8 +29,8 @@
 // --tube-y-gain changes DEVELOPMENT-ONLY vertical tube proportion;
 // --tube-scale uniformly scales the DEVELOPMENT-ONLY presented tube and attached artwork;
 // --tube-vertical-offset translates the complete DEVELOPMENT-ONLY presentation in screen space;
-// diagnostic Level 10 uses its accepted +50 placement; genuine Level 11 and direct Level 15 use neutral defaults.
-// Normal play progresses Level 1 through terminal Level 9.
+// Level 10 uses its accepted +50 placement; genuine Level 11 and direct Level 15 use neutral defaults.
+// Normal play progresses Level 1 through terminal Level 12.
 using System.Globalization;
 using System.Text.Json;
 using Raylib_cs;
@@ -226,6 +227,13 @@ if (!DebugController.TryParseStartingLevel(args,
     return 2;
 }
 
+if (DebugController.UseInputDiagnostic(args) &&
+    args.Contains("--start-level", StringComparer.Ordinal))
+{
+    Console.Error.WriteLine("--start-level applies to gameplay, not --input-diagnostic.");
+    return 2;
+}
+
 PresentationMode presentationMode = legacyPresentationRequested
     ? PresentationMode.Legacy
     : PresentationMode.ExperimentalPortrait;
@@ -238,7 +246,7 @@ if (level9SpikerSpeedOverride is not null && startingProductionLevel != 9)
 
 if (DebugController.HasConflictingScenarios(args))
 {
-    Console.Error.WriteLine("--level N, --gameplay-playback, --gameplay-playback-level4, --level2-test, --level3-test, --level4-test, --level6-test, --level7-test, --level3-geometry-test, --tanker-test, --spiker-test, --fuseball-test and --pulsar-test are mutually exclusive.");
+    Console.Error.WriteLine("--level N, --start-level N, --gameplay-playback, --gameplay-playback-level4, --level2-test, --level3-test, --level4-test, --level6-test, --level7-test, --level3-geometry-test, --tanker-test, --spiker-test, --fuseball-test and --pulsar-test are mutually exclusive.");
     return 2;
 }
 
@@ -253,7 +261,7 @@ if (spinnerSensitivityOptions.WasExplicitlySpecified)
 if (atariPresentationEnabled)
 {
     Console.WriteLine(
-        "DEVELOPMENT ONLY — Atari presentation candidate enabled for production Levels 1-12, diagnostic Level 10, and direct-only Level 15.");
+        "DEVELOPMENT ONLY — Atari presentation candidate enabled for production Levels 1-12 and direct-only Level 15.");
 }
 
 if (tubeYGainOptions.WasExplicitlySpecified)

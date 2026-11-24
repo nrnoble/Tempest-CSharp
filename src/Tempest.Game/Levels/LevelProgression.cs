@@ -24,7 +24,6 @@ public static class LevelProgression
     public static LevelConfiguration? GetDirectStartLevel(int displayedLevel) =>
         displayedLevel switch
         {
-            10 => LevelConfiguration.Level10Diagnostic,
             15 => LevelConfiguration.Level15DirectStartCandidate,
             _ => GetProductionLevel(displayedLevel)
         };
@@ -55,8 +54,10 @@ public static class LevelProgression
                                     : ReferenceEquals(current, LevelConfiguration.Level8Production)
                                         ? LevelConfiguration.Level9Production
                                         : ReferenceEquals(current, LevelConfiguration.Level9Production)
-                                            ? LevelConfiguration.Level11Production
-                                            : ReferenceEquals(current, LevelConfiguration.Level11Production)
-                                                ? LevelConfiguration.Level12Production
-                                                : null;
+                                            ? LevelConfiguration.Level10Production
+                                            : ReferenceEquals(current, LevelConfiguration.Level10Production)
+                                                ? LevelConfiguration.Level11Production
+                                                : ReferenceEquals(current, LevelConfiguration.Level11Production)
+                                                    ? LevelConfiguration.Level12Production
+                                                    : null;
 }

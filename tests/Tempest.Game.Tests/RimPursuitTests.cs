@@ -9,7 +9,7 @@ public sealed class RimPursuitTests
     [Fact]
     public void OpenLevel10RightEndpointSynchronizesPursuitAndContinuesInward()
     {
-        Level level = new(LevelConfiguration.Level10Diagnostic);
+        Level level = new(LevelConfiguration.Level10Production);
         Flipper flipper = new(edge: 12, height: Level.Depth);
 
         StartRimPivot(flipper, level, playerEdge: 14);
@@ -37,7 +37,7 @@ public sealed class RimPursuitTests
     [Fact]
     public void OpenLevel10LeftEndpointSynchronizesPursuitAndContinuesInward()
     {
-        Level level = new(LevelConfiguration.Level10Diagnostic);
+        Level level = new(LevelConfiguration.Level10Production);
         Flipper flipper = new(edge: 2, height: Level.Depth);
 
         StartRimPivot(flipper, level, playerEdge: 0);

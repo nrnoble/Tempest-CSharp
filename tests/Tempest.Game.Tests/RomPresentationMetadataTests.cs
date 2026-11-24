@@ -136,7 +136,7 @@ public sealed class RomPresentationMetadataTests
 
         RomPresentationMetadata level10Metadata =
             RomPresentationMetadataCatalog.ForDisplayedLevel(10);
-        LevelConfiguration level10 = LevelConfiguration.Level10Diagnostic;
+        LevelConfiguration level10 = LevelConfiguration.Level10Production;
         Assert.Equal(level10Metadata.IsOpen, !level10.Definition.Continuous);
         Assert.Equal(15, level10.PlayableLaneCount);
     }

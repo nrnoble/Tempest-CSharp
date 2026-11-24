@@ -1392,13 +1392,14 @@ Pulsar behavior in that scenario, not an authentic all-Pulsar Atari wave.
   because they can still be lethal in that scenario. Other enemy rendering
   during exits is not part of the standard gameplay contract.
 
-## 10. Development-only scenarios
+## 10. Development-only selectors and scenarios
 
 These controls are test conveniences, not arcade level-selection or composition:
 
 | Option | Development behavior |
 |---|---|
-| `--level N` | **DEVELOPMENT ONLY:** fresh start at the real production level for a currently implemented displayed level (1–7). Uses normal production initialization and onward campaign progression; it is not a terminal diagnostic. |
+| `--level N` | **DEVELOPMENT ONLY:** fresh start at any implemented production level (1–12), continuing ordinary production progression; direct-only Level 15 is also available but is not a campaign member. |
+| `--start-level N` | **DEVELOPMENT ONLY:** fresh start restricted to an implemented production campaign level; continues ordinary campaign progression from that level. |
 | `--level7-spiker-speed <value>` | **DEVELOPMENT ONLY:** Level 7 Spiker movement calibration override (1.0–3.0 inclusive); playback restores a recorded override rather than accepting a direct override. Normal Level 7 uses the accepted Tanker movement relationship. |
 | `--level2-test` | Direct access to the shared closed 16-lane square, supply-12 Flipper-only canflip configuration; terminal development replay, no progression selection. |
 | `--level3-geometry-test` | Direct access to the Flipper-only Level 3 plus-board geometry diagnostic; separate from the mixed production-shaped wave. |
@@ -1414,17 +1415,29 @@ These controls are test conveniences, not arcade level-selection or composition:
 | `--lives <n>` | Overrides the starting life count for longer development sessions. |
 | `--speed <multiplier>` | **DEVELOPMENT / DIAGNOSTIC PROJECT FEATURE:** changes only interactive host-loop pacing from the accepted default 60 FPS; supports 0.25–4.0 inclusive, with target FPS rounded to nearest integer and exact halves away from zero. Per-tick simulation remains unchanged. |
 | `--spinner-sensitivity <multiplier>` | **DEVELOPMENT / DIAGNOSTIC / MANUAL-CALIBRATION PROJECT FEATURE:** scales only live horizontal mouse/spinner delta; default 1.0, range 0.1–4.0 inclusive. Recorded input is scaled before recording; playback and input-diagnostic modes reject this option. |
-| `--record-gameplay <file>` | Records effective per-tick input for ordinary production gameplay; new files use strict format version 2 and can include `--level`, `--lives`, `--rim-speed`, `--level7-spiker-speed`, and live `--spinner-sensitivity`. |
-| `--playback-file <file>` | Restores production startup identity and seed from a version-1 or version-2 recording; rejects simulation overrides. |
+| `--record-gameplay <file>` | Records effective per-tick input for ordinary production gameplay; new files use strict format version 2 and can include `--level`, `--start-level`, `--lives`, `--rim-speed`, `--level7-spiker-speed`, and live `--spinner-sensitivity`. |
+| `--playback-file <file>` | Restores production startup identity and seed from a version-1 or version-2 recording; rejects direct-start selectors and simulation overrides. |
 
-`--level N` exists to support the one-level-at-a-time manual arcade testing
-workflow. It selects only the starting level; after a successful clear, normal
-campaign progression continues. The current supported range deliberately ends
-at production Level 7; no placeholder support for later levels is implied.
-Neal manually accepted this development-only startup on 2026-11-06. The
-controller exit convenience is also manually accepted: V has no production
-action, Enter/Return exits immediately without confirmation, and Escape/window
-close remain available; other controller mappings are unchanged. These are
+For production starts, both direct-start selectors create a fresh game at the
+requested level and continue through the same production progression; they
+differ only in eligibility. `--level` also retains direct-only Level 15, while
+`--start-level` accepts only production campaign members. Neither selector
+creates campaign history for skipped levels. Level-specific `--levelN-test`
+and other test/scenario options remain separate development diagnostics.
+
+**NEAL MANUAL ACCEPTANCE — PASS (2026-11-23):** Neal verified production
+`--start-level` startup at Level 10 and its natural continuation to Level 11,
+and normal progression from Level 9 through Level 10, Level 11 and Level 12.
+Score and lives carried normally. The production chain is
+`9 -> 10 -> 11 -> 12`; Level 12 remains terminal until Level 13 is implemented.
+Level 10's established geometry/raw presentation evidence retains its
+ROM-backed classification; its preserved Level-7-like gameplay remains a
+PROJECT TRANSLATION, not an arcade-mechanics claim.
+
+Neal manually accepted the original development-only direct-level workflow
+and controller exit convenience on 2026-11-06. V has no production action,
+Enter/Return exits immediately without confirmation, and Escape/window close
+remain available; other controller mappings are unchanged. These are
 development controls, not arcade gameplay behavior.
 
 **Observed / unresolved / non-blocking / deferred (2026-11-06):** During
@@ -2746,11 +2759,17 @@ Spiker/projectile relationship risk in the Level 4 candidate and production
 Levels 5, 6 and 8 is a distinct follow-up; Levels 1–8 remain accepted/frozen
 and are not modified here.
 
-**PROGRESSION, RECORDING AND TERMINAL BOUNDARY:** Natural Level 8→9
+**HISTORICAL PRODUCTION SCOPE (2026-11-12):** At this Level 9 closeout,
+Level 9 was the terminal production level and Level 10 was not yet in the
+campaign. The 2026-11-23 accepted integration supersedes that boundary:
+production now continues `9 -> 10 -> 11 -> 12`, with Level 12 terminal until
+Level 13 is implemented.
+
+**PROGRESSION, RECORDING AND TERMINAL BOUNDARY (AT THIS CLOSEOUT):** Natural Level 8→9
 progression, direct `--level 9`, Level 9 recording/playback startup and
 headless playback are covered by automated tests. The Level 8→9 handoff is not
-separately manually accepted. Level 9 is the current terminal production
-level; production Level 10 remains unimplemented. The later development-only
+separately manually accepted. At that time, Level 9 was the terminal production
+level; production Level 10 remained unimplemented. The later development-only
 diagnostic Level 10 presentation is specified separately below. The optional numeric
 `--level9-spiker-speed` override and its version-2 recording metadata are
 DEVELOPMENT ONLY calibration tooling; normal production stays at 2.0, and
@@ -2758,11 +2777,19 @@ legacy recordings without override metadata remain compatible.
 
 ## Diagnostic Level 10 Atari-presentation candidate — manually accepted (2026-11-17)
 
-**DEVELOPMENT-ONLY SCOPE:** Direct `--level 10` runs Level-7-like diagnostic
-gameplay on the recovered Rev. 2 Level 10 open shape-row-9 geometry. It is
-outside natural production progression and is not an authentic Level 10
-arcade-gameplay implementation. The terminal production campaign level remains
-Level 9.
+**HISTORICAL SCOPE:** The campaign exclusion below describes this 2026-11-17
+closeout, not the current accepted production integration. Level 10 was later
+wired into production between Levels 9 and 11 and Neal manually accepted
+startup and progression on 2026-11-23. Its accepted Level-7-like gameplay and
+presentation remain unchanged and do not establish authentic arcade Level 10
+gameplay.
+
+**HISTORICAL DEVELOPMENT-ONLY SCOPE (2026-11-17):** At this closeout, direct
+`--level 10` selected Level-7-like diagnostic gameplay on the recovered Rev. 2
+Level 10 open shape-row-9 geometry, outside natural production progression.
+The 2026-11-23 integration made this configuration production Level 10.
+Its preserved gameplay remains a PROJECT TRANSLATION, not an authentic
+Level 10 arcade-gameplay implementation.
 
 **ROM-BACKED GEOMETRY / PROJECT TRANSLATION:** Level 10 retains the recovered
 16-point open geometry and 15 playable lanes. Raw Level 10 geometry and
@@ -2925,11 +2952,13 @@ use a fixed extra-cycle count. The ROM-backed result is accepted as good enough;
 remaining late-wave visible timing uncertainty is deferred and must not block
 Level 11 closure.
 
-**PRODUCTION BOUNDARY:** Genuine Level 11 is the terminal production level.
-Level 12 remains unimplemented and Levels 13-14 are not fabricated. Direct
-Level 15 preserves genuine row-10 geometry and production-independent display
-identity, but its gameplay and presentation remain explicitly unaccepted
-development baselines and it remains outside campaign progression.
+**HISTORICAL PRODUCTION BOUNDARY:** At this Level 11 closeout, Level 11 was
+terminal and Level 12 was unimplemented. The 2026-11-23 accepted integration
+implemented production Level 12 and made it the current terminal level until
+Level 13 is implemented. Levels 13-14 are not fabricated. Direct Level 15
+preserves genuine row-10 geometry and production-independent display identity,
+but its gameplay and presentation remain explicitly unaccepted development
+baselines and it remains outside campaign progression.
 
 ## Level 8 Atari presentation - manually accepted (2026-11-17)
 
@@ -3074,8 +3103,9 @@ is the largest absolute mapped coordinate. No per-level focal constants are
 used. These focal rules and the compensation architecture are project
 translations; the ROM does not designate either pivot or this C# architecture.
 
-**SCOPE AND PRESERVATION:** Level 10 remains diagnostic-only; it is not
-required for this manual acceptance. Level 7 was outside this focal-point
+**HISTORICAL SCOPE AND PRESERVATION (2026-11-18):** At this focal-point
+milestone, Level 10 was diagnostic-only and not required for this manual
+acceptance. Level 7 was outside this focal-point
 milestone. Its later reconstruction acceptance covers compatibility with
 shared ExitZoom and Approach presentation, not a Level-7-specific focal rule.
 Accepted ordinary Playing placement, including Level 8 `+212.28139`, Level 9

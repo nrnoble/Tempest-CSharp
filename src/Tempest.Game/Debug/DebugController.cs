@@ -36,8 +36,9 @@ public readonly record struct TubeVerticalOffsetOptions(
 /// Parses the development/testing command-line switches. These are controlled engineering tools
 /// for exercising one mechanic in isolation; they are not the finished arcade level-selection or
 /// progression system. No flags = normal Level 1. --level N starts a fresh production game at
-/// that level and continues normal campaign progression; diagnostic Level 10 uses Level-7-like
-/// gameplay on its genuine open Level 10 geometry outside the campaign. Legacy --levelN-test selectors remain
+/// that level and continues normal campaign progression; --start-level N restricts the same
+/// continuing startup to production campaign levels. Level 10 preserves its accepted Level-7-like
+/// gameplay on its open geometry. Direct-only Level 15 is outside the campaign. Legacy --levelN-test selectors remain
 /// terminal diagnostics. Scenario flags are mutually exclusive; --enemy-bullets-test (opt-in
 /// Flipper firing), --lives (starting-life override), --rim-speed, --game-over-density and
 /// --level7-spiker-speed and --level9-spiker-speed (bounded level-specific calibration overrides)
@@ -70,25 +71,36 @@ public sealed class DebugController
 		startingLevel = null;
 		error = null;
 		int optionIndex = -1;
+		string? selectedOption = null;
 
 		for (int index = 0; index < arguments.Count; index++)
 		{
-			if (arguments[index] != "--level")
+			string option = arguments[index];
+			if (option.StartsWith("--start-level=", StringComparison.Ordinal))
+			{
+				error = "--start-level requires a separate value argument.";
+				return false;
+			}
+			if (option is not ("--level" or "--start-level"))
 				continue;
 			if (optionIndex >= 0)
 			{
-				error = "--level may be specified only once.";
+				error = selectedOption == option
+					? $"{option} may be specified only once."
+					: "--level and --start-level are mutually exclusive.";
 				return false;
 			}
 			optionIndex = index;
+			selectedOption = option;
 		}
 
 		if (optionIndex < 0)
 			return true;
 
 		int highestLevel = LevelProgression.GetLastProductionLevel().DisplayedLevel;
-		string requirement =
-			$"--level requires an implemented production level from 1 through {highestLevel}, diagnostic Level 10, or direct-only Level 15.";
+		string requirement = selectedOption == "--start-level"
+			? $"--start-level requires an implemented production campaign level (currently ending at Level {highestLevel})."
+			: $"--level requires an implemented production campaign level (currently ending at Level {highestLevel}) or direct-only Level 15.";
 		if (optionIndex + 1 >= arguments.Count ||
 			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
 		{
@@ -97,7 +109,9 @@ public sealed class DebugController
 		}
 		if (!int.TryParse(arguments[optionIndex + 1], NumberStyles.Integer,
 			CultureInfo.InvariantCulture, out int parsed) ||
-			LevelProgression.GetDirectStartLevel(parsed) is null)
+			(selectedOption == "--start-level"
+				? LevelProgression.GetProductionLevel(parsed)
+				: LevelProgression.GetDirectStartLevel(parsed)) is null)
 		{
 			error = requirement;
 			return false;
@@ -342,7 +356,7 @@ public sealed class DebugController
 			return true;
 		}
 
-		error = "--tube-y-gain requires --level or --playback-file.";
+		error = "--tube-y-gain requires --level, --start-level, or --playback-file.";
 		return false;
 	}
 
@@ -409,7 +423,7 @@ public sealed class DebugController
 			return true;
 		}
 
-		error = "--tube-scale requires --level or --playback-file.";
+		error = "--tube-scale requires --level, --start-level, or --playback-file.";
 		return false;
 	}
 
@@ -477,7 +491,7 @@ public sealed class DebugController
 			return true;
 		}
 
-		error = "--tube-vertical-offset requires --level or --playback-file.";
+		error = "--tube-vertical-offset requires --level, --start-level, or --playback-file.";
 		return false;
 	}
 
@@ -907,6 +921,8 @@ public sealed class DebugController
 
 		if (optionIndex < 0)
 			return true;
+		if (!TryParseStartingLevel(arguments, out _, out error))
+			return false;
 		if (!TryParseTubeYGainOptions(arguments, out _, out error))
 			return false;
 		if (!TryParseTubeScaleOptions(arguments, out _, out error))
@@ -980,14 +996,14 @@ public sealed class DebugController
 				return false;
 			}
 
-			if (option is "--level" or "--lives" or "--rim-speed")
+			if (option is "--level" or "--start-level" or "--lives" or "--rim-speed")
 			{
 				if (mode == GameplayFileMode.Playback)
 				{
 					error = $"--playback-file restores simulation startup values from the recording; '{option}' is not allowed.";
 					return false;
 				}
-				if ((option == "--level" && startingLevel is not null) ||
+				if (((option is "--level" or "--start-level") && startingLevel is not null) ||
 					(option == "--lives" && startingLives is not null) ||
 					(option == "--rim-speed" && rimSpeedMultiplier is not null))
 				{
@@ -997,16 +1013,11 @@ public sealed class DebugController
 				if (!TryReadOptionValue(arguments, ref index, option, out string? value, out error))
 					return false;
 
-				if (option == "--level")
+				if (option is "--level" or "--start-level")
 				{
-					int highestLevel = LevelProgression.GetLastProductionLevel().DisplayedLevel;
-					if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture,
-						out int level) || LevelProgression.GetDirectStartLevel(level) is null)
-					{
-						error = $"--level requires an implemented production level from 1 through {highestLevel}, diagnostic Level 10, or direct-only Level 15.";
+					// The shared parser validates both startup modes against the campaign chain.
+					if (!TryParseStartingLevel(arguments, out startingLevel, out error))
 						return false;
-					}
-					startingLevel = level;
 				}
 				else if (option == "--lives")
 				{
@@ -1173,7 +1184,8 @@ public sealed class DebugController
 		arguments.Contains("--gameplay-playback", StringComparer.Ordinal);
 
 	public static bool UseDirectProductionLevelStart(IEnumerable<string> arguments) =>
-		arguments.Contains("--level", StringComparer.Ordinal);
+		arguments.Contains("--level", StringComparer.Ordinal) ||
+		arguments.Contains("--start-level", StringComparer.Ordinal);
 
 	public static bool UseLevel4GameplayPlayback(IEnumerable<string> arguments) =>
 		arguments.Contains("--gameplay-playback-level4", StringComparer.Ordinal);

@@ -77,7 +77,7 @@ public readonly record struct AtariPresentationProjection(Vector2 Position, floa
 /// Presentation-only adapter for the opt-in candidate. Levels 1-3 retain the C# reciprocal
 /// camera progression; Level 4 uses an approximate independent-axis frame with that same depth
 /// progression; Level 6 fits the normalized near rim in its current C# projection; and Levels 7-9
-/// use the recovered Atari reciprocal-depth equation. Diagnostic Level 10 projects its own
+/// use the recovered Atari reciprocal-depth equation. Level 10 projects its own
 /// ROM-backed open geometry through the existing raw-shape mapping; the placement remains
 /// accepted and frozen. Level 3's signed ROM Y2D is not a C# placement value. Projection never changes
 /// model geometry or gameplay state.
@@ -93,7 +93,7 @@ public static class AtariPresentationAdapter
 	// PROJECT TRANSLATION: center the shared production Level 7 envelope below the portrait HUD.
 	public const float Level7VerticalPlacement = 228.99702f;
 	public const float DefaultTubeYGain = 1f;
-	// PROJECT TRANSLATION: diagnostic Level 10 final screen-space Y offset. Applied after
+	// PROJECT TRANSLATION: Level 10 final screen-space Y offset. Applied after
 	// projection so the existing horizontal mapping, scale, and depth response stay unchanged.
 	public const float Level10VerticalPlacement = 50;
 	// PROJECT TRANSLATION: +122 logical pixels moves Level 1 down about 154 host pixels at 1.26x.

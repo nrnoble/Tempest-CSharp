@@ -215,7 +215,8 @@ public sealed class TubeYGainTests
 		Assert.False(DebugController.TryParseTubeYGainOptions(
 			["--atari-presentation", "--tube-y-gain", "1.21"],
 			out _, out string? missingLevelError));
-		Assert.Contains("--level or --playback-file", missingLevelError);
+		Assert.Equal("--tube-y-gain requires --level, --start-level, or --playback-file.",
+			missingLevelError);
 	}
 
 	[Fact]

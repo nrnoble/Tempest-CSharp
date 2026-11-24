@@ -12,7 +12,7 @@ namespace Tempest.Game;
 /// renderer only reads the public state exposed here.
 /// </summary>
 /// <remarks>
-/// Normal play progresses through the terminal Level 9 production configuration. Direct Level 2/3/4
+/// Normal play progresses through the terminal Level 12 production configuration. Direct Level 2/3/4
 /// access, the Level 3 geometry diagnostic, the configuration-based headless Level 3 mixed model,
 /// and the Spiker, Tanker, Fuseball and Pulsar scenarios are development-only. Natural production
 /// Flippers use a separate arcade-style firing phase; enemy bullets retain the existing accounting,
@@ -427,9 +427,7 @@ public sealed class TempestGame
             if (restartPressed)
             {
                 if (naturalProgressionEnabled &&
-                    LevelProgression.GetNextProductionLevel(CurrentLevel.Configuration) is null &&
-                    !ReferenceEquals(CurrentLevel.Configuration,
-                        LevelConfiguration.Level10Diagnostic))
+                    LevelProgression.GetNextProductionLevel(CurrentLevel.Configuration) is null)
                     // A naturally reached terminal production level starts a fresh campaign.
                     ResetGame();
                 else
@@ -530,8 +528,7 @@ public sealed class TempestGame
     {
         Score.Reset();
         Player.Lives = startingLives;
-        InitializeFreshWave(naturalProgressionEnabled &&
-            !ReferenceEquals(launchConfiguration, LevelConfiguration.Level10Diagnostic)
+        InitializeFreshWave(naturalProgressionEnabled
             ? LevelConfiguration.Level1
             : launchConfiguration);
     }

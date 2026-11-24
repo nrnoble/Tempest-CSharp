@@ -537,7 +537,7 @@ public sealed class Level9ProductionTests
     }
 
     [Fact]
-    public void LevelNineSupportsNaturalProgressionDirectStartAndTerminalRestart()
+    public void LevelNineSupportsNaturalProgressionAndDirectStart()
     {
         TempestGame game = new(startingProductionLevel: 8, startingLives: 5);
         game.Score.Add(1234);
@@ -563,7 +563,7 @@ public sealed class Level9ProductionTests
         Assert.Same(LevelConfiguration.Level9Production, direct.CurrentLevel.Configuration);
         Assert.Equal(7, direct.Player.EdgeIndex);
         Assert.True(direct.NaturalProgressionEnabled);
-        Assert.Same(LevelConfiguration.Level11Production,
+        Assert.Same(LevelConfiguration.Level10Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level9Production));
     }
 

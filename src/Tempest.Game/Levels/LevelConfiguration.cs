@@ -121,7 +121,7 @@ public sealed record LevelConfiguration(
         global::Tempest.Game.Levels.BelowRimFlipperProgram.Existing;
     public bool UsesLevel7RomWavePolicy =>
         ReferenceEquals(this, Level7Production) ||
-        ReferenceEquals(this, Level10Diagnostic);
+        ReferenceEquals(this, Level10Production);
     public bool UsesLevel8RomWavePolicy { get; init; }
     public bool UsesLevel9RomWavePolicy { get; init; }
     public bool UsesLevel11RomWavePolicy { get; init; }
@@ -356,12 +356,14 @@ public sealed record LevelConfiguration(
         AvoidSpikesWaitThreshold = 30
     };
 
-    // DEVELOPMENT ONLY: Level-7-like gameplay on genuine Level 10 geometry; not arcade Level 10 gameplay.
+    // PROJECT TRANSLATION: preserve accepted Level-7-like gameplay, not verified arcade Level 10 gameplay.
     // The open tube has 15 lanes, so the Level 7 spawn sequence omits its unplayable lane 15.
-    public static LevelConfiguration Level10Diagnostic { get; } =
+    public static LevelConfiguration Level10Production { get; } =
         Level7Production with
         {
+            ProgressionIndex = 9,
             DisplayedLevel = 10,
+            BoardIndex = 9,
             Definition = LevelLoader.LoadLevel10OpenTube(),
             SpawnLaneSequence = Array.AsReadOnly(Enumerable.Range(0, 15).ToArray()),
             EffectiveGameplayParameterLevelOverride = 7

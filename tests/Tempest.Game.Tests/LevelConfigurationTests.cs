@@ -224,8 +224,10 @@ public sealed class LevelConfigurationTests
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level7Production));
         Assert.Same(LevelConfiguration.Level9Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level8Production));
-        Assert.Same(LevelConfiguration.Level11Production,
+        Assert.Same(LevelConfiguration.Level10Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level9Production));
+        Assert.Same(LevelConfiguration.Level11Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level10Production));
         Assert.Same(LevelConfiguration.Level12Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level11Production));
         Assert.Same(LevelConfiguration.Level12Production, LevelProgression.GetLastProductionLevel());
@@ -241,7 +243,7 @@ public sealed class LevelConfigurationTests
     }
 
     [Fact]
-    public void SpikeAvoidanceExitPolicyIsIndependentOfSpikesAndLevelElevenIsTerminal()
+    public void SpikeAvoidanceExitPolicyIsIndependentOfSpikes()
     {
         LevelConfiguration[] existingLevels =
         [
@@ -270,8 +272,11 @@ public sealed class LevelConfigurationTests
         Assert.Same(LevelConfiguration.Level9Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level8Production));
         Assert.Equal(LevelExitPolicy.Standard, LevelConfiguration.Level9Production.ExitPolicy);
-        Assert.Same(LevelConfiguration.Level11Production,
+        Assert.Same(LevelConfiguration.Level10Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level9Production));
+        Assert.Equal(LevelExitPolicy.AvoidSpikes, LevelConfiguration.Level10Production.ExitPolicy);
+        Assert.Same(LevelConfiguration.Level11Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level10Production));
         Assert.Equal(LevelExitPolicy.Standard,
             LevelConfiguration.Level15DirectStartCandidate.ExitPolicy);
         Assert.Equal(150, LevelConfiguration.Level4Candidate.AvoidSpikesWaitThreshold);

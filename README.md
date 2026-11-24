@@ -157,21 +157,32 @@ conveniences, not arcade-verified gameplay rules. All other controls remain
 unchanged. Escape and window-close behavior are preserved. Enter lets Neal
 play and exit from the arcade controller without reaching for the keyboard.
 
-## Development-only direct production-level startup
+## Development-only direct campaign startup
 
-Use `--level N` to start a fresh game directly at any currently implemented
-production level. The current supported range is Levels 1–7:
+`--level N` starts a fresh game directly at an implemented production level.
+Production starts follow the ordinary campaign progression; `--level` is not a
+selector that makes production starts terminal. It also retains direct-only
+Level 15, which is not a member of the production campaign. The current
+production chain is Levels 1–12:
 
 ```powershell
 dotnet run --project src\Tempest.Game -- --level 5 --lives 10
 ```
 
 This selects the real production configuration and state, not a separate test
-level. It changes only the starting level: after a clear, ordinary campaign
-progression continues to the next implemented level. It is intended to make
-the level-by-level manual arcade testing workflow practical. `--lives` remains
-available in either argument order. The existing `--levelN-test` diagnostics
-remain separate, isolated scenarios.
+level. `--start-level N` is the production-campaign-only alternative: it starts
+a fresh game at N and follows normal campaign progression, but rejects
+direct-only Level 15. For production levels, both selectors have the same
+continuing behavior; they differ only in which starts they permit.
+Level-specific `--levelN-test` and scenario selectors remain separate
+development diagnostics, not production campaign selectors. `--lives` remains
+available in either argument order.
+
+Neal manually accepted starting at Level 10 and continuing to Level 11, and
+normal progression from Level 9 through 10, 11 and 12 with score and lives
+carried. Level 12 remains the terminal production level until Level 13 is
+implemented. Level 10's preserved Level-7-like gameplay remains a PROJECT
+TRANSLATION, not an established arcade-mechanics claim.
 
 Neal manually accepted this development startup and the controller exit
 controls on 2026-11-06. During those sessions, the game also unexpectedly
@@ -180,6 +191,17 @@ exited on multiple occasions and the console ended with
 non-blocking, and deferred; no cause has been established. It did not isolate
 a level or trigger, and no relationship to the separate Level 5-specific
 observation below has been established.
+
+`--level` and `--start-level` cannot be combined. Both accept recording; file
+playback owns its recorded startup and rejects either selector. As with
+existing production starts, restarting after Game Over or a terminal
+production level starts a fresh Level 1 campaign. Atari presentation and its
+explicit calibration overrides follow their existing active-level and
+override rules.
+
+```powershell
+dotnet run --project src\Tempest.Game -- --start-level 11 --atari-presentation
+```
 
 ## Development-only tube presentation calibration
 

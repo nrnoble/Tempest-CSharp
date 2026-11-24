@@ -16,7 +16,7 @@ public sealed class DiagnosticLevel10Tests
     public void DirectLevelTenUsesRecoveredOpenGeometryAndRetainsLevelSevenGameplay()
     {
         LevelConfiguration level7 = LevelConfiguration.Level7Production;
-        LevelConfiguration diagnostic = LevelConfiguration.Level10Diagnostic;
+        LevelConfiguration diagnostic = LevelConfiguration.Level10Production;
         TempestGame game = new(startingProductionLevel: 10, startingLives: 9);
 
         Assert.Equal((byte)9, LevelLoader.Level10RomEvidence.ShapeRemap);
@@ -81,10 +81,6 @@ public sealed class DiagnosticLevel10Tests
         Assert.True(game.NaturalProgressionEnabled);
         Assert.Same(diagnostic, game.CurrentLevel.Configuration);
 
-        game.CurrentLevel.State = LevelState.Complete;
-        game.RunOneStep(restartPressed: true);
-        Assert.Same(diagnostic, game.CurrentLevel.Configuration);
-        Assert.True(game.NaturalProgressionEnabled);
     }
 
     [Fact]
@@ -95,7 +91,7 @@ public sealed class DiagnosticLevel10Tests
         VectorRenderer renderer = new(
             level10Game, atariPresentationEnabled: true,
             tubeYGain: 1, tubeScale: 1, tubeVerticalOffset: 0);
-        LevelConfiguration configuration = LevelConfiguration.Level10Diagnostic;
+        LevelConfiguration configuration = LevelConfiguration.Level10Production;
         RomPresentationMetadata metadata =
             RomPresentationMetadataCatalog.ForDisplayedLevel(10);
 
@@ -224,11 +220,11 @@ public sealed class DiagnosticLevel10Tests
             Assert.Equal(10, recording.StartupConfiguration.StartingDisplayedLevel);
             Assert.Equal(1, recording.Replay.DurationTicks);
             Assert.Equal(recorder.Frames[0], recording.Replay.GetFrame(0));
-            Assert.Same(LevelConfiguration.Level10Diagnostic,
+            Assert.Same(LevelConfiguration.Level10Production,
                 recording.Replay.StartingConfiguration);
-            Assert.Same(LevelConfiguration.Level10Diagnostic,
+            Assert.Same(LevelConfiguration.Level10Production,
                 standardPlayback.Game.CurrentLevel.Configuration);
-            Assert.Same(LevelConfiguration.Level10Diagnostic,
+            Assert.Same(LevelConfiguration.Level10Production,
                 atariPlayback.Game.CurrentLevel.Configuration);
 
             Assert.True(standardPlayback.StepForward());

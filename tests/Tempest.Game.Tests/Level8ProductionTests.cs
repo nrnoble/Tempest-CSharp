@@ -513,7 +513,7 @@ public sealed class Level8ProductionTests
     }
 
     [Fact]
-    public void DirectLevelNineUsesProductionWaveAndProgressesToEleven()
+    public void DirectLevelNineUsesProductionWaveAndProgressesToTen()
     {
         TempestGame game = new(startingProductionLevel: 9, startingLives: 5);
         game.Score.Add(88);
@@ -524,7 +524,7 @@ public sealed class Level8ProductionTests
         Assert.Equal(15, game.Spikes.Count);
         Assert.Same(LevelConfiguration.Level9Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level8Production));
-        Assert.Same(LevelConfiguration.Level11Production,
+        Assert.Same(LevelConfiguration.Level10Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level9Production));
     }
 
