@@ -37,6 +37,7 @@ public sealed class DirectLevelStartupTests
     [InlineData(12)]
     [InlineData(13)]
     [InlineData(14)]
+    [InlineData(15)]
     public void DirectLevelStartsTheFreshProductionConfiguration(int displayedLevel)
     {
         TempestGame game = new(startingProductionLevel: displayedLevel, startingLives: 9);
@@ -58,14 +59,14 @@ public sealed class DirectLevelStartupTests
     }
 
     [Fact]
-    public void GenuineLevelElevenIsProductionAndLevelFifteenIsDirectOnly()
+    public void GenuineLevelsElevenAndFifteenAreProduction()
     {
         Assert.Same(LevelConfiguration.Level11Production,
             LevelProgression.GetProductionLevel(11));
         Assert.Same(LevelConfiguration.Level11Production,
             LevelProgression.GetDirectStartLevel(11));
-        Assert.Null(LevelProgression.GetProductionLevel(15));
-        Assert.Same(LevelConfiguration.Level15DirectStartCandidate,
+        Assert.Same(LevelConfiguration.Level15Production, LevelProgression.GetProductionLevel(15));
+        Assert.Same(LevelConfiguration.Level15Production,
             LevelProgression.GetDirectStartLevel(15));
         Assert.Same(LevelConfiguration.Level10Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level9Production));
@@ -77,8 +78,10 @@ public sealed class DirectLevelStartupTests
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level12Production));
         Assert.Same(LevelConfiguration.Level14Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level13Production));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level14Production));
-        Assert.Same(LevelConfiguration.Level14Production, LevelProgression.GetLastProductionLevel());
+        Assert.Same(LevelConfiguration.Level15Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level14Production));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level15Production));
+        Assert.Same(LevelConfiguration.Level15Production, LevelProgression.GetLastProductionLevel());
 
         TempestGame levelEleven = new(startingProductionLevel: 11);
         Assert.Same(LevelConfiguration.Level11Production,
@@ -91,11 +94,11 @@ public sealed class DirectLevelStartupTests
         Assert.True(levelEleven.NaturalProgressionEnabled);
 
         TempestGame levelFifteen = new(startingProductionLevel: 15);
-        Assert.Same(LevelConfiguration.Level15DirectStartCandidate,
+        Assert.Same(LevelConfiguration.Level15Production,
             levelFifteen.CurrentLevel.Configuration);
         Assert.Equal(15, levelFifteen.CurrentLevel.Configuration.DisplayedLevel);
         Assert.Equal(14, levelFifteen.CurrentLevel.Configuration.BoardIndex);
-        Assert.Same(LevelConfiguration.Level15DirectStartCandidate.Definition,
+        Assert.Same(LevelConfiguration.Level15Production.Definition,
             levelFifteen.CurrentLevel.Definition);
 
         TempestGame levelTwelve = new(startingProductionLevel: 12);

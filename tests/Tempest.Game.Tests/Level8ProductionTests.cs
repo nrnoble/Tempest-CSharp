@@ -719,7 +719,7 @@ public sealed class Level8ProductionTests
 
         Assert.True(exitLaneSpike.IsDepleted);
         Assert.DoesNotContain(game.Spikes, spike => spike.EdgeIndex == game.Player.EdgeIndex);
-        Assert.Same(LevelConfiguration.Level15DirectStartCandidate, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level15Production, game.CurrentLevel.Configuration);
         Assert.Equal(LevelState.Complete, game.State);
     }
 

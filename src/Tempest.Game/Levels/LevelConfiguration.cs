@@ -134,8 +134,8 @@ public sealed record LevelConfiguration(
     public bool UsesLevel12RomWavePolicy { get; init; }
     public bool UsesLevel13RomWavePolicy { get; init; }
     public bool UsesLevel14RomWavePolicy { get; init; }
-    // DEVELOPMENT ONLY: the preserved Level 15 candidate may retain the separately
-    // recovered Level 11 parameter baseline; genuine Level 11 uses UsesLevel11RomWavePolicy.
+    // PROJECT DECISION: Level 15 retains the separately recovered Level 11 parameter
+    // baseline; genuine Level 11 uses UsesLevel11RomWavePolicy.
     public bool UsesLevel11ParameterDevelopmentBaseline { get; init; }
     // Canonical ROM-policy levels share generic reconstruction; copied configurations stay isolated.
     public bool UsesGenericRomDeathReconstruction =>
@@ -581,9 +581,8 @@ public sealed record LevelConfiguration(
         StartingSpikeHeight = Level14StartingSpikeHeight
     };
 
-    // DEVELOPMENT ONLY: the manually identified Level 15 tube is direct-start only.
-    // It does not inherit genuine Level 11 production identity or gameplay policy.
-    public static LevelConfiguration Level15DirectStartCandidate { get; } = new(
+    // Accepted Level 15 geometry with the separately documented Level 11 parameter baseline.
+    public static LevelConfiguration Level15Production { get; } = new(
         ProgressionIndex: 14,
         DisplayedLevel: 15,
         BoardIndex: 14,

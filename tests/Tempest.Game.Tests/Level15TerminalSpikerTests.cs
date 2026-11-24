@@ -112,7 +112,7 @@ public sealed class Level15TerminalSpikerTests
             bool resolveRemainingSupply = false)
     {
         TempestGame game = new(
-            LevelConfiguration.Level15DirectStartCandidate,
+            LevelConfiguration.Level15Production,
             random: new Random(1981));
         Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger!;
         ResolveInitialEggSupply(game, ledger);

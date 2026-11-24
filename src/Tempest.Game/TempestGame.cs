@@ -12,7 +12,7 @@ namespace Tempest.Game;
 /// renderer only reads the public state exposed here.
 /// </summary>
 /// <remarks>
-/// Normal play progresses through the terminal Level 14 production configuration. Direct Level 2/3/4
+/// Normal play progresses through the terminal Level 15 production configuration. Direct Level 2/3/4
 /// access, the Level 3 geometry diagnostic, the configuration-based headless Level 3 mixed model,
 /// and the Spiker, Tanker, Fuseball and Pulsar scenarios are development-only. Natural production
 /// Flippers use a separate arcade-style firing phase; enemy bullets retain the existing accounting,
@@ -304,7 +304,7 @@ public sealed class TempestGame
         this.level6Test = level6Test;
         this.level7Test = level7Test;
         this.level3GeometryTest = level3GeometryTest;
-        // Direct starts keep the production simulation rules; direct-only tube candidates remain terminal.
+        // Direct starts keep the production simulation and campaign progression rules.
         naturalProgressionEnabled = startingProductionLevel is not null ||
             startingConfiguration is null &&
             !level2Test && !level3Test && !level4Test && !level6Test && !level7Test &&

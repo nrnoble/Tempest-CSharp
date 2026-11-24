@@ -161,9 +161,8 @@ play and exit from the arcade controller without reaching for the keyboard.
 
 `--level N` starts a fresh game directly at an implemented production level.
 Production starts follow the ordinary campaign progression; `--level` is not a
-selector that makes production starts terminal. It also retains direct-only
-Level 15, which is not a member of the production campaign. The current
-production chain is Levels 1–13:
+selector that makes production starts terminal. The current production chain
+is Levels 1–15, with Level 15 terminal until Level 16 is implemented:
 
 ```powershell
 dotnet run --project src\Tempest.Game -- --level 5 --lives 10
@@ -171,9 +170,8 @@ dotnet run --project src\Tempest.Game -- --level 5 --lives 10
 
 This selects the real production configuration and state, not a separate test
 level. `--start-level N` is the production-campaign-only alternative: it starts
-a fresh game at N and follows normal campaign progression, but rejects
-direct-only Level 15. For production levels, both selectors have the same
-continuing behavior; they differ only in which starts they permit.
+a fresh game at N and follows normal campaign progression. Both selectors
+currently accept the same production levels and have the same continuing behavior.
 Level-specific `--levelN-test` and scenario selectors remain separate
 development diagnostics, not production campaign selectors. `--lives` remains
 available in either argument order.
@@ -185,8 +183,8 @@ identity, closed-tube gameplay, spinner, enemy mix and behaviors, starting
 Spikes, firing and Super Zapper, death/re-entry, wave completion, Level 13
 HUD, and normal Atari Playing presentation after calibration. Level 14 is
 implemented and manually accepted using its genuine open shape-row-15 tube.
-It is the current production boundary; direct-only Level 15 remains outside the
-campaign. Level 10's preserved Level-7-like gameplay remains a PROJECT
+Level 15 follows Level 14 and retains its previously accepted gameplay and
+presentation. Level 10's preserved Level-7-like gameplay remains a PROJECT
 TRANSLATION, not an established arcade-mechanics claim.
 
 For Level 14, this launch uses its accepted Atari-presentation defaults without
@@ -260,7 +258,7 @@ invariant-culture value; extreme values may move geometry off screen or exceed
 representable projected coordinates. It does not change model geometry, the
 near-rim anchor, common placement, HUD, or the far/near depth-size ratio.
 It requires `--atari-presentation` and `--level`, `--start-level`, or
-`--playback-file`, and is not recorded. Levels 7-14 and direct Level 15 use
+`--playback-file`, and is not recorded. Levels 7-15 use
 the camera-origin term; Levels 1-6 use separate projection paths and the
 control has no effect on them. It is independent of `--tube-y-gain`,
 `--tube-scale`, and `--tube-vertical-offset`. The neutral default is `1`

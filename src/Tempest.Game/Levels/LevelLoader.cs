@@ -220,7 +220,7 @@ public static class LevelLoader
 		});
 	}
 
-	// DEVELOPMENT ONLY: the manually identified Level 15 candidate uses geometry shape row 10.
+	// The accepted Level 15 tube uses the manually identified geometry shape row 10.
 	public static class Level15RomEvidence
 	{
 		public static RomPresentationMetadata PresentationMetadata =>
@@ -375,7 +375,7 @@ public static class LevelLoader
 		return new(false, 300, 0, Array.AsReadOnly(points), "Level 10 - Rev 2 open shape 9");
 	}
 
-	// DEVELOPMENT ONLY: preserve the manually identified Rev. 2 row-10 tube exactly.
+	// Preserve the manually identified Rev. 2 row-10 tube exactly.
 	// Centering, scaling and Y reflection use the established open-tube translation.
 	public static LevelDefinition LoadLevel15OpenTube()
 	{

@@ -262,17 +262,19 @@ public sealed class Level13ProductionTests
     }
 
     [Fact]
-    public void LevelTwelveProgressesThroughThirteenToTerminalFourteen()
+    public void LevelTwelveProgressesThroughThirteenAndFourteenToTerminalFifteen()
     {
         Assert.Same(LevelConfiguration.Level13Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level12Production));
         Assert.Same(LevelConfiguration.Level14Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level13Production));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level14Production));
-        Assert.Same(LevelConfiguration.Level14Production,
+        Assert.Same(LevelConfiguration.Level15Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level14Production));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level15Production));
+        Assert.Same(LevelConfiguration.Level15Production,
             LevelProgression.GetLastProductionLevel());
         Assert.Same(LevelConfiguration.Level14Production, LevelProgression.GetProductionLevel(14));
-        Assert.Same(LevelConfiguration.Level15DirectStartCandidate,
+        Assert.Same(LevelConfiguration.Level15Production,
             LevelProgression.GetDirectStartLevel(15));
 
         TempestGame levelTwelve = new(startingProductionLevel: 12, startingLives: 4);

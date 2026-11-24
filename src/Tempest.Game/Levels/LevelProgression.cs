@@ -20,13 +20,8 @@ public static class LevelProgression
         return current.DisplayedLevel == displayedLevel ? current : null;
     }
 
-    // Keep direct-only geometry diagnostics outside the production campaign chain.
     public static LevelConfiguration? GetDirectStartLevel(int displayedLevel) =>
-        displayedLevel switch
-        {
-            15 => LevelConfiguration.Level15DirectStartCandidate,
-            _ => GetProductionLevel(displayedLevel)
-        };
+        GetProductionLevel(displayedLevel);
 
     public static LevelConfiguration GetLastProductionLevel()
     {
@@ -63,5 +58,7 @@ public static class LevelProgression
                                                         ? LevelConfiguration.Level13Production
                                                         : ReferenceEquals(current, LevelConfiguration.Level13Production)
                                                             ? LevelConfiguration.Level14Production
-                                                            : null;
+                                                            : ReferenceEquals(current, LevelConfiguration.Level14Production)
+                                                                ? LevelConfiguration.Level15Production
+                                                                : null;
 }

@@ -84,7 +84,7 @@ public sealed class GameplayRecordingTests
 	}
 
 	[Fact]
-	public void LevelFifteenDirectStartIdentityRoundTripsThroughRecordingAndPlayback()
+	public void LevelFifteenProductionIdentityRoundTripsThroughRecordingAndPlayback()
 	{
 		GameplayStartupConfiguration startup = new(15, 3, 1.0, 1981);
 		PlayerInputRecorder recorder = new(startup);
@@ -100,7 +100,7 @@ public sealed class GameplayRecordingTests
 
 			Assert.Equal(15, recording.StartupConfiguration.StartingDisplayedLevel);
 			Assert.Equal(15, recording.Replay.StartingConfiguration.DisplayedLevel);
-			Assert.Same(LevelConfiguration.Level15DirectStartCandidate,
+			Assert.Same(LevelConfiguration.Level15Production,
 				recording.Replay.StartingConfiguration);
 			Assert.Equal(15, playback.Game.CurrentLevel.Configuration.DisplayedLevel);
 			Assert.Equal(default, recording.Replay.GetFrame(0).Input);
@@ -323,6 +323,7 @@ public sealed class GameplayRecordingTests
 	[Theory]
 	[InlineData(1, 1, 3, 1.0, 1981)]
 	[InlineData(2, 5, 10, 2.5, 9127)]
+	[InlineData(2, 15, 7, 1.0, 1981)]
 	public void SharedPlaybackSessionPreservesVersionedStartupAndFrameSemantics(
 		int version, int startingLevel, int startingLives, double rimSpeed, int seed)
 	{

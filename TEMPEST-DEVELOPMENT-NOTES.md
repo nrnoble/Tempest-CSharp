@@ -3962,8 +3962,8 @@ The handoff is covered by automated progression tests, with no separate manual
 acceptance claim. At this 2026-11-12 closeout, production Level 10 remained
 unimplemented; the later development-only diagnostic candidate is recorded
 separately below. The 2026-11-23 accepted integration supersedes this boundary:
-the current production chain is `9 -> 10 -> 11 -> 12`, with Level 12 terminal
-until Level 13 is implemented.
+the chain at that checkpoint was `9 -> 10 -> 11 -> 12`. Subsequent work
+extended it through Level 15.
 Accepted Levels 1–8 are frozen and unchanged by this milestone.
 
 **DEFERRED POST-LEVEL-9 MILESTONES (not Level 9 blockers):**
@@ -4385,9 +4385,8 @@ and shared diagnostic facilities remain.
   ROM `$B0` tip source, and terminal Spiker-to-Tanker conversion.
 - **HISTORICAL PROGRESSION BOUNDARY:** At this Level 11 closeout, Level 11 was
   terminal and Level 12 remained unimplemented. The 2026-11-23 accepted
-  integration implemented production Level 12 and made it terminal until
-  Level 13 is implemented. Level 15 remains direct-only with unaccepted
-  gameplay and presentation fidelity; future visual fine-tuning is deferred.
+  integration implemented production Level 12 and made it terminal at that
+  checkpoint. Later work accepted Levels 13-15 and extended the campaign.
 
 ## Production Fuseball visual-animation closeout - 2026-11-22
 
@@ -4438,8 +4437,8 @@ and shared diagnostic facilities remain.
   `2` do not enable them. Neal established that Pulsars do not appear before
   Level 17; Level 12 introduces none. Do not infer eligibility from raw table
   values or add Pulsars to Level 12.
-- **PROJECT DECISION — PROGRESSION AND VALIDATION:** Level 12 is the terminal
-  production level until Level 13 is implemented. A deterministic
+- **PROJECT DECISION — PROGRESSION AND VALIDATION:** Level 12 was the terminal
+  production level at that checkpoint. A deterministic
   production-backed headless soak bounded to 1,200 ticks checks admission,
   enemy lifecycle, lane validity, and ledger identity conservation. It
   supplements but does not replace Neal's manual gameplay acceptance.
@@ -4477,8 +4476,7 @@ and shared diagnostic facilities remain.
 - **PROJECT DECISION — SELECTOR SEMANTICS:** `--start-level N` starts a fresh
   game at a production campaign member and then follows normal progression.
   Production `--level N` starts already use that same continuing production
-  behavior; the selectors differ only in eligibility. `--level` also retains
-  direct-only Level 15, which is not a production campaign member.
+  behavior; both selectors now accept production Levels 1-15.
 - **PROJECT DECISION — FRESH START:** Both production selectors use ordinary
   fresh-game initialization at the selected level, without synthetic history
   for skipped levels. Level-specific `--levelN-test` and scenario selectors
@@ -4489,8 +4487,7 @@ and shared diagnostic facilities remain.
   progression adjustment is required.
 - **PROJECT DECISION — PRODUCTION CHAIN:** Level 10 is a production member in
   `9 -> 10 -> 11 -> 12`; the later accepted Level 13 integration extends it
-  to `9 -> 10 -> 11 -> 12 -> 13`. Direct-only Level 15 is not inserted into
-  this chain.
+  to `9 -> 10 -> 11 -> 12 -> 13`. Later work extends it through Level 15.
 - **ROM-BACKED / PROJECT TRANSLATION — LEVEL 10:** Established Level 10 raw
   geometry and presentation metadata retain their ROM/disassembly-backed
   status. Its preserved Level-7-like gameplay remains a PROJECT TRANSLATION
@@ -4508,9 +4505,9 @@ and shared diagnostic facilities remain.
   normal gameplay and enemy mix, Tanker behavior/cargo, Spiker and Fuseball
   behavior, no Pulsars, starting Spikes, firing and Super Zapper,
   death/re-entry, wave completion, Level 13 HUD, and normal Atari Playing
-  presentation after calibration. It follows Level 12 and remains terminal
-  until Level 14 is implemented. `--start-level 13` is a genuine production
-  start; direct-only Level 15 remains outside progression.
+  presentation after calibration. It follows Level 12 and was terminal
+  at that checkpoint. `--start-level 13` is a genuine production
+  start; subsequent promotion extends progression through Level 15.
 - **ROM-BACKED — SHAPE AND PRESENTATION:** Displayed Level 13 maps to shape
   row 14. The bounded, disassembly-anchored local K1 read established ordered
   X `B0 80 50 47 18 30 18 47 50 80 B0 B9 E8 D4 E8 B9`, Y
@@ -4575,9 +4572,8 @@ and shared diagnostic facilities remain.
   Zapper, death/re-entry, wave completion and Level 14 HUD pass. No regressions
   or new gameplay bugs were observed; no gameplay correction is required.
   Production continues `9 -> 10 -> 11 -> 12 -> 13 -> 14`, and
-  `--start-level 14` is a genuine campaign start. Level 14 remains terminal
-  until production Level 15 is implemented and accepted; direct-only Level 15
-  remains unchanged and outside production progression.
+  `--start-level 14` is a genuine campaign start. Subsequent promotion adds
+  the accepted Level 15 configuration after Level 14.
 - **ROM/DISASSEMBLY-BACKED — TUBE:** The established Level 14 mapping selects
   row 15. Bounded reads of the authorized Rev. 2 K1 image recovered X
   `10 1E 21 28 3C 55 66 73 8D 9A AB C4 D8 DF E2 F0`, Y
@@ -4625,8 +4621,8 @@ and shared diagnostic facilities remain.
 - **BASELINE CLARIFICATION:** The existing direct-start Level 15 candidate is
   the candidate Neal manually tested. Neal accepts Level 15 gameplay after
   confirming the corrected starting-Spike length and terminal-Spiker behavior.
-  Normal production progression still ends at Level 14; Level 15 remains a
-  direct-start/development-only candidate.
+  Subsequent production promotion adds this accepted configuration after
+  Level 14, without changing its gameplay.
 - **ROM-BACKED — STARTING SPIKE:** The `$92C5-$92D4` parameter loader selects
   effective level `curlevel+1`; `$9657` points to the `wave_spikeht` table at
   `$9607_53`, with its range starting at level 1. The Level 15 entry is raw
@@ -4659,5 +4655,31 @@ and shared diagnostic facilities remain.
   fixed. This accepts the C# lifecycle translation for the development
   candidate; it does not assert literal ROM behavior.
 - **SCOPE:** Starting-Spike count and lane placement, direct-start behavior,
-  and Levels 1-14 are preserved. Level 15 has not been promoted into campaign
-  progression. No Level 16 acceptance or implementation work is included.
+  and Levels 1-14 are preserved. No Level 16 acceptance or implementation work
+  is included.
+
+## Level 15 campaign promotion — 2026-11-24
+
+- **PROJECT DECISION:** Production progression is
+  `9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15`; Level 15 is terminal until
+  Level 16 is implemented. Both `--level 15` and `--start-level 15` use the
+  accepted configuration as a fresh production start.
+- **MANUAL CAMPAIGN-INTEGRATION ACCEPTANCE:** Neal reports that Level 15
+  production promotion passes manual testing: Level 14 completes naturally
+  into Level 15, its accepted presentation and configuration activate, and
+  play otherwise matches the previously accepted direct-start version. No
+  further promotion work is required. This is not new gameplay-fidelity
+  evidence.
+- The existing score and lives carry, between-level Super Zapper behavior,
+  Approach, active HUD transition, and active Level 15 calibration are
+  preserved. Recording/playback identity and the generic ExitZoom remain
+  unchanged; the known ExitZoom presentation imperfection is non-blocking.
+- Neal's Level 15 gameplay and presentation acceptance preceded this
+  promotion. Its calibration remains Y gain `1.15`, scale `1`, vertical
+  offset `75`, and depth-Y gain `1`.
+- The ROM-backed starting Spike raw `$A0` and project-translated height
+  approximately `142.857` at depth 400 remain unchanged. The accepted
+  terminal-Spiker project translation still converts the same identity to a
+  Tanker with two owned cargo identities when pending originals reach zero.
+- This promotion does not add Level 16 or change the prior gameplay evidence
+  classifications.

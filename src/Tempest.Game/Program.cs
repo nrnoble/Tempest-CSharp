@@ -4,7 +4,6 @@
 //
 // Development command-line modes (see DebugController): --level N starts a fresh supported
 // production game and continues progression; --start-level N limits this to campaign levels.
-// Direct Level 15 preserves a tube candidate outside the production campaign chain;
 // --gameplay-playback runs the seeded Level 1 input
 // profile; --gameplay-playback-level4 runs the distinct profile on production Level 4;
 // --level2-test, --level3-test, --level4-test, --level6-test and --level7-test
@@ -16,8 +15,7 @@
 // scenarios. --game-over-density only changes the procedural visible speck count, not mark size;
 // --level7-spiker-speed and --level9-spiker-speed fix their level's Spiker movement only for calibration runs;
 // --spinner-sensitivity scales only live horizontal mouse/spinner input;
-// File recordings use --record-gameplay <file> with optional production or direct-only
-// Level 15 tube-candidate startup;
+// File recordings use --record-gameplay <file> with optional production startup;
 // file playback restores startup identity, pauses with Space, steps with Right, and reconstructs
 // backward with Left while paused. F9 pauses live play and F10 requests a screenshot; these
 // process controls stay outside PlayerInput and the recording.
@@ -31,8 +29,8 @@
 // --tube-depth-y-gain scales the depth-dependent Atari camera-origin Y displacement;
 // --tube-scale uniformly scales the DEVELOPMENT-ONLY presented tube and attached artwork;
 // --tube-vertical-offset translates the complete DEVELOPMENT-ONLY presentation in screen space;
-// Level 10 uses its accepted +50 placement; direct Level 15 has its own accepted presentation defaults.
-// Normal play progresses Level 1 through terminal Level 14.
+// Level 10 uses its accepted +50 placement; Level 15 has its own accepted presentation defaults.
+// Normal play progresses Level 1 through terminal Level 15.
 using System.Globalization;
 using System.Text.Json;
 using Raylib_cs;
@@ -293,7 +291,7 @@ if (spinnerSensitivityOptions.WasExplicitlySpecified)
 if (atariPresentationEnabled)
 {
     Console.WriteLine(
-        "DEVELOPMENT ONLY — Atari presentation candidate enabled for production Levels 1-14 and direct-only Level 15.");
+        "DEVELOPMENT ONLY — Atari presentation candidate enabled for production Levels 1-15.");
 }
 
 if (tubeYGainOptions.WasExplicitlySpecified)

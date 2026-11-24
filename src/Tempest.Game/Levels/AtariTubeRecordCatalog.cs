@@ -150,7 +150,7 @@ public static class AtariTubeRecordCatalog
 
     public static AtariTubeRecord Level14Record15 => Level14Record;
 
-    // DEVELOPMENT ONLY: manually identified Level 15 tube, selected as Rev. 2 shape row 10.
+    // Manually identified Level 15 tube, selected as Rev. 2 shape row 10.
     private static readonly AtariTubeRecord Level15Record =
         new(
             recordIndex: 10,

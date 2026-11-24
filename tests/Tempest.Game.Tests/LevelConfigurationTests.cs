@@ -234,11 +234,14 @@ public sealed class LevelConfigurationTests
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level12Production));
         Assert.Same(LevelConfiguration.Level14Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level13Production));
-        Assert.Same(LevelConfiguration.Level14Production, LevelProgression.GetLastProductionLevel());
+        Assert.Same(LevelConfiguration.Level15Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level14Production));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level15Production));
+        Assert.Same(LevelConfiguration.Level15Production, LevelProgression.GetLastProductionLevel());
         Assert.Same(LevelConfiguration.Level11Production, LevelProgression.GetProductionLevel(11));
         Assert.Same(LevelConfiguration.Level14Production, LevelProgression.GetProductionLevel(14));
-        Assert.Null(LevelProgression.GetProductionLevel(15));
-        Assert.Same(LevelConfiguration.Level15DirectStartCandidate,
+        Assert.Same(LevelConfiguration.Level15Production, LevelProgression.GetProductionLevel(15));
+        Assert.Same(LevelConfiguration.Level15Production,
             LevelProgression.GetDirectStartLevel(15));
         Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level3Plus));
         Assert.Null(LevelProgression.GetNextProductionLevel(
@@ -283,7 +286,7 @@ public sealed class LevelConfigurationTests
         Assert.Same(LevelConfiguration.Level11Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level10Production));
         Assert.Equal(LevelExitPolicy.Standard,
-            LevelConfiguration.Level15DirectStartCandidate.ExitPolicy);
+            LevelConfiguration.Level15Production.ExitPolicy);
         Assert.Equal(150, LevelConfiguration.Level4Candidate.AvoidSpikesWaitThreshold);
         Assert.Equal(150, LevelConfiguration.Level5Production.AvoidSpikesWaitThreshold);
         Assert.Equal(70, LevelConfiguration.Level6Production.AvoidSpikesWaitThreshold);

@@ -316,7 +316,7 @@ public sealed class TubeDepthYGainTests : IDisposable
 	}
 
 	private static TempestGame CreateGame(int level) => level == 15
-		? new TempestGame(LevelConfiguration.Level15DirectStartCandidate)
+		? new TempestGame(LevelConfiguration.Level15Production)
 		: new TempestGame(startingProductionLevel: level);
 
 	private static AtariPresentationProjection Project(Vector2 point, float depth, float gain) =>

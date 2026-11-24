@@ -12,7 +12,7 @@ public sealed class Level15TubeCandidateTests
     [Fact]
     public void StartingSpikesUseTheLevelFifteenRomAlongCoordinateTranslation()
     {
-        LevelConfiguration configuration = LevelConfiguration.Level15DirectStartCandidate;
+        LevelConfiguration configuration = LevelConfiguration.Level15Production;
         float expectedHeight = LevelConfiguration.Level15StartingSpikeHeight;
 
         Assert.Equal((byte)0xA0, LevelConfiguration.Level15StartingSpikeHeightRaw);
@@ -32,14 +32,14 @@ public sealed class Level15TubeCandidateTests
             game.Spikes.Select(spike => spike.EdgeIndex));
         Assert.All(game.Spikes, spike =>
             Assert.Equal(expectedHeight, spike.Height, precision: 5));
-        Assert.Null(LevelProgression.GetProductionLevel(15));
+        Assert.Same(configuration, LevelProgression.GetProductionLevel(15));
         Assert.Same(configuration, LevelProgression.GetDirectStartLevel(15));
     }
 
     [Fact]
     public void SpikerExtendsTheLevelFifteenStartingSpikeThroughTheSharedLifecycle()
     {
-        Level level = new(LevelConfiguration.Level15DirectStartCandidate);
+        Level level = new(LevelConfiguration.Level15Production);
         Spike spike = Assert.Single(level.Spikes, candidate => candidate.EdgeIndex == 0);
         float initialHeight = spike.Height;
         Spiker spiker = new(edgeIndex: 0, speed: 4);
@@ -55,7 +55,7 @@ public sealed class Level15TubeCandidateTests
     [Fact]
     public void SeededDirectStartCandidateWaveConservesEveryIdentityBeyondStartup()
     {
-        TempestGame game = new(LevelConfiguration.Level15DirectStartCandidate, random: new Random(4));
+        TempestGame game = new(LevelConfiguration.Level15Production, random: new Random(4));
         Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger!;
         for (int tick = 0; tick < 126; tick++)
             game.RunOneStep();
@@ -99,7 +99,7 @@ public sealed class Level15TubeCandidateTests
     [Fact]
     public void DirectFuseballZapResolvesItsOriginalIdentity()
     {
-        TempestGame game = new(LevelConfiguration.Level15DirectStartCandidate, random: new Random(4));
+        TempestGame game = new(LevelConfiguration.Level15Production, random: new Random(4));
         for (int tick = 0; tick < 127; tick++)
             game.RunOneStep();
 
@@ -117,7 +117,7 @@ public sealed class Level15TubeCandidateTests
     [Fact]
     public void FullCapacityDefersEggUntilAnExistingIdentityResolves()
     {
-        TempestGame game = new(LevelConfiguration.Level15DirectStartCandidate, random: new Random(4));
+        TempestGame game = new(LevelConfiguration.Level15Production, random: new Random(4));
         for (int tick = 0; tick < 50; tick++)
             game.CurrentLevel.UpdateEggRelease();
         foreach (Egg egg in game.Eggs)
@@ -161,7 +161,7 @@ public sealed class Level15TubeCandidateTests
     [Fact]
     public void DirectFuseballReconstructsAsTheSameGenericOriginalAfterDeath()
     {
-        TempestGame game = new(LevelConfiguration.Level15DirectStartCandidate, random: new Random(4));
+        TempestGame game = new(LevelConfiguration.Level15Production, random: new Random(4));
         for (int tick = 0; tick < 127; tick++)
             game.RunOneStep();
         Level3WaveLedger ledger = game.CurrentLevel.Level3Ledger!;
@@ -186,7 +186,7 @@ public sealed class Level15TubeCandidateTests
     [Fact]
     public void DirectFuseballShotResolvesItsOriginalIdentity()
     {
-        TempestGame game = new(LevelConfiguration.Level15DirectStartCandidate, random: new Random(4));
+        TempestGame game = new(LevelConfiguration.Level15Production, random: new Random(4));
         for (int tick = 0; tick < 127; tick++)
             game.RunOneStep();
         Fuseball fuseball = Assert.Single(game.Fuseballs);
@@ -210,7 +210,7 @@ public sealed class Level15TubeCandidateTests
     [Fact]
     public void DirectFuseballAtRimResolvesOnlyWhenAllObligationsAreAtRim()
     {
-        LevelConfiguration fixture = LevelConfiguration.Level15DirectStartCandidate with
+        LevelConfiguration fixture = LevelConfiguration.Level15Production with
         {
             EnemySupply = 1,
             InitialActiveEggCount = 1
@@ -268,7 +268,7 @@ public sealed class Level15TubeCandidateTests
     [Fact]
     public void LevelFifteenCandidatePreservesTheManuallyIdentifiedRowTenTube()
     {
-        LevelConfiguration configuration = LevelConfiguration.Level15DirectStartCandidate;
+        LevelConfiguration configuration = LevelConfiguration.Level15Production;
         LevelDefinition definition = configuration.Definition;
         RomPresentationMetadata metadata = RomPresentationMetadataCatalog.ForDisplayedLevel(15);
 
@@ -324,7 +324,7 @@ public sealed class Level15TubeCandidateTests
     [Fact]
     public void LevelElevenParameterEvidenceIsNotAttachedToTheLevelFifteenTube()
     {
-        LevelConfiguration configuration = LevelConfiguration.Level15DirectStartCandidate;
+        LevelConfiguration configuration = LevelConfiguration.Level15Production;
 
         Assert.Equal(27, Level11WaveSelection.OrdinaryEnemySupply);
         Assert.Equal(30, Level11WaveSelection.HardDifficultyEnemySupply);
@@ -387,9 +387,9 @@ public sealed class Level15TubeCandidateTests
         Assert.Equal(15, LevelConfiguration.Level11Production.PlayableLaneCount);
         Assert.Equal(16, LevelConfiguration.Level11Production.VertexCount);
         Assert.NotSame(LevelConfiguration.Level11Production.Definition,
-            LevelConfiguration.Level15DirectStartCandidate.Definition);
+            LevelConfiguration.Level15Production.Definition);
         Assert.NotEqual(LevelConfiguration.Level11Production.Definition.Points,
-            LevelConfiguration.Level15DirectStartCandidate.Definition.Points);
+            LevelConfiguration.Level15Production.Definition.Points);
         Assert.Equal(8, AtariTubeRecordCatalog.Level11Record08.RecordIndex);
         Assert.Equal(expectedX,
             AtariTubeRecordCatalog.Level11Record08.RawXPoints);
@@ -405,8 +405,8 @@ public sealed class Level15TubeCandidateTests
             LevelProgression.GetProductionLevel(13));
         Assert.Same(LevelConfiguration.Level14Production,
             LevelProgression.GetProductionLevel(14));
-        Assert.Null(LevelProgression.GetProductionLevel(15));
+        Assert.Same(LevelConfiguration.Level15Production, LevelProgression.GetProductionLevel(15));
         Assert.Null(LevelProgression.GetProductionLevel(16));
-        Assert.Same(LevelConfiguration.Level14Production, LevelProgression.GetLastProductionLevel());
+        Assert.Same(LevelConfiguration.Level15Production, LevelProgression.GetLastProductionLevel());
     }
 }

@@ -94,7 +94,7 @@ public static class RomPresentationMetadataCatalog
     private static readonly RomPresentationMetadata Level14 =
         new(14, RomTubeMappingCatalog.ShapeRowForDisplayedLevel(14),
             0x0C, 0xB0, 0x40, 0x01, 0xFF, 0x50, 0x04);
-    // DEVELOPMENT ONLY: row 10 identifies the Level 15 tube; host-space placement is calibrated separately.
+    // Row 10 identifies the Level 15 tube; host-space placement is calibrated separately.
     private static readonly RomPresentationMetadata Level15 =
         new(15, RomTubeMappingCatalog.ShapeRowForDisplayedLevel(15),
             0x10, 0x90, 0x40, 0x00, 0xFF);
@@ -133,7 +133,7 @@ public static class RomPresentationMetadataCatalog
             throw new ArgumentOutOfRangeException(
                 nameof(displayedLevel),
                 displayedLevel,
-                "ROM presentation metadata is defined only for Levels 1 through 14 and direct-start Level 15.");
+                "ROM presentation metadata is defined only for Levels 1 through 15.");
 
         return ProductionLevels[displayedLevel - 1];
     }

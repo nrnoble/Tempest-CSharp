@@ -43,7 +43,7 @@ public readonly record struct TubeVerticalOffsetOptions(
 /// progression system. No flags = normal Level 1. --level N starts a fresh production game at
 /// that level and continues normal campaign progression; --start-level N restricts the same
 /// continuing startup to production campaign levels. Level 10 preserves its accepted Level-7-like
-/// gameplay on its open geometry. Direct-only Level 15 is outside the campaign. Legacy --levelN-test selectors remain
+/// gameplay on its open geometry. Legacy --levelN-test selectors remain
 /// terminal diagnostics. Scenario flags are mutually exclusive; --enemy-bullets-test (opt-in
 /// Flipper firing), --lives (starting-life override), --rim-speed, --game-over-density and
 /// --level7-spiker-speed and --level9-spiker-speed (bounded level-specific calibration overrides)
@@ -152,9 +152,8 @@ public sealed class DebugController
 			return true;
 
 		int highestLevel = LevelProgression.GetLastProductionLevel().DisplayedLevel;
-		string requirement = selectedOption == "--start-level"
-			? $"--start-level requires an implemented production campaign level (currently ending at Level {highestLevel})."
-			: $"--level requires an implemented production campaign level (currently ending at Level {highestLevel}) or direct-only Level 15.";
+		string requirement =
+			$"{selectedOption} requires an implemented production campaign level (currently ending at Level {highestLevel}).";
 		if (optionIndex + 1 >= arguments.Count ||
 			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal))
 		{

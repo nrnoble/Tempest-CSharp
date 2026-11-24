@@ -170,10 +170,12 @@ public sealed class BackgroundOpacityOptionsTests
 		Assert.Contains("background-opacity", errors.ToString());
 	}
 
-	[Fact]
-	public void BackgroundOpacityDoesNotChangeTubeGeometryColorsOrGameplayState()
+	[Theory]
+	[InlineData(14)]
+	[InlineData(15)]
+	public void BackgroundOpacityDoesNotChangeTubeGeometryColorsOrGameplayState(int level)
 	{
-		TempestGame game = new(startingProductionLevel: 14, random: new Random(1981));
+		TempestGame game = new(startingProductionLevel: level, random: new Random(1981));
 		VectorRenderer opaque = new(game, atariPresentationEnabled: true);
 		Assert.True(DebugController.TryParseBackgroundOpacityOptions(
 			["--background-opacity", ".5"], out var options, out _));
@@ -182,13 +184,13 @@ public sealed class BackgroundOpacityOptionsTests
 			backgroundClearColor: options.BackgroundClearColor);
 		var before = CaptureTube(opaque);
 		var configuration = game.CurrentLevel.Configuration;
-		var calibration = AtariPresentationCalibration.Resolve(14);
+		var calibration = AtariPresentationCalibration.Resolve(level);
 		int score = game.Score.Score;
 
 		Assert.Equal(before, CaptureTube(translucent));
 		Assert.All(CaptureTube(translucent), line => Assert.Equal(255, line.Color.A));
 		Assert.Same(configuration, game.CurrentLevel.Configuration);
-		Assert.Equal(calibration, AtariPresentationCalibration.Resolve(14));
+		Assert.Equal(calibration, AtariPresentationCalibration.Resolve(level));
 		Assert.Equal(score, game.Score.Score);
 	}
 
