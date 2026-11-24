@@ -7,14 +7,15 @@ namespace Tempest.Game.Debug;
 // DEVELOPMENT ONLY: queues are consumed here, never in the gameplay input path.
 public static class InputDiagnostic
 {
-    public static int Run()
+    public static int Run(BackgroundOpacityOptions backgroundOpacityOptions)
     {
+        backgroundOpacityOptions.ConfigureBeforeWindowInitialization(Raylib.SetConfigFlags);
         Raylib.InitWindow(VectorRenderer.ScreenWidth, VectorRenderer.ScreenHeight,
             "Tempest C# - DEVELOPMENT ONLY Input Diagnostic");
-        Raylib.DisableCursor();
-        Raylib.SetTargetFPS(60);
         try
         {
+            Raylib.DisableCursor();
+            Raylib.SetTargetFPS(60);
             KeyboardKey[] keys = Enum.GetValues<KeyboardKey>().Where(key => (int)key > 0).Distinct().ToArray();
             MouseButton[] buttons = Enum.GetValues<MouseButton>().Distinct().ToArray();
             HashSet<KeyboardKey> heldKeys = [];
@@ -92,7 +93,7 @@ public static class InputDiagnostic
                 }
 
                 Raylib.BeginDrawing();
-                Raylib.ClearBackground(Color.Black);
+                Raylib.ClearBackground(backgroundOpacityOptions.BackgroundClearColor);
                 Raylib.BeginMode2D(DisplayConfiguration.PresentationCamera);
                 Raylib.DrawText("DEVELOPMENT ONLY - INPUT DIAGNOSTIC (no gameplay)", 12, 12, 20, Color.Yellow);
                 Raylib.DrawText("Tap twice, pause; hold 2 seconds, release. Test one button at a time.", 12, 42, 16, Color.White);

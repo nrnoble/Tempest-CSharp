@@ -50,6 +50,7 @@ public readonly record struct TubeVerticalOffsetOptions(
 /// compose with normal play.
 /// --speed changes only the interactive host-loop target rate;
 /// --spinner-sensitivity scales live horizontal mouse/spinner input only.
+/// --background-opacity changes only the black framebuffer clear, not rendered content or recordings.
 /// --portrait-perspective calibrates the shared portrait projection only and is not recording data.
 /// --atari-presentation enables an opt-in development-only portrait transform; it is not recording data.
 /// --calibration-guides enables fixed development-only guides in Atari presentation.
@@ -69,6 +70,53 @@ public readonly record struct TubeVerticalOffsetOptions(
 /// </summary>
 public sealed class DebugController
 {
+	public static bool TryParseBackgroundOpacityOptions(
+		IReadOnlyList<string> arguments,
+		out BackgroundOpacityOptions options,
+		out string? error)
+	{
+		options = new BackgroundOpacityOptions(BackgroundOpacityOptions.DefaultOpacity, false);
+		error = null;
+		int optionIndex = -1;
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index].StartsWith("--background-opacity=", StringComparison.Ordinal))
+			{
+				error = "--background-opacity requires a separate value argument.";
+				return false;
+			}
+			if (arguments[index] != "--background-opacity")
+				continue;
+			if (optionIndex >= 0)
+			{
+				error = "--background-opacity may be specified only once.";
+				return false;
+			}
+			optionIndex = index;
+		}
+
+		if (optionIndex < 0)
+			return true;
+		const string requirement =
+			"--background-opacity requires a finite invariant-culture value between 0 and 1 inclusive.";
+		if (optionIndex + 1 >= arguments.Count ||
+			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal) ||
+			!double.TryParse(arguments[optionIndex + 1], NumberStyles.Float,
+				CultureInfo.InvariantCulture, out double parsed) ||
+			!double.IsFinite(parsed) || parsed < 0 || parsed > 1)
+		{
+			error = requirement;
+			return false;
+		}
+		if (HeadlessGameplayPlaybackCli.IsRequested(arguments))
+		{
+			error = "--background-opacity applies only to an interactive window, not headless playback analysis.";
+			return false;
+		}
+		options = new BackgroundOpacityOptions((float)parsed, true);
+		return true;
+	}
+
 	public static bool TryParseStartingLevel(
 		IReadOnlyList<string> arguments,
 		out int? startingLevel,
@@ -985,6 +1033,8 @@ public sealed class DebugController
 			return true;
 		if (!TryParseStartingLevel(arguments, out _, out error))
 			return false;
+		if (!TryParseBackgroundOpacityOptions(arguments, out _, out error))
+			return false;
 		if (!TryParseTubeYGainOptions(arguments, out _, out error))
 			return false;
 		if (!TryParseTubeScaleOptions(arguments, out _, out error))
@@ -1105,6 +1155,13 @@ public sealed class DebugController
 			}
 
 			if (option == "--speed")
+			{
+				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
+					return false;
+				continue;
+			}
+
+			if (option == "--background-opacity")
 			{
 				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
 					return false;

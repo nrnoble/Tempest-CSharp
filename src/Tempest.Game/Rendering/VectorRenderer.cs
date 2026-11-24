@@ -146,6 +146,7 @@ public sealed class VectorRenderer
 	private TempestGame game;
 	private readonly double gameOverDensityMultiplier;
 	private readonly bool atariPresentationEnabled;
+	private readonly Color backgroundClearColor;
 	private readonly bool calibrationGuidesEnabled;
 	private readonly float? tubeYGainOverride;
 	private readonly float? tubeDepthYGainOverride;
@@ -204,7 +205,8 @@ public sealed class VectorRenderer
 		float? tubeVerticalOffset = null,
 		bool calibrationGuidesEnabled = false,
 		AtariHudCalibrationOptions? hudCalibration = null,
-		float? tubeDepthYGain = null)
+		float? tubeDepthYGain = null,
+		Color? backgroundClearColor = null)
 	{
 		ArgumentNullException.ThrowIfNull(game);
 		if (!double.IsFinite(gameOverDensityMultiplier) || gameOverDensityMultiplier <= 0)
@@ -282,6 +284,7 @@ public sealed class VectorRenderer
 				nameof(hudCalibration),
 				"Atari HUD scales must be positive and finite.");
 		this.game = game;
+		this.backgroundClearColor = backgroundClearColor ?? Color.Black;
 		this.gameOverDensityMultiplier = gameOverDensityMultiplier;
 		this.atariPresentationEnabled = atariPresentationEnabled;
 		this.calibrationGuidesEnabled = calibrationGuidesEnabled;
@@ -635,7 +638,7 @@ public sealed class VectorRenderer
 			throw new InvalidOperationException("The Atari presentation candidate is portrait-only.");
 		bool experimentalPortrait = presentationMode == PresentationMode.ExperimentalPortrait;
 		Raylib.BeginDrawing();
-		Raylib.ClearBackground(Color.Black);
+		Raylib.ClearBackground(backgroundClearColor);
 		if (experimentalPortrait)
 			Raylib.BeginScissorMode(
 				DisplayConfiguration.PortraitViewportLeft,

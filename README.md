@@ -217,6 +217,23 @@ dotnet run --project src\Tempest.Game -- --start-level 11 --atari-presentation
 
 ## Development-only tube presentation calibration
 
+`--background-opacity <0..1>` is a development-only whole-background
+transparency control for manual visual overlay calibration. It defaults to 1
+(opaque black), accepts finite invariant-culture values from 0 through 1, and
+does not require Atari presentation. Values below 1 request Raylib's
+transparent framebuffer before window creation and change only the black
+background clear alpha; Tempest vector graphics keep their existing colors
+and opacity. It does not load or automatically align a MAME/reference image,
+change geometry, or affect recording data. Headless playback rejects the
+option because it has no window. Window compositing support may vary by
+platform and window mode; ordinary windowed use is the target.
+
+F10 screenshots use Raylib's current-screen framebuffer capture, not a desktop
+capture, so they do not include applications behind the window. A probe using
+the current Raylib 6.0 runtime and Raylib-cs 8.1.0 found fully transparent
+clear pixels saved with PNG alpha 255; screenshots remain opaque Tempest-only
+images rather than desktop composites.
+
 With `--atari-presentation`, the renderer automatically uses the manually
 selected first-pass Y gain, uniform scale, and vertical offset for the level
 currently displayed. The values and evidence classification are recorded in

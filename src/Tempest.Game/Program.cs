@@ -26,6 +26,7 @@
 // --atari-presentation opts into the shared Atari presentation adapter; Level 7 uses its
 // production gameplay geometry for both the tube and gameplay entities;
 // --calibration-guides enables fixed DEVELOPMENT-ONLY viewport guides;
+// --background-opacity changes only the cleared background alpha for visual comparison;
 // --tube-y-gain changes DEVELOPMENT-ONLY vertical tube proportion;
 // --tube-depth-y-gain scales the depth-dependent Atari camera-origin Y displacement;
 // --tube-scale uniformly scales the DEVELOPMENT-ONLY presented tube and attached artwork;
@@ -53,7 +54,8 @@ if (args.Contains("--help", StringComparer.Ordinal))
         "  --atari-presentation and --level, --start-level, or --playback-file.\n" +
         "  It does not change model Y, common placement, HUD, or depth-size ratio.\n" +
         "  Levels 1-6 use separate projections and have no camera-origin term.\n" +
-        "See README.md for other development options.");
+        "See README.md for other development options.\n" +
+        "  --background-opacity <0..1> changes only the black background transparency for manual overlay calibration; it does not fade vectors or load/align a reference image (default 1).");
     return 0;
 }
 
@@ -69,6 +71,13 @@ if (args.Contains("--level2-four-flipper-cap-test", StringComparer.Ordinal))
     Console.Error.WriteLine(
         "--level2-four-flipper-cap-test was removed; " +
         "production Level 2 now applies the four-Flipper limit automatically.");
+    return 2;
+}
+
+if (!DebugController.TryParseBackgroundOpacityOptions(args,
+    out BackgroundOpacityOptions backgroundOpacityOptions, out string? backgroundOpacityError))
+{
+    Console.Error.WriteLine(backgroundOpacityError);
     return 2;
 }
 
@@ -339,7 +348,7 @@ if (level9SpikerSpeedOverride is float fixedLevel9SpikerSpeed)
 
 // DEVELOPMENT ONLY: observe the same Raylib input framework without running game actions.
 if (DebugController.UseInputDiagnostic(args))
-    return InputDiagnostic.Run();
+    return InputDiagnostic.Run(backgroundOpacityOptions);
 
 Projection.K = 70;
 Projection.ZOffset = 5;
@@ -408,6 +417,7 @@ catch (Exception exception) when (exception is IOException or UnauthorizedAccess
 
 int? deterministicSeed = gameplayStartupConfiguration?.RandomSeed ??
     playback?.RandomSeed ?? recording?.RandomSeed;
+backgroundOpacityOptions.ConfigureBeforeWindowInitialization(Raylib.SetConfigFlags);
 Raylib.InitWindow(VectorRenderer.ScreenWidth, VectorRenderer.ScreenHeight,
     recording is not null
         ? $"Tempest C# - Recording Level {recording.StartupConfiguration.StartingDisplayedLevel}" :
@@ -482,7 +492,8 @@ try
         hudCalibrationOptions,
         tubeDepthYGainOptions.WasExplicitlySpecified
             ? tubeDepthYGainOptions.Gain
-            : null);
+            : null,
+        backgroundClearColor: backgroundOpacityOptions.BackgroundClearColor);
     PlaybackScreenshotCapture screenshotCapture = new(
         ApplicationPaths.Current, Raylib.TakeScreenshot, Console.Out, Console.Error);
     PlaybackScreenshotKeyDiagnostic? screenshotKeyDiagnostic =
