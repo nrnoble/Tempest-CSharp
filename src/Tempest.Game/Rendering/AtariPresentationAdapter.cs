@@ -93,6 +93,7 @@ public static class AtariPresentationAdapter
 	// PROJECT TRANSLATION: center the shared production Level 7 envelope below the portrait HUD.
 	public const float Level7VerticalPlacement = 228.99702f;
 	public const float DefaultTubeYGain = 1f;
+	public const float DefaultTubeDepthYGain = 1f;
 	// PROJECT TRANSLATION: Level 10 final screen-space Y offset. Applied after
 	// projection so the existing horizontal mapping, scale, and depth response stay unchanged.
 	public const float Level10VerticalPlacement = 50;
@@ -124,7 +125,7 @@ public static class AtariPresentationAdapter
 	public const float Level6VerticalPlacement = 177.21448f;
 
 	public static bool HasModelFrameMapping(int displayedLevel) =>
-		displayedLevel is 1 or 2 or 3 or 4 or 7 or 8 or 9 or 10 or 11 or 12 or 15;
+		displayedLevel is 1 or 2 or 3 or 4 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 15;
 
 	public static AtariPresentationProjection ProjectLevel5(
 		float x,
@@ -245,7 +246,8 @@ public static class AtariPresentationAdapter
 		float zOffset,
 		RomPresentationMetadata metadata,
 		float level2VerticalAspectFactor = Level2VerticalAspectFactor,
-		float tubeYGain = DefaultTubeYGain)
+		float tubeYGain = DefaultTubeYGain,
+		float tubeDepthYGain = DefaultTubeDepthYGain)
 	{
 		ArgumentNullException.ThrowIfNull(metadata);
 		if (!float.IsFinite(level2VerticalAspectFactor) || level2VerticalAspectFactor <= 0)
@@ -254,6 +256,9 @@ public static class AtariPresentationAdapter
 		if (!float.IsFinite(tubeYGain) || tubeYGain <= 0)
 			throw new ArgumentOutOfRangeException(nameof(tubeYGain),
 				"The development tube Y gain must be positive and finite.");
+		if (!float.IsFinite(tubeDepthYGain))
+			throw new ArgumentOutOfRangeException(nameof(tubeDepthYGain),
+				"The development tube depth Y gain must be finite.");
 		(float unitsPerRawUnit, int yOrientation) = displayedLevel == 4
 			? (1, 1)
 			: GetModelFrameMapping(displayedLevel);
@@ -452,6 +457,15 @@ public static class AtariPresentationAdapter
 		float screenY = baseline + yOrientation * logicalScale *
 			(metadata.ScreenYOffsetSigned +
 				ReciprocalProjection(yRawDelta, reciprocalDepth, scaleRaw));
+		if (tubeDepthYGain != DefaultTubeDepthYGain)
+		{
+			// Scale only the camera-origin drift relative to the near plane, not model Y or Y2D.
+			float cameraOrigin = AtariCenter - metadata.CameraHeightRaw;
+			double drift = yOrientation * (double)logicalScale *
+				(ReciprocalProjection(cameraOrigin, reciprocalDepth, scaleRaw) -
+				 ReciprocalProjection(cameraOrigin, 16, scaleRaw));
+			screenY = (float)(screenY + ((double)tubeDepthYGain - 1) * drift);
+		}
 		if (displayedLevel == 8)
 			screenY += Level8VerticalPlacement;
 		if (displayedLevel == 9)
@@ -502,9 +516,9 @@ public static class AtariPresentationAdapter
 			3 => (1.756696429f, 1),
 			// PROJECT TRANSLATION: Level 7's established model-frame mapping.
 			7 => (1.678958593f, 1),
-			// Reuse established open-tube normalization. Level 11 is genuine
-			// row-8 geometry; Level 15 placement remains uncalibrated.
-			8 or 9 or 10 or 11 or 12 or 15 => (25f / 14f, -1),
+			// Reuse established raw-tube normalization. Level 11 is row 8,
+			// Level 13 is row 14, and direct Level 15 placement remains uncalibrated.
+			8 or 9 or 10 or 11 or 12 or 13 or 15 => (25f / 14f, -1),
 			_ => throw new ArgumentOutOfRangeException(nameof(displayedLevel), displayedLevel,
 				"No Atari presentation model-frame mapping is established for this level.")
 		};

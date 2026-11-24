@@ -230,7 +230,9 @@ public sealed class LevelConfigurationTests
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level10Production));
         Assert.Same(LevelConfiguration.Level12Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level11Production));
-        Assert.Same(LevelConfiguration.Level12Production, LevelProgression.GetLastProductionLevel());
+        Assert.Same(LevelConfiguration.Level13Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level12Production));
+        Assert.Same(LevelConfiguration.Level13Production, LevelProgression.GetLastProductionLevel());
         Assert.Same(LevelConfiguration.Level11Production, LevelProgression.GetProductionLevel(11));
         Assert.Null(LevelProgression.GetProductionLevel(15));
         Assert.Same(LevelConfiguration.Level15DirectStartCandidate,

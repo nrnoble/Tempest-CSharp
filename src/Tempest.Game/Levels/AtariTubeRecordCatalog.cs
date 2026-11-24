@@ -108,6 +108,27 @@ public static class AtariTubeRecordCatalog
 
     public static AtariTubeRecord Level12Record12 => Level12Record;
 
+    // ROM-BACKED Rev 2 shape row 14 for displayed Level 13.
+    private static readonly AtariTubeRecord Level13Record =
+        new(
+            recordIndex: 14,
+            rawXPoints:
+            [
+                0xB0, 0x80, 0x50, 0x47, 0x18, 0x30, 0x18, 0x47,
+                0x50, 0x80, 0xB0, 0xB9, 0xE8, 0xD4, 0xE8, 0xB9
+            ],
+            rawYPoints:
+            [
+                0xE6, 0xD0, 0xE6, 0xB9, 0xAE, 0x80, 0x52, 0x47,
+                0x14, 0x30, 0x14, 0x47, 0x52, 0x80, 0xAE, 0xB9
+            ],
+            scaleRaw: RomPresentationMetadataCatalog.ForDisplayedLevel(13).ScaleRaw,
+            cameraHeightRaw: RomPresentationMetadataCatalog.ForDisplayedLevel(13).CameraHeightRaw,
+            screenYOffset: RomPresentationMetadataCatalog.ForDisplayedLevel(13).ScreenYOffsetSigned,
+            openRaw: RomPresentationMetadataCatalog.ForDisplayedLevel(13).OpenRaw);
+
+    public static AtariTubeRecord Level13Record14 => Level13Record;
+
     // DEVELOPMENT ONLY: manually identified Level 15 tube, selected as Rev. 2 shape row 10.
     private static readonly AtariTubeRecord Level15Record =
         new(
@@ -136,11 +157,13 @@ public static class AtariTubeRecordCatalog
                 ? Level11Record
                 : recordIndex == Level12Record.RecordIndex
                     ? Level12Record
-                    : recordIndex == Level15Record.RecordIndex
-                        ? Level15Record
-                        : throw new ArgumentOutOfRangeException(
-                            nameof(recordIndex), recordIndex,
-                            "Only Atari tube records 06, 08, 10 and 12 are cataloged.");
+                    : recordIndex == Level13Record.RecordIndex
+                        ? Level13Record
+                        : recordIndex == Level15Record.RecordIndex
+                            ? Level15Record
+                            : throw new ArgumentOutOfRangeException(
+                                nameof(recordIndex), recordIndex,
+                                "Only Atari tube records 06, 08, 10, 12 and 14 are cataloged.");
 
     private static AtariTubeRecord CreateLevel7Record()
     {

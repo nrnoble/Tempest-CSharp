@@ -4488,9 +4488,9 @@ and shared diagnostic facilities remain.
   -> 12 with score and lives carried. No further selector or Level 10
   progression adjustment is required.
 - **PROJECT DECISION — PRODUCTION CHAIN:** Level 10 is a production member in
-  `9 -> 10 -> 11 -> 12`. Level 11 continues to Level 12; Level 12 remains the
-  terminal production level until Level 13 is implemented. Direct-only Level
-  15 is not inserted into this chain.
+  `9 -> 10 -> 11 -> 12`; the later accepted Level 13 integration extends it
+  to `9 -> 10 -> 11 -> 12 -> 13`. Direct-only Level 15 is not inserted into
+  this chain.
 - **ROM-BACKED / PROJECT TRANSLATION — LEVEL 10:** Established Level 10 raw
   geometry and presentation metadata retain their ROM/disassembly-backed
   status. Its preserved Level-7-like gameplay remains a PROJECT TRANSLATION
@@ -4500,3 +4500,68 @@ and shared diagnostic facilities remain.
   semantics are unchanged. Existing recordings that continue beyond Level 10
   completion or Game Over follow the corrected production progression and
   restart behavior.
+
+## Accepted Level 13 production integration - 2026-11-23
+
+- **NEAL MANUAL ACCEPTANCE — PASS:** Displayed Level 13 is accepted as a
+  genuine row-14 production level with closed-tube gameplay, spinner behavior,
+  normal gameplay and enemy mix, Tanker behavior/cargo, Spiker and Fuseball
+  behavior, no Pulsars, starting Spikes, firing and Super Zapper,
+  death/re-entry, wave completion, Level 13 HUD, and normal Atari Playing
+  presentation after calibration. It follows Level 12 and remains terminal
+  until Level 14 is implemented. `--start-level 13` is a genuine production
+  start; direct-only Level 15 remains outside progression.
+- **ROM-BACKED — SHAPE AND PRESENTATION:** Displayed Level 13 maps to shape
+  row 14. The bounded, disassembly-anchored local K1 read established ordered
+  X `B0 80 50 47 18 30 18 47 50 80 B0 B9 E8 D4 E8 B9`, Y
+  `E6 D0 E6 B9 AE 80 52 47 14 30 14 47 52 80 AE B9`, and angles
+  `0A 06 0C 08 0E 0A 00 0C 02 0E 04 00 06 02 08 04`. Metadata: scale `18`,
+  camera `20`, signed Y placement `-352`, closed, Flipper scale `0400`.
+  Point centering, `25/14` scaling and Y inversion are PROJECT TRANSLATIONS.
+- **ROM/DISASSEMBLY-BACKED — PARAMETER ROW / PICKER:** Ordinary/hard supply
+  is `1A`/`1D` (26/29); active limit is 6 with 7 physical slots. Raw species
+  min/max values are Flippers `0/5`, Tankers `1/2`, Spikers `2/3`,
+  Fuseballs `1/1`, Pulsars `0/0`; Pulsar fire-enable is zero. The ROM picker
+  calls only types with a nonzero minimum, so Level 13 production selects
+  Tankers, Spikers and Fuseballs, not ordinary Flippers or Pulsars. The
+  accepted no-Pulsars-before-Level-17 boundary remains intact.
+- **ROM-BACKED / PROJECT TRANSLATION — SPIKE AND MOVEMENT:** Raw starting
+  Spike `A0` is an Atari along-coordinate, translated as
+  `(F0 - A0) * Level.Depth / 224` to about `142.857` C# height. Flipper program
+  `$53` reuses the existing spike-sensitive C# path. Tanker cargo types are
+  `01/01`; the established `$53` deep shot-release and `$07` straight paths
+  use the `$20` along threshold. Raw shot holdoff `44` is reused as the
+  established simulation-tick approximation; enemy-shot limit is 2. These
+  mappings are not independent Level 13 timing or handling acceptance.
+- **PROJECT TRANSLATION — PRESENTATION / SPINNER:** The accepted presentation
+  uses the closed ROM-backed topology, 16 playable lanes, proper final-to-first
+  wraparound, and existing raw geometry model-frame normalization `(25/14,-1)`.
+  Neal manually accepted tube Y gain `1.2`, scale `1.0`, vertical offset `0`,
+  and depth-Y gain `0.3` against MAME. The depth-Y value is a manually accepted
+  PROJECT TRANSLATION, not an Atari ROM constant; raw camera-height metadata
+  and row-14 geometry are unchanged. The transformed polygon derives spinner
+  sign under the existing clockwise-left convention.
+- **PRESENTATION FINDING:** The genuine row-14 geometry was not shown to be
+  wrong and the near-rim affine silhouette remains structurally preserved.
+  The shared reciprocal-depth camera-origin term causes the large
+  depth-dependent vertical drift. Existing Y gain, scale, and vertical offset
+  cannot independently adjust that degree of freedom; the general
+  development-only `--tube-depth-y-gain` control exposes it. It remains
+  independent of the other controls, accepts finite signed diagnostic values,
+  uses `1` as neutral, and retains per-level availability. The selected Level
+  13 `0.3` does not rewrite ROM camera-height data.
+- **KNOWN DEFERRED DISCREPANCY — EXITZOOM:** Level 13's exit perspective is
+  not fully correct and is similar in character to the separately deferred
+  Level 12 issue, but it does not block acceptance. Neal would prefer the
+  Blaster to remain visible throughout the exit. Apparent camera/Blaster speed
+  divergence is an observation/hypothesis, not a proven simulation defect.
+  Accepted global ExitZoom behavior is preserved and no Level-13-specific
+  correction or further investigation was performed. A separate future
+  deterministic playback/state diagnostic may distinguish real simulation
+  divergence from projection-created apparent motion; this is not unresolved
+  gameplay.
+- **DEVELOPMENT ONLY — VALIDATION:** The production geometry, topology,
+  selection, cargo, startup, progression and deterministic 1,200-tick
+  headless production soak are automated; the soak **PASSED**. Fresh
+  focused/full-suite validation and Release build results are recorded in the
+  paired final closeout report. No interactive game was launched.

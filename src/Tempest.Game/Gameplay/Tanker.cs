@@ -188,6 +188,9 @@ public sealed class Tanker : Enemy
              TankerReleaseKind.SuperZapperDestruction))
             throw new ArgumentOutOfRangeException(nameof(releaseKind));
 
+        if (configuration.UsesLevel13RomWavePolicy)
+            return GetLevel9CargoMovementProgram(Height, releaseKind);
+
         if (!ReferenceEquals(configuration, LevelConfiguration.Level6Production) ||
             releaseKind == TankerReleaseKind.SuperZapperDestruction)
         {

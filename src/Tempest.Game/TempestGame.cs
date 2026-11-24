@@ -12,7 +12,7 @@ namespace Tempest.Game;
 /// renderer only reads the public state exposed here.
 /// </summary>
 /// <remarks>
-/// Normal play progresses through the terminal Level 12 production configuration. Direct Level 2/3/4
+/// Normal play progresses through the terminal Level 13 production configuration. Direct Level 2/3/4
 /// access, the Level 3 geometry diagnostic, the configuration-based headless Level 3 mixed model,
 /// and the Spiker, Tanker, Fuseball and Pulsar scenarios are development-only. Natural production
 /// Flippers use a separate arcade-style firing phase; enemy bullets retain the existing accounting,
@@ -942,15 +942,20 @@ public sealed class TempestGame
         // A blocked hatch stays an Egg, including cargo re-entry, until capacity is available.
         if ((CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
              CurrentLevel.Configuration.UsesLevel12RomWavePolicy ||
+             CurrentLevel.Configuration.UsesLevel13RomWavePolicy ||
              CurrentLevel.Configuration.UsesLevel11ParameterDevelopmentBaseline) &&
             (CountProductionActiveEnemyUnits() >=
-                (CurrentLevel.Configuration.UsesLevel12RomWavePolicy
-                    ? Level12WaveSelection.MaximumActiveEnemies
-                    : Level11WaveSelection.MaximumActiveEnemies) ||
+                (CurrentLevel.Configuration.UsesLevel13RomWavePolicy
+                    ? Level13WaveSelection.MaximumActiveEnemies
+                    : CurrentLevel.Configuration.UsesLevel12RomWavePolicy
+                        ? Level12WaveSelection.MaximumActiveEnemies
+                        : Level11WaveSelection.MaximumActiveEnemies) ||
              CountProductionActiveEnemyUnits() + tankers.Count >=
-                (CurrentLevel.Configuration.UsesLevel12RomWavePolicy
-                    ? Level12WaveSelection.MaximumPhysicalEnemySlots
-                    : Level11WaveSelection.MaximumPhysicalEnemySlots)))
+                (CurrentLevel.Configuration.UsesLevel13RomWavePolicy
+                    ? Level13WaveSelection.MaximumPhysicalEnemySlots
+                    : CurrentLevel.Configuration.UsesLevel12RomWavePolicy
+                        ? Level12WaveSelection.MaximumPhysicalEnemySlots
+                        : Level11WaveSelection.MaximumPhysicalEnemySlots)))
             return null;
         Level3OriginalType? diagnosticType = null;
         if (HasLevel3MixedAdmissionDiagnostic &&
@@ -1056,6 +1061,19 @@ public sealed class TempestGame
                     return null;
                 selectedType = level12SelectedType.Value;
             }
+            else if (CurrentLevel.Configuration.UsesLevel13RomWavePolicy)
+            {
+                Level3OriginalType? level13SelectedType = Level13WaveSelection.SelectOriginalType(
+                    NextRandomInclusive,
+                    tankers.Count,
+                    spikers.Count,
+                    fuseballs.Count,
+                    CountProductionActiveEnemyUnits(),
+                    CountActiveAndLatentFlipperTypeUnits());
+                if (level13SelectedType is null)
+                    return null;
+                selectedType = level13SelectedType.Value;
+            }
             else
             {
                 selectedType = CurrentLevel.Configuration.NormalEnemyComposition ==
@@ -1094,21 +1112,27 @@ public sealed class TempestGame
         {
             if ((CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
                  CurrentLevel.Configuration.UsesLevel12RomWavePolicy ||
+                 CurrentLevel.Configuration.UsesLevel13RomWavePolicy ||
                  CurrentLevel.Configuration.UsesLevel11ParameterDevelopmentBaseline) &&
                 CountProductionActiveEnemyUnits() + tankers.Count + 2 >
-                    (CurrentLevel.Configuration.UsesLevel12RomWavePolicy
-                        ? Level12WaveSelection.MaximumPhysicalEnemySlots
-                        : Level11WaveSelection.MaximumPhysicalEnemySlots))
+                    (CurrentLevel.Configuration.UsesLevel13RomWavePolicy
+                        ? Level13WaveSelection.MaximumPhysicalEnemySlots
+                        : CurrentLevel.Configuration.UsesLevel12RomWavePolicy
+                            ? Level12WaveSelection.MaximumPhysicalEnemySlots
+                            : Level11WaveSelection.MaximumPhysicalEnemySlots))
                 return null;
             int maximumTankers = CurrentLevel.Configuration.UsesLevel7RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel8RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel9RomWavePolicy ||
                 (CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
                  CurrentLevel.Configuration.UsesLevel12RomWavePolicy ||
+                 CurrentLevel.Configuration.UsesLevel13RomWavePolicy ||
                  CurrentLevel.Configuration.UsesLevel11ParameterDevelopmentBaseline)
-                ? (CurrentLevel.Configuration.UsesLevel12RomWavePolicy
-                    ? Level12WaveSelection.MaximumTankers
-                    : 2)
+                ? (CurrentLevel.Configuration.UsesLevel13RomWavePolicy
+                    ? Level13WaveSelection.MaximumTankers
+                    : CurrentLevel.Configuration.UsesLevel12RomWavePolicy
+                        ? Level12WaveSelection.MaximumTankers
+                        : 2)
                 : 6;
             if (!HasLevel3MixedAdmissionDiagnostic && !HasLevel4AdmissionDiagnostic &&
                 !HasLevel5AdmissionDiagnostic && !HasLevel6AdmissionDiagnostic &&
@@ -1127,9 +1151,11 @@ public sealed class TempestGame
 
         if (selectedType == Level3OriginalType.Fuseball)
         {
-            int maximumFuseballs = CurrentLevel.Configuration.UsesLevel12RomWavePolicy
-                ? Level12WaveSelection.MaximumFuseballs
-                : Level11WaveSelection.MaximumFuseballs;
+            int maximumFuseballs = CurrentLevel.Configuration.UsesLevel13RomWavePolicy
+                ? Level13WaveSelection.MaximumFuseballs
+                : CurrentLevel.Configuration.UsesLevel12RomWavePolicy
+                    ? Level12WaveSelection.MaximumFuseballs
+                    : Level11WaveSelection.MaximumFuseballs;
             if (fuseballs.Count >= maximumFuseballs)
                 return null;
             if (ledger.GetOriginalState(originalId) == Level3OriginalState.Egg)
@@ -1545,7 +1571,8 @@ public sealed class TempestGame
             int pendingGenericOriginals = HasLevel7AdmissionDiagnostic ||
                 CurrentLevel.Configuration.UsesLevel9RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
-                CurrentLevel.Configuration.UsesLevel12RomWavePolicy
+                CurrentLevel.Configuration.UsesLevel12RomWavePolicy ||
+                CurrentLevel.Configuration.UsesLevel13RomWavePolicy
                 ? CurrentLevel.Level3Ledger!.PendingGenericOriginalCount
                 : 0;
             if (HasLevel7AdmissionDiagnostic &&
@@ -1572,6 +1599,12 @@ public sealed class TempestGame
                 spiker.RestartForPendingSupply();
                 continue;
             }
+            if (CurrentLevel.Configuration.UsesLevel13RomWavePolicy &&
+                pendingGenericOriginals > 0)
+            {
+                spiker.RestartForPendingSupply();
+                continue;
+            }
 
             spikers.RemoveAt(index--);
             developmentCollisionOrder.Remove(spiker);
@@ -1591,7 +1624,8 @@ public sealed class TempestGame
                 pendingGenericOriginals);
             bool level11Conversion =
                 (CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
-                 CurrentLevel.Configuration.UsesLevel12RomWavePolicy) &&
+                 CurrentLevel.Configuration.UsesLevel12RomWavePolicy ||
+                 CurrentLevel.Configuration.UsesLevel13RomWavePolicy) &&
                 pendingGenericOriginals == 0;
             bool genericRomConversion = level7Conversion ||
                 (CurrentLevel.Configuration.UsesLevel8RomWavePolicy &&
@@ -1641,7 +1675,8 @@ public sealed class TempestGame
 
             int? pendingGenericSupply =
                 (CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
-                 CurrentLevel.Configuration.UsesLevel12RomWavePolicy)
+                 CurrentLevel.Configuration.UsesLevel12RomWavePolicy ||
+                 CurrentLevel.Configuration.UsesLevel13RomWavePolicy)
                     ? CurrentLevel.Level3Ledger!.PendingGenericOriginalCount
                     : null;
             fuseball.Update(CurrentLevel, Player.EdgeIndex, NextRandomInclusive, HurryUp,

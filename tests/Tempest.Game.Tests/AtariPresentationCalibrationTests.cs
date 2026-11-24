@@ -13,23 +13,27 @@ namespace Tempest.Game.Tests;
 public sealed class AtariPresentationCalibrationTests
 {
 	[Theory]
-	[InlineData(1, 1.4f, .8f, 35f)]
-	[InlineData(2, 1f, 1.1f, 35f)]
-	[InlineData(3, 1.2f, .97f, 35f)]
-	[InlineData(4, 1f, 1f, 35f)]
-	[InlineData(5, 1f, 1.2f, 15f)]
-	[InlineData(6, 1f, 1.28f, 15f)]
-	[InlineData(7, 1.3f, .9f, -25f)]
-	[InlineData(8, 1f, 1f, -75f)]
-	[InlineData(9, 1.5f, 1.05f, -150f)]
-	[InlineData(10, 1.2f, .9f, 15f)]
-	[InlineData(11, 1.5f, 1.1f, 0f)]
+	[InlineData(1, 1.4f, .8f, 35f, 1f)]
+	[InlineData(2, 1f, 1.1f, 35f, 1f)]
+	[InlineData(3, 1.2f, .97f, 35f, 1f)]
+	[InlineData(4, 1f, 1f, 35f, 1f)]
+	[InlineData(5, 1f, 1.2f, 15f, 1f)]
+	[InlineData(6, 1f, 1.28f, 15f, 1f)]
+	[InlineData(7, 1.3f, .9f, -25f, 1f)]
+	[InlineData(8, 1f, 1f, -75f, 1f)]
+	[InlineData(9, 1.5f, 1.05f, -150f, 1f)]
+	[InlineData(10, 1.2f, .9f, 15f, 1f)]
+	[InlineData(11, 1.5f, 1.1f, 0f, 1f)]
+	[InlineData(12, 1.3f, .8f, 0f, 1f)]
+	[InlineData(13, 1.2f, 1f, 0f, .3f)]
+	[InlineData(15, 1f, 1f, 0f, 1f)]
 	public void SelectedDefaultsMatchTheFirstPassTable(
-		int displayedLevel, float yGain, float scale, float verticalOffset)
+		int displayedLevel, float yGain, float scale, float verticalOffset,
+		float depthYGain)
 	{
-		Assert.Equal(new AtariPresentationCalibration(yGain, scale, verticalOffset),
+		Assert.Equal(new AtariPresentationCalibration(yGain, scale, verticalOffset, depthYGain),
 			AtariPresentationCalibration.ForDisplayedLevel(displayedLevel));
-		Assert.Equal(new AtariPresentationCalibration(yGain, scale, verticalOffset),
+		Assert.Equal(new AtariPresentationCalibration(yGain, scale, verticalOffset, depthYGain),
 			AtariPresentationCalibration.Resolve(displayedLevel));
 
 		TempestGame game = new(startingProductionLevel: displayedLevel);
@@ -38,6 +42,29 @@ public sealed class AtariPresentationCalibrationTests
 			CaptureTube(new VectorRenderer(
 				game, atariPresentationEnabled: true,
 				tubeYGain: yGain, tubeScale: scale, tubeVerticalOffset: verticalOffset)));
+	}
+
+	[Fact]
+	public void LevelThirteenDepthGainIsAcceptedAndIndependentOfOtherOverrides()
+	{
+		AtariPresentationCalibration selected =
+			AtariPresentationCalibration.ForDisplayedLevel(13);
+		Assert.Equal(new AtariPresentationCalibration(1.2f, 1f, 0f, .3f), selected);
+		Assert.Equal(new AtariPresentationCalibration(.8f, 1.3f, 12f, .6f),
+			AtariPresentationCalibration.Resolve(
+				13, tubeYGainOverride: .8f, tubeScaleOverride: 1.3f,
+				verticalOffsetOverride: 12f, tubeDepthYGainOverride: .6f));
+
+		TempestGame game = new(startingProductionLevel: 13);
+		List<(Vector2 Start, Vector2 End, Color Color)> defaultTube =
+			CaptureTube(new VectorRenderer(game, atariPresentationEnabled: true));
+		Assert.Equal(defaultTube, CaptureTube(new VectorRenderer(
+			game, atariPresentationEnabled: true,
+			tubeYGain: selected.TubeYGain, tubeScale: selected.TubeScale,
+			tubeVerticalOffset: selected.VerticalOffset,
+			tubeDepthYGain: selected.TubeDepthYGain)));
+		Assert.NotEqual(defaultTube, CaptureTube(new VectorRenderer(
+			game, atariPresentationEnabled: true, tubeDepthYGain: 1f)));
 	}
 
 	[Fact]

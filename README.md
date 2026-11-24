@@ -163,7 +163,7 @@ play and exit from the arcade controller without reaching for the keyboard.
 Production starts follow the ordinary campaign progression; `--level` is not a
 selector that makes production starts terminal. It also retains direct-only
 Level 15, which is not a member of the production campaign. The current
-production chain is Levels 1–12:
+production chain is Levels 1–13:
 
 ```powershell
 dotnet run --project src\Tempest.Game -- --level 5 --lives 10
@@ -179,10 +179,20 @@ development diagnostics, not production campaign selectors. `--lives` remains
 available in either argument order.
 
 Neal manually accepted starting at Level 10 and continuing to Level 11, and
-normal progression from Level 9 through 10, 11 and 12 with score and lives
-carried. Level 12 remains the terminal production level until Level 13 is
-implemented. Level 10's preserved Level-7-like gameplay remains a PROJECT
-TRANSLATION, not an established arcade-mechanics claim.
+normal progression from Level 9 through 10, 11, 12 and 13 with score, lives,
+and active-level presentation carried. Level 13 is accepted for its genuine
+identity, closed-tube gameplay, spinner, enemy mix and behaviors, starting
+Spikes, firing and Super Zapper, death/re-entry, wave completion, Level 13
+HUD, and normal Atari Playing presentation after calibration. It is terminal
+until Level 14 is implemented. Level 10's preserved Level-7-like gameplay
+remains a PROJECT TRANSLATION, not an established arcade-mechanics claim.
+
+For Level 13, this launch uses its accepted Atari-presentation defaults without
+explicit calibration overrides:
+
+```powershell
+dotnet run --project src\Tempest.Game -- --level 13 --atari-presentation
+```
 
 Neal manually accepted this development startup and the controller exit
 controls on 2026-11-06. During those sessions, the game also unexpectedly
@@ -222,9 +232,31 @@ vertical offset accepts any finite signed value in logical screen coordinates
 repositioning or recentering. Overrides remain presentation-only and are not
 stored in gameplay recordings.
 
+`--tube-depth-y-gain <value>` is a development-only, generally available
+Atari-presentation calibration control that independently scales the adapter's
+depth-dependent vertical camera-origin contribution: `1` preserves current
+behavior, `0` removes that contribution, fractions reduce it, values above 1
+exaggerate it, and negative values reverse it. It accepts any finite signed
+invariant-culture value; extreme values may move geometry off screen or exceed
+representable projected coordinates. It does not change model geometry, the
+near-rim anchor, common placement, HUD, or the far/near depth-size ratio.
+It requires `--atari-presentation` and `--level`, `--start-level`, or
+`--playback-file`, and is not recorded. Levels 7-13 and direct Level 15 use
+the camera-origin term; Levels 1-6 use separate projection paths and the
+control has no effect on them. It is independent of `--tube-y-gain`,
+`--tube-scale`, and `--tube-vertical-offset`. The neutral default is `1`
+except on Level 13, where the manually accepted default is `0.3`. This
+non-neutral Level 13 value is a manually accepted PROJECT TRANSLATION, not an
+Atari ROM constant. The same shared world mapping is used during Playing,
+Approach and ExitZoom; the latter retains its existing focal compensation.
+The option accepts any finite signed value, subject to representable
+projection behavior.
+Run `dotnet run --project src\Tempest.Game -- --help` for the diagnostic's
+command-line summary without opening a game window.
+
 The fixed yellow viewport calibration guides are development-only and normally
 off. Add `--calibration-guides` with `--atari-presentation` to restore them
-for calibration and screenshots; they stay fixed independently of the three
+for calibration and screenshots; they stay fixed independently of the
 tube diagnostics.
 
 For example:

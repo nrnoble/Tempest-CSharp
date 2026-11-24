@@ -27,10 +27,11 @@
 // production gameplay geometry for both the tube and gameplay entities;
 // --calibration-guides enables fixed DEVELOPMENT-ONLY viewport guides;
 // --tube-y-gain changes DEVELOPMENT-ONLY vertical tube proportion;
+// --tube-depth-y-gain scales the depth-dependent Atari camera-origin Y displacement;
 // --tube-scale uniformly scales the DEVELOPMENT-ONLY presented tube and attached artwork;
 // --tube-vertical-offset translates the complete DEVELOPMENT-ONLY presentation in screen space;
 // Level 10 uses its accepted +50 placement; genuine Level 11 and direct Level 15 use neutral defaults.
-// Normal play progresses Level 1 through terminal Level 12.
+// Normal play progresses Level 1 through terminal Level 13.
 using System.Globalization;
 using System.Text.Json;
 using Raylib_cs;
@@ -40,6 +41,21 @@ using Tempest.Game.Systems;
 using Tempest.Game.Debug;
 using Tempest.Game.Levels;
 using Tempest.Game.Gameplay;
+
+if (args.Contains("--help", StringComparer.Ordinal))
+{
+    Console.WriteLine(
+        "Development-only Atari presentation diagnostic:\n" +
+        "  --tube-depth-y-gain <value> scales the depth-dependent vertical camera-origin\n" +
+        "  contribution. 1 preserves it, 0 removes it, negative values reverse it.\n" +
+        "  Default is 0.3 for Level 13 and 1 for other supported levels.\n" +
+        "  Any finite signed invariant-culture value is accepted. Requires\n" +
+        "  --atari-presentation and --level, --start-level, or --playback-file.\n" +
+        "  It does not change model Y, common placement, HUD, or depth-size ratio.\n" +
+        "  Levels 1-6 use separate projections and have no camera-origin term.\n" +
+        "See README.md for other development options.");
+    return 0;
+}
 
 if (args.Contains("--level1-four-flipper-cap-test", StringComparer.Ordinal))
 {
@@ -81,6 +97,13 @@ if (!DebugController.TryParseTubeYGainOptions(args,
     out TubeYGainOptions tubeYGainOptions, out string? tubeYGainError))
 {
     Console.Error.WriteLine(tubeYGainError);
+    return 2;
+}
+
+if (!DebugController.TryParseTubeDepthYGainOptions(args,
+    out TubeDepthYGainOptions tubeDepthYGainOptions, out string? tubeDepthYGainError))
+{
+    Console.Error.WriteLine(tubeDepthYGainError);
     return 2;
 }
 
@@ -261,7 +284,7 @@ if (spinnerSensitivityOptions.WasExplicitlySpecified)
 if (atariPresentationEnabled)
 {
     Console.WriteLine(
-        "DEVELOPMENT ONLY — Atari presentation candidate enabled for production Levels 1-12 and direct-only Level 15.");
+        "DEVELOPMENT ONLY — Atari presentation candidate enabled for production Levels 1-13 and direct-only Level 15.");
 }
 
 if (tubeYGainOptions.WasExplicitlySpecified)
@@ -269,6 +292,13 @@ if (tubeYGainOptions.WasExplicitlySpecified)
     Console.WriteLine(
         $"DEVELOPMENT ONLY — tube source cross-section Y gain {tubeYGainOptions.Gain.ToString("G", CultureInfo.InvariantCulture)}; " +
         "applies across the active Atari-presentation level; perspective is unchanged.");
+}
+
+if (tubeDepthYGainOptions.WasExplicitlySpecified)
+{
+    Console.WriteLine(
+        $"DEVELOPMENT ONLY — Atari depth-origin Y gain {tubeDepthYGainOptions.Gain.ToString("G", CultureInfo.InvariantCulture)}; " +
+        "1 preserves the current camera-origin drift, 0 removes it; depth-size ratio is unchanged.");
 }
 
 if (tubeScaleOptions.WasExplicitlySpecified)
@@ -449,7 +479,10 @@ try
             ? tubeVerticalOffsetOptions.Offset
             : null,
         calibrationGuidesEnabled,
-        hudCalibrationOptions);
+        hudCalibrationOptions,
+        tubeDepthYGainOptions.WasExplicitlySpecified
+            ? tubeDepthYGainOptions.Gain
+            : null);
     PlaybackScreenshotCapture screenshotCapture = new(
         ApplicationPaths.Current, Raylib.TakeScreenshot, Console.Out, Console.Error);
     PlaybackScreenshotKeyDiagnostic? screenshotKeyDiagnostic =

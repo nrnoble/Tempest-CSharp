@@ -35,6 +35,7 @@ public sealed class DirectLevelStartupTests
     [InlineData(10)]
     [InlineData(11)]
     [InlineData(12)]
+    [InlineData(13)]
     public void DirectLevelStartsTheFreshProductionConfiguration(int displayedLevel)
     {
         TempestGame game = new(startingProductionLevel: displayedLevel, startingLives: 9);
@@ -71,7 +72,10 @@ public sealed class DirectLevelStartupTests
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level10Production));
         Assert.Same(LevelConfiguration.Level12Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level11Production));
-        Assert.Same(LevelConfiguration.Level12Production, LevelProgression.GetLastProductionLevel());
+        Assert.Same(LevelConfiguration.Level13Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level12Production));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level13Production));
+        Assert.Same(LevelConfiguration.Level13Production, LevelProgression.GetLastProductionLevel());
 
         TempestGame levelEleven = new(startingProductionLevel: 11);
         Assert.Same(LevelConfiguration.Level11Production,
@@ -95,6 +99,11 @@ public sealed class DirectLevelStartupTests
         Assert.Same(LevelConfiguration.Level12Production,
             levelTwelve.CurrentLevel.Configuration);
         Assert.Equal(12, levelTwelve.CurrentLevel.Configuration.DisplayedLevel);
+
+        TempestGame levelThirteen = new(startingProductionLevel: 13);
+        Assert.Same(LevelConfiguration.Level13Production,
+            levelThirteen.CurrentLevel.Configuration);
+        Assert.Equal(13, levelThirteen.CurrentLevel.Configuration.DisplayedLevel);
     }
 
     [Fact]

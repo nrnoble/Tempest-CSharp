@@ -1271,14 +1271,17 @@ public sealed class AtariPresentationAdapterTests
 		Assert.False(AtariPresentationAdapter.HasModelFrameMapping(5));
 		Assert.False(AtariPresentationAdapter.HasModelFrameMapping(6));
 		Assert.True(AtariPresentationAdapter.HasModelFrameMapping(12));
+		Assert.True(AtariPresentationAdapter.HasModelFrameMapping(13));
 		Assert.Equal((25f / 14f, -1),
 			AtariPresentationAdapter.GetModelFrameMapping(12));
+		Assert.Equal((25f / 14f, -1),
+			AtariPresentationAdapter.GetModelFrameMapping(13));
 	}
 
 	[Fact]
 	public void ModelFrameMappingsAreLimitedToEstablishedCandidateLevels()
 	{
-		foreach (int level in new[] { 1, 2, 3, 4, 7, 8, 9 })
+		foreach (int level in new[] { 1, 2, 3, 4, 7, 8, 9, 13 })
 			Assert.True(AtariPresentationAdapter.HasModelFrameMapping(level));
 		foreach (int level in new[] { 5, 6 })
 			Assert.False(AtariPresentationAdapter.HasModelFrameMapping(level));

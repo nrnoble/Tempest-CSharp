@@ -148,6 +148,7 @@ public sealed class VectorRenderer
 	private readonly bool atariPresentationEnabled;
 	private readonly bool calibrationGuidesEnabled;
 	private readonly float? tubeYGainOverride;
+	private readonly float? tubeDepthYGainOverride;
 	private readonly float? tubeScaleOverride;
 	private readonly float? tubeVerticalOffsetOverride;
 	private readonly AtariHudCalibrationOptions hudCalibration;
@@ -202,7 +203,8 @@ public sealed class VectorRenderer
 		float? tubeScale = null,
 		float? tubeVerticalOffset = null,
 		bool calibrationGuidesEnabled = false,
-		AtariHudCalibrationOptions? hudCalibration = null)
+		AtariHudCalibrationOptions? hudCalibration = null,
+		float? tubeDepthYGain = null)
 	{
 		ArgumentNullException.ThrowIfNull(game);
 		if (!double.IsFinite(gameOverDensityMultiplier) || gameOverDensityMultiplier <= 0)
@@ -217,6 +219,15 @@ public sealed class VectorRenderer
 			throw new ArgumentException(
 				"The development tube Y gain requires Atari presentation.",
 				nameof(tubeYGain));
+		if (tubeDepthYGain is float depthYGain && !float.IsFinite(depthYGain))
+			throw new ArgumentOutOfRangeException(nameof(tubeDepthYGain),
+				"The development tube depth Y gain must be finite.");
+		if (!atariPresentationEnabled &&
+			tubeDepthYGain is float explicitDepthYGain &&
+			explicitDepthYGain != AtariPresentationAdapter.DefaultTubeDepthYGain)
+			throw new ArgumentException(
+				"The development tube depth Y gain requires Atari presentation.",
+				nameof(tubeDepthYGain));
 		if (tubeScale is float scale && (!float.IsFinite(scale) || scale <= 0))
 			throw new ArgumentOutOfRangeException(nameof(tubeScale),
 				"The development tube scale must be positive and finite.");
@@ -275,6 +286,7 @@ public sealed class VectorRenderer
 		this.atariPresentationEnabled = atariPresentationEnabled;
 		this.calibrationGuidesEnabled = calibrationGuidesEnabled;
 		tubeYGainOverride = tubeYGain;
+		tubeDepthYGainOverride = tubeDepthYGain;
 		tubeScaleOverride = tubeScale;
 		tubeVerticalOffsetOverride = tubeVerticalOffset;
 		this.hudCalibration = resolvedHudCalibration;
@@ -287,7 +299,8 @@ public sealed class VectorRenderer
 				game.CurrentLevel.Configuration.DisplayedLevel,
 				tubeYGainOverride,
 				tubeScaleOverride,
-				tubeVerticalOffsetOverride)
+				tubeVerticalOffsetOverride,
+				tubeDepthYGainOverride)
 			: new(
 				AtariPresentationAdapter.DefaultTubeYGain,
 				TubeScaleOptions.DefaultScale,
@@ -296,6 +309,7 @@ public sealed class VectorRenderer
 	private float TubeYGain => CurrentCalibration.TubeYGain;
 	private float TubeScale => CurrentCalibration.TubeScale;
 	private float TubeVerticalOffset => CurrentCalibration.VerticalOffset;
+	private float TubeDepthYGain => CurrentCalibration.TubeDepthYGain;
 
 	public void SetGame(TempestGame game)
 	{
@@ -522,7 +536,8 @@ public sealed class VectorRenderer
 			k,
 			zOffset,
 			metadata,
-			tubeYGain: TubeYGain);
+			tubeYGain: TubeYGain,
+			tubeDepthYGain: TubeDepthYGain);
 	}
 
 	private bool UsesAtariPresentationForCurrentLevel =>

@@ -146,6 +146,43 @@ public static class LevelLoader
 		});
 	}
 
+	// ROM-BACKED Rev 2 shape row 14 for displayed Level 13.
+	public static class Level13RomEvidence
+	{
+		public static RomPresentationMetadata PresentationMetadata =>
+			RomPresentationMetadataCatalog.ForDisplayedLevel(13);
+
+		public const byte LookupIndex = 12;
+		public static byte ShapeRemap => checked((byte)PresentationMetadata.TubeTableIndex);
+		public static byte Scale => PresentationMetadata.ScaleRaw;
+		public static byte Y3d => PresentationMetadata.CameraHeightRaw;
+		public static byte Y2dLow => PresentationMetadata.ScreenYOffsetLowRaw;
+		public static byte Y2dHigh => PresentationMetadata.ScreenYOffsetHighRaw;
+		public static ushort Y2d => PresentationMetadata.ScreenYOffsetCombinedRaw;
+		public static byte Open => PresentationMetadata.OpenRaw;
+		public const byte FlipperScaleLow = 0x00;
+		public const byte FlipperScaleHigh = 0x04;
+		public const ushort FlipperScale = 0x0400;
+
+		public static IReadOnlyList<byte> X { get; } = Array.AsReadOnly(new byte[]
+		{
+			0xB0, 0x80, 0x50, 0x47, 0x18, 0x30, 0x18, 0x47,
+			0x50, 0x80, 0xB0, 0xB9, 0xE8, 0xD4, 0xE8, 0xB9
+		});
+
+		public static IReadOnlyList<byte> Y { get; } = Array.AsReadOnly(new byte[]
+		{
+			0xE6, 0xD0, 0xE6, 0xB9, 0xAE, 0x80, 0x52, 0x47,
+			0x14, 0x30, 0x14, 0x47, 0x52, 0x80, 0xAE, 0xB9
+		});
+
+		public static IReadOnlyList<byte> Angles { get; } = Array.AsReadOnly(new byte[]
+		{
+			0x0A, 0x06, 0x0C, 0x08, 0x0E, 0x0A, 0x00, 0x0C,
+			0x02, 0x0E, 0x04, 0x00, 0x06, 0x02, 0x08, 0x04
+		});
+	}
+
 	// DEVELOPMENT ONLY: the manually identified Level 15 candidate uses geometry shape row 10.
 	public static class Level15RomEvidence
 	{
@@ -341,5 +378,19 @@ public static class LevelLoader
 				-(Level12RomEvidence.Y[index] - 128) * scale);
 
 		return new(true, 300, 0, Array.AsReadOnly(points), "Level 12 - Rev 2 closed shape 12");
+	}
+
+	// ROM-BACKED Rev 2 shape row 14; coordinate centering, scaling and Y reflection
+	// remain the established project translation.
+	public static LevelDefinition LoadLevel13ClosedTube()
+	{
+		const float scale = 25f / 14f;
+		Vector2[] points = new Vector2[Level13RomEvidence.X.Count];
+		for (int index = 0; index < points.Length; index++)
+			points[index] = new Vector2(
+				(Level13RomEvidence.X[index] - 128) * scale,
+				-(Level13RomEvidence.Y[index] - 128) * scale);
+
+		return new(true, 300, 0, Array.AsReadOnly(points), "Level 13 - Rev 2 closed shape 14");
 	}
 }

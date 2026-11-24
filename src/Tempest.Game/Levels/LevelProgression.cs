@@ -59,5 +59,7 @@ public static class LevelProgression
                                                 ? LevelConfiguration.Level11Production
                                                 : ReferenceEquals(current, LevelConfiguration.Level11Production)
                                                     ? LevelConfiguration.Level12Production
-                                                    : null;
+                                                    : ReferenceEquals(current, LevelConfiguration.Level12Production)
+                                                        ? LevelConfiguration.Level13Production
+                                                        : null;
 }

@@ -89,6 +89,8 @@ public sealed record LevelConfiguration(
         11 => 56,
         // PROJECT APPROXIMATION: the ROM's 47 holdoff parameter is used as C# ticks.
         12 => 47,
+        // PROJECT APPROXIMATION: the ROM's 44 holdoff parameter is used as C# ticks.
+        13 => 44,
         _ => throw new InvalidOperationException(
             $"No arcade Flipper shot holdoff is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
@@ -111,6 +113,7 @@ public sealed record LevelConfiguration(
         9 => 4,
         11 => 4,
         12 => 2,
+        13 => 2,
         _ => throw new InvalidOperationException(
             $"No arcade enemy-shot capacity is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
@@ -126,6 +129,7 @@ public sealed record LevelConfiguration(
     public bool UsesLevel9RomWavePolicy { get; init; }
     public bool UsesLevel11RomWavePolicy { get; init; }
     public bool UsesLevel12RomWavePolicy { get; init; }
+    public bool UsesLevel13RomWavePolicy { get; init; }
     // DEVELOPMENT ONLY: the preserved Level 15 candidate may retain the separately
     // recovered Level 11 parameter baseline; genuine Level 11 uses UsesLevel11RomWavePolicy.
     public bool UsesLevel11ParameterDevelopmentBaseline { get; init; }
@@ -133,7 +137,7 @@ public sealed record LevelConfiguration(
     public bool UsesGenericRomDeathReconstruction =>
         UsesLevel7RomWavePolicy || UsesLevel8RomWavePolicy ||
         UsesLevel9RomWavePolicy || UsesLevel11RomWavePolicy ||
-        UsesLevel12RomWavePolicy ||
+        UsesLevel12RomWavePolicy || UsesLevel13RomWavePolicy ||
         UsesLevel11ParameterDevelopmentBaseline ||
         ReferenceEquals(this, Level5Production) ||
         ReferenceEquals(this, Level6Production);
@@ -152,6 +156,8 @@ public sealed record LevelConfiguration(
         (0xF0 - Level11WaveSelection.StartingSpikeHeightRaw) * Level.Depth / 224f;
     public const float Level12StartingSpikeHeight =
         (0xF0 - Level12WaveSelection.StartingSpikeHeightRaw) * Level.Depth / 224f;
+    public const float Level13StartingSpikeHeight =
+        (0xF0 - Level13WaveSelection.StartingSpikeHeightRaw) * Level.Depth / 224f;
     // PROJECT CALIBRATION: manually accepted relative projectile lead; not a ROM speed measurement.
     public const float Level9ProductionSpikerSpeed = 2.0f;
 
@@ -494,6 +500,41 @@ public sealed record LevelConfiguration(
         AllowsOrdinaryFlipperSelection = true,
         ProgrammedFlipperInitialDirection = 1,
         StartingSpikeHeight = Level12StartingSpikeHeight
+    };
+
+    // ROM-backed shape row 14 and Level 13 wave parameters. The closed topology
+    // is checked against both the production definition and ROM presentation metadata.
+    public static LevelConfiguration Level13Production { get; } = new(
+        ProgressionIndex: 12,
+        DisplayedLevel: 13,
+        BoardIndex: 12,
+        PaletteIndex: 0,
+        Definition: LevelLoader.LoadLevel13ClosedTube(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: Level13WaveSelection.OrdinaryEnemySupply,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(Enumerable.Range(0, 16).ToArray()),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.Standard,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersTankersAndSpikers)
+    {
+        EffectiveGameplayParameterLevelOverride = 13,
+        Flipper = new(true, 2, 9, 0, 23),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        // PROJECT TRANSLATION: Level 13's ROM program $53 reuses the already implemented
+        // spike-sensitive route; it is not selected for ordinary entries because min=0.
+        BelowRimFlipperProgram = BelowRimFlipperProgram.Level9SpikeSensitive,
+        UsesLevel13RomWavePolicy = true,
+        AllowsOrdinaryFlipperSelection = false,
+        ProgrammedFlipperInitialDirection = 1,
+        StartingSpikeHeight = Level13StartingSpikeHeight
     };
 
     // DEVELOPMENT ONLY: the manually identified Level 15 tube is direct-start only.

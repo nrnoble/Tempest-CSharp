@@ -21,6 +21,11 @@ public readonly record struct TubeYGainOptions(float Gain, bool WasExplicitlySpe
 	public const float DefaultGain = AtariPresentationAdapter.DefaultTubeYGain;
 }
 
+public readonly record struct TubeDepthYGainOptions(float Gain, bool WasExplicitlySpecified)
+{
+	public const float DefaultGain = AtariPresentationAdapter.DefaultTubeDepthYGain;
+}
+
 public readonly record struct TubeScaleOptions(float Scale, bool WasExplicitlySpecified)
 {
 	public const float DefaultScale = 1f;
@@ -49,6 +54,7 @@ public readonly record struct TubeVerticalOffsetOptions(
 /// --atari-presentation enables an opt-in development-only portrait transform; it is not recording data.
 /// --calibration-guides enables fixed development-only guides in Atari presentation.
 /// --tube-y-gain changes the rendered source cross-section Y proportion.
+/// --tube-depth-y-gain scales the depth-dependent Atari camera-origin Y displacement.
 /// --tube-scale uniformly scales the presented tube and attached artwork.
 /// --tube-vertical-offset translates the complete presentation in screen space.
 /// --gameplay-playback selects a seeded Level 1 profile;
@@ -357,6 +363,62 @@ public sealed class DebugController
 		}
 
 		error = "--tube-y-gain requires --level, --start-level, or --playback-file.";
+		return false;
+	}
+
+	public static bool TryParseTubeDepthYGainOptions(
+		IReadOnlyList<string> arguments,
+		out TubeDepthYGainOptions options,
+		out string? error)
+	{
+		options = new TubeDepthYGainOptions(TubeDepthYGainOptions.DefaultGain, false);
+		error = null;
+		int optionIndex = -1;
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index].StartsWith("--tube-depth-y-gain=", StringComparison.Ordinal))
+			{
+				error = "--tube-depth-y-gain requires a separate value argument.";
+				return false;
+			}
+			if (arguments[index] != "--tube-depth-y-gain")
+				continue;
+			if (optionIndex >= 0)
+			{
+				error = "--tube-depth-y-gain may be specified only once.";
+				return false;
+			}
+			optionIndex = index;
+		}
+
+		if (optionIndex < 0)
+			return true;
+		const string requirement =
+			"--tube-depth-y-gain requires a finite signed invariant-culture value.";
+		if (optionIndex + 1 >= arguments.Count ||
+			arguments[optionIndex + 1].StartsWith("--", StringComparison.Ordinal) ||
+			!float.TryParse(arguments[optionIndex + 1], NumberStyles.Float,
+				CultureInfo.InvariantCulture, out float parsed) || !float.IsFinite(parsed))
+		{
+			error = requirement;
+			return false;
+		}
+		if (!TryParseAtariPresentation(arguments, out bool atariPresentationEnabled, out error))
+			return false;
+		if (!atariPresentationEnabled)
+		{
+			error = "--tube-depth-y-gain requires --atari-presentation.";
+			return false;
+		}
+		if (!TryParseStartingLevel(arguments, out int? startingLevel, out error))
+			return false;
+		if (startingLevel is not null ||
+			arguments.Contains("--playback-file", StringComparer.Ordinal))
+		{
+			options = new TubeDepthYGainOptions(parsed, true);
+			return true;
+		}
+		error = "--tube-depth-y-gain requires --level, --start-level, or --playback-file.";
 		return false;
 	}
 
@@ -1059,6 +1121,13 @@ public sealed class DebugController
 				continue;
 
 			if (option == "--tube-y-gain")
+			{
+				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
+					return false;
+				continue;
+			}
+
+			if (option == "--tube-depth-y-gain")
 			{
 				if (!TryReadOptionValue(arguments, ref index, option, out _, out error))
 					return false;

@@ -1398,7 +1398,7 @@ These controls are test conveniences, not arcade level-selection or composition:
 
 | Option | Development behavior |
 |---|---|
-| `--level N` | **DEVELOPMENT ONLY:** fresh start at any implemented production level (1–12), continuing ordinary production progression; direct-only Level 15 is also available but is not a campaign member. |
+| `--level N` | **DEVELOPMENT ONLY:** fresh start at any implemented production level (1–13), continuing ordinary production progression; direct-only Level 15 is also available but is not a campaign member. |
 | `--start-level N` | **DEVELOPMENT ONLY:** fresh start restricted to an implemented production campaign level; continues ordinary campaign progression from that level. |
 | `--level7-spiker-speed <value>` | **DEVELOPMENT ONLY:** Level 7 Spiker movement calibration override (1.0–3.0 inclusive); playback restores a recorded override rather than accepting a direct override. Normal Level 7 uses the accepted Tanker movement relationship. |
 | `--level2-test` | Direct access to the shared closed 16-lane square, supply-12 Flipper-only canflip configuration; terminal development replay, no progression selection. |
@@ -1426,13 +1426,17 @@ creates campaign history for skipped levels. Level-specific `--levelN-test`
 and other test/scenario options remain separate development diagnostics.
 
 **NEAL MANUAL ACCEPTANCE — PASS (2026-11-23):** Neal verified production
-`--start-level` startup at Level 10 and its natural continuation to Level 11,
-and normal progression from Level 9 through Level 10, Level 11 and Level 12.
-Score and lives carried normally. The production chain is
-`9 -> 10 -> 11 -> 12`; Level 12 remains terminal until Level 13 is implemented.
-Level 10's established geometry/raw presentation evidence retains its
-ROM-backed classification; its preserved Level-7-like gameplay remains a
-PROJECT TRANSLATION, not an arcade-mechanics claim.
+`--start-level` startup at Level 10 and natural continuation through Level 13,
+and normal progression from Level 9 through Level 13 with score, lives, and
+active presentation carried. Level 13 is accepted for genuine tube identity,
+closed-tube gameplay and spinner behavior; normal gameplay and enemy mix;
+Tanker behavior/cargo, Spiker and Fuseball behavior, absence of Pulsars,
+starting Spikes, firing and Super Zapper; death/re-entry; wave completion;
+HUD Level 13; and normal Atari Playing presentation after calibration.
+Level 13 remains terminal until Level 14 is implemented. Level 10's
+established geometry/raw presentation evidence retains its ROM-backed
+classification; its preserved Level-7-like gameplay remains a PROJECT
+TRANSLATION, not an arcade-mechanics claim.
 
 Neal manually accepted the original development-only direct-level workflow
 and controller exit convenience on 2026-11-06. V has no production action,
@@ -2761,9 +2765,9 @@ and are not modified here.
 
 **HISTORICAL PRODUCTION SCOPE (2026-11-12):** At this Level 9 closeout,
 Level 9 was the terminal production level and Level 10 was not yet in the
-campaign. The 2026-11-23 accepted integration supersedes that boundary:
-production now continues `9 -> 10 -> 11 -> 12`, with Level 12 terminal until
-Level 13 is implemented.
+campaign. Later accepted integrations superseded that boundary: production
+continues `9 -> 10 -> 11 -> 12 -> 13`, with Level 13 terminal until Level 14
+is implemented.
 
 **PROGRESSION, RECORDING AND TERMINAL BOUNDARY (AT THIS CLOSEOUT):** Natural Level 8→9
 progression, direct `--level 9`, Level 9 recording/playback startup and
@@ -2887,10 +2891,11 @@ implemented/diagnostic Atari presentations with fixed viewport guides and
 selected the following good-enough values. They are presentation calibrations
 based on Neal's manual visual selection, not ROM-derived gameplay geometry or
 claims about Atari tube dimensions. The values are intentionally level-specific;
-do not infer a shared formula or normalize them. A later milestone may fine-tune
-individual levels; later levels may reuse the calibration tooling. Neal manually
-tested the encoded defaults for all ten levels and accepted the first pass.
-Manual gameplay remains the final authority for visual fidelity and playability.
+do not infer a shared formula or normalize them. Levels 1-12 retain their
+previously accepted values. Neal also manually accepted Level 13's values
+against MAME; its depth-Y value is a separate PROJECT TRANSLATION described
+below. Manual gameplay remains the final authority for visual fidelity and
+playability.
 
 | Displayed level | Tube Y gain | Tube scale | Vertical offset |
 |---:|---:|---:|---:|
@@ -2905,14 +2910,29 @@ Manual gameplay remains the final authority for visual fidelity and playability.
 | 9 | 1.5 | 1.05 | -150 |
 | 10 (diagnostic) | 1.2 | 0.9 | +15 |
 | 11 | 1.5 | 1.1 | 0 |
+| 12 | 1.3 | 0.8 | 0 |
+| 13 | 1.2 | 1.0 | 0 |
 
 When Atari presentation is enabled and no diagnostic value is supplied, all
-three selected values follow the currently displayed level during direct
+selected tube values follow the currently displayed level during direct
 startup, progression, visible playback, and presentation transitions. The
 diagnostic Level 10 remains outside campaign progression and retains its
 existing gameplay role. Direct-only Level 15 uses the uncalibrated neutral
-`(1, 1, 0)` placeholder; its values are not part of this accepted table.
-Legacy/non-Atari presentation is unchanged.
+`(1, 1, 0)` placeholder with depth-Y gain `1`; its values are not part of this
+accepted table. Legacy/non-Atari presentation is unchanged.
+
+**DEVELOPMENT ONLY — DEPTH-Y GAIN:** `--tube-depth-y-gain <value>` is a
+generally available finite signed diagnostic for supported Atari-presentation
+levels. It independently scales the reciprocal-depth camera-origin Y
+contribution: `1` preserves the previous behavior, `0` removes that
+depth-dependent contribution, values between 0 and 1 reduce it, values above 1
+exaggerate it, and negative values reverse it. It is independent of tube
+Y-gain, scale, and vertical-offset controls. The neutral default remains `1`
+except Level 13's accepted `0.3`. This Level 13 value is a manually accepted
+**PROJECT TRANSLATION**, not an Atari ROM constant; the raw camera-height
+metadata is unchanged. The control addresses the shared depth-dependent
+camera-origin degree of freedom and does not change model geometry, the
+near-rim affine silhouette, common placement, HUD, or depth-size ratio.
 
 **DEVELOPMENT ONLY:** The fixed yellow calibration guides are normally off.
 `--calibration-guides` with `--atari-presentation` enables the accepted
@@ -3327,3 +3347,83 @@ ExitZoom correction is part of this closeout.
 the accepted pre-refinement Blaster-death presentation was restored. Preserve
 the historical AI-Logs investigation and rejection reports; no experimental
 production or test code is included in this closeout.
+
+## Accepted Level 13 production integration - 2026-11-23
+
+**NEAL MANUAL ACCEPTANCE — PASS:** Displayed Level 13 is accepted as a
+production level using shape row 14. It follows Level 12, is terminal because
+Level 14 is not implemented, and is available through both `--level 13` and
+the production-campaign `--start-level 13`. Direct-only Level 15 remains
+outside the chain. Manual acceptance covers the gameplay and presentation
+items listed in the progression section above; it does not claim broader
+arcade fidelity beyond those accepted behaviors.
+
+**ROM-BACKED — GEOMETRY AND PRESENTATION INPUT:** The bounded Rev. 2 K1
+extraction anchored the image to the local disassembly and recovered shape-row
+14's ordered X bytes
+`B0 80 50 47 18 30 18 47 50 80 B0 B9 E8 D4 E8 B9`, ordered Y bytes
+`E6 D0 E6 B9 AE 80 52 47 14 30 14 47 52 80 AE B9`, and angles
+`0A 06 0C 08 0E 0A 00 0C 02 0E 04 00 06 02 08 04`. Displayed Level 13's
+remap is `0E`; its raw presentation metadata is scale `18`, camera height
+`20`, signed Y placement `-352`, closed topology, and Flipper scale `0400`.
+The C# definition preserves point order. Centering, `25/14` scaling and Y
+reflection are PROJECT TRANSLATIONS, not raw arcade geometry.
+
+**ROM/DISASSEMBLY-BACKED — GAMEPLAY PARAMETERS AND REACHABILITY:** The Level 13
+table provides ordinary supply `1A` (26), hard supply `1D` (29), six active
+enemies/seven physical slots, Flipper min/max `0/5`, Tanker `1/2`, Spiker
+`2/3`, Fuseball `1/1`, and Pulsar `0/0`; the Pulsar fire-enable parameter is
+also zero. The source picker only tries types whose minimum is nonzero
+(`$9A10-$9A1F`, `$9A26-$9A3C`, `$9A61-$9A79`), so the production-reachable
+species are Tankers, Spikers and Fuseballs. A Flipper maximum of five does not
+make ordinary Flippers eligible when their minimum is zero; Tanker cargo
+remains separate. Raw table values do not override the accepted no-Pulsars-
+before-Level-17 boundary.
+
+The source-backed Spike parameter is `A0` in the ROM along-coordinate domain.
+The project translates it through the established `(F0 - raw) * Depth / 224`
+rule to a C# starting height of `400 * 80 / 224` (about `142.857`). Flipper
+movement program `$53` matches the existing spike-sensitive implementation
+and is reused; Tanker cargo types are `01/01`, with existing `$53` deep
+shot-release and `$07` straight-cargo paths selected through the established
+`$20` along threshold. The raw shot holdoff is 44 (used as the existing
+simulation-tick approximation), and the enemy-shot capacity is two. These
+translations do not assert independently observed Level 13 timing or handling.
+
+**PROJECT TRANSLATION — PRESENTATION AND INPUT:** The production definition
+uses the ROM-backed closed flag, 16 playable lanes, and final-to-first
+wraparound. It reuses the established `25/14` Atari model frame with Y
+orientation `-1`, and the transformed polygon determines spinner orientation
+under the established clockwise-left physical convention. Level 13's
+manually accepted defaults are tube Y gain `1.2`, scale `1.0`, vertical offset
+`0`, and depth-Y gain `0.3`. The non-neutral depth-Y value is a manually
+accepted PROJECT TRANSLATION, not ROM-backed; raw camera-height metadata and
+shape geometry are unchanged.
+
+The presentation comparison did not show the genuine row-14 geometry to be
+wrong; the near-rim affine silhouette is structurally preserved. The shared
+Atari reciprocal-depth camera-origin term creates the large depth-dependent
+vertical drift, a degree of freedom the existing Y-gain, scale, and
+vertical-offset controls cannot independently change. The general
+development-only depth-Y diagnostic exposes that degree of freedom and Neal
+manually calibrated it against MAME. This is a presentation calibration, not
+a rewrite of ROM data or a claim that `0.3` is an Atari constant.
+
+**DEFERRED — NON-BLOCKING PRESENTATION DISCREPANCY:** Level 13 ExitZoom is not
+arcade-perfect. Neal reports the perspective leaving the tube is not fully
+correct, similar in character to the separately deferred Level 12 exit
+issue, but not distracting enough to block acceptance. The Blaster should
+ideally remain visible throughout the exit. The impression that the camera
+moves down the tube faster than the Blaster is an observation/hypothesis, not
+a proven simulation defect. Global accepted ExitZoom behavior is preserved;
+no Level-13-specific correction was made. A separate future diagnostic may
+compare deterministic recorded state with projected motion to distinguish
+simulation-state divergence from projection-created apparent motion. This is
+not classified as unresolved gameplay.
+
+**DEVELOPMENT ONLY — AUTOMATED VALIDATION:** Geometry, ordered data,
+topology, production configuration and picker reachability, cargo programs,
+startup/progression, and renderer/HUD behavior are covered by tests. The
+deterministic 1,200-tick headless Level 13 production soak **PASSED**. Fresh
+closeout validation and full-suite results are recorded in the paired report.
+No interactive game was launched for validation.
