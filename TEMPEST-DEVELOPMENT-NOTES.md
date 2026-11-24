@@ -4619,3 +4619,45 @@ and shared diagnostic facilities remain.
 - **DEVELOPMENT ONLY — VALIDATION:** The deterministic 1,200-tick production
   soak passed; automated tests supplement, rather than establish, Neal's
   manual acceptance. Validation details are in the paired closeout report.
+
+## Level 15 starting-Spike and terminal-Spiker acceptance — 2026-11-24
+
+- **BASELINE CLARIFICATION:** The existing direct-start Level 15 candidate is
+  the candidate Neal manually tested. Neal accepts Level 15 gameplay after
+  confirming the corrected starting-Spike length and terminal-Spiker behavior.
+  Normal production progression still ends at Level 14; Level 15 remains a
+  direct-start/development-only candidate.
+- **ROM-BACKED — STARTING SPIKE:** The `$92C5-$92D4` parameter loader selects
+  effective level `curlevel+1`; `$9657` points to the `wave_spikeht` table at
+  `$9607_53`, with its range starting at level 1. The Level 15 entry is raw
+  `$A0`. `set_enm_and_spikes` copies that value into each ROM `spike_ht` slot.
+  The byte is an along-tube coordinate, not a C# height.
+- **PROJECT TRANSLATION:** Map the ROM `$10-$F0` coordinate span into the C#
+  far-end-to-rim `Level.Depth` domain using
+  `(0xF0 - raw) * Level.Depth / (0xF0 - 0x10)`. Level 15 `$A0` yields
+  approximately `142.857` C# height. The old direct-start value used Level
+  11's `$B0` and `0xB0 * Level.Depth / 224f`, approximately `314.286`; it
+  omitted the inversion and selected the wrong level's ROM byte. This was a
+  Level 15 configuration defect, not a shared Spike or initialization defect.
+  Neal manually retested and accepted the corrected starting-Spike length.
+  The coordinate conversion is not a claim that ROM coordinates are literal
+  rendered pixels.
+- **PRESENTATION — MANUALLY ACCEPTED PROJECT DECISION:** Direct Level 15
+  defaults are Y gain `1.15`, tube scale `1`, vertical offset `75`, and
+  depth-Y gain `1`. These values are frozen; the Spike correction does not
+  alter geometry, rendering, or calibration.
+- **TERMINAL SPIKER — PROJECT TRANSLATION / MANUALLY ACCEPTED:** Read-only
+  investigation found that direct Level 15 had not been wired into the
+  existing terminal-Spiker eligibility, not that an established behavior had
+  regressed. While generic pending originals remain, the same Spiker identity
+  restarts. At zero generic pending originals, that active identity converts
+  in place to a Tanker through the existing ledger conversion path, with
+  exactly two owned latent cargo identities. Ordinary Tanker-selection
+  capacity and unrelated active enemies do not block conversion. The Tanker
+  and cargo obligations remain unresolved and prevent completion until they
+  are resolved. Neal manually confirmed that the endless cycling defect is
+  fixed. This accepts the C# lifecycle translation for the development
+  candidate; it does not assert literal ROM behavior.
+- **SCOPE:** Starting-Spike count and lane placement, direct-start behavior,
+  and Levels 1-14 are preserved. Level 15 has not been promoted into campaign
+  progression. No Level 16 acceptance or implementation work is included.

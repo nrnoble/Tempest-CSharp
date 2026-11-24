@@ -27,7 +27,7 @@ public sealed class AtariPresentationCalibrationTests
 	[InlineData(12, 1.3f, .8f, 0f, 1f)]
 	[InlineData(13, 1.2f, 1f, 0f, .3f)]
 	[InlineData(14, 1f, 1.1f, 200f, 1f)]
-	[InlineData(15, 1f, 1f, 0f, 1f)]
+	[InlineData(15, 1.15f, 1f, 75f, 1f)]
 	public void SelectedDefaultsMatchTheFirstPassTable(
 		int displayedLevel, float yGain, float scale, float verticalOffset,
 		float depthYGain)
@@ -107,11 +107,11 @@ public sealed class AtariPresentationCalibrationTests
 	}
 
 	[Fact]
-	public void LevelFifteenHasAnUncalibratedDefaultAndRetainsTubeOverrides()
+	public void LevelFifteenUsesAcceptedDefaultsAndRetainsTubeOverrides()
 	{
-		Assert.Equal(new AtariPresentationCalibration(1f, 1f, 0f),
+		Assert.Equal(new AtariPresentationCalibration(1.15f, 1f, 75f, 1f),
 			AtariPresentationCalibration.ForDisplayedLevel(15));
-		Assert.Equal(new AtariPresentationCalibration(1.1f, .9f, 12f),
+		Assert.Equal(new AtariPresentationCalibration(1.1f, .9f, 12f, 1f),
 			AtariPresentationCalibration.Resolve(
 				15, tubeYGainOverride: 1.1f, tubeScaleOverride: .9f,
 				verticalOffsetOverride: 12f));

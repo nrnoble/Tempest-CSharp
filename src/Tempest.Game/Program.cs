@@ -31,7 +31,7 @@
 // --tube-depth-y-gain scales the depth-dependent Atari camera-origin Y displacement;
 // --tube-scale uniformly scales the DEVELOPMENT-ONLY presented tube and attached artwork;
 // --tube-vertical-offset translates the complete DEVELOPMENT-ONLY presentation in screen space;
-// Level 10 uses its accepted +50 placement; genuine Level 11 and direct Level 15 use neutral defaults.
+// Level 10 uses its accepted +50 placement; direct Level 15 has its own accepted presentation defaults.
 // Normal play progresses Level 1 through terminal Level 14.
 using System.Globalization;
 using System.Text.Json;

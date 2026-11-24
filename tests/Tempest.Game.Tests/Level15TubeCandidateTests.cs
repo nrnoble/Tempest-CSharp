@@ -10,6 +10,49 @@ namespace Tempest.Game.Tests;
 public sealed class Level15TubeCandidateTests
 {
     [Fact]
+    public void StartingSpikesUseTheLevelFifteenRomAlongCoordinateTranslation()
+    {
+        LevelConfiguration configuration = LevelConfiguration.Level15DirectStartCandidate;
+        float expectedHeight = LevelConfiguration.Level15StartingSpikeHeight;
+
+        Assert.Equal((byte)0xA0, LevelConfiguration.Level15StartingSpikeHeightRaw);
+        Assert.Equal(80, 0xF0 - LevelConfiguration.Level15StartingSpikeHeightRaw);
+        Assert.Equal(224, 0xF0 - 0x10);
+        Assert.Equal(142.85715f, expectedHeight, precision: 5);
+        Assert.Equal((0xF0 - LevelConfiguration.Level15StartingSpikeHeightRaw) *
+            Level.Depth / 224f, expectedHeight);
+        Assert.Equal(expectedHeight, configuration.StartingSpikeHeight);
+        Assert.NotEqual(0xB0 * Level.Depth / 224f,
+            configuration.StartingSpikeHeight);
+
+        TempestGame game = new(startingProductionLevel: 15);
+        Assert.Same(configuration, game.CurrentLevel.Configuration);
+        Assert.Equal(15, game.Spikes.Count);
+        Assert.Equal(Enumerable.Range(0, 15),
+            game.Spikes.Select(spike => spike.EdgeIndex));
+        Assert.All(game.Spikes, spike =>
+            Assert.Equal(expectedHeight, spike.Height, precision: 5));
+        Assert.Null(LevelProgression.GetProductionLevel(15));
+        Assert.Same(configuration, LevelProgression.GetDirectStartLevel(15));
+    }
+
+    [Fact]
+    public void SpikerExtendsTheLevelFifteenStartingSpikeThroughTheSharedLifecycle()
+    {
+        Level level = new(LevelConfiguration.Level15DirectStartCandidate);
+        Spike spike = Assert.Single(level.Spikes, candidate => candidate.EdgeIndex == 0);
+        float initialHeight = spike.Height;
+        Spiker spiker = new(edgeIndex: 0, speed: 4);
+
+        spiker.Update(level, static () => false);
+        for (int tick = 0; tick < 100 && spike.Height <= initialHeight; tick++)
+            spiker.Update(level, static () => false);
+
+        Assert.True(spike.Height > initialHeight);
+        Assert.Equal(spiker.Height - 4, spike.Height);
+    }
+
+    [Fact]
     public void SeededDirectStartCandidateWaveConservesEveryIdentityBeyondStartup()
     {
         TempestGame game = new(LevelConfiguration.Level15DirectStartCandidate, random: new Random(4));

@@ -2821,10 +2821,11 @@ Level 10 startup identity in both standard and Atari-presentation modes.
 
 ## Level 15 tube identity correction and Levels 11-16 mapping
 
-**ARCADE-OBSERVED:** Neal identifies the preserved open tube candidate as the
-arcade Level 15 tube. Its gameplay has played normally and is generally good;
-detailed Level 15 gameplay fidelity is not formally accepted, and presentation
-fine-tuning remains pending as needed. This is not Level 15 closure.
+**ARCADE-OBSERVED:** Neal identifies the preserved open direct-start candidate
+as the arcade Level 15 tube and has manually tested this existing candidate.
+Neal accepts its gameplay after manually confirming both the corrected
+starting-Spike length and terminal-Spiker behavior. These results do not claim
+broader arcade perfection.
 
 **ROM/DISASSEMBLY-BACKED MAPPING:** The ROM stores `p1_level` zero-based;
 displayed Level `N` uses lookup index `N-1`. The geometry setup calls
@@ -2866,23 +2867,52 @@ shape row, and effective gameplay-parameter level are separate. At
 parameter level `curlevel+1`; geometry selection uses zero-based
 `p1_level` and `lev_remap`. The direct-only Level 15 tube candidate preserves
 the recovered row-10 geometry and uses displayed identity 15, lookup index
-14, shape row 10. Its current development configuration explicitly retains
-the separately established displayed-Level-11 gameplay parameter row only
-as an unaccepted test baseline; it does not claim those parameters belong to
-Level 15 or that Level 15 mechanics passed arcade-fidelity acceptance.
+14, shape row 10. Its development configuration retains the separately established
+displayed-Level-11 gameplay parameter row as a test baseline; it does not claim
+those parameters belong to Level 15. Starting-Spike height is independently
+taken from the Level 15 ROM parameter row below.
 
-**PROGRESSION BOUNDARY:** Production progression remains terminal at Level 9.
-Diagnostic Level 10 keeps its existing geometry and role. Levels 11-14 remain
-unimplemented in production; direct Level 11 does not fall back to the
-Level 15 tube. Direct `--level 15` is available only to preserve/test the
-recovered tube and does not add Level 15 to the production chain.
+**PROGRESSION BOUNDARY:** Production progression currently ends at Level 14.
+Direct `--level 15` starts the existing Level 15 candidate outside the
+production chain; this correction does not change campaign progression.
 
-**PRESENTATION STATUS:** The Level 15 direct-start candidate uses the existing
-open-tube presentation path and a neutral uncalibrated default solely to keep
-the existing `--tube-y-gain`, `--tube-scale`, `--tube-vertical-offset`, and
-`--calibration-guides` controls available. No Level 15 presentation tuning
-or acceptance is claimed. Levels 1-10 first-pass calibrations remain
-unchanged.
+**ROM-BACKED STARTING SPIKE / PROJECT TRANSLATION:** The gameplay parameter
+loader at `$92C5-$92D4` converts zero-based `curlevel` to the effective
+1-based level (`curlevel+1`). Its table pointer `$9657` selects the
+`wave_spikeht` table at `$9607_53`, whose range begins at level 1; the Level 15
+entry is `$A0`. `set_enm_and_spikes` reads that parameter and copies it into
+the ROM `spike_ht` slots. It is an along-tube coordinate, not a C# height:
+the ROM's `$10-$F0` span maps to the C# far-end-to-rim `Level.Depth` domain
+using `(0xF0 - raw) * Level.Depth / (0xF0 - 0x10)`. Level 15 therefore starts
+at `(0xF0 - 0xA0) * 400 / 224`, approximately `142.857` C# height. The prior
+candidate used Level 11's `$B0` byte and calculated
+`0xB0 * Level.Depth / 224f` (approximately `314.286`), treating the coordinate
+as a positive C# height. The starting-Spike correction is confined to Level 15
+configuration; Spike initialization, count, lanes, extension, collision, and
+scoring remain unchanged. Neal manually retested and accepted the corrected
+starting-Spike length. The project conversion is not a claim that the ROM
+coordinate is a literal rendered pixel height.
+
+**PROJECT TRANSLATION — TERMINAL SPIKER, MANUALLY ACCEPTED:** The read-only
+investigation classified the cycling defect as the direct Level 15 candidate
+not being wired into the existing terminal-Spiker lifecycle, not as a
+demonstrated regression. For this development-only baseline, the shared
+terminal lifecycle now applies: while generic pending originals remain, the
+same Spiker identity restarts; at zero pending originals, that same active
+identity converts in place to a Tanker through the existing ledger path and
+retains exactly two owned latent cargo identities. Ordinary Tanker-selection
+capacity and unrelated active enemies do not block this conversion. The
+converted Tanker and cargo obligations continue to block normal and all-rim
+completion until resolved. Neal manually retested and confirmed the endless
+terminal-Spiker cycling defect is fixed. This is acceptance of the C# project
+translation for the direct-start candidate, not a claim of literal ROM
+identity or lifecycle behavior.
+
+**PRESENTATION STATUS — PROJECT DECISION:** Neal accepted direct Level 15's
+per-level tube presentation defaults: Y gain `1.15`, scale `1`, vertical
+offset `75`, and depth-Y gain `1`. These values are frozen and separate from
+the ROM-derived Spike translation. The existing presentation path and geometry
+remain unchanged.
 
 ## First-pass per-level Atari-presentation calibration
 
@@ -2894,8 +2924,9 @@ claims about Atari tube dimensions. The values are intentionally level-specific;
 do not infer a shared formula or normalize them. Levels 1-12 retain their
 previously accepted values. Neal also manually accepted Level 13's values
 against MAME; its depth-Y value is a separate PROJECT TRANSLATION described
-below. Manual gameplay remains the final authority for visual fidelity and
-playability.
+below. The direct-only Level 15 calibration is separately manually accepted
+and does not place Level 15 in campaign progression. Manual gameplay remains
+the final authority for visual fidelity and playability.
 
 | Displayed level | Tube Y gain | Tube scale | Vertical offset |
 |---:|---:|---:|---:|
@@ -2912,14 +2943,16 @@ playability.
 | 11 | 1.5 | 1.1 | 0 |
 | 12 | 1.3 | 0.8 | 0 |
 | 13 | 1.2 | 1.0 | 0 |
+| 14 | 1.0 | 1.1 | +200 |
+| 15 (direct-only) | 1.15 | 1.0 | +75 |
 
 When Atari presentation is enabled and no diagnostic value is supplied, all
 selected tube values follow the currently displayed level during direct
 startup, progression, visible playback, and presentation transitions. The
 diagnostic Level 10 remains outside campaign progression and retains its
-existing gameplay role. Direct-only Level 15 uses the uncalibrated neutral
-`(1, 1, 0)` placeholder with depth-Y gain `1`; its values are not part of this
-accepted table. Legacy/non-Atari presentation is unchanged.
+existing gameplay role. Direct-only Level 15 uses its accepted calibration
+from the table and depth-Y gain `1`; it remains outside campaign progression.
+Legacy/non-Atari presentation is unchanged.
 
 **DEVELOPMENT ONLY — DEPTH-Y GAIN:** `--tube-depth-y-gain <value>` is a
 generally available finite signed diagnostic for supported Atari-presentation

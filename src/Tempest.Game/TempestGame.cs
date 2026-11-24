@@ -1605,6 +1605,7 @@ public sealed class TempestGame
             int pendingGenericOriginals = HasLevel7AdmissionDiagnostic ||
                 CurrentLevel.Configuration.UsesLevel9RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
+                CurrentLevel.Configuration.UsesLevel11ParameterDevelopmentBaseline ||
                 CurrentLevel.Configuration.UsesLevel12RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel13RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel14RomWavePolicy
@@ -1622,7 +1623,8 @@ public sealed class TempestGame
                 spiker.RestartForPendingSupply();
                 continue;
             }
-            if (CurrentLevel.Configuration.UsesLevel11RomWavePolicy &&
+            if ((CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
+                 CurrentLevel.Configuration.UsesLevel11ParameterDevelopmentBaseline) &&
                 pendingGenericOriginals > 0)
             {
                 spiker.RestartForPendingSupply();
@@ -1665,6 +1667,7 @@ public sealed class TempestGame
                 pendingGenericOriginals);
             bool level11Conversion =
                 (CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
+                 CurrentLevel.Configuration.UsesLevel11ParameterDevelopmentBaseline ||
                  CurrentLevel.Configuration.UsesLevel12RomWavePolicy ||
                  CurrentLevel.Configuration.UsesLevel13RomWavePolicy ||
                  CurrentLevel.Configuration.UsesLevel14RomWavePolicy) &&

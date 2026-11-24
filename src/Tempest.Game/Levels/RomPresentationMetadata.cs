@@ -94,7 +94,7 @@ public static class RomPresentationMetadataCatalog
     private static readonly RomPresentationMetadata Level14 =
         new(14, RomTubeMappingCatalog.ShapeRowForDisplayedLevel(14),
             0x0C, 0xB0, 0x40, 0x01, 0xFF, 0x50, 0x04);
-    // DEVELOPMENT ONLY: row 10 is the manually identified Level 15 tube; placement remains uncalibrated.
+    // DEVELOPMENT ONLY: row 10 identifies the Level 15 tube; host-space placement is calibrated separately.
     private static readonly RomPresentationMetadata Level15 =
         new(15, RomTubeMappingCatalog.ShapeRowForDisplayedLevel(15),
             0x10, 0x90, 0x40, 0x00, 0xFF);

@@ -516,8 +516,7 @@ public static class AtariPresentationAdapter
 			3 => (1.756696429f, 1),
 			// PROJECT TRANSLATION: Level 7's established model-frame mapping.
 			7 => (1.678958593f, 1),
-			// Reuse established raw-tube normalization. Level 11 is row 8,
-			// Level 13 is row 14, Level 14 is row 15, and direct Level 15 remains uncalibrated.
+			// Reuse established raw-tube normalization. Per-level gains and offsets are applied separately.
 			8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 => (25f / 14f, -1),
 			_ => throw new ArgumentOutOfRangeException(nameof(displayedLevel), displayedLevel,
 				"No Atari presentation model-frame mapping is established for this level.")

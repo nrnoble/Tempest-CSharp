@@ -2,8 +2,10 @@
 
 ## Status
 
-**Manual acceptance, validation, and staged review PASS; commit, push, and
-independent remote verification are pending.**
+**CLOSEOUT PASS — manual acceptance, validation, staged review, commit, and
+push completed.** The GitHub connector could not independently verify remote
+master because both attempted calls failed with a missing parameter-header
+error. Local tracking confirms `master` and `origin/master` match.
 
 ## Accepted behavior
 
@@ -58,17 +60,26 @@ Screenshot architecture is unchanged.
   and Level 14 report update were reviewed. No protected or unrelated asset
   is staged.
 - **PASS** — Staged inventory contains exactly the paths listed below.
-- Commit, push, and independent GitHub verification: pending.
-- Final SHA and worktree/index/upstream state: pending. The final SHA may be
-  added after push without amending this commit.
+- **PASS** — Commit `045aeb240fce91a3eaacf9424da30cd7359927bf`,
+  subject `Add background overlay calibration`, with the required Copilot
+  co-author trailer.
+- **PASS** — Normal push to `origin/master` completed:
+  `fa94f54..045aeb2 master -> master`.
+- **BLOCKED** — Independent GitHub connector verification. Both
+  `get_commit(master)` and `list_branches` failed with
+  `MCP error -32020: header mismatch: missing Mcp-Param-owner header for
+  parameter "owner"`. No connector result is claimed.
+- **PASS** — Local `master` and `origin/master` both resolve to
+  `045aeb240fce91a3eaacf9424da30cd7359927bf`, ahead/behind `0/0`; index
+  is empty.
 
 The fresh pre-stage audit confirmed `master` at the starting HEAD above,
 tracking `origin/master` at ahead/behind `0/0`, with an empty index. The
-Level 14 closeout-report post-push update is expected to be included. The
+Level 14 closeout-report post-push update was included in this commit. The
 untracked MBUCOD reference and `temo/gameplayrecordings/level-13` remain
 unrelated and excluded.
 
-## Staged inventory
+## Committed inventory
 
 - `AI-Logs/Prompts/2026-11-24-background-opacity-closeout-prompt.md`
 - `AI-Logs/Prompts/2026-11-24-background-opacity-correction-prompt.md`
@@ -88,8 +99,11 @@ unrelated and excluded.
 
 ## Final report
 
-Commit message subject: `Add background overlay calibration`. Record the
-resulting SHA, normal push result, independent GitHub connector result, and
-final local/upstream/index status here after publishing. Do not amend or
-create a commit/report loop solely to include this SHA; keep any post-push
-report update unstaged for the next normal commit. Do not begin Level 15.
+The commit contains exactly the 15 paths listed in the committed inventory.
+No protected or unrelated local asset was included. At closeout, the working
+tree has only this report's intentional post-push update unstaged, which
+records the resulting SHA and connector outcome without amending or creating
+a report/commit loop. The index is empty, `master` tracks `origin/master` at
+`045aeb240fce91a3eaacf9424da30cd7359927bf` with ahead/behind `0/0`, and
+untracked `Reference/arcade/MBUCOD.V05.txt` and `temo/` remain untouched and
+unstaged. No Level 15 work was started.

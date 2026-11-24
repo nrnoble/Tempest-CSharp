@@ -165,6 +165,11 @@ public sealed record LevelConfiguration(
         (0xF0 - Level13WaveSelection.StartingSpikeHeightRaw) * Level.Depth / 224f;
     public const float Level14StartingSpikeHeight =
         (0xF0 - Level14WaveSelection.StartingSpikeHeightRaw) * Level.Depth / 224f;
+    // ROM-BACKED: Level 15's wave_spikeht entry is a raw along coordinate, not a C# height.
+    // PROJECT TRANSLATION: invert its $10-$F0 span into the C# far-end-to-rim depth domain.
+    public const byte Level15StartingSpikeHeightRaw = 0xA0;
+    public const float Level15StartingSpikeHeight =
+        (0xF0 - Level15StartingSpikeHeightRaw) * Level.Depth / 224f;
     // PROJECT CALIBRATION: manually accepted relative projectile lead; not a ROM speed measurement.
     public const float Level9ProductionSpikerSpeed = 2.0f;
 
@@ -606,6 +611,6 @@ public sealed record LevelConfiguration(
         UsesLevel11ParameterDevelopmentBaseline = true,
         AllowsOrdinaryFlipperSelection = false,
         ProgrammedFlipperInitialDirection = 1,
-        StartingSpikeHeight = 0xB0 * Level.Depth / 224f
+        StartingSpikeHeight = Level15StartingSpikeHeight
     };
 }
