@@ -275,13 +275,16 @@ public sealed class Flipper : Enemy
     public static Flipper CreateFreshTankerCargo(
         int edge, int cargoUnitId, int? programmedDirection = null,
         bool useLevel5SpikeSensitiveProgram = false, int? initialDirection = null,
-        bool useLevel9SpikeSensitiveProgram = false)
+        bool useLevel9SpikeSensitiveProgram = false,
+        TankerCargoMovementProgram tankerCargoMovementProgram =
+            TankerCargoMovementProgram.Existing)
     {
         Flipper flipper = new(edge, 0)
         {
             CargoUnitId = cargoUnitId,
             useLevel5SpikeSensitiveProgram = useLevel5SpikeSensitiveProgram,
-            useLevel9SpikeSensitiveProgram = useLevel9SpikeSensitiveProgram
+            useLevel9SpikeSensitiveProgram = useLevel9SpikeSensitiveProgram,
+            CargoMovementProgram = tankerCargoMovementProgram
         };
         if (programmedDirection is int direction)
             flipper.InitializeProgrammedRoute(direction);
@@ -289,6 +292,11 @@ public sealed class Flipper : Enemy
         {
             flipper.Direction = initialDirection ?? 1;
             flipper.programmedRouteStep = ProgrammedFlipperRouteStep.Level9Along;
+        }
+        else if (tankerCargoMovementProgram == TankerCargoMovementProgram.Straight07)
+        {
+            flipper.useLevel8StraightCargoProgram = true;
+            flipper.InitializeLevel8CargoRoute(initialDirection ?? 1, constantFlipProgram: false);
         }
         else if (initialDirection is int freshDirection)
         {

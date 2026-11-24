@@ -3427,3 +3427,77 @@ startup/progression, and renderer/HUD behavior are covered by tests. The
 deterministic 1,200-tick headless Level 13 production soak **PASSED**. Fresh
 closeout validation and full-suite results are recorded in the paired report.
 No interactive game was launched for validation.
+
+## Level 14 production - 2026-11-24
+
+**PROJECT DECISION — ACCEPTED PRODUCTION:** Neal accepted Level 14's gameplay
+and calibrated presentation after a good first manual pass with minor
+presentation adjustments. The accepted scope includes its tube/topology,
+spinner, production enemies and cargo, absent Pulsars, starting Spikes, firing,
+Super Zapper, death/re-entry, completion and HUD. No new gameplay bugs or
+regressions were observed. Level 14 extends the campaign after Level 13 and
+is currently terminal; direct-only Level 15 remains outside progression.
+
+**ROM/DISASSEMBLY-BACKED — SHAPE AND PRESENTATION INPUT:** The established
+displayed-Level-14 mapping selects shape row 15. The bounded read of the
+authorized Rev. 2 K1 image, using the table layout in
+`Reference/arcade/Tempest Rom Source code.md`, recovered ordered X
+`10 1E 21 28 3C 55 66 73 8D 9A AB C4 D8 DF E2 F0`, ordered Y
+`7E 6A 51 3A 2C 2C 38 4E 4E 38 2C 2C 3A 51 6A 7E`, and angles
+`0E 0C 0D 0E 00 02 02 00 0E 0E 00 02 03 04 02 00`, in source point order.
+The remap byte is `0F`. Raw metadata is scale `0C`, camera height `B0`, signed
+Y placement `+320` (`40/01`), open flag `FF`, and Flipper scale bytes `50/04`
+(the established Flipper-scale translation is `0250`).
+
+**ROM/DISASSEMBLY-BACKED — GAMEPLAY PARAMETERS AND REACHABILITY:** Ordinary
+supply is `1C` (28); hard-mode supply is `20` (32) after the ROM's existing
+difficulty adjustment. The active limit is 6 with 7 physical slots. Raw
+species min/max values are Flippers `0/5`, Tankers `1/2`, Spikers `2/3`,
+Fuseballs `1/1`, and Pulsars `0/0`; Pulsar fire-enable is `00`. The picker
+requires a nonzero minimum, so normal Level 14 production reaches Tankers,
+Spikers, and Fuseballs, not ordinary Flippers or Pulsars. Tanker cargo is a
+separate pair of Flippers with raw cargo values `01/01`.
+
+The ordinary Flipper movement-program byte is `$07`, Flipper/Tanker speed is
+`A4`, and Spiker speed is `00`. Fuseball movement probability is `DC`; its
+speed is derived from the selected Flipper speed by the ROM startup routine,
+not a separate per-level speed table. Shared enemy-shot speed is `C0`. Pulsar
+speed is initialized globally as `FE:A0`, but its Level 14 minima, maxima and
+fire-enable are zero and it is not production-reachable. Spike start is raw
+`A0` in the Atari along-coordinate domain. The raw shot holdoff is `29` (41);
+the existing C# simulation uses 41 ticks as a PROJECT APPROXIMATION.
+Enemy-shot capacity is 2, including Tanker bullets. Level 14 does not
+override the accepted no-Pulsars-before-Level-17 rule.
+
+**PROJECT TRANSLATION — GAMEPLAY AND INPUT:** The raw Spike tip is translated
+through `(F0 - A0) * Level.Depth / 224` to `400 * 80 / 224`, approximately
+`142.857` C# world-height units; the raw byte is not used as a C# length.
+Production uses the existing identity ledger, six/seven occupancy limits,
+dynamic admission, generic reconstruction, shared Spiker/Fuseball behavior,
+and Tanker lifecycle. Level 14's `$07` cargo uses the existing straight route
+for release and reconstruction; Level 13's `$53` spike-sensitive route is not
+copied. Raw movement and speed values are evidence, not independent timing or
+handling acceptance.
+
+**PROJECT TRANSLATION — TUBE, PRESENTATION, AND PROGRESSION:** The open ROM
+topology yields 15 playable lanes, no final-to-first wrap, and accepted open
+endpoint reversal/pursuit handling. Model-frame centering, `25/14` scaling,
+and Y reflection are translations; the established frame mapping is
+`(25/14, -1)`, and spinner sign is derived from the translated geometry.
+Level 14 uses accepted Atari presentation `(Y gain 1, scale 1.1, vertical
+offset 200, depth-Y gain 1)`. It uses the generic Approach, ExitZoom, vector HUD,
+calibration guides, and general `--tube-depth-y-gain`; diagnostic CLI values
+remain absolute overrides. Production progression
+continues `9 -> 10 -> 11 -> 12 -> 13 -> 14`, with Level 14 terminal until
+production Level 15 is separately implemented and accepted. `--start-level 14`
+is a genuine campaign start, and earlier production starts can reach it.
+
+**PROJECT DECISION — DEFERRED EXITZOOM:** Level 14's exit has a known
+non-blocking presentation imperfection similar to the separately deferred
+Levels 12 and 13 issues. Neal reports no associated new gameplay problem.
+The generic accepted ExitZoom path is retained; this is not a claim of
+arcade-perfect exit presentation.
+
+**DEVELOPMENT ONLY — AUTOMATED VALIDATION:** The deterministic 1,200-tick
+Level 14 production soak passed. Automated validation supplements Neal's
+manual acceptance rather than establishing arcade fidelity.

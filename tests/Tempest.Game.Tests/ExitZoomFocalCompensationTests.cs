@@ -23,6 +23,11 @@ public sealed class ExitZoomFocalCompensationTests
 	[InlineData(8)]
 	[InlineData(9)]
 	[InlineData(10)]
+	[InlineData(11)]
+	[InlineData(12)]
+	[InlineData(13)]
+	[InlineData(14)]
+	[InlineData(15)]
 	public void MappedOpeningStaysFixedThroughoutExitZoom(int displayedLevel)
 	{
 		float originalK = Projection.K;

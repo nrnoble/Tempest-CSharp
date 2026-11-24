@@ -129,6 +129,27 @@ public static class AtariTubeRecordCatalog
 
     public static AtariTubeRecord Level13Record14 => Level13Record;
 
+    // ROM-BACKED Rev 2 shape row 15 for displayed Level 14.
+    private static readonly AtariTubeRecord Level14Record =
+        new(
+            recordIndex: 15,
+            rawXPoints:
+            [
+                0x10, 0x1E, 0x21, 0x28, 0x3C, 0x55, 0x66, 0x73,
+                0x8D, 0x9A, 0xAB, 0xC4, 0xD8, 0xDF, 0xE2, 0xF0
+            ],
+            rawYPoints:
+            [
+                0x7E, 0x6A, 0x51, 0x3A, 0x2C, 0x2C, 0x38, 0x4E,
+                0x4E, 0x38, 0x2C, 0x2C, 0x3A, 0x51, 0x6A, 0x7E
+            ],
+            scaleRaw: RomPresentationMetadataCatalog.ForDisplayedLevel(14).ScaleRaw,
+            cameraHeightRaw: RomPresentationMetadataCatalog.ForDisplayedLevel(14).CameraHeightRaw,
+            screenYOffset: RomPresentationMetadataCatalog.ForDisplayedLevel(14).ScreenYOffsetSigned,
+            openRaw: RomPresentationMetadataCatalog.ForDisplayedLevel(14).OpenRaw);
+
+    public static AtariTubeRecord Level14Record15 => Level14Record;
+
     // DEVELOPMENT ONLY: manually identified Level 15 tube, selected as Rev. 2 shape row 10.
     private static readonly AtariTubeRecord Level15Record =
         new(
@@ -159,11 +180,13 @@ public static class AtariTubeRecordCatalog
                     ? Level12Record
                     : recordIndex == Level13Record.RecordIndex
                         ? Level13Record
-                        : recordIndex == Level15Record.RecordIndex
-                            ? Level15Record
+                        : recordIndex == Level14Record.RecordIndex
+                            ? Level14Record
+                            : recordIndex == Level15Record.RecordIndex
+                                ? Level15Record
                             : throw new ArgumentOutOfRangeException(
                                 nameof(recordIndex), recordIndex,
-                                "Only Atari tube records 06, 08, 10, 12 and 14 are cataloged.");
+                                "Only Atari tube records 06, 08, 10, 12, 14 and 15 are cataloged.");
 
     private static AtariTubeRecord CreateLevel7Record()
     {

@@ -31,7 +31,7 @@
 // --tube-scale uniformly scales the DEVELOPMENT-ONLY presented tube and attached artwork;
 // --tube-vertical-offset translates the complete DEVELOPMENT-ONLY presentation in screen space;
 // Level 10 uses its accepted +50 placement; genuine Level 11 and direct Level 15 use neutral defaults.
-// Normal play progresses Level 1 through terminal Level 13.
+// Normal play progresses Level 1 through terminal Level 14.
 using System.Globalization;
 using System.Text.Json;
 using Raylib_cs;
@@ -48,7 +48,7 @@ if (args.Contains("--help", StringComparer.Ordinal))
         "Development-only Atari presentation diagnostic:\n" +
         "  --tube-depth-y-gain <value> scales the depth-dependent vertical camera-origin\n" +
         "  contribution. 1 preserves it, 0 removes it, negative values reverse it.\n" +
-        "  Default is 0.3 for Level 13 and 1 for other supported levels.\n" +
+        "  Default is 0.3 for Level 13 and 1 for other supported levels, including Level 14.\n" +
         "  Any finite signed invariant-culture value is accepted. Requires\n" +
         "  --atari-presentation and --level, --start-level, or --playback-file.\n" +
         "  It does not change model Y, common placement, HUD, or depth-size ratio.\n" +
@@ -284,7 +284,7 @@ if (spinnerSensitivityOptions.WasExplicitlySpecified)
 if (atariPresentationEnabled)
 {
     Console.WriteLine(
-        "DEVELOPMENT ONLY — Atari presentation candidate enabled for production Levels 1-13 and direct-only Level 15.");
+        "DEVELOPMENT ONLY — Atari presentation candidate enabled for production Levels 1-14 and direct-only Level 15.");
 }
 
 if (tubeYGainOptions.WasExplicitlySpecified)

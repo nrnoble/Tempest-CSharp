@@ -190,6 +190,8 @@ public sealed class Tanker : Enemy
 
         if (configuration.UsesLevel13RomWavePolicy)
             return GetLevel9CargoMovementProgram(Height, releaseKind);
+        if (configuration.UsesLevel14RomWavePolicy)
+            return TankerCargoMovementProgram.Straight07;
 
         if (!ReferenceEquals(configuration, LevelConfiguration.Level6Production) ||
             releaseKind == TankerReleaseKind.SuperZapperDestruction)

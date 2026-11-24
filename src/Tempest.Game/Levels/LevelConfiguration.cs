@@ -91,6 +91,8 @@ public sealed record LevelConfiguration(
         12 => 47,
         // PROJECT APPROXIMATION: the ROM's 44 holdoff parameter is used as C# ticks.
         13 => 44,
+        // PROJECT APPROXIMATION: the ROM's raw 41 holdoff is used as C# ticks.
+        14 => Level14WaveSelection.ShotHoldoffRaw,
         _ => throw new InvalidOperationException(
             $"No arcade Flipper shot holdoff is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
@@ -114,6 +116,7 @@ public sealed record LevelConfiguration(
         11 => 4,
         12 => 2,
         13 => 2,
+        14 => 2,
         _ => throw new InvalidOperationException(
             $"No arcade enemy-shot capacity is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
@@ -130,6 +133,7 @@ public sealed record LevelConfiguration(
     public bool UsesLevel11RomWavePolicy { get; init; }
     public bool UsesLevel12RomWavePolicy { get; init; }
     public bool UsesLevel13RomWavePolicy { get; init; }
+    public bool UsesLevel14RomWavePolicy { get; init; }
     // DEVELOPMENT ONLY: the preserved Level 15 candidate may retain the separately
     // recovered Level 11 parameter baseline; genuine Level 11 uses UsesLevel11RomWavePolicy.
     public bool UsesLevel11ParameterDevelopmentBaseline { get; init; }
@@ -138,6 +142,7 @@ public sealed record LevelConfiguration(
         UsesLevel7RomWavePolicy || UsesLevel8RomWavePolicy ||
         UsesLevel9RomWavePolicy || UsesLevel11RomWavePolicy ||
         UsesLevel12RomWavePolicy || UsesLevel13RomWavePolicy ||
+        UsesLevel14RomWavePolicy ||
         UsesLevel11ParameterDevelopmentBaseline ||
         ReferenceEquals(this, Level5Production) ||
         ReferenceEquals(this, Level6Production);
@@ -158,6 +163,8 @@ public sealed record LevelConfiguration(
         (0xF0 - Level12WaveSelection.StartingSpikeHeightRaw) * Level.Depth / 224f;
     public const float Level13StartingSpikeHeight =
         (0xF0 - Level13WaveSelection.StartingSpikeHeightRaw) * Level.Depth / 224f;
+    public const float Level14StartingSpikeHeight =
+        (0xF0 - Level14WaveSelection.StartingSpikeHeightRaw) * Level.Depth / 224f;
     // PROJECT CALIBRATION: manually accepted relative projectile lead; not a ROM speed measurement.
     public const float Level9ProductionSpikerSpeed = 2.0f;
 
@@ -535,6 +542,38 @@ public sealed record LevelConfiguration(
         AllowsOrdinaryFlipperSelection = false,
         ProgrammedFlipperInitialDirection = 1,
         StartingSpikeHeight = Level13StartingSpikeHeight
+    };
+
+    // ROM-backed open shape row 15 and Level 14 wave parameters; topology follows ROM metadata.
+    public static LevelConfiguration Level14Production { get; } = new(
+        ProgressionIndex: 13,
+        DisplayedLevel: 14,
+        BoardIndex: 13,
+        PaletteIndex: 0,
+        Definition: LevelLoader.LoadLevel14OpenTube(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: Level14WaveSelection.OrdinaryEnemySupply,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(Enumerable.Range(0, 15).ToArray()),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.Standard,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersTankersAndSpikers)
+    {
+        EffectiveGameplayParameterLevelOverride = 14,
+        Flipper = new(true, 2, 9, 0, 23),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        // Ordinary Flippers have a zero ROM minimum; reachable Tanker cargo uses raw program $07.
+        UsesLevel14RomWavePolicy = true,
+        AllowsOrdinaryFlipperSelection = false,
+        ProgrammedFlipperInitialDirection = 1,
+        StartingSpikeHeight = Level14StartingSpikeHeight
     };
 
     // DEVELOPMENT ONLY: the manually identified Level 15 tube is direct-start only.

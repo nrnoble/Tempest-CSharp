@@ -183,15 +183,17 @@ normal progression from Level 9 through 10, 11, 12 and 13 with score, lives,
 and active-level presentation carried. Level 13 is accepted for its genuine
 identity, closed-tube gameplay, spinner, enemy mix and behaviors, starting
 Spikes, firing and Super Zapper, death/re-entry, wave completion, Level 13
-HUD, and normal Atari Playing presentation after calibration. It is terminal
-until Level 14 is implemented. Level 10's preserved Level-7-like gameplay
-remains a PROJECT TRANSLATION, not an established arcade-mechanics claim.
+HUD, and normal Atari Playing presentation after calibration. Level 14 is
+implemented and manually accepted using its genuine open shape-row-15 tube.
+It is the current production boundary; direct-only Level 15 remains outside the
+campaign. Level 10's preserved Level-7-like gameplay remains a PROJECT
+TRANSLATION, not an established arcade-mechanics claim.
 
-For Level 13, this launch uses its accepted Atari-presentation defaults without
+For Level 14, this launch uses its accepted Atari-presentation defaults without
 explicit calibration overrides:
 
 ```powershell
-dotnet run --project src\Tempest.Game -- --level 13 --atari-presentation
+dotnet run --project src\Tempest.Game -- --level 14 --atari-presentation
 ```
 
 Neal manually accepted this development startup and the controller exit
@@ -241,11 +243,12 @@ invariant-culture value; extreme values may move geometry off screen or exceed
 representable projected coordinates. It does not change model geometry, the
 near-rim anchor, common placement, HUD, or the far/near depth-size ratio.
 It requires `--atari-presentation` and `--level`, `--start-level`, or
-`--playback-file`, and is not recorded. Levels 7-13 and direct Level 15 use
+`--playback-file`, and is not recorded. Levels 7-14 and direct Level 15 use
 the camera-origin term; Levels 1-6 use separate projection paths and the
 control has no effect on them. It is independent of `--tube-y-gain`,
 `--tube-scale`, and `--tube-vertical-offset`. The neutral default is `1`
-except on Level 13, where the manually accepted default is `0.3`. This
+except on Level 13, where the manually accepted default is `0.3`; Level 14
+starts neutral at `1`. This
 non-neutral Level 13 value is a manually accepted PROJECT TRANSLATION, not an
 Atari ROM constant. The same shared world mapping is used during Playing,
 Approach and ExitZoom; the latter retains its existing focal compensation.

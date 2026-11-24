@@ -4565,3 +4565,57 @@ and shared diagnostic facilities remain.
   headless production soak are automated; the soak **PASSED**. Fresh
   focused/full-suite validation and Release build results are recorded in the
   paired final closeout report. No interactive game was launched.
+
+## Level 14 production closeout - 2026-11-24
+
+- **STATUS — IMPLEMENTED AND MANUALLY ACCEPTED:** Neal reports Level 14 was
+  good on the first pass, requiring only minor presentation calibration.
+  Normal gameplay, genuine tube/topology, spinner, enemy behavior and cargo,
+  Spikers, Fuseballs, absence of Pulsars, starting Spikes, firing, Super
+  Zapper, death/re-entry, wave completion and Level 14 HUD pass. No regressions
+  or new gameplay bugs were observed; no gameplay correction is required.
+  Production continues `9 -> 10 -> 11 -> 12 -> 13 -> 14`, and
+  `--start-level 14` is a genuine campaign start. Level 14 remains terminal
+  until production Level 15 is implemented and accepted; direct-only Level 15
+  remains unchanged and outside production progression.
+- **ROM/DISASSEMBLY-BACKED — TUBE:** The established Level 14 mapping selects
+  row 15. Bounded reads of the authorized Rev. 2 K1 image recovered X
+  `10 1E 21 28 3C 55 66 73 8D 9A AB C4 D8 DF E2 F0`, Y
+  `7E 6A 51 3A 2C 2C 38 4E 4E 38 2C 2C 3A 51 6A 7E`, angles
+  `0E 0C 0D 0E 00 02 02 00 0E 0E 00 02 03 04 02 00`, remap `0F`, scale
+  `0C`, camera `B0`, signed Y offset `+320`, open flag `FF`, and Flipper
+  scale bytes `50/04` (translated value `0250`).
+- **ROM/DISASSEMBLY-BACKED — PARAMETERS / PICKER:** Ordinary/hard supply is
+  `1C`/`20` (28/32); active/physical limits are 6/7. Raw min/max:
+  Flippers `0/5`, Tankers `1/2`, Spikers `2/3`, Fuseballs `1/1`, Pulsars
+  `0/0`; Pulsar fire-enable `00`. The nonzero-minimum picker reaches Tankers,
+  Spikers, and Fuseballs only. Tanker cargo bytes are `01/01`; the Flipper
+  program is `$07`, Flipper/Tanker speed `A4`, Spiker speed `00`, Fuseball
+  movement probability `DC`, and shared enemy-shot speed `C0`. Fuseball speed
+  derives from Flipper speed in ROM startup. Pulsar speed is globally
+  initialized as `FE:A0`; Level 14's zero gates keep it unreachable.
+- **ROM-BACKED / PROJECT TRANSLATION — SPIKES AND FIRING:** Starting Spike
+  raw `A0` is an Atari along-coordinate translated by
+  `(F0 - A0) * Level.Depth / 224` to about `142.857` C# height. Raw shot
+  holdoff `29` (41) is reused as a PROJECT APPROXIMATION in C# ticks;
+  enemy-shot limit is 2, including Tanker bullets.
+- **PROJECT TRANSLATION — SYSTEMS / PRESENTATION:** The open tube has 15
+  playable lanes, no artificial wrap, and uses the existing endpoint
+  reversal/pursuit behavior. Row centering, `25/14` scaling, Y reflection,
+  `(25/14,-1)` model frame, and geometry-derived spinner sign are project
+  translations. Level 14 uses accepted calibration `(1,1.1,200,1)`, generic
+  Approach/ExitZoom and HUD, plus the general depth-Y diagnostic. Shared
+  ledger, reconstruction, Spiker, Fuseball, Tanker, shot, and completion
+  systems are reused; Level 14 cargo uses the existing straight `$07` route,
+  not Level 13's `$53` route.
+- **PROJECT DECISION — PRESENTATION:** Accepted tube Y gain is 1, scale 1.1,
+  vertical offset 200 and depth-Y gain 1. The controls remain general
+  diagnostics and explicit values are absolute overrides.
+- **KNOWN DEFERRED DISCREPANCY — EXITZOOM:** Level 14 has a similar exit
+  presentation imperfection to the separately deferred Levels 12 and 13.
+  Neal reports no associated new gameplay problem and accepts Level 14 with
+  this non-blocking discrepancy. No Level-14-specific correction is requested;
+  the generic accepted path remains in use.
+- **DEVELOPMENT ONLY — VALIDATION:** The deterministic 1,200-tick production
+  soak passed; automated tests supplement, rather than establish, Neal's
+  manual acceptance. Validation details are in the paired closeout report.

@@ -1240,7 +1240,7 @@ public sealed class AtariPresentationAdapterTests
 	}
 
 	[Fact]
-	public void LevelElevenHasAValidRuntimeModelFrameAndPreservesLevelOneThroughTenAndFifteen()
+	public void LevelElevenHasAValidRuntimeModelFrameAndPreservesMappedProductionAndDirectLevels()
 	{
 		Assert.True(AtariPresentationAdapter.HasModelFrameMapping(11));
 		Assert.Equal((25f / 14f, -1),
@@ -1262,26 +1262,32 @@ public sealed class AtariPresentationAdapterTests
 
 		Assert.True(AtariPresentationAdapter.HasModelFrameMapping(10));
 		Assert.True(AtariPresentationAdapter.HasModelFrameMapping(15));
+		Assert.True(AtariPresentationAdapter.HasModelFrameMapping(14));
 		Assert.Equal((25f / 14f, -1),
 			AtariPresentationAdapter.GetModelFrameMapping(10));
 		Assert.Equal((25f / 14f, -1),
 			AtariPresentationAdapter.GetModelFrameMapping(15));
+		Assert.Equal((25f / 14f, -1),
+			AtariPresentationAdapter.GetModelFrameMapping(14));
 		foreach (int level in new[] { 1, 2, 3, 4, 7, 8, 9 })
 			Assert.True(AtariPresentationAdapter.HasModelFrameMapping(level));
 		Assert.False(AtariPresentationAdapter.HasModelFrameMapping(5));
 		Assert.False(AtariPresentationAdapter.HasModelFrameMapping(6));
 		Assert.True(AtariPresentationAdapter.HasModelFrameMapping(12));
 		Assert.True(AtariPresentationAdapter.HasModelFrameMapping(13));
+		Assert.True(AtariPresentationAdapter.HasModelFrameMapping(14));
 		Assert.Equal((25f / 14f, -1),
 			AtariPresentationAdapter.GetModelFrameMapping(12));
 		Assert.Equal((25f / 14f, -1),
 			AtariPresentationAdapter.GetModelFrameMapping(13));
+		Assert.Equal((25f / 14f, -1),
+			AtariPresentationAdapter.GetModelFrameMapping(14));
 	}
 
 	[Fact]
 	public void ModelFrameMappingsAreLimitedToEstablishedCandidateLevels()
 	{
-		foreach (int level in new[] { 1, 2, 3, 4, 7, 8, 9, 13 })
+		foreach (int level in new[] { 1, 2, 3, 4, 7, 8, 9, 13, 14 })
 			Assert.True(AtariPresentationAdapter.HasModelFrameMapping(level));
 		foreach (int level in new[] { 5, 6 })
 			Assert.False(AtariPresentationAdapter.HasModelFrameMapping(level));

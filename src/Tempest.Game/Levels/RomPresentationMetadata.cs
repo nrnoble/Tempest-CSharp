@@ -90,6 +90,10 @@ public static class RomPresentationMetadataCatalog
     private static readonly RomPresentationMetadata Level13 =
         new(13, RomTubeMappingCatalog.ShapeRowForDisplayedLevel(13),
             0x18, 0x20, 0xA0, 0xFE, 0x00, 0x00, 0x04);
+    // ROM-BACKED Level 14 metadata is shape row 15; Y2D is signed post-projection placement.
+    private static readonly RomPresentationMetadata Level14 =
+        new(14, RomTubeMappingCatalog.ShapeRowForDisplayedLevel(14),
+            0x0C, 0xB0, 0x40, 0x01, 0xFF, 0x50, 0x04);
     // DEVELOPMENT ONLY: row 10 is the manually identified Level 15 tube; placement remains uncalibrated.
     private static readonly RomPresentationMetadata Level15 =
         new(15, RomTubeMappingCatalog.ShapeRowForDisplayedLevel(15),
@@ -121,13 +125,15 @@ public static class RomPresentationMetadataCatalog
             return Level12;
         if (displayedLevel == Level13.DisplayedLevel)
             return Level13;
+        if (displayedLevel == Level14.DisplayedLevel)
+            return Level14;
         if (displayedLevel == Level15.DisplayedLevel)
             return Level15;
         if (displayedLevel < 1 || displayedLevel > ProductionLevels.Count)
             throw new ArgumentOutOfRangeException(
                 nameof(displayedLevel),
                 displayedLevel,
-                "ROM presentation metadata is defined only for Levels 1 through 13 and direct-start Level 15.");
+                "ROM presentation metadata is defined only for Levels 1 through 14 and direct-start Level 15.");
 
         return ProductionLevels[displayedLevel - 1];
     }

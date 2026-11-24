@@ -57,7 +57,7 @@ public sealed class RomPresentationMetadataTests
         Assert.Throws<ArgumentOutOfRangeException>(
             () => RomPresentationMetadataCatalog.ForDisplayedLevel(0));
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => RomPresentationMetadataCatalog.ForDisplayedLevel(14));
+            () => RomPresentationMetadataCatalog.ForDisplayedLevel(16));
     }
 
     [Fact]
@@ -121,7 +121,7 @@ public sealed class RomPresentationMetadataTests
     [Fact]
     public void RomOpenEvidenceAgreesWithCurrentProductionTopology()
     {
-        for (int displayedLevel = 1; displayedLevel <= 9; displayedLevel++)
+        for (int displayedLevel = 1; displayedLevel <= 14; displayedLevel++)
         {
             RomPresentationMetadata metadata =
                 RomPresentationMetadataCatalog.ForDisplayedLevel(displayedLevel);
@@ -139,5 +139,18 @@ public sealed class RomPresentationMetadataTests
         LevelConfiguration level10 = LevelConfiguration.Level10Production;
         Assert.Equal(level10Metadata.IsOpen, !level10.Definition.Continuous);
         Assert.Equal(15, level10.PlayableLaneCount);
+
+        RomPresentationMetadata level14Metadata =
+            RomPresentationMetadataCatalog.ForDisplayedLevel(14);
+        LevelConfiguration level14 = LevelConfiguration.Level14Production;
+        Assert.Equal((15, (byte)0x0C, (byte)0xB0, (ushort)0x0140,
+            (short)320, (byte)0xFF, (byte)0x50, (byte)0x04),
+            (level14Metadata.TubeTableIndex, level14Metadata.ScaleRaw,
+             level14Metadata.CameraHeightRaw, level14Metadata.ScreenYOffsetCombinedRaw,
+             level14Metadata.ScreenYOffsetSigned, level14Metadata.OpenRaw,
+             level14Metadata.FlipperScaleLowRaw, level14Metadata.FlipperScaleHighRaw));
+        Assert.Equal((ushort)0x0250, LevelLoader.Level14RomEvidence.FlipperScale);
+        Assert.Equal(level14Metadata.IsOpen, !level14.Definition.Continuous);
+        Assert.Equal(15, level14.PlayableLaneCount);
     }
 }

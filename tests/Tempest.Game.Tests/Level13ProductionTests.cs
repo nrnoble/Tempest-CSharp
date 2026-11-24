@@ -262,14 +262,16 @@ public sealed class Level13ProductionTests
     }
 
     [Fact]
-    public void LevelTwelveProgressesIntoThirteenAndThirteenIsTerminal()
+    public void LevelTwelveProgressesThroughThirteenToTerminalFourteen()
     {
         Assert.Same(LevelConfiguration.Level13Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level12Production));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level13Production));
-        Assert.Same(LevelConfiguration.Level13Production,
+        Assert.Same(LevelConfiguration.Level14Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level13Production));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level14Production));
+        Assert.Same(LevelConfiguration.Level14Production,
             LevelProgression.GetLastProductionLevel());
-        Assert.Null(LevelProgression.GetProductionLevel(14));
+        Assert.Same(LevelConfiguration.Level14Production, LevelProgression.GetProductionLevel(14));
         Assert.Same(LevelConfiguration.Level15DirectStartCandidate,
             LevelProgression.GetDirectStartLevel(15));
 

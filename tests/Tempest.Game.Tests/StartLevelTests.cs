@@ -27,6 +27,7 @@ public sealed class StartLevelTests
     [InlineData(11)]
     [InlineData(12)]
     [InlineData(13)]
+    [InlineData(14)]
     public void ProductionStartsUseFreshProductionState(int level)
     {
         string[] args = ["--start-level", level.ToString()];
@@ -50,6 +51,40 @@ public sealed class StartLevelTests
     }
 
     [Fact]
+    public void NaturalLevelThirteenToFourteenProgressionCarriesCampaignState()
+    {
+        TempestGame game = new(startingProductionLevel: 13, startingLives: 4,
+            random: new Random(1981));
+        game.Score.Add(1234);
+        CompleteWaveAndExit(game);
+
+        Assert.Same(LevelConfiguration.Level14Production, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Approach, game.State);
+        Assert.Equal(1234, game.Score.Score);
+        Assert.Equal(4, game.Player.Lives);
+        Assert.Equal(2, game.SuperZapperChargesRemaining);
+        Assert.True(game.NaturalProgressionEnabled);
+        Assert.Null(LevelProgression.GetNextProductionLevel(
+            LevelConfiguration.Level14Production));
+    }
+
+    [Fact]
+    public void TerminalLevelFourteenCompletionRestartsAtLevelOne()
+    {
+        TempestGame game = new(startingProductionLevel: 14, startingLives: 5);
+        game.Score.Add(1234);
+
+        CompleteWaveAndExit(game);
+
+        Assert.True(game.LevelComplete);
+        Assert.Same(LevelConfiguration.Level14Production, game.CurrentLevel.Configuration);
+        game.RunOneStep(restartPressed: true);
+        Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
+        Assert.Equal(0, game.Score.Score);
+        Assert.Equal(5, game.Player.Lives);
+    }
+
+    [Fact]
     public void ParsingRejectsInvalidAndConflictingStartSelectors()
     {
         string[][] invalid =
@@ -57,7 +92,7 @@ public sealed class StartLevelTests
             ["--start-level"], ["--start-level", "--lives", "5"],
             ["--start-level", "abc"], ["--start-level", "0"],
             ["--start-level", "-1"],
-            ["--start-level", "14"], ["--start-level", "15"],
+            ["--start-level", "15"],
             ["--start-level", "999999999999999"], ["--start-level=11"],
             ["--start-level", "11", "--start-level", "12"],
             ["--start-level", "11", "--level", "11"],
@@ -70,7 +105,9 @@ public sealed class StartLevelTests
         }
         Assert.True(DebugController.TryParseStartingLevel(["--level", "10"], out _, out _));
         Assert.True(DebugController.TryParseStartingLevel(["--level", "13"], out _, out _));
+        Assert.True(DebugController.TryParseStartingLevel(["--level", "14"], out _, out _));
         Assert.True(DebugController.TryParseStartingLevel(["--start-level", "13"], out _, out _));
+        Assert.True(DebugController.TryParseStartingLevel(["--start-level", "14"], out _, out _));
         Assert.True(DebugController.TryParseStartingLevel(["--level", "15"], out _, out _));
         Assert.True(DebugController.HasConflictingScenarios(
             ["--start-level", "11", "--gameplay-playback"]));
@@ -144,6 +181,7 @@ public sealed class StartLevelTests
     [Theory]
     [InlineData(10)]
     [InlineData(11)]
+    [InlineData(14)]
     public void RecordingFromStartLevelRestoresTheSameSeededStartupInPlayback(int level)
     {
         string[] args = ["--record-gameplay", "session.json", "--start-level", level.ToString(),
@@ -174,7 +212,7 @@ public sealed class StartLevelTests
     [Theory]
     [InlineData("--level")]
     [InlineData("--start-level")]
-    public void DirectProductionStartsContinueThroughThirteenAndStopThere(string option)
+    public void DirectProductionStartsContinueThroughFourteenAndStopThere(string option)
     {
         string[] args = [option, "11", "--lives", "7"];
         Assert.True(DebugController.TryParseStartingLevel(args, out int? level, out _));
@@ -236,8 +274,26 @@ public sealed class StartLevelTests
             game.RunOneStep();
         Assert.Equal(LevelState.Playing, game.State);
         CompleteWaveAndExit(game);
+        Assert.False(game.LevelComplete);
+        Assert.Same(LevelConfiguration.Level14Production, game.CurrentLevel.Configuration);
+        Assert.Equal(1234, game.Score.Score);
+        Assert.Equal(4, game.Player.Lives);
+        AtariHudLine[] hud14 = AtariHudVector.Render(game)
+            .Where(line => line.Color == AtariHudVector.LevelColor).ToArray();
+        Assert.NotEqual(hud13, hud14);
+        TempestGame level14 = new(startingProductionLevel: 14, random: new Random(1981));
+        Assert.Equal(AtariHudVector.Render(level14).Where(line => line.Color == AtariHudVector.LevelColor),
+            hud14);
+        VectorRenderer explicitLevel14 = new(game, atariPresentationEnabled: true,
+            tubeYGain: 1, tubeScale: 1.1f, tubeVerticalOffset: 200, tubeDepthYGain: 1);
+        Assert.Equal(CaptureTube(explicitLevel14), CaptureTube(renderer));
+
+        for (int tick = 0; tick < LevelApproach.DurationTicks; tick++)
+            game.RunOneStep();
+        Assert.Equal(LevelState.Playing, game.State);
+        CompleteWaveAndExit(game);
         Assert.True(game.LevelComplete);
-        Assert.Same(LevelConfiguration.Level13Production, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level14Production, game.CurrentLevel.Configuration);
         game.RunOneStep(restartPressed: true);
         Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
         Assert.Equal(0, game.Score.Score);

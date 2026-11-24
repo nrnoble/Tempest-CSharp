@@ -111,14 +111,16 @@ public sealed class Level12ProductionTests
     }
 
     [Fact]
-    public void NaturalElevenToTwelveProgressionContinuesToThirteen()
+    public void NaturalElevenToTwelveProgressionContinuesThroughFourteen()
     {
         Assert.Same(LevelConfiguration.Level12Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level11Production));
         Assert.Same(LevelConfiguration.Level13Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level12Production));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level13Production));
-        Assert.Same(LevelConfiguration.Level13Production,
+        Assert.Same(LevelConfiguration.Level14Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level13Production));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level14Production));
+        Assert.Same(LevelConfiguration.Level14Production,
             LevelProgression.GetLastProductionLevel());
 
         TempestGame game = new(startingProductionLevel: 12, startingLives: 4);
@@ -214,7 +216,7 @@ public sealed class Level12ProductionTests
         Assert.Contains(AtariHudVector.Render(game),
             line => line.Color == AtariHudVector.LevelColor);
 
-        foreach (int displayedLevel in new[] { 14 })
+        foreach (int displayedLevel in new[] { 16 })
         {
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => AtariPresentationAdapter.GetModelFrameMapping(displayedLevel));
