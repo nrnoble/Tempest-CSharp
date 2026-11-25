@@ -1,8 +1,9 @@
 # Production presentation default promotion — final closeout
 
 **Status: PASS — Neal's manual acceptance recorded, policy/docs reconciled,
-focused and full validation passed. Commit, push, and independent GitHub
-verification remain pending.** The interactive game was not launched.
+focused and full validation passed, and the primary closeout commit was pushed
+and independently verified on GitHub. One report-only finalization
+commit/push/verification remains.** The interactive game was not launched.
 
 ## 1. Starting repository state and ownership
 
@@ -152,14 +153,25 @@ All commands completed; test runs used a two-minute VSTest hang timeout.
   screenshot, video, generated, or user assets.
 - `TEMP/GameplayRecordings/lvl1-16.json`, other TEMP content,
   `Reference/arcade/MBUCOD.V05.txt`, and unrelated local assets are excluded.
-- Primary commit subject: `Make accepted Atari presentation the default`.
-  Commit SHA and push result: pending.
-- Independent GitHub primary-commit verification and retrieval of this
-  prompt, implementation report, historical prompt/report, and
-  `Copilot.txt`: pending.
-- The bounded report-finalization process permits at most one report-only
-  follow-up commit. Its final push and remote verification will be reported
-  after that commit without a third report-update commit.
+- **Primary commit:** `2f17b765aeb529296c6412d3d66c2affe82b5d1e`,
+  `Make accepted Atari presentation the default`. It contains the Copilot
+  co-author trailer. Push command `git push` passed and advanced
+  `origin/master` from `0334658` to `2f17b76`.
+- **Independent GitHub verification — PASS:** GitHub returned the primary
+  commit with the expected subject. Resolving remote `master` returned the
+  same commit SHA. GitHub independently retrieved this closeout prompt, the
+  implementation report, the Level 16 historical prompt and report,
+  `AI-Logs/Copilot.txt`, and `src/Tempest.Game/Program.cs` at the primary SHA.
+- Immediately after primary push, local `master` and `origin/master` matched
+  at the primary SHA, ahead/behind `0/0`, with an empty index. The only
+  remaining local material was the pre-existing unrelated Level 15 behavior-
+  spec hunk and untracked `Reference/arcade/MBUCOD.V05.txt`.
+- One report-only finalization commit will record final local state and this
+  primary remote verification. To avoid a self-referential third report
+  update, that finalization commit's own SHA and post-push verification will
+  be returned in the closeout response. After its push, the expected final
+  state is `master` equal to `origin/master`, index empty, with only the same
+  pre-existing Level 15 spec hunk and untracked reference file remaining.
 
 ## 9. Remaining scope and local material
 
