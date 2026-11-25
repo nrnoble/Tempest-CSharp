@@ -154,10 +154,11 @@ public sealed class TubeYGainTests
 		foreach (string[] arguments in invalidArguments)
 			Assert.False(DebugController.TryParseTubeScaleOptions(arguments, out _, out _));
 
-		Assert.False(DebugController.TryParseTubeScaleOptions(
-			["--level", "1", "--tube-scale", "0.5"], out _,
+		Assert.True(DebugController.TryParseTubeScaleOptions(
+			["--level", "1", "--tube-scale", "0.5"], out TubeScaleOptions defaultAtariScale,
 			out string? presentationError));
-		Assert.Contains("--atari-presentation", presentationError);
+		Assert.Null(presentationError);
+		Assert.Equal(.5f, defaultAtariScale.Scale);
 
 		for (int level = 1; level <= 10; level++)
 			Assert.True(DebugController.TryParseTubeScaleOptions(
@@ -200,9 +201,11 @@ public sealed class TubeYGainTests
 			Assert.False(DebugController.TryParseTubeYGainOptions(
 				arguments, out _, out string? error));
 
-		Assert.False(DebugController.TryParseTubeYGainOptions(
-			["--level", "1", "--tube-y-gain", "1.21"], out _, out string? presentationError));
-		Assert.Contains("--atari-presentation", presentationError);
+		Assert.True(DebugController.TryParseTubeYGainOptions(
+			["--level", "1", "--tube-y-gain", "1.21"], out TubeYGainOptions defaultAtariGain,
+			out string? presentationError));
+		Assert.Null(presentationError);
+		Assert.Equal(1.21f, defaultAtariGain.Gain);
 		Assert.False(DebugController.TryParseTubeYGainOptions(
 			["--atari-presentation", "--level", "1", "--tube-y-gain=1.21"],
 			out _, out string? joinedValueError));

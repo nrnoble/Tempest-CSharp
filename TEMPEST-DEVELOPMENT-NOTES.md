@@ -31,6 +31,11 @@ Do not silently change established arcade behavior because another implementatio
   supplements rather than replaces Neal's manual gameplay acceptance.
 - Commit only known-good milestones to Git.
 - Do not rely on AI conversation history as the permanent project record.
+- Preserve `AI-Logs/Prompts/`, `AI-Logs/Reports/`, and `AI-Logs/Copilot.txt`
+  in GitHub for development continuity. Include legitimate existing records
+  during an explicitly authorized closeout; this policy does not itself
+  authorize a commit or push. Historical reports remain historical records.
+  Archival, ZIP consolidation, and log removal require separate authorization.
 
 ## Active Development Repository
 
@@ -102,11 +107,17 @@ Preserve unless intentionally revisited:
   is 1.68 including its unchanged 1.05 playfield factor. Logical coordinates,
   projection, camera target, geometry, and accepted per-level placements
   remain unchanged.
-- `--atari-presentation` enables the presentation adapter; it does not select
-  the window or viewport. Without it, normal rendering still uses the portrait
-  viewport. The separate `--legacy-presentation` option keeps the 800 x 600
-  4:3 canvas, uniformly scaled by 2 to 1600 x 1200 and centered vertically
-  with 40-pixel margins in the same host window.
+- The accepted Atari presentation is the interactive default. Neal manually
+  accepted the default-selection promotion after playing the complete current
+  production campaign, Levels 1–16, under that default. The accepted
+  projection and calibration values are unchanged. The valueless
+  `--atari-presentation` option remains a redundant compatibility alias.
+  `--baseline-portrait-presentation` selects the old world projection for
+  development-only A/B comparison while retaining the same portrait
+  viewport/camera; `--portrait-perspective` applies only in that explicit
+  diagnostic. The separate `--legacy-presentation` option retains the
+  800 x 600 4:3 canvas, uniformly scaled by 2 to 1600 x 1200 and centered
+  vertically with 40-pixel margins in the same host window.
 - `Projection.K = 70`.
 - `Projection.ZOffset = 5`.
 - Level 1 uses the established 16-segment circular tube geometry.

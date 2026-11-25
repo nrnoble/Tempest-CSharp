@@ -190,14 +190,27 @@ TRANSLATION, not an established arcade-mechanics claim.
 Level 16 is implemented from closed ROM shape row 11, including its ordered
 self-touching 16-lane geometry and production wave policy. Neal has manually
 accepted Level 16 gameplay and Atari presentation; it follows Level 15 and is
-the current terminal production level. With `--atari-presentation`, Level 16
-automatically uses its accepted defaults: Y gain `1.1`, scale `1`, vertical
-offset `100`, and depth-Y gain `1`. The four `--tube-*` options remain runtime
-overrides. These are manually accepted presentation settings, not ROM
-metadata. Level 17 and tube recycling are not implemented.
+the current terminal production level. Its accepted defaults are Y gain
+`1.1`, scale `1`, vertical offset `100`, and depth-Y gain `1`. The four
+`--tube-*` options remain runtime overrides. These are manually accepted
+presentation settings, not ROM metadata.
+
+The Atari presentation and per-level calibrations for production Levels 1–16
+are manually accepted. Neal also manually accepted selecting that same
+presentation by default for ordinary interactive gameplay after playing the
+complete current production campaign, Levels 1–16, under the promoted default.
+The default-selection promotion changes no accepted projection, calibration,
+gameplay, or HUD behavior. `--atari-presentation` remains a valueless
+compatibility alias and is redundant for ordinary interactive launches.
+
+`--baseline-portrait-presentation` is a development-only A/B diagnostic for
+the old portrait world projection with the same portrait viewport. It is
+distinct from `--legacy-presentation`, which retains the separate legacy
+4:3 presentation. `--portrait-perspective` applies only alongside the
+explicit baseline diagnostic. Level 17 and tube recycling are not implemented.
 
 ```powershell
-dotnet run --project src\Tempest.Game -- --start-level 16 --atari-presentation
+dotnet run --project src\Tempest.Game -- --start-level 16
 ```
 
 `--background-opacity` remains a global development-only diagnostic with the
@@ -207,7 +220,7 @@ For Level 14, this launch uses its accepted Atari-presentation defaults without
 explicit calibration overrides:
 
 ```powershell
-dotnet run --project src\Tempest.Game -- --level 14 --atari-presentation
+dotnet run --project src\Tempest.Game -- --level 14
 ```
 
 Neal manually accepted this development startup and the controller exit
@@ -226,7 +239,7 @@ explicit calibration overrides follow their existing active-level and
 override rules.
 
 ```powershell
-dotnet run --project src\Tempest.Game -- --start-level 11 --atari-presentation
+dotnet run --project src\Tempest.Game -- --start-level 11
 ```
 
 ## Development-only tube presentation calibration
@@ -248,13 +261,16 @@ the current Raylib 6.0 runtime and Raylib-cs 8.1.0 found fully transparent
 clear pixels saved with PNG alpha 255; screenshots remain opaque Tempest-only
 images rather than desktop composites.
 
-With `--atari-presentation`, the renderer automatically uses the manually
-selected first-pass Y gain, uniform scale, and vertical offset for the level
-currently displayed. The values and evidence classification are recorded in
-the [behavior specification](TEMPEST-BEHAVIOR-SPEC.md#first-pass-per-level-atari-presentation-calibration).
+Ordinary interactive gameplay selects the already accepted Atari
+presentation, and the renderer automatically uses the manually selected
+first-pass Y gain, uniform scale, and vertical offset for the displayed
+level. Neal manually accepted this default-selection promotion after
+successfully playing production Levels 1–16. The values and evidence
+classification are recorded in the
+[behavior specification](TEMPEST-BEHAVIOR-SPEC.md#first-pass-per-level-atari-presentation-calibration).
 They are presentation-only project decisions based on Neal's manual visual
-selection, not ROM-derived gameplay geometry; a later milestone may fine-tune
-individual levels.
+selection, not ROM-derived gameplay geometry. This promotion does not retune
+any accepted presentation values.
 
 The independent `--tube-y-gain`, `--tube-scale`, and
 `--tube-vertical-offset` diagnostics remain available as absolute overrides
@@ -273,8 +289,10 @@ exaggerate it, and negative values reverse it. It accepts any finite signed
 invariant-culture value; extreme values may move geometry off screen or exceed
 representable projected coordinates. It does not change model geometry, the
 near-rim anchor, common placement, HUD, or the far/near depth-size ratio.
-It requires `--atari-presentation` and `--level`, `--start-level`, or
-`--playback-file`, and is not recorded. Levels 7-15 use
+It requires the effective Atari presentation and `--level`, `--start-level`,
+or `--playback-file`, and is not recorded. It works with the normal
+interactive default or the compatibility alias, but not with the baseline
+portrait or legacy 4:3 diagnostic. Levels 7-15 use
 the camera-origin term; Levels 1-6 use separate projection paths and the
 control has no effect on them. Levels 7-15 scale the camera-origin term;
 Level 16 scales its depth-dependent model-Y displacement from the near rim
@@ -291,16 +309,20 @@ Run `dotnet run --project src\Tempest.Game -- --help` for the diagnostic's
 command-line summary without opening a game window.
 
 The fixed yellow viewport calibration guides are development-only and normally
-off. Add `--calibration-guides` with `--atari-presentation` to restore them
-for calibration and screenshots; they stay fixed independently of the
-tube diagnostics.
+off. Add `--calibration-guides` to restore them for calibration and
+screenshots; they require the accepted Atari presentation and stay fixed
+independently of the tube diagnostics.
 
 For example:
 
 ```powershell
-dotnet run --project src\Tempest.Game -- --atari-presentation --level 2
-dotnet run --project src\Tempest.Game -- --atari-presentation --level 7 --tube-scale 1.1
-dotnet run --project src\Tempest.Game -- --atari-presentation --level 7 --tube-y-gain 1 --tube-scale 1 --tube-vertical-offset 0
+dotnet run --project src\Tempest.Game -- --level 2
+dotnet run --project src\Tempest.Game -- --level 7 --tube-scale 1.1
+dotnet run --project src\Tempest.Game -- --level 7 --tube-y-gain 1 --tube-scale 1 --tube-vertical-offset 0
+
+# Explicit A/B options: old portrait world projection, or the distinct legacy 4:3 presentation.
+dotnet run --project src\Tempest.Game -- --baseline-portrait-presentation
+dotnet run --project src\Tempest.Game -- --legacy-presentation
 ```
 
 ## Production Level 1 four-Flipper maximum

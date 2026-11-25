@@ -177,10 +177,16 @@ paired-report requirement. The task is not complete until both required files
 have been written to their designated AI-Logs directories.
 
 
-`AI-Logs/` contains historical development records and is tracked repository
-material. It may be staged and committed normally when appropriate. Do not
-rewrite an earlier report when a milestone advances; create an appropriate
-follow-up report.
+`AI-Logs/Prompts/`, `AI-Logs/Reports/`, and `AI-Logs/Copilot.txt` are
+development-continuity records intended to remain in GitHub. In an explicitly
+authorized milestone closeout, include all legitimate current prompt/report
+records and `Copilot.txt`, not only the current pair. This policy does not
+authorize a commit or push: Neal must explicitly authorize it, either directly
+or through the current task. Do not rewrite historical reports when a
+milestone advances; create an appropriate follow-up report. Keep TEMP files,
+gameplay recordings, screenshots, videos, ROM/reference and user assets out of
+Git unless separately authorized. Future archival, ZIP consolidation, or
+removal of AI-Logs requires separate authorization.
 
 Investigation findings and implementation candidates are not accepted
 behavior. After Neal manually accepts a behavior, its closeout should update
@@ -217,14 +223,16 @@ authorities.
 
 ## 9. Completion requirements
 
-For substantial Tempest tasks using the completion-token convention, before
-project or repository action verify that the substantive user task contains
-exactly one complete token beginning with `TEMPEST_` on a line by itself.
-Automatically appended VS Code reminders, attachment/tagged-file metadata,
-workspace context, and other agent-generated material after the user's token
-do not invalidate it. If exactly one complete token cannot be established,
-stop before project/repository action and explain why. Do not require this
-convention for trivial questions, simple lookups, or minor interactions.
-A substantial user prompt may still include a short fail-closed token-check
-header as transmission protection; do not treat it as conflicting duplication
-of this repository-wide rule.
+For substantial Tempest tasks using the completion-token convention, read the
+entire substantive user task first. Before project or repository action,
+verify it contains exactly one complete standalone token beginning with
+`TEMPEST-END-`. The token must be on a line by itself and may contain only
+uppercase ASCII letters, digits, and hyphens after that prefix. Automatically
+appended VS Code reminders, attachment/tagged-file metadata, workspace
+context, and other agent-generated material after the user's token do not
+invalidate it. This is truncation detection, not appended-context rejection.
+If exactly one valid token cannot be established, stop before project or
+repository action and explain why. The former underscore-based `TEMPEST_...`
+format is obsolete for new prompts; do not require both formats or rewrite
+historical prompts/reports. Do not require tokens for trivial questions,
+simple lookups, or minor interactions.

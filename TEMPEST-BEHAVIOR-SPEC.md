@@ -3714,3 +3714,29 @@ presentation and its calibration.
   the C# tick or projectile conversions. These evidence limits do not
   represent an unresolved Level 16 gameplay blocker or negate Neal's manual
   acceptance of the implemented production behavior.
+
+## Production Atari-presentation default promotion — 2026-11-25
+
+**PROJECT DECISION — MANUAL ACCEPTANCE:** The already accepted Atari
+presentation is the default for ordinary interactive gameplay. Neal reports
+that all requested default-promotion manual tests passed and manually played
+the complete current production campaign, Levels 1–16, using the promoted
+default; all 16 levels passed. The presentation-selection behavior passed
+throughout that campaign. This accepts the selection/default promotion, not a
+new calibration or visual retuning of any level.
+
+**OPTION BOUNDARIES:** `--atari-presentation` remains a redundant valueless
+compatibility alias and passed manual comparison with the default.
+`--baseline-portrait-presentation` remains the explicit old-portrait A/B
+diagnostic; `--portrait-perspective` remains gated to that mode.
+`--legacy-presentation` retains its distinct 4:3 semantics. The requested
+representative direct-start, diagnostic, compatibility, and playback paths
+also passed manual testing.
+
+**PRESENTATION AND SIMULATION BOUNDARY:** Existing per-level Atari
+calibrations for Levels 1–16, geometry, gameplay, recording format, and
+deterministic simulation identity are unchanged. Presentation selection
+remains outside recording identity. Visible playback uses the production
+default; headless playback and input diagnostics remain non-rendering.
+`--background-opacity` remains a global development-only diagnostic with
+default `1`.

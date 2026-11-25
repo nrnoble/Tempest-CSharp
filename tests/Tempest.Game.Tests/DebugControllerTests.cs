@@ -118,7 +118,8 @@ public sealed class DebugControllerTests
         string[] recordingArguments =
         [
             "--record-gameplay", "session.json", "--level", "9", "--lives", "8",
-            "--speed", "0.5", "--rim-speed", "1.5", "--portrait-perspective", "+50"
+            "--speed", "0.5", "--rim-speed", "1.5",
+            "--baseline-portrait-presentation", "--portrait-perspective", "+50"
         ];
         Assert.True(DebugController.TryParseGameplayFileCommand(
             recordingArguments, out GameplayFileCommand? recording, out string? recordingError));
@@ -132,20 +133,21 @@ public sealed class DebugControllerTests
         Assert.Null(recordingPerspectiveError);
 
         Assert.True(DebugController.TryParseStartingLevel(
-            ["--level", "9", "--portrait-perspective", "+50"],
+            ["--level", "9", "--baseline-portrait-presentation",
+                "--portrait-perspective", "+50"],
             out int? startingLevel, out string? levelError));
         Assert.Equal(9, startingLevel);
         Assert.Null(levelError);
 
         Assert.True(DebugController.TryParseGameplayFileCommand(
             ["--playback-file", "session.json", "--speed", "1.5",
-                "--portrait-perspective", "+50"],
+                "--baseline-portrait-presentation", "--portrait-perspective", "+50"],
             out GameplayFileCommand? playback, out string? playbackError));
         Assert.Equal(new GameplayFileCommand(GameplayFileMode.Playback, "session.json"), playback);
         Assert.Null(playbackError);
         Assert.True(DebugController.TryParsePortraitPerspective(
             ["--playback-file", "session.json", "--speed", "1.5",
-                "--portrait-perspective", "+50"],
+                "--baseline-portrait-presentation", "--portrait-perspective", "+50"],
             out float? playbackPerspective, out string? playbackPerspectiveError));
         Assert.Equal(50f, playbackPerspective);
         Assert.Null(playbackPerspectiveError);
@@ -158,7 +160,7 @@ public sealed class DebugControllerTests
     }
 
     [Fact]
-    public void AtariPresentationIsExplicitOptInAndRejectsDuplicateMalformedOrIncompatibleOptions()
+    public void AtariPresentationCompatibilityAliasRejectsDuplicateMalformedOrIncompatibleOptions()
     {
         Assert.True(DebugController.TryParseAtariPresentation(
             [], out bool omitted, out string? omittedError));
@@ -174,7 +176,9 @@ public sealed class DebugControllerTests
         [
             ["--atari-presentation", "--atari-presentation"],
             ["--atari-presentation", "unexpected-value"],
+            ["--atari-presentation=value"],
             ["--atari-presentation", "--legacy-presentation"],
+            ["--atari-presentation", "--baseline-portrait-presentation"],
             ["--atari-presentation", "--portrait-perspective", "0"]
         ];
         foreach (string[] arguments in invalidArguments)
@@ -268,12 +272,14 @@ public sealed class DebugControllerTests
         foreach (string mode in compatibleModes)
         {
             Assert.True(DebugController.TryParsePortraitPerspective(
-                [mode, "--portrait-perspective", "2"], out float? perspective,
+                [mode, "--baseline-portrait-presentation",
+                    "--portrait-perspective", "2"], out float? perspective,
                 out string? error));
             Assert.Equal(2f, perspective);
             Assert.Null(error);
             Assert.False(DebugController.HasConflictingScenarios(
-                [mode, "--portrait-perspective", "2"]));
+                [mode, "--baseline-portrait-presentation",
+                    "--portrait-perspective", "2"]));
         }
     }
 
@@ -536,7 +542,7 @@ public sealed class DebugControllerTests
     public void AtariHudCalibrationOmittedPreservesDefaults()
     {
         Assert.True(DebugController.TryParseAtariHudCalibrationOptions(
-            ["--atari-presentation"],
+            [],
             out AtariHudCalibrationOptions options,
             out string? error));
         Assert.Null(error);
@@ -562,7 +568,7 @@ public sealed class DebugControllerTests
         foreach (string value in new[] { "-1000", "-1.25", "0", "+1.25", "1000" })
         {
             Assert.True(DebugController.TryParseAtariHudCalibrationOptions(
-                ["--atari-presentation", option, value],
+                [option, value],
                 out _, out string? error));
             Assert.Null(error);
         }
@@ -578,7 +584,7 @@ public sealed class DebugControllerTests
         foreach (string value in new[] { "0.0001", "1", "1.25", "100000" })
         {
             Assert.True(DebugController.TryParseAtariHudCalibrationOptions(
-                ["--atari-presentation", option, value],
+                [option, value],
                 out _, out string? error));
             Assert.Null(error);
         }
@@ -610,13 +616,15 @@ public sealed class DebugControllerTests
     [Fact]
     public void AtariHudCalibrationRequiresAtariPresentationAndPartialOverridesPreserveDefaults()
     {
-        Assert.False(DebugController.TryParseAtariHudCalibrationOptions(
+        Assert.True(DebugController.TryParseAtariHudCalibrationOptions(
             ["--hud-score-x", "250"],
-            out _, out string? contextError));
-        Assert.Contains("--atari-presentation", contextError);
+            out AtariHudCalibrationOptions defaultPresentationOptions,
+            out string? contextError));
+        Assert.Null(contextError);
+        Assert.Equal(250f, defaultPresentationOptions.ResolvedScoreRight);
 
         Assert.True(DebugController.TryParseAtariHudCalibrationOptions(
-            ["--atari-presentation", "--hud-score-x", "250", "--hud-lives-scale", "0.8"],
+            ["--hud-score-x", "250", "--hud-lives-scale", "0.8"],
             out AtariHudCalibrationOptions options,
             out string? error));
         Assert.Null(error);

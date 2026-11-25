@@ -2,10 +2,10 @@
 
 ## Status
 
-**PASS — manual campaign-integration acceptance and fresh automated
-validation.** Staged review, commit, push and post-push verification will be
-recorded after they occur; this report's post-push update is intentionally
-left for the next normal commit rather than amending this one.
+**CLOSEOUT PASS — manual campaign-integration acceptance, fresh automated
+validation, staged review, commit, push and independent GitHub verification.**
+This report's post-push update is intentionally left for the next normal
+commit rather than amending this one.
 
 Neal reports: **Level 15 production promotion passes manual testing.**
 Level 14 completes naturally into Level 15; Level 15 presentation and
@@ -67,8 +67,11 @@ two-minute per-test hang bound and each soak run is limited to 1,200 ticks.
   0 warnings, 0 errors.
 - **PASS:** `git diff --check`; Git emitted working-copy LF-to-CRLF warnings
   for README and LevelLoader, not whitespace errors.
+- **PASS:** `git diff --cached --check`; staged source, test, documentation
+  and record diffs were reviewed. The 32 paths below were the exact staged
+  inventory; no protected or unrelated paths were staged.
 
-## Intended commit inventory
+## Committed inventory
 
 - `AI-Logs/Prompts/2026-11-24-level15-final-closeout-prompt.md`
 - `AI-Logs/Prompts/2026-11-24-level15-production-promotion-closeout-prompt.md`
@@ -102,3 +105,18 @@ two-minute per-test hang bound and each soak run is limited to 1,200 ticks.
 - `tests/Tempest.Game.Tests/LevelConfigurationTests.cs`
 - `tests/Tempest.Game.Tests/StartLevelTests.cs`
 - `tests/Tempest.Game.Tests/TubeDepthYGainTests.cs`
+
+## Commit and publication
+
+- **PASS:** commit `63d37adb6c0b6b4f28a422f0c6c638cf5391e88c`, subject
+  `Promote accepted Level 15 to production`, including the Copilot co-author
+  trailer.
+- **PASS:** normal push to `origin/master`: `bff70ae..63d37ad`.
+- **PASS:** GitHub connector independently returned that SHA and subject for
+  remote `master`.
+- **PASS:** local `master` and `origin/master` resolve to the same SHA;
+  ahead/behind `0/0`; index empty.
+- Final tracked worktree: only this intentional post-push report update
+  remains unstaged. The five earlier historical prompt/report pairs and the
+  unrelated `Reference/arcade/MBUCOD.V05.txt` and `temo/` remain untracked and
+  untouched.

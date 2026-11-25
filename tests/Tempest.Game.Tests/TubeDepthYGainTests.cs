@@ -85,14 +85,14 @@ public sealed class TubeDepthYGainTests : IDisposable
 			["--atari-presentation", "--level", "13", "--tube-depth-y-gain", "--lives", "3"],
 			["--atari-presentation", "--level", "13", "--tube-depth-y-gain", "1", "--tube-depth-y-gain", "0"],
 			["--atari-presentation", "--level", "13", "--tube-depth-y-gain=1"],
-			["--level", "13", "--tube-depth-y-gain", "0"],
 			["--atari-presentation", "--tube-depth-y-gain", "0"]
 		];
 		foreach (string[] args in invalid)
 			Assert.False(DebugController.TryParseTubeDepthYGainOptions(args, out _, out _));
-		Assert.False(DebugController.TryParseTubeDepthYGainOptions(
-			["--level", "13", "--tube-depth-y-gain", "0"], out _, out var error));
-		Assert.Contains("--atari-presentation", error);
+		Assert.True(DebugController.TryParseTubeDepthYGainOptions(
+			["--level", "13", "--tube-depth-y-gain", "0"], out var defaultAtari, out var error));
+		Assert.Null(error);
+		Assert.Equal(0f, defaultAtari.Gain);
 	}
 
 	[Fact]

@@ -19,10 +19,12 @@
 // file playback restores startup identity, pauses with Space, steps with Right, and reconstructs
 // backward with Left while paused. F9 pauses live play and F10 requests a screenshot; these
 // process controls stay outside PlayerInput and the recording.
-// --legacy-presentation selects the established 4:3 rendering instead of the experimental portrait
-// presentation; --portrait-perspective calibrates only the shared portrait projection;
-// --atari-presentation opts into the shared Atari presentation adapter; Level 7 uses its
-// production gameplay geometry for both the tube and gameplay entities;
+// Interactive gameplay defaults to the accepted Atari portrait presentation.
+// --atari-presentation remains a valueless compatibility alias;
+// --baseline-portrait-presentation selects the old portrait projection for development comparison;
+// --legacy-presentation selects the separate established 4:3 presentation;
+// --portrait-perspective calibrates only the explicit old portrait diagnostic;
+// Level 7 uses its production gameplay geometry for both the tube and gameplay entities;
 // --calibration-guides enables fixed DEVELOPMENT-ONLY viewport guides;
 // --background-opacity changes only the cleared background alpha for visual comparison;
 // --tube-y-gain changes DEVELOPMENT-ONLY vertical tube proportion;
@@ -44,14 +46,19 @@ using Tempest.Game.Gameplay;
 if (args.Contains("--help", StringComparer.Ordinal))
 {
     Console.WriteLine(
-        "Development-only Atari presentation diagnostic:\n" +
+        "Interactive gameplay defaults to the accepted Atari portrait presentation.\n" +
+        "  --atari-presentation is a redundant compatibility alias.\n" +
+        "  --baseline-portrait-presentation selects the old portrait projection for development-only comparison.\n" +
+        "  --legacy-presentation selects the separate legacy 4:3 presentation.\n" +
+        "Development-only Atari presentation calibration:\n" +
         "  --tube-depth-y-gain <value> scales the depth-dependent vertical camera-origin\n" +
         "  contribution. 1 preserves it, 0 removes it, negative values reverse it.\n" +
         "  Default is 0.3 for Level 13 and 1 for other supported levels, including Level 14.\n" +
-        "  Any finite signed invariant-culture value is accepted. Requires\n" +
-        "  --atari-presentation and --level, --start-level, or --playback-file.\n" +
+        "  Any finite signed invariant-culture value is accepted. Requires the accepted Atari presentation\n" +
+        "  and --level, --start-level, or --playback-file; the presentation is the interactive default.\n" +
         "  It does not change model Y, common placement, HUD, or depth-size ratio.\n" +
         "  Levels 1-6 use separate projections and have no camera-origin term.\n" +
+        "  --portrait-perspective applies only with --baseline-portrait-presentation.\n" +
         "See README.md for other development options.\n" +
         "  --background-opacity <0..1> changes only the black background transparency for manual overlay calibration; it does not fade vectors or load/align a reference image (default 1).");
     return 0;
@@ -79,6 +86,13 @@ if (!DebugController.TryParseBackgroundOpacityOptions(args,
     return 2;
 }
 
+if (!DebugController.TryParsePresentationSelection(args,
+    out PresentationSelection presentationSelection, out string? presentationSelectionError))
+{
+    Console.Error.WriteLine(presentationSelectionError);
+    return 2;
+}
+
 if (!DebugController.TryParsePortraitPerspective(args,
     out float? portraitPerspective, out string? portraitPerspectiveError))
 {
@@ -86,12 +100,9 @@ if (!DebugController.TryParsePortraitPerspective(args,
     return 2;
 }
 
-if (!DebugController.TryParseAtariPresentation(args,
-    out bool atariPresentationEnabled, out string? atariPresentationError))
-{
-    Console.Error.WriteLine(atariPresentationError);
-    return 2;
-}
+bool atariPresentationEnabled = presentationSelection.UsesAtariPresentation;
+bool headlessPlaybackAnalysis =
+    presentationSelection.Kind == PresentationSelectionKind.HeadlessPlayback;
 
 if (!DebugController.TryParseCalibrationGuides(args,
     out bool calibrationGuidesEnabled, out string? calibrationGuidesError))
@@ -137,25 +148,13 @@ if (!DebugController.TryParseAtariHudCalibrationOptions(args,
     return 2;
 }
 
-bool legacyPresentationRequested = args.Contains("--legacy-presentation", StringComparer.Ordinal);
-bool headlessPlaybackAnalysis = HeadlessGameplayPlaybackCli.IsRequested(args);
-if (!DebugController.TryValidateAtariPresentationContext(
-    atariPresentationEnabled,
-    headlessPlaybackAnalysis,
-    DebugController.UseInputDiagnostic(args),
-    out string? atariPresentationContextError))
-{
-    Console.Error.WriteLine(atariPresentationContextError);
-    return 2;
-}
-
 // Keep deterministic file analysis ahead of every Raylib window, input, audio and pacing setup.
 if (headlessPlaybackAnalysis)
 {
     if (portraitPerspective is not null)
     {
         Console.Error.WriteLine(
-            "--portrait-perspective applies only to interactive portrait rendering, not headless playback analysis.");
+            "--portrait-perspective applies only with --baseline-portrait-presentation, not headless playback analysis.");
         return 2;
     }
     return HeadlessGameplayPlaybackCli.Run(args, Console.Out, Console.Error);
@@ -192,7 +191,7 @@ if (DebugController.UseInputDiagnostic(args) &&
 if (DebugController.UseInputDiagnostic(args) && portraitPerspective is not null)
 {
     Console.Error.WriteLine(
-        "--portrait-perspective applies only to interactive Tempest rendering, not --input-diagnostic.");
+        "--portrait-perspective applies only to --baseline-portrait-presentation, not --input-diagnostic.");
     return 2;
 }
 
@@ -264,9 +263,7 @@ if (DebugController.UseInputDiagnostic(args) &&
     return 2;
 }
 
-PresentationMode presentationMode = legacyPresentationRequested
-    ? PresentationMode.Legacy
-    : PresentationMode.ExperimentalPortrait;
+PresentationMode presentationMode = presentationSelection.RendererMode;
 
 if (level9SpikerSpeedOverride is not null && startingProductionLevel != 9)
 {
@@ -286,12 +283,6 @@ if (spinnerSensitivityOptions.WasExplicitlySpecified)
         "G", CultureInfo.InvariantCulture);
     Console.WriteLine(
         $"Spinner sensitivity: {multiplier}x live horizontal spinner/mouse response relative to current behavior.");
-}
-
-if (atariPresentationEnabled)
-{
-    Console.WriteLine(
-        "DEVELOPMENT ONLY — Atari presentation candidate enabled for production Levels 1-16.");
 }
 
 if (tubeYGainOptions.WasExplicitlySpecified)

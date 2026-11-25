@@ -76,10 +76,12 @@ public sealed class TubeVerticalOffsetTests
 			["--atari-presentation", "--level", "1", "--tube-vertical-offset=10"],
 			out _, out string? joinedValueError));
 		Assert.Contains("separate value", joinedValueError);
-		Assert.False(DebugController.TryParseTubeVerticalOffsetOptions(
+		Assert.True(DebugController.TryParseTubeVerticalOffsetOptions(
 			["--level", "1", "--tube-vertical-offset", "10"],
-			out _, out string? presentationError));
-		Assert.Contains("--atari-presentation", presentationError);
+			out TubeVerticalOffsetOptions defaultAtariOffset,
+			out string? presentationError));
+		Assert.Null(presentationError);
+		Assert.Equal(10f, defaultAtariOffset.Offset);
 		for (int level = 1; level <= 10; level++)
 			Assert.True(DebugController.TryParseTubeVerticalOffsetOptions(
 				ArgsForLevel(level, "--tube-vertical-offset", "10"), out _, out _));

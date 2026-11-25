@@ -13,10 +13,10 @@ namespace Tempest.Game.Tests;
 public sealed class PortraitCalibrationGuideTests
 {
 	[Fact]
-	public void GuidesAreOffByDefaultInNormalAndAtariPresentation()
+	public void GuidesAreOffByDefaultWithTheAcceptedAtariDefault()
 	{
 		Assert.True(DebugController.TryParseCalibrationGuides(
-			["--atari-presentation", "--level", "1"], out bool enabled, out string? error));
+			["--level", "1"], out bool enabled, out string? error));
 		Assert.False(enabled);
 		Assert.Null(error);
 		TempestGame game = new(startingProductionLevel: 1);
@@ -65,10 +65,11 @@ public sealed class PortraitCalibrationGuideTests
 	}
 
 	[Theory]
-	[InlineData("--calibration-guides")]
 	[InlineData("--atari-presentation --calibration-guides --calibration-guides")]
 	[InlineData("--atari-presentation --calibration-guides=value")]
 	[InlineData("--atari-presentation --calibration-guides value")]
+	[InlineData("--baseline-portrait-presentation --calibration-guides")]
+	[InlineData("--legacy-presentation --calibration-guides")]
 	public void InvalidGuideOptionsAreRejected(string command)
 	{
 		Assert.False(DebugController.TryParseCalibrationGuides(

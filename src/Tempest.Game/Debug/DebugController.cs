@@ -10,6 +10,31 @@ public enum GameplayFileMode
 	Playback
 }
 
+public enum PresentationSelectionKind
+{
+	DefaultAtariPortrait,
+	AtariCompatibilityAlias,
+	BaselinePortraitDiagnostic,
+	LegacyFourThree,
+	HeadlessPlayback,
+	InputDiagnostic
+}
+
+public readonly record struct PresentationSelection(PresentationSelectionKind Kind)
+{
+	public bool UsesAtariPresentation =>
+		Kind is PresentationSelectionKind.DefaultAtariPortrait or
+			PresentationSelectionKind.AtariCompatibilityAlias;
+
+	public bool WasAtariAliasSpecified =>
+		Kind == PresentationSelectionKind.AtariCompatibilityAlias;
+
+	public PresentationMode RendererMode =>
+		Kind == PresentationSelectionKind.LegacyFourThree
+			? PresentationMode.Legacy
+			: PresentationMode.ExperimentalPortrait;
+}
+
 public sealed record GameplayFileCommand(
 	GameplayFileMode Mode, string Path, int? StartingDisplayedLevel = null,
 	int? StartingLives = null, double? RimSpeedMultiplier = null,
@@ -52,7 +77,9 @@ public readonly record struct TubeVerticalOffsetOptions(
 /// --spinner-sensitivity scales live horizontal mouse/spinner input only.
 /// --background-opacity changes only the black framebuffer clear, not rendered content or recordings.
 /// --portrait-perspective calibrates the shared portrait projection only and is not recording data.
-/// --atari-presentation enables an opt-in development-only portrait transform; it is not recording data.
+/// Interactive gameplay defaults to the accepted Atari portrait presentation.
+/// --atari-presentation is a valueless compatibility alias; it is not recording data.
+/// --baseline-portrait-presentation selects the old portrait projection for development comparison.
 /// --calibration-guides enables fixed development-only guides in Atari presentation.
 /// --tube-y-gain changes the rendered source cross-section Y proportion.
 /// --tube-depth-y-gain scales the depth-dependent Atari camera-origin Y displacement.
@@ -253,6 +280,11 @@ public sealed class DebugController
 		int optionCount = 0;
 		for (int index = 0; index < arguments.Count; index++)
 		{
+			if (arguments[index].StartsWith("--atari-presentation=", StringComparison.Ordinal))
+			{
+				error = "--atari-presentation does not take a value.";
+				return false;
+			}
 			if (arguments[index] != "--atari-presentation")
 				continue;
 			optionCount++;
@@ -276,13 +308,112 @@ public sealed class DebugController
 			error = "--atari-presentation is portrait-only and cannot be combined with --legacy-presentation.";
 			return false;
 		}
+		if (arguments.Contains("--baseline-portrait-presentation", StringComparer.Ordinal))
+		{
+			error = "--atari-presentation cannot be combined with --baseline-portrait-presentation.";
+			return false;
+		}
 		if (arguments.Contains("--portrait-perspective", StringComparer.Ordinal))
 		{
-			error = "--atari-presentation cannot be combined with --portrait-perspective; omit the perspective option to use the Atari candidate.";
+			error = "--portrait-perspective requires --baseline-portrait-presentation and cannot be combined with --atari-presentation.";
 			return false;
 		}
 
 		enabled = true;
+		return true;
+	}
+
+	public static bool TryParseBaselinePortraitPresentation(
+		IReadOnlyList<string> arguments,
+		out bool enabled,
+		out string? error)
+	{
+		enabled = false;
+		error = null;
+		int optionCount = 0;
+		for (int index = 0; index < arguments.Count; index++)
+		{
+			if (arguments[index].StartsWith(
+				"--baseline-portrait-presentation=", StringComparison.Ordinal))
+			{
+				error = "--baseline-portrait-presentation does not take a value.";
+				return false;
+			}
+			if (arguments[index] != "--baseline-portrait-presentation")
+				continue;
+			optionCount++;
+			if (index + 1 < arguments.Count &&
+				!arguments[index + 1].StartsWith("--", StringComparison.Ordinal))
+			{
+				error = "--baseline-portrait-presentation does not take a value.";
+				return false;
+			}
+		}
+
+		if (optionCount > 1)
+		{
+			error = "--baseline-portrait-presentation may be specified only once.";
+			return false;
+		}
+		if (optionCount == 0)
+			return true;
+		if (arguments.Contains("--atari-presentation", StringComparer.Ordinal))
+		{
+			error = "--baseline-portrait-presentation cannot be combined with --atari-presentation.";
+			return false;
+		}
+		if (arguments.Contains("--legacy-presentation", StringComparer.Ordinal))
+		{
+			error = "--baseline-portrait-presentation cannot be combined with --legacy-presentation.";
+			return false;
+		}
+
+		enabled = true;
+		return true;
+	}
+
+	public static bool TryParsePresentationSelection(
+		IReadOnlyList<string> arguments,
+		out PresentationSelection selection,
+		out string? error)
+	{
+		selection = default;
+		error = null;
+		if (!TryParseAtariPresentation(arguments, out bool atariAliasSpecified, out error) ||
+			!TryParseBaselinePortraitPresentation(arguments,
+				out bool baselinePortraitSpecified, out error))
+			return false;
+
+		if (arguments.Contains("--portrait-perspective", StringComparer.Ordinal) &&
+			!baselinePortraitSpecified)
+		{
+			error = "--portrait-perspective applies to the old portrait projection and requires --baseline-portrait-presentation.";
+			return false;
+		}
+
+		bool headlessPlaybackAnalysis = HeadlessGameplayPlaybackCli.IsRequested(arguments);
+		bool inputDiagnostic = UseInputDiagnostic(arguments);
+		if (!TryValidateAtariPresentationContext(
+			atariAliasSpecified, headlessPlaybackAnalysis, inputDiagnostic, out error))
+			return false;
+		if (baselinePortraitSpecified && (headlessPlaybackAnalysis || inputDiagnostic))
+		{
+			error = "--baseline-portrait-presentation applies only to interactive Tempest rendering.";
+			return false;
+		}
+
+		PresentationSelectionKind kind = headlessPlaybackAnalysis
+			? PresentationSelectionKind.HeadlessPlayback
+			: inputDiagnostic
+				? PresentationSelectionKind.InputDiagnostic
+				: baselinePortraitSpecified
+					? PresentationSelectionKind.BaselinePortraitDiagnostic
+					: arguments.Contains("--legacy-presentation", StringComparer.Ordinal)
+						? PresentationSelectionKind.LegacyFourThree
+						: atariAliasSpecified
+							? PresentationSelectionKind.AtariCompatibilityAlias
+							: PresentationSelectionKind.DefaultAtariPortrait;
+		selection = new PresentationSelection(kind);
 		return true;
 	}
 
@@ -338,9 +469,11 @@ public sealed class DebugController
 			}
 			enabled = true;
 		}
-		if (enabled && !arguments.Contains("--atari-presentation", StringComparer.Ordinal))
+		if (enabled &&
+			(!TryParsePresentationSelection(arguments, out PresentationSelection selection,
+				out error) || !selection.UsesAtariPresentation))
 		{
-			error = "--calibration-guides requires --atari-presentation.";
+			error ??= "--calibration-guides requires the accepted Atari presentation; it is incompatible with baseline portrait and 4:3 modes.";
 			return false;
 		}
 		return true;
@@ -391,12 +524,12 @@ public sealed class DebugController
 			return false;
 		}
 
-		if (!TryParseAtariPresentation(arguments, out bool atariPresentationEnabled,
+		if (!TryParsePresentationSelection(arguments, out PresentationSelection selection,
 			out error))
 			return false;
-		if (!atariPresentationEnabled)
+		if (!selection.UsesAtariPresentation)
 		{
-			error = "--tube-y-gain requires --atari-presentation.";
+			error = "--tube-y-gain requires the accepted Atari presentation and is incompatible with baseline portrait and 4:3 modes.";
 			return false;
 		}
 
@@ -450,11 +583,11 @@ public sealed class DebugController
 			error = requirement;
 			return false;
 		}
-		if (!TryParseAtariPresentation(arguments, out bool atariPresentationEnabled, out error))
+		if (!TryParsePresentationSelection(arguments, out PresentationSelection selection, out error))
 			return false;
-		if (!atariPresentationEnabled)
+		if (!selection.UsesAtariPresentation)
 		{
-			error = "--tube-depth-y-gain requires --atari-presentation.";
+			error = "--tube-depth-y-gain requires the accepted Atari presentation and is incompatible with baseline portrait and 4:3 modes.";
 			return false;
 		}
 		if (!TryParseStartingLevel(arguments, out int? startingLevel, out error))
@@ -514,12 +647,12 @@ public sealed class DebugController
 			return false;
 		}
 
-		if (!TryParseAtariPresentation(arguments, out bool atariPresentationEnabled,
+		if (!TryParsePresentationSelection(arguments, out PresentationSelection selection,
 			out error))
 			return false;
-		if (!atariPresentationEnabled)
+		if (!selection.UsesAtariPresentation)
 		{
-			error = "--tube-scale requires --atari-presentation.";
+			error = "--tube-scale requires the accepted Atari presentation and is incompatible with baseline portrait and 4:3 modes.";
 			return false;
 		}
 
@@ -582,12 +715,12 @@ public sealed class DebugController
 			return false;
 		}
 
-		if (!TryParseAtariPresentation(arguments, out bool atariPresentationEnabled,
+		if (!TryParsePresentationSelection(arguments, out PresentationSelection selection,
 			out error))
 			return false;
-		if (!atariPresentationEnabled)
+		if (!selection.UsesAtariPresentation)
 		{
-			error = "--tube-vertical-offset requires --atari-presentation.";
+			error = "--tube-vertical-offset requires the accepted Atari presentation and is incompatible with baseline portrait and 4:3 modes.";
 			return false;
 		}
 
@@ -696,12 +829,12 @@ public sealed class DebugController
 		bool anyExplicit = seen.Count > 0;
 		if (anyExplicit)
 		{
-			if (!TryParseAtariPresentation(arguments, out bool atariPresentationEnabled,
+			if (!TryParsePresentationSelection(arguments, out PresentationSelection selection,
 				out error))
 				return false;
-			if (!atariPresentationEnabled)
+			if (!selection.UsesAtariPresentation)
 			{
-				error = "Atari HUD calibration controls require --atari-presentation.";
+				error = "Atari HUD calibration controls require the accepted Atari presentation and are incompatible with baseline portrait and 4:3 modes.";
 				return false;
 			}
 		}
@@ -993,7 +1126,7 @@ public sealed class DebugController
 		error = null;
 		if (!TryParsePortraitPerspective(arguments, out _, out error))
 			return false;
-		if (!TryParseAtariPresentation(arguments, out _, out error))
+		if (!TryParsePresentationSelection(arguments, out _, out error))
 			return false;
 		for (int index = 0; index < arguments.Count; index++)
 		{
@@ -1173,6 +1306,8 @@ public sealed class DebugController
 					return false;
 				continue;
 			}
+			if (option == "--baseline-portrait-presentation")
+				continue;
 			if (option is "--atari-presentation" or "--calibration-guides")
 				continue;
 
