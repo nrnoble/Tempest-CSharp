@@ -11,7 +11,8 @@ public readonly record struct DirectedLaneTransition
         int destinationFreeVertex,
         bool hingeIsStart,
         float signedSweepDegrees,
-        float spatialSweepDegrees)
+        float spatialSweepDegrees,
+        RomFlipperAnglePath? romAnglePath)
     {
         SourceLane = sourceLane;
         DestinationLane = destinationLane;
@@ -22,6 +23,7 @@ public readonly record struct DirectedLaneTransition
         HingeIsStart = hingeIsStart;
         SignedSweepDegrees = signedSweepDegrees;
         SpatialSweepDegrees = spatialSweepDegrees;
+        RomAnglePath = romAnglePath;
     }
 
     public int SourceLane { get; }
@@ -34,5 +36,6 @@ public readonly record struct DirectedLaneTransition
     // Keep C1.5's directed sweep separate from the spatial arc selected by board geometry.
     public float SignedSweepDegrees { get; }
     public float SpatialSweepDegrees { get; }
+    public RomFlipperAnglePath? RomAnglePath { get; }
     public float SweepMagnitudeDegrees => MathF.Abs(SignedSweepDegrees);
 }

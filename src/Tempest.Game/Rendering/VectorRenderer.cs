@@ -1454,15 +1454,31 @@ public sealed class VectorRenderer
 
 	private void DrawFlippers(IReadOnlyList<Vector2> points)
 	{
-		foreach (Flipper flipper in game.Flippers)
-			DrawFlipper(points, flipper);
+		DrawFlippers(points, null);
 	}
 
-	private void DrawFlipper(IReadOnlyList<Vector2> points, Flipper flipper)
+	public void DrawFlippers(Action<Vector2, Vector2> drawLine)
+	{
+		ArgumentNullException.ThrowIfNull(drawLine);
+		DrawFlippers(game.CurrentLevel.Definition.Points, drawLine);
+	}
+
+	private void DrawFlippers(
+		IReadOnlyList<Vector2> points,
+		Action<Vector2, Vector2>? drawLine)
+	{
+		foreach (Flipper flipper in game.Flippers)
+			DrawFlipper(points, flipper, drawLine);
+	}
+
+	private void DrawFlipper(
+		IReadOnlyList<Vector2> points,
+		Flipper flipper,
+		Action<Vector2, Vector2>? drawLine)
 	{
 		float projectedDepth = ProjectEnemyDepth(flipper.Height);
 		(Vector2 p1, Vector2 p2) = ProjectFlipperEndpoints(flipper, points, projectedDepth);
-		DrawFlipperShape(p1, p2, projectedDepth);
+		DrawFlipperShape(p1, p2, projectedDepth, drawLine);
 	}
 
 	public (Vector2 Start, Vector2 End) ProjectFlipperEndpoints(Flipper flipper)
@@ -1629,15 +1645,63 @@ public sealed class VectorRenderer
 		Vector2 inward = ((farStart - nearStart) + (farEnd - nearEnd)) * .5f;
 		Vector2 normal = new(-tangent.Y / tangentLength, tangent.X / tangentLength);
 		float interiorSide = Vector2.Dot(normal, inward);
-		if (!float.IsFinite(interiorSide) || MathF.Abs(interiorSide) <= 1e-4f)
+		if (!float.IsFinite(interiorSide))
 			throw new InvalidOperationException(
 				"The Blaster rim edge has no determinable interior side from its presentation rails.");
 
-		Vector2 outwardNormal = interiorSide > 0 ? -normal : normal;
+		Vector2 outwardNormal;
+		if (TryGetRepeatedLobeWindingSign(points, lane, out int lobeWinding))
+		{
+			// A repeated-center walk has no single global interior; use the source lane's lobe.
+			outwardNormal = lobeWinding > 0 ? -normal : normal;
+		}
+		else
+		{
+			if (MathF.Abs(interiorSide) <= 1e-4f)
+				throw new InvalidOperationException(
+					"The Blaster rim edge has no determinable interior side from its presentation rails.");
+
+			outwardNormal = interiorSide > 0 ? -normal : normal;
+		}
+
 		float currentOffsetLength = currentOffset.Length();
 		if (!float.IsFinite(currentOffsetLength))
 			throw new InvalidOperationException("The Blaster presentation offset is not finite.");
 		return outwardNormal * currentOffsetLength;
+	}
+
+	private bool TryGetRepeatedLobeWindingSign(
+		IReadOnlyList<Vector2> points, int lane, out int windingSign)
+	{
+		windingSign = 0;
+		if (!game.CurrentLevel.Continuous ||
+			points.Count != game.CurrentLevel.PlayableLaneCount)
+			return false;
+
+		int repeatedPairs = 0;
+		for (int first = 0; first < points.Count; first++)
+		{
+			for (int repeated = first + 2; repeated < points.Count; repeated++)
+			{
+				if ((first == 0 && repeated == points.Count - 1) ||
+					points[first] != points[repeated])
+					continue;
+
+				if (++repeatedPairs > 1)
+					return false;
+			}
+		}
+
+		if (repeatedPairs != 1)
+			return false;
+
+		Vector2[] projectedPoints = new Vector2[points.Count];
+		for (int index = 0; index < points.Count; index++)
+			projectedPoints[index] =
+				ProjectApproachGeometry(points[index], PlayerProjectedDepth);
+
+		windingSign = Level.CalculateLaneLobeWindingSign(projectedPoints, lane);
+		return windingSign != 0;
 	}
 
 	// Public (rather than private like the other player helpers) so headless tests can verify the

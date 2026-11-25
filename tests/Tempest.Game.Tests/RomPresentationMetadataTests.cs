@@ -57,7 +57,7 @@ public sealed class RomPresentationMetadataTests
         Assert.Throws<ArgumentOutOfRangeException>(
             () => RomPresentationMetadataCatalog.ForDisplayedLevel(0));
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => RomPresentationMetadataCatalog.ForDisplayedLevel(16));
+            () => RomPresentationMetadataCatalog.ForDisplayedLevel(17));
     }
 
     [Fact]
@@ -93,6 +93,26 @@ public sealed class RomPresentationMetadataTests
     }
 
     [Fact]
+    public void LevelSixteenMetadataAndTubeRecordPreserveRawRowElevenValues()
+    {
+        RomPresentationMetadata metadata =
+            RomPresentationMetadataCatalog.ForDisplayedLevel(16);
+        AtariTubeRecord record = AtariTubeRecordCatalog.ForRecordIndex(11);
+
+        Assert.Equal((16, 11, (byte)0x0F, (byte)0x80, (ushort)0x0000,
+            (short)0, (byte)0x00, (byte)0x00, (byte)0x04),
+            (metadata.DisplayedLevel, metadata.TubeTableIndex, metadata.ScaleRaw,
+             metadata.CameraHeightRaw, metadata.ScreenYOffsetCombinedRaw,
+             metadata.ScreenYOffsetSigned, metadata.OpenRaw,
+             metadata.FlipperScaleLowRaw, metadata.FlipperScaleHighRaw));
+        Assert.Equal(11, record.RecordIndex);
+        Assert.Equal(LevelLoader.Level16RomEvidence.X, record.RawXPoints);
+        Assert.Equal(LevelLoader.Level16RomEvidence.Y, record.RawYPoints);
+        Assert.Same(record, AtariTubeRecordCatalog.Level16Record11);
+        Assert.Equal(metadata.IsOpen, !LevelConfiguration.Level16Production.Definition.Continuous);
+    }
+
+    [Fact]
     public void DiagnosticLevelTenUsesRecoveredShapeRowNineMetadataOutsideProductionCatalog()
     {
         RomPresentationMetadata level7 = RomPresentationMetadataCatalog.ForDisplayedLevel(7);
@@ -121,7 +141,7 @@ public sealed class RomPresentationMetadataTests
     [Fact]
     public void RomOpenEvidenceAgreesWithCurrentProductionTopology()
     {
-        for (int displayedLevel = 1; displayedLevel <= 14; displayedLevel++)
+        for (int displayedLevel = 1; displayedLevel <= 16; displayedLevel++)
         {
             RomPresentationMetadata metadata =
                 RomPresentationMetadataCatalog.ForDisplayedLevel(displayedLevel);

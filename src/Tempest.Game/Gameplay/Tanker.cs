@@ -64,7 +64,8 @@ public sealed class Tanker : Enemy
     public const float BulletFiringCeiling = 380f;
 
     public Tanker(int edgeIndex, int originalSlotId, float climbSpeed = DevelopmentClimbSpeed,
-        int bulletAmmunition = 0, int bulletTimer = BulletTimerResetTicks)
+        int bulletAmmunition = 0, int bulletTimer = BulletTimerResetTicks,
+        bool unlimitedBulletAmmunition = false)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(climbSpeed);
         EdgeIndex = edgeIndex;
@@ -74,6 +75,7 @@ public sealed class Tanker : Enemy
         State = TankerState.Climbing;
         BulletAmmunition = Math.Max(0, bulletAmmunition);
         BulletTimer = bulletTimer;
+        UnlimitedBulletAmmunition = unlimitedBulletAmmunition;
     }
 
     public int OriginalSlotId { get; }
@@ -83,6 +85,7 @@ public sealed class Tanker : Enemy
     public TankerState State { get; private set; }
     public int BulletAmmunition { get; private set; }
     public int BulletTimer { get; private set; }
+    public bool UnlimitedBulletAmmunition { get; }
 
     public TankerUpdateResult UpdateForDevelopment() => UpdateForDevelopment(null, out _);
 
@@ -122,7 +125,7 @@ public sealed class Tanker : Enemy
     private EnemyBullet? TryFireBullet(
         Func<int, int, int>? randomInclusive, int shotHoldoffTicks)
     {
-        if (BulletAmmunition <= 0 || randomInclusive is null)
+        if ((!UnlimitedBulletAmmunition && BulletAmmunition <= 0) || randomInclusive is null)
             return null;
 
         BulletTimer--;
@@ -133,7 +136,8 @@ public sealed class Tanker : Enemy
         if (randomInclusive(0, 100) <= 75)
             return null;
 
-        BulletAmmunition--;
+        if (!UnlimitedBulletAmmunition)
+            BulletAmmunition--;
         return new EnemyBullet(EdgeIndex, Height);
     }
 
@@ -190,6 +194,8 @@ public sealed class Tanker : Enemy
 
         if (configuration.UsesLevel13RomWavePolicy)
             return GetLevel9CargoMovementProgram(Height, releaseKind);
+        if (configuration.UsesLevel16RomWavePolicy)
+            return TankerCargoMovementProgram.Repeating24;
         if (configuration.UsesLevel14RomWavePolicy)
             return TankerCargoMovementProgram.Straight07;
 

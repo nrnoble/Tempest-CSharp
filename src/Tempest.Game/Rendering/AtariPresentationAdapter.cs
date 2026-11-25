@@ -125,7 +125,7 @@ public static class AtariPresentationAdapter
 	public const float Level6VerticalPlacement = 177.21448f;
 
 	public static bool HasModelFrameMapping(int displayedLevel) =>
-		displayedLevel is 1 or 2 or 3 or 4 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15;
+		displayedLevel is 1 or 2 or 3 or 4 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16;
 
 	public static AtariPresentationProjection ProjectLevel5(
 		float x,
@@ -459,11 +459,23 @@ public static class AtariPresentationAdapter
 				ReciprocalProjection(yRawDelta, reciprocalDepth, scaleRaw));
 		if (tubeDepthYGain != DefaultTubeDepthYGain)
 		{
-			// Scale only the camera-origin drift relative to the near plane, not model Y or Y2D.
-			float cameraOrigin = AtariCenter - metadata.CameraHeightRaw;
-			double drift = yOrientation * (double)logicalScale *
-				(ReciprocalProjection(cameraOrigin, reciprocalDepth, scaleRaw) -
-				 ReciprocalProjection(cameraOrigin, 16, scaleRaw));
+			double drift;
+			if (displayedLevel == 16)
+			{
+				// PROJECT TRANSLATION: Level 16's ROM camera height equals AtariCenter,
+				// so camera-origin drift is zero. Scale model-Y depth displacement instead.
+				drift = yOrientation * (double)logicalScale *
+					(ReciprocalProjection(yRawDelta, reciprocalDepth, scaleRaw) -
+					 ReciprocalProjection(yRawDelta, 16, scaleRaw));
+			}
+			else
+			{
+				// Scale only the camera-origin drift relative to the near plane, not model Y or Y2D.
+				float cameraOrigin = AtariCenter - metadata.CameraHeightRaw;
+				drift = yOrientation * (double)logicalScale *
+					(ReciprocalProjection(cameraOrigin, reciprocalDepth, scaleRaw) -
+					 ReciprocalProjection(cameraOrigin, 16, scaleRaw));
+			}
 			screenY = (float)(screenY + ((double)tubeDepthYGain - 1) * drift);
 		}
 		if (displayedLevel == 8)
@@ -517,7 +529,7 @@ public static class AtariPresentationAdapter
 			// PROJECT TRANSLATION: Level 7's established model-frame mapping.
 			7 => (1.678958593f, 1),
 			// Reuse established raw-tube normalization. Per-level gains and offsets are applied separately.
-			8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 => (25f / 14f, -1),
+			8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 => (25f / 14f, -1),
 			_ => throw new ArgumentOutOfRangeException(nameof(displayedLevel), displayedLevel,
 				"No Atari presentation model-frame mapping is established for this level.")
 		};

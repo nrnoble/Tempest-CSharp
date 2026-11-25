@@ -4683,3 +4683,42 @@ and shared diagnostic facilities remain.
   Tanker with two owned cargo identities when pending originals reach zero.
 - This promotion does not add Level 16 or change the prior gameplay evidence
   classifications.
+
+## Level 16 final production and presentation closeout — 2026-11-24
+
+**MANUAL ACCEPTANCE — GAMEPLAY:** Neal reports that Level 16 gameplay passes
+manual testing, the runtime shared-center Flipper crash is fixed, the
+Atari-presentation Blaster interior-side crash is fixed, and final Level 16
+manual play passes with no reported Level 16 gameplay blocker. The
+ROM-aligned shared-center Flipper transition correction passed manual play;
+the Blaster correction passed final manual play.
+
+**ROM-BACKED — GEOMETRY:** retain the exact closed ROM shape row 11 and its
+ordered 16 lanes, repeated center points 0 and 8, and accepted two-lobed,
+self-touching geometry. No topology change was made during closeout.
+
+**ROM-BACKED / PROJECT TRANSLATIONS:** preserve the implemented Level 16
+production configuration and raw presentation metadata. The zero-area lobe
+winding rule, `$24` 2/3 Flipper route and ROM-aligned shared-center projection,
+Tanker/cargo identity lifecycle, Spiker terminal conversion, firing policy,
+and Blaster local-lobe orientation remain their documented translations.
+Presentation stays render-only and does not alter model/gameplay state.
+
+**MANUAL ACCEPTANCE — ATARI PRESENTATION:** Neal previously reported that the
+Level 16 tube shape looks good and accepts the final presentation with
+automatic defaults of Y gain `1.1`, scale `1`, vertical offset `100`, and
+depth-Y gain `1`. Each existing `--tube-*` option remains available as an
+explicit runtime override. Do not copy Level 15 settings or workarounds into
+Level 16.
+
+**DEVELOPMENT ONLY — BACKGROUND OPACITY:** the global
+`--background-opacity` diagnostic remains unchanged, with ordinary opaque
+black default `1`; there is no Level-16-specific opacity default.
+
+**PROJECT DECISION — CAMPAIGN BOUNDARY:** direct startup and natural
+progression use Level 16's production configuration. Level 16 is the current
+completed terminal campaign level. Level 17 and later work has not started.
+
+No Level 16 gameplay tuning or timing was performed during closeout. The ROM
+completion byte `$0116` and literal interpretation of raw ROM timing/speed
+values remain whole-game evidence limitations, not reported Level 16 blockers.

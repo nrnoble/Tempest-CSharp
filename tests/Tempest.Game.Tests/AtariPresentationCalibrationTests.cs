@@ -28,6 +28,7 @@ public sealed class AtariPresentationCalibrationTests
 	[InlineData(13, 1.2f, 1f, 0f, .3f)]
 	[InlineData(14, 1f, 1.1f, 200f, 1f)]
 	[InlineData(15, 1.15f, 1f, 75f, 1f)]
+	[InlineData(16, 1.1f, 1f, 100f, 1f)]
 	public void SelectedDefaultsMatchTheFirstPassTable(
 		int displayedLevel, float yGain, float scale, float verticalOffset,
 		float depthYGain)

@@ -29,6 +29,7 @@ public sealed class StartLevelTests
     [InlineData(13)]
     [InlineData(14)]
     [InlineData(15)]
+    [InlineData(16)]
     public void ProductionStartsUseFreshProductionState(int level)
     {
         string[] args = ["--start-level", level.ToString()];
@@ -95,15 +96,39 @@ public sealed class StartLevelTests
     }
 
     [Fact]
-    public void TerminalLevelFifteenCompletionRestartsAtLevelOne()
+    public void NaturalLevelFifteenToSixteenProgressionCarriesCampaignState()
     {
         TempestGame game = new(startingProductionLevel: 15, startingLives: 5);
+        game.Score.Add(1234);
+        Assert.True(game.SuperZapper.TryActivate([], game.Player.EdgeIndex,
+            game.CurrentLevel.PlayableLaneCount, game.CurrentLevel.Continuous));
+
+        CompleteWaveAndExit(game);
+
+        Assert.False(game.LevelComplete);
+        Assert.Same(LevelConfiguration.Level16Production, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Approach, game.State);
+        Assert.Equal(15, game.CurrentApproach!.ExitedLevel);
+        Assert.Equal(1234, game.Score.Score);
+        Assert.Equal(5, game.Player.Lives);
+        Assert.Equal(SuperZapperSystem.InitialCharges, game.SuperZapperChargesRemaining);
+        Assert.Equal(0, game.SuperZapper.FlashTicksRemaining);
+        Assert.Equal(LevelConfiguration.Level16Production.InitialActiveEggCount, game.Eggs.Count);
+        Assert.Equal(16, game.Spikes.Count);
+        Assert.All(game.Spikes, spike =>
+            Assert.Equal(LevelConfiguration.Level16StartingSpikeHeight, spike.Height));
+    }
+
+    [Fact]
+    public void TerminalLevelSixteenCompletionRestartsAtLevelOne()
+    {
+        TempestGame game = new(startingProductionLevel: 16, startingLives: 5);
         game.Score.Add(1234);
 
         CompleteWaveAndExit(game);
 
         Assert.True(game.LevelComplete);
-        Assert.Same(LevelConfiguration.Level15Production, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level16Production, game.CurrentLevel.Configuration);
         game.RunOneStep(restartPressed: true);
         Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
         Assert.Equal(0, game.Score.Score);
@@ -118,7 +143,7 @@ public sealed class StartLevelTests
             ["--start-level"], ["--start-level", "--lives", "5"],
             ["--start-level", "abc"], ["--start-level", "0"],
             ["--start-level", "-1"],
-            ["--start-level", "16"],
+            ["--start-level", "17"],
             ["--start-level", "999999999999999"], ["--start-level=11"],
             ["--start-level", "11", "--start-level", "12"],
             ["--start-level", "11", "--level", "11"],
@@ -210,6 +235,7 @@ public sealed class StartLevelTests
     [InlineData(11)]
     [InlineData(14)]
     [InlineData(15)]
+    [InlineData(16)]
     public void RecordingFromStartLevelRestoresTheSameSeededStartupInPlayback(int level)
     {
         string[] args = ["--record-gameplay", "session.json", "--start-level", level.ToString(),
@@ -240,7 +266,7 @@ public sealed class StartLevelTests
     [Theory]
     [InlineData("--level")]
     [InlineData("--start-level")]
-    public void DirectProductionStartsContinueThroughFifteenAndStopThere(string option)
+    public void DirectProductionStartsContinueThroughSixteenAndStopThere(string option)
     {
         string[] args = [option, "11", "--lives", "7"];
         Assert.True(DebugController.TryParseStartingLevel(args, out int? level, out _));
@@ -343,8 +369,26 @@ public sealed class StartLevelTests
             game.RunOneStep();
         Assert.Equal(LevelState.Playing, game.State);
         CompleteWaveAndExit(game);
+        Assert.False(game.LevelComplete);
+        Assert.Same(LevelConfiguration.Level16Production, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Approach, game.State);
+        Assert.Equal(1234, game.Score.Score);
+        Assert.Equal(4, game.Player.Lives);
+        Assert.Equal(LevelConfiguration.Level16Production.InitialActiveEggCount, game.Eggs.Count);
+        Assert.Equal(16, game.Spikes.Count);
+        AtariHudLine[] hud16 = AtariHudVector.Render(game)
+            .Where(line => line.Color == AtariHudVector.LevelColor).ToArray();
+        TempestGame level16 = new(startingProductionLevel: 16, random: new Random(1981));
+        Assert.Equal(AtariHudVector.Render(level16).Where(line =>
+                line.Color == AtariHudVector.LevelColor),
+            hud16);
+
+        for (int tick = 0; tick < LevelApproach.DurationTicks; tick++)
+            game.RunOneStep();
+        Assert.Equal(LevelState.Playing, game.State);
+        CompleteWaveAndExit(game);
         Assert.True(game.LevelComplete);
-        Assert.Same(LevelConfiguration.Level15Production, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level16Production, game.CurrentLevel.Configuration);
         game.RunOneStep(restartPressed: true);
         Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
         Assert.Equal(0, game.Score.Score);

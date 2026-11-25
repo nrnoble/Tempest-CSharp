@@ -98,7 +98,7 @@ public sealed class TubeDepthYGainTests : IDisposable
 	[Fact]
 	public void ParsesIndependentlyForEverySupportedLevelAndPlayback()
 	{
-		foreach (int level in Enumerable.Range(1, 13).Append(15))
+		foreach (int level in Enumerable.Range(1, 16))
 		{
 			string[] args = ["--atari-presentation", "--level",
 				level.ToString(CultureInfo.InvariantCulture), "--tube-depth-y-gain", "-0.5",
@@ -183,7 +183,8 @@ public sealed class TubeDepthYGainTests : IDisposable
 	[Theory]
 	[InlineData(1)] [InlineData(2)] [InlineData(3)] [InlineData(4)] [InlineData(5)]
 	[InlineData(6)] [InlineData(7)] [InlineData(8)] [InlineData(9)] [InlineData(10)]
-	[InlineData(11)] [InlineData(12)] [InlineData(13)] [InlineData(15)]
+	[InlineData(11)] [InlineData(12)] [InlineData(13)] [InlineData(14)]
+	[InlineData(15)] [InlineData(16)]
 	public void OmittedAndExplicitSelectedDefaultAreBitIdentical(int level)
 	{
 		TempestGame game = CreateGame(level);

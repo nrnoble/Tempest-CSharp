@@ -2924,7 +2924,8 @@ do not infer a shared formula or normalize them. Levels 1-12 retain their
 previously accepted values. Neal also manually accepted Level 13's values
 against MAME; its depth-Y value is a separate PROJECT TRANSLATION described
 below. The Level 15 calibration was separately manually accepted before its
-campaign promotion. Manual gameplay remains
+campaign promotion; Neal accepted Level 16's calibration at final closeout.
+Manual gameplay remains
 the final authority for visual fidelity and playability.
 
 | Displayed level | Tube Y gain | Tube scale | Vertical offset |
@@ -2944,12 +2945,14 @@ the final authority for visual fidelity and playability.
 | 13 | 1.2 | 1.0 | 0 |
 | 14 | 1.0 | 1.1 | +200 |
 | 15 | 1.15 | 1.0 | +75 |
+| 16 | 1.1 | 1.0 | +100 |
 
 When Atari presentation is enabled and no diagnostic value is supplied, all
 selected tube values follow the currently displayed level during direct
 startup, progression, visible playback, and presentation transitions. The
 Level 10 retains its existing gameplay role in the campaign. Level 15 uses its
-accepted calibration from the table and depth-Y gain `1`.
+accepted calibration from the table and depth-Y gain `1`; Level 16 uses its
+accepted calibration and depth-Y gain `1`.
 Legacy/non-Atari presentation is unchanged.
 
 **DEVELOPMENT ONLY — DEPTH-Y GAIN:** `--tube-depth-y-gain <value>` is a
@@ -3551,3 +3554,163 @@ height **PROJECT TRANSLATION**, as well as the accepted terminal-Spiker
 conversion **PROJECT TRANSLATION**, remain unchanged. Recording/playback
 identity and generic ExitZoom are preserved; the known ExitZoom presentation
 imperfection remains non-blocking.
+
+## Level 16 bounded production implementation — 2026-11-24
+
+**IMPLEMENTED; MANUAL GAMEPLAY/PRESENTATION ACCEPTANCE PENDING.** This section
+records implementation facts and translations only. Automated validation does
+not establish arcade-fidelity acceptance.
+
+- **ROM-BACKED — TUBE:** displayed Level 16 maps to shape row 11, a closed
+  16-lane tube. Preserve the ordered ROM X/Y/angle entries, including the
+  repeated central coordinate at points 0 and 8. The two ordered lobes meet at
+  that point and contribute opposite signed areas, giving zero total polygon
+  area.
+- **PROJECT TRANSLATION — WINDING:** a single global shoelace sign cannot
+  classify this self-touching outline. For winding-dependent endpoint pivots,
+  the implementation uses the signed area of the closed lobe containing the
+  source lane. The ROM's repeated point divides the ordered cyclic walk into
+  those two loops; lane order and final-to-first adjacency remain unchanged.
+  Simple nonzero-area outlines retain their global shoelace winding rule.
+  Level 16 scalar spinner direction uses lane 0's lobe as its sign; Neal's
+  gameplay comparison of spinner handedness remains pending.
+- **ROM-BACKED — POLICY:** ordinary original supply is 27 at default/easy and
+  30 at hard. Flipper minimum/maximum is 0/5; Pulsar 0/0; Tanker 1/2; Spiker
+  2/3; Fuseball 1/1. Zero Flipper minimum excludes ordinary Flipper selection,
+  not Tanker cargo. Each Level 16 Tanker load choice is `$01`, a pair of
+  Flippers. ROM `max_enm=$06` is an indexed physical-record parameter, not a
+  literal six-actor C# cap. The seven-slot active/cargo admission envelope is
+  a **PROJECT TRANSLATION**, not an assertion of ROM actor concurrency.
+- **ROM-BACKED — MOVEMENT/CARGO:** Level 16 Flipper movement program `$24`
+  repeats two lane flips in one direction, reverses, then three in the other
+  direction and reverses again. It is wired to the shared repeating-`$24`
+  translation for ordinary and Tanker cargo Flippers. The initial direction
+  remains a project default, not an established ROM handedness. Tanker cargo
+  owns two distinct ledger identities and releases on adjacent sides with
+  opposite direction bits.
+- **ROM-BACKED — SPIKES:** all 16 playable lanes initialize from raw
+  `wave_spikeht=$A0`. **PROJECT TRANSLATION:** map the raw along coordinate to
+  C# height with `(0xF0 - raw) * Level.Depth / 224`; at depth 400 this is
+  approximately 142.857, not a literal C# height encoded by the ROM.
+- **ROM-BACKED / PROJECT TRANSLATION — LIFECYCLE:** Level 16 wires its Spiker
+  policy to the shared original-identity-to-Tanker conversion and two-child
+  cargo ledger. The existing accepted C# Spiker translation does not add the
+  ROM lane hop. The conversion retains the original identity; unresolved
+  Tanker/cargo and reconstructed identities remain wave obligations.
+- **ROM-BACKED — FIRING:** raw holdoff is `$23`, shot-speed low byte `$C0`,
+  and default `enm_shotmax=$02` is the final slot index, scanning 0–2 (three
+  C# project slots). Easy uses final index 1 (two slots); hard uses index 3
+  (four slots). Level 14 retains its existing separate capacity translation.
+  The shared C# shot-speed and raw-holdoff-to-tick conversions are project
+  translations, not literal ROM runtime measurements. Eligible Level 16
+  species are Flippers, Tankers, and Spikers; no finite Level 16 Tanker
+  ammunition parameter was identified.
+- **ROM-BACKED — FUSEBALL/PULSAR:** Level 16 raw Fuseball values are
+  `fuzz_move_prb=$C0` and `fuzz_move_flg=$00`; Pulsars remain excluded. Existing
+  shared C# Fuseball mechanics are reused; this does not assert direct
+  equivalence to the ROM routine.
+- **ROM-BACKED — PRESENTATION METADATA:** raw Level 16 metadata is shape row 11,
+  scale `$0F`, camera height `$80`, signed Y2D `$0000`, closed `$00`, and
+  Flipper-scale bytes `$00/$04`. These are ROM metadata, not host-space
+  calibration. The Atari-presentation candidate is enabled for manual
+  calibration. Its initial `--tube-y-gain`, `--tube-scale`,
+  `--tube-vertical-offset`, and `--tube-depth-y-gain` values are the neutral
+  `(1, 1, 0, 1)` **PROJECT TRANSLATION**, not Neal's accepted settings. Since
+  the ROM camera height `$80` equals the model-frame center, the camera-origin
+  drift used by Levels 7–15 is zero; Level 16's depth-Y control instead scales
+  projected model-Y displacement relative to the near rim. Manual calibration
+  and presentation acceptance remain pending.
+- **PROJECT TRANSLATION — BLASTER ORIENTATION:** ordinary simple and open
+  tubes retain the accepted projected-rail side rule. For a closed ordered
+  walk with exactly one nonadjacent repeated vertex pair and a nondegenerate
+  source-lane lobe, the Atari renderer uses that lobe's projected near-rim
+  winding to select the outward Blaster normal. This avoids a global
+  interior-side assumption at Level 16's two shared-center junctions without
+  a level-number branch; if neither the local loop nor projected rails
+  determine a side, rendering remains fail-fast. This render-only rule does
+  not establish visual acceptance or change geometry, gameplay state, or
+  calibration.
+- **PROJECT DECISION — CAMPAIGN BOUNDARY:** Level 15 progresses to production
+  Level 16; direct startup and natural progression share that configuration.
+  Level 16 is terminal for this milestone. Level 17 and tube recycling remain
+  unimplemented.
+- **ACCEPTANCE STATUS:** direct Level 16 gameplay, enemy behavior, handedness,
+  timing and presentation still require Neal's manual review. The presentation
+  candidate is available for calibration; no final Level 16 values are
+  selected or accepted.
+
+## Level 16 shared-center Flipper transition translation — 2026-11-24
+
+**IMPLEMENTED; MANUAL GAMEPLAY/PRESENTATION ACCEPTANCE PENDING.** This is a
+bounded renderer translation, not a Level 16 gameplay or geometry change.
+
+- **ROM-BACKED:** the generic Atari Flipper transition uses the current lane,
+  direction bit, between-segments state, 4-bit angle phase, `tube_angle[]`,
+  and a fixed directional-vector lookup. It does not intersect intermediate
+  endpoint rays with the tube polygon. For lane 0 -> 15 the ROM moves from
+  phase `$0B` to `$03` in increasing modulo-16 order; the opposite transition
+  follows the reverse phase direction. At the point-8 junction, lanes 7 -> 8
+  use `$05` -> `$0D` in decreasing order, with 8 -> 7 reversing that path.
+- **PROJECT TRANSLATION:** C# opts into the phase/vector path only when the
+  pivot is a repeated tube vertex, both adjacent lane edges meet there, and
+  matching ROM lane-angle metadata is available. The metadata is supplied by
+  Level 16's ROM angle row; other transitions continue using the existing
+  endpoint-hinge and polygon-boundary behavior. This topology-and-metadata
+  rule does not branch on displayed level and does not change accepted
+  Levels 1-15.
+- **PROJECT TRANSLATION:** continuous C# transition progress maps linearly
+  onto the directed ROM phase span. Y-axis conversion reverses angular sign
+  in host coordinates; lane 0 -> 15 therefore uses a -180-degree host sweep,
+  opposite the former C# half-turn. The existing C# Flipper endpoint radius
+  is retained without intermediate polygon-boundary clamping. This preserves
+  a nonzero, finite C# glyph but is not a claim that Atari renders eight
+  visible frames or that the glyph/handoff visually matches the arcade.
+- **ACCEPTANCE STATUS:** deterministic headless production projection tests
+  cover the Tanker-cargo `$24` crash path, both directions at both shared
+  vertices, and all directed Level 16 lane transitions. Neal's manual review
+  of path, handedness, perceived timing and destination handoff remains
+  required; no visual acceptance is claimed.
+
+## Level 16 final manual acceptance and closeout — 2026-11-24
+
+**MANUAL ACCEPTANCE — GAMEPLAY AND ATARI PRESENTATION:** This final closeout
+supersedes the pending-acceptance status in the implementation-phase entries
+above. Neal reports that Level 16 gameplay passes manual testing, the runtime
+shared-center Flipper crash is fixed, the Atari-presentation Blaster
+interior-side crash is fixed, and final Level 16 play passes with no reported
+Level 16 gameplay blocker. Neal has also manually accepted the Level 16 tube
+presentation and its calibration.
+
+- **ROM-BACKED — GEOMETRY AND CONFIGURATION:** retain the exact closed ROM
+  row-11 geometry, 16-lane ordering, repeated center points 0 and 8, and
+  two-lobed/self-touching topology. Preserve the implemented Level 16
+  ROM-backed wave configuration and raw presentation metadata described
+  above; the accepted presentation calibration is host-space tuning, not ROM
+  metadata.
+- **PROJECT TRANSLATIONS / DECISIONS:** the existing zero-total-area lobe
+  winding handling, ROM-aligned shared-center Flipper path, `$24` 2/3 route,
+  Tanker/cargo and identity lifecycle, Spiker terminal conversion, firing,
+  and render-only Blaster local-lobe orientation remain as implemented.
+  Presentation projection does not change gameplay/model state. No gameplay
+  timing or Level 14 behavior is retuned.
+- **MANUAL ACCEPTANCE — FLIPPERS AND BLASTER:** the corrected
+  ROM-aligned shared-center Flipper transition passed Neal's manual Level 16
+  play test. The Blaster interior-side correction passed Neal's final manual
+  play test.
+- **MANUAL ACCEPTANCE — PRESENTATION DEFAULTS:** Level 16 automatically uses
+  Y gain `1.1`, scale `1`, vertical offset `100`, and depth-Y gain `1` when
+  Atari presentation is enabled. These values remain individually
+  overrideable through `--tube-y-gain`, `--tube-scale`,
+  `--tube-vertical-offset`, and `--tube-depth-y-gain`.
+- **DEVELOPMENT ONLY — BACKGROUND OPACITY:** `--background-opacity` remains a
+  global diagnostic with default `1` (ordinary opaque black). It is not a
+  Level-16-specific calibration and its semantics are unchanged.
+- **PROJECT DECISION — CAMPAIGN BOUNDARY:** Level 16 is the current completed
+  production campaign boundary. Direct `--start-level 16` and natural
+  progression into Level 16 remain supported; Level 16 remains terminal.
+  Level 17 and later development have not started.
+- **DEFERRED WHOLE-GAME EVIDENCE:** the ROM completion byte `$0116` remains
+  unexplained, and raw ROM timing/speed parameters do not by themselves prove
+  the C# tick or projectile conversions. These evidence limits do not
+  represent an unresolved Level 16 gameplay blocker or negate Neal's manual
+  acceptance of the implemented production behavior.

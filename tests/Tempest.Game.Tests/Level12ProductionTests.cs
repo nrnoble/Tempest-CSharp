@@ -111,7 +111,7 @@ public sealed class Level12ProductionTests
     }
 
     [Fact]
-    public void NaturalElevenToTwelveProgressionContinuesThroughFifteen()
+    public void NaturalElevenToTwelveProgressionContinuesThroughSixteen()
     {
         Assert.Same(LevelConfiguration.Level12Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level11Production));
@@ -121,8 +121,10 @@ public sealed class Level12ProductionTests
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level13Production));
         Assert.Same(LevelConfiguration.Level15Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level14Production));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level15Production));
-        Assert.Same(LevelConfiguration.Level15Production,
+        Assert.Same(LevelConfiguration.Level16Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level15Production));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level16Production));
+        Assert.Same(LevelConfiguration.Level16Production,
             LevelProgression.GetLastProductionLevel());
 
         TempestGame game = new(startingProductionLevel: 12, startingLives: 4);
@@ -218,13 +220,11 @@ public sealed class Level12ProductionTests
         Assert.Contains(AtariHudVector.Render(game),
             line => line.Color == AtariHudVector.LevelColor);
 
-        foreach (int displayedLevel in new[] { 16 })
-        {
-            Assert.Throws<ArgumentOutOfRangeException>(
-                () => AtariPresentationAdapter.GetModelFrameMapping(displayedLevel));
-            Assert.Throws<ArgumentOutOfRangeException>(
-                () => RomPresentationMetadataCatalog.ForDisplayedLevel(displayedLevel));
-        }
+        Assert.True(AtariPresentationAdapter.HasModelFrameMapping(16));
+        Assert.Equal((25f / 14f, -1),
+            AtariPresentationAdapter.GetModelFrameMapping(16));
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => RomPresentationMetadataCatalog.ForDisplayedLevel(17));
     }
 
     [Fact]

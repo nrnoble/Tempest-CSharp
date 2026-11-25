@@ -162,7 +162,7 @@ play and exit from the arcade controller without reaching for the keyboard.
 `--level N` starts a fresh game directly at an implemented production level.
 Production starts follow the ordinary campaign progression; `--level` is not a
 selector that makes production starts terminal. The current production chain
-is Levels 1–15, with Level 15 terminal until Level 16 is implemented:
+is Levels 1–16, with Level 16 terminal for the current production scope:
 
 ```powershell
 dotnet run --project src\Tempest.Game -- --level 5 --lives 10
@@ -186,6 +186,22 @@ implemented and manually accepted using its genuine open shape-row-15 tube.
 Level 15 follows Level 14 and retains its previously accepted gameplay and
 presentation. Level 10's preserved Level-7-like gameplay remains a PROJECT
 TRANSLATION, not an established arcade-mechanics claim.
+
+Level 16 is implemented from closed ROM shape row 11, including its ordered
+self-touching 16-lane geometry and production wave policy. Neal has manually
+accepted Level 16 gameplay and Atari presentation; it follows Level 15 and is
+the current terminal production level. With `--atari-presentation`, Level 16
+automatically uses its accepted defaults: Y gain `1.1`, scale `1`, vertical
+offset `100`, and depth-Y gain `1`. The four `--tube-*` options remain runtime
+overrides. These are manually accepted presentation settings, not ROM
+metadata. Level 17 and tube recycling are not implemented.
+
+```powershell
+dotnet run --project src\Tempest.Game -- --start-level 16 --atari-presentation
+```
+
+`--background-opacity` remains a global development-only diagnostic with the
+ordinary opaque-black default `1`; it has no Level-16-specific default.
 
 For Level 14, this launch uses its accepted Atari-presentation defaults without
 explicit calibration overrides:
@@ -251,7 +267,7 @@ stored in gameplay recordings.
 
 `--tube-depth-y-gain <value>` is a development-only, generally available
 Atari-presentation calibration control that independently scales the adapter's
-depth-dependent vertical camera-origin contribution: `1` preserves current
+depth-dependent vertical contribution: `1` preserves current
 behavior, `0` removes that contribution, fractions reduce it, values above 1
 exaggerate it, and negative values reverse it. It accepts any finite signed
 invariant-culture value; extreme values may move geometry off screen or exceed
@@ -260,10 +276,12 @@ near-rim anchor, common placement, HUD, or the far/near depth-size ratio.
 It requires `--atari-presentation` and `--level`, `--start-level`, or
 `--playback-file`, and is not recorded. Levels 7-15 use
 the camera-origin term; Levels 1-6 use separate projection paths and the
-control has no effect on them. It is independent of `--tube-y-gain`,
-`--tube-scale`, and `--tube-vertical-offset`. The neutral default is `1`
-except on Level 13, where the manually accepted default is `0.3`; Level 14
-starts neutral at `1`. This
+control has no effect on them. Levels 7-15 scale the camera-origin term;
+Level 16 scales its depth-dependent model-Y displacement from the near rim
+because its raw camera height is centered and has no camera-origin drift. Its
+accepted Level 16 default is `1`; this remains independent of `--tube-y-gain`,
+`--tube-scale`, and `--tube-vertical-offset`. The default is `1` except on
+Level 13, where the manually accepted default is `0.3`. This
 non-neutral Level 13 value is a manually accepted PROJECT TRANSLATION, not an
 Atari ROM constant. The same shared world mapping is used during Playing,
 Approach and ExitZoom; the latter retains its existing focal compensation.

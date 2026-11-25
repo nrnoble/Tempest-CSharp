@@ -220,6 +220,41 @@ public static class LevelLoader
 		});
 	}
 
+	// ROM-BACKED Rev 2 shape row 11 for displayed Level 16. Coordinates remain in
+	// source order; centering, scaling and Y reflection use the established ROM translation.
+	public static class Level16RomEvidence
+	{
+		public static RomPresentationMetadata PresentationMetadata =>
+			RomPresentationMetadataCatalog.ForDisplayedLevel(16);
+
+		public const byte LookupIndex = 15;
+		public static byte ShapeRemap => checked((byte)PresentationMetadata.TubeTableIndex);
+		public static byte Scale => PresentationMetadata.ScaleRaw;
+		public static byte Y3d => PresentationMetadata.CameraHeightRaw;
+		public static byte Y2dLow => PresentationMetadata.ScreenYOffsetLowRaw;
+		public static byte Y2dHigh => PresentationMetadata.ScreenYOffsetHighRaw;
+		public static ushort Y2d => PresentationMetadata.ScreenYOffsetCombinedRaw;
+		public static byte Open => PresentationMetadata.OpenRaw;
+
+		public static IReadOnlyList<byte> X { get; } = Array.AsReadOnly(new byte[]
+		{
+			0x80, 0x70, 0x48, 0x20, 0x10, 0x20, 0x48, 0x70,
+			0x80, 0x90, 0xB8, 0xE0, 0xF0, 0xE0, 0xB8, 0x90
+		});
+
+		public static IReadOnlyList<byte> Y { get; } = Array.AsReadOnly(new byte[]
+		{
+			0x80, 0x57, 0x48, 0x57, 0x80, 0xA9, 0xBA, 0xA9,
+			0x80, 0x57, 0x48, 0x57, 0x80, 0xA9, 0xBA, 0xA9
+		});
+
+		public static IReadOnlyList<byte> Angles { get; } = Array.AsReadOnly(new byte[]
+		{
+			0x0B, 0x09, 0x07, 0x05, 0x03, 0x01, 0x0F, 0x0D,
+			0x0D, 0x0F, 0x01, 0x03, 0x05, 0x07, 0x09, 0x0B
+		});
+	}
+
 	// The accepted Level 15 tube uses the manually identified geometry shape row 10.
 	public static class Level15RomEvidence
 	{
@@ -387,6 +422,20 @@ public static class LevelLoader
 				-(Level15RomEvidence.Y[index] - 128) * scale);
 
 		return new(false, 300, 0, Array.AsReadOnly(points), "Level 15 - Rev 2 open shape 10");
+	}
+
+	// ROM-BACKED closed row 11. The ROM's repeated center point is intentional;
+	// retaining its order produces two self-touching lobes with zero net area.
+	public static LevelDefinition LoadLevel16ClosedTube()
+	{
+		const float scale = 25f / 14f;
+		Vector2[] points = new Vector2[Level16RomEvidence.X.Count];
+		for (int index = 0; index < points.Length; index++)
+			points[index] = new Vector2(
+				(Level16RomEvidence.X[index] - 128) * scale,
+				-(Level16RomEvidence.Y[index] - 128) * scale);
+
+		return new(true, 300, 0, Array.AsReadOnly(points), "Level 16 - Rev 2 closed shape 11");
 	}
 
 	// ROM-BACKED Rev 2 shape row 8. The zero-based lookup index is 10,

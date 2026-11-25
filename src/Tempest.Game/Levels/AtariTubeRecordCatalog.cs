@@ -171,6 +171,19 @@ public static class AtariTubeRecordCatalog
 
     public static AtariTubeRecord Level15Record10 => Level15Record;
 
+    // ROM-BACKED Rev 2 shape row 11 for displayed Level 16.
+    private static readonly AtariTubeRecord Level16Record =
+        new(
+            recordIndex: 11,
+            rawXPoints: LevelLoader.Level16RomEvidence.X,
+            rawYPoints: LevelLoader.Level16RomEvidence.Y,
+            scaleRaw: RomPresentationMetadataCatalog.ForDisplayedLevel(16).ScaleRaw,
+            cameraHeightRaw: RomPresentationMetadataCatalog.ForDisplayedLevel(16).CameraHeightRaw,
+            screenYOffset: RomPresentationMetadataCatalog.ForDisplayedLevel(16).ScreenYOffsetSigned,
+            openRaw: RomPresentationMetadataCatalog.ForDisplayedLevel(16).OpenRaw);
+
+    public static AtariTubeRecord Level16Record11 => Level16Record;
+
     public static AtariTubeRecord ForRecordIndex(int recordIndex) =>
         recordIndex == Level7Record.RecordIndex
             ? Level7Record
@@ -184,9 +197,11 @@ public static class AtariTubeRecordCatalog
                             ? Level14Record
                             : recordIndex == Level15Record.RecordIndex
                                 ? Level15Record
+                                : recordIndex == Level16Record.RecordIndex
+                                    ? Level16Record
                             : throw new ArgumentOutOfRangeException(
                                 nameof(recordIndex), recordIndex,
-                                "Only Atari tube records 06, 08, 10, 12, 14 and 15 are cataloged.");
+                                "Only Atari tube records 06, 08, 10, 11, 12, 14 and 15 are cataloged.");
 
     private static AtariTubeRecord CreateLevel7Record()
     {

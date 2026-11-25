@@ -98,6 +98,10 @@ public static class RomPresentationMetadataCatalog
     private static readonly RomPresentationMetadata Level15 =
         new(15, RomTubeMappingCatalog.ShapeRowForDisplayedLevel(15),
             0x10, 0x90, 0x40, 0x00, 0xFF);
+    // ROM-BACKED raw Level 16 metadata; host-space calibration is intentionally unset.
+    private static readonly RomPresentationMetadata Level16 =
+        new(16, RomTubeMappingCatalog.ShapeRowForDisplayedLevel(16),
+            0x0F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x04);
 
     private static readonly IReadOnlyList<RomPresentationMetadata> ProductionLevels =
         Array.AsReadOnly(new[]
@@ -129,11 +133,13 @@ public static class RomPresentationMetadataCatalog
             return Level14;
         if (displayedLevel == Level15.DisplayedLevel)
             return Level15;
-        if (displayedLevel < 1 || displayedLevel > ProductionLevels.Count)
+        if (displayedLevel == Level16.DisplayedLevel)
+            return Level16;
+        if (displayedLevel < 1 || displayedLevel > Level16.DisplayedLevel)
             throw new ArgumentOutOfRangeException(
                 nameof(displayedLevel),
                 displayedLevel,
-                "ROM presentation metadata is defined only for Levels 1 through 15.");
+                "ROM presentation metadata is defined only for Levels 1 through 16.");
 
         return ProductionLevels[displayedLevel - 1];
     }

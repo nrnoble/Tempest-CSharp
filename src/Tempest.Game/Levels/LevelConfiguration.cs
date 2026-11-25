@@ -30,7 +30,8 @@ public enum BelowRimFlipperProgram
     Level8ConstantFlip,
     Level11Repeating24,
     // ROM Level 12 $19: flip constantly, moving on ticks between flips.
-    Level12ConstantFlip
+    Level12ConstantFlip,
+    Level16Repeating24
 }
 
 // REFERENCE VERIFIED: Incitti lv=0/1 values; exact gameplay fidelity remains unverified.
@@ -93,6 +94,8 @@ public sealed record LevelConfiguration(
         13 => 44,
         // PROJECT APPROXIMATION: the ROM's raw 41 holdoff is used as C# ticks.
         14 => Level14WaveSelection.ShotHoldoffRaw,
+        // PROJECT APPROXIMATION: preserve the raw value as the C# tick cadence.
+        16 => Level16WaveSelection.ShotHoldoffRaw,
         _ => throw new InvalidOperationException(
             $"No arcade Flipper shot holdoff is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
@@ -117,12 +120,15 @@ public sealed record LevelConfiguration(
         12 => 2,
         13 => 2,
         14 => 2,
+        16 => Level16WaveSelection.DefaultMaximumActiveEnemyShots,
         _ => throw new InvalidOperationException(
             $"No arcade enemy-shot capacity is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
     public FlipperConfiguration Flipper { get; init; } = new(false, 2, 8, 21, 24);
     public bool FlipperCanFlip => Flipper.CanFlip;
     public FlipperPivotGeometry FlipperPivotMode { get; init; } = FlipperPivotGeometry.LegacyLaneTurn;
+    // ROM lane-angle metadata is used only when a directed pivot meets a repeated tube vertex.
+    public IReadOnlyList<byte>? RomFlipperLaneAngles { get; init; }
     public BelowRimFlipperProgram BelowRimFlipperProgram { get; init; } =
         global::Tempest.Game.Levels.BelowRimFlipperProgram.Existing;
     public bool UsesLevel7RomWavePolicy =>
@@ -134,6 +140,7 @@ public sealed record LevelConfiguration(
     public bool UsesLevel12RomWavePolicy { get; init; }
     public bool UsesLevel13RomWavePolicy { get; init; }
     public bool UsesLevel14RomWavePolicy { get; init; }
+    public bool UsesLevel16RomWavePolicy { get; init; }
     // PROJECT DECISION: Level 15 retains the separately recovered Level 11 parameter
     // baseline; genuine Level 11 uses UsesLevel11RomWavePolicy.
     public bool UsesLevel11ParameterDevelopmentBaseline { get; init; }
@@ -143,6 +150,7 @@ public sealed record LevelConfiguration(
         UsesLevel9RomWavePolicy || UsesLevel11RomWavePolicy ||
         UsesLevel12RomWavePolicy || UsesLevel13RomWavePolicy ||
         UsesLevel14RomWavePolicy ||
+        UsesLevel16RomWavePolicy ||
         UsesLevel11ParameterDevelopmentBaseline ||
         ReferenceEquals(this, Level5Production) ||
         ReferenceEquals(this, Level6Production);
@@ -165,6 +173,9 @@ public sealed record LevelConfiguration(
         (0xF0 - Level13WaveSelection.StartingSpikeHeightRaw) * Level.Depth / 224f;
     public const float Level14StartingSpikeHeight =
         (0xF0 - Level14WaveSelection.StartingSpikeHeightRaw) * Level.Depth / 224f;
+    // PROJECT TRANSLATION: convert ROM along-coordinate $A0 to C# far-end-to-rim height.
+    public const float Level16StartingSpikeHeight =
+        (0xF0 - Level16WaveSelection.StartingSpikeHeightRaw) * Level.Depth / 224f;
     // ROM-BACKED: Level 15's wave_spikeht entry is a raw along coordinate, not a C# height.
     // PROJECT TRANSLATION: invert its $10-$F0 span into the C# far-end-to-rim depth domain.
     public const byte Level15StartingSpikeHeightRaw = 0xA0;
@@ -611,5 +622,38 @@ public sealed record LevelConfiguration(
         AllowsOrdinaryFlipperSelection = false,
         ProgrammedFlipperInitialDirection = 1,
         StartingSpikeHeight = Level15StartingSpikeHeight
+    };
+
+    // ROM-BACKED closed row 11. Egg pacing and basic Flipper tuning remain shared
+    // C# project choices; the raw ROM parameters are recorded in Level16WaveSelection.
+    public static LevelConfiguration Level16Production { get; } = new(
+        ProgressionIndex: 15,
+        DisplayedLevel: 16,
+        BoardIndex: 15,
+        PaletteIndex: 0,
+        Definition: LevelLoader.LoadLevel16ClosedTube(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: Level16WaveSelection.OrdinaryEnemySupply,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(Enumerable.Range(0, 16).ToArray()),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.Standard,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersTankersAndSpikers)
+    {
+        EffectiveGameplayParameterLevelOverride = 16,
+        Flipper = new(true, 2, 8, 21, 24),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        BelowRimFlipperProgram = BelowRimFlipperProgram.Level16Repeating24,
+        UsesLevel16RomWavePolicy = true,
+        AllowsOrdinaryFlipperSelection = false,
+        StartingSpikeHeight = Level16StartingSpikeHeight,
+        RomFlipperLaneAngles = LevelLoader.Level16RomEvidence.Angles
     };
 }

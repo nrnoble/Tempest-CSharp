@@ -708,7 +708,7 @@ public sealed class Level8ProductionTests
     }
 
     [Fact]
-    public void HoldingFireClearsTheExitLaneSpikeBeforeLevelFifteenCandidateCompletion()
+    public void HoldingFireClearsLevelFifteenExitLaneSpikeBeforeLevelSixteenApproach()
     {
         TempestGame game = new(startingProductionLevel: 15);
         game.CurrentLevel.State = LevelState.ExitZoom;
@@ -718,9 +718,9 @@ public sealed class Level8ProductionTests
             game.RunOneStep(new PlayerInput(true, 0, false, false));
 
         Assert.True(exitLaneSpike.IsDepleted);
-        Assert.DoesNotContain(game.Spikes, spike => spike.EdgeIndex == game.Player.EdgeIndex);
-        Assert.Same(LevelConfiguration.Level15Production, game.CurrentLevel.Configuration);
-        Assert.Equal(LevelState.Complete, game.State);
+        Assert.Contains(game.Spikes, spike => spike.EdgeIndex == game.Player.EdgeIndex);
+        Assert.Same(LevelConfiguration.Level16Production, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Approach, game.State);
     }
 
     [Fact]

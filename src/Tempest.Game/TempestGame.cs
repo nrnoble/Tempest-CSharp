@@ -350,6 +350,37 @@ public sealed class TempestGame
         }
     }
 
+    private void UpdateLevel16SpikerFiring()
+    {
+        LevelConfiguration configuration = CurrentLevel.Configuration;
+        if (!configuration.UsesLevel16RomWavePolicy)
+            return;
+
+        foreach (Spiker spiker in spikers)
+        {
+            // PROJECT TRANSLATION: reuse the shared seeded, ascending-Spiker shot phase.
+            if (spiker.State != SpikerState.Building ||
+                spiker.Height <= 0 ||
+                spiker.Height > MaximumEnemyFiringHeight ||
+                !spiker.AdvanceShotDelay())
+                continue;
+
+            int activeShots = enemyBullets.Count;
+            if (activeShots >= configuration.MaximumActiveEnemyShots)
+                continue;
+
+            int threshold = EnemyShotPressureThresholds[
+                Math.Min(activeShots, EnemyShotPressureThresholds.Length - 1)];
+            if (random.Next(0, 256) < threshold)
+                continue;
+
+            enemyBullets.Add(new EnemyBullet(spiker.EdgeIndex, spiker.Height));
+            developmentCollisionOrder.Add(enemyBullets[^1]);
+            spiker.ReloadShotDelay(configuration.FlipperShotHoldoffTicks);
+            audioEvents.Play(AudioEvent.EnemyBullet);
+        }
+    }
+
     public TempestGame(
         LevelConfiguration startingConfiguration,
         Random? random = null,
@@ -498,6 +529,7 @@ public sealed class TempestGame
             UpdateFlipperFiring();
             UpdateLevel7SpikerFiring();
             UpdateLevel9SpikerFiring();
+            UpdateLevel16SpikerFiring();
             // Once a collision starts death, stop active gameplay before later collisions,
             // all-rim completion or Hurry-Up can process on the same tick.
             CheckFlippersAgainstPlayer();
@@ -938,6 +970,10 @@ public sealed class TempestGame
     {
         Level3WaveLedger ledger = CurrentLevel.Level3Ledger
             ?? throw new InvalidOperationException("Level 3 mixed wave has no identity ledger.");
+        if (CurrentLevel.Configuration.UsesLevel16RomWavePolicy &&
+            egg.CargoUnitId >= 0 &&
+            !Level16WaveSelection.CanAdmitCargoFlipper(CountProductionActiveEnemyUnits()))
+            return null;
         // Reserve one additional physical slot per carrier for its eventual second child.
         // A blocked hatch stays an Egg, including cargo re-entry, until capacity is available.
         if ((CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
@@ -997,6 +1033,7 @@ public sealed class TempestGame
                 ? CurrentLevel.FindReferenceShortestDirection(
                     egg.EdgeIndex, Player.EdgeIndex, NextRandomInclusive)
                 : useLevel9SpikeSensitiveProgram ||
+                  CurrentLevel.Configuration.UsesLevel16RomWavePolicy ||
                   CurrentLevel.Configuration.UsesLevel14RomWavePolicy
                     ? egg.MovementDirection
                 : null;
@@ -1004,9 +1041,11 @@ public sealed class TempestGame
                 egg.EdgeIndex, egg.CargoUnitId, programmedDirection,
                 useLevel5SpikeSensitiveProgram, initialDirection,
                 useLevel9SpikeSensitiveProgram,
-                CurrentLevel.Configuration.UsesLevel14RomWavePolicy
-                    ? TankerCargoMovementProgram.Straight07
-                    : TankerCargoMovementProgram.Existing);
+                CurrentLevel.Configuration.UsesLevel16RomWavePolicy
+                    ? TankerCargoMovementProgram.Repeating24
+                    : CurrentLevel.Configuration.UsesLevel14RomWavePolicy
+                        ? TankerCargoMovementProgram.Straight07
+                        : TankerCargoMovementProgram.Existing);
         }
 
         int originalId = egg.OriginalSlotId;
@@ -1084,6 +1123,19 @@ public sealed class TempestGame
                     return null;
                 selectedType = level13SelectedType.Value;
             }
+            else if (CurrentLevel.Configuration.UsesLevel16RomWavePolicy)
+            {
+                Level3OriginalType? level16SelectedType = Level16WaveSelection.SelectOriginalType(
+                    NextRandomInclusive,
+                    tankers.Count,
+                    spikers.Count,
+                    fuseballs.Count,
+                    CountProductionActiveEnemyUnits(),
+                    CountActiveAndLatentFlipperTypeUnits());
+                if (level16SelectedType is null)
+                    return null;
+                selectedType = level16SelectedType.Value;
+            }
             else if (CurrentLevel.Configuration.UsesLevel14RomWavePolicy)
             {
                 Level3OriginalType? level14SelectedType = Level14WaveSelection.SelectOriginalType(
@@ -1107,6 +1159,7 @@ public sealed class TempestGame
             if (selectedType == Level3OriginalType.Tanker &&
                 !CurrentLevel.Configuration.UsesLevel7RomWavePolicy &&
                 !CurrentLevel.Configuration.UsesLevel8RomWavePolicy &&
+                !CurrentLevel.Configuration.UsesLevel16RomWavePolicy &&
                 !HasLevel5AdmissionDiagnostic &&
                 !HasLevel6AdmissionDiagnostic)
                 Level3WaveSelection.SelectTwoFlipperCargo(NextRandomInclusive);
@@ -1114,6 +1167,11 @@ public sealed class TempestGame
 
         if (selectedType == Level3OriginalType.Spiker)
         {
+            if (CurrentLevel.Configuration.UsesLevel16RomWavePolicy &&
+                (spikers.Count >= Level16WaveSelection.MaximumSpikers ||
+                 !Level16WaveSelection.CanAdmitOriginalType(
+                     Level3OriginalType.Spiker, CountProductionActiveEnemyUnits())))
+                return null;
             if (!HasLevel5AdmissionDiagnostic && !HasLevel6AdmissionDiagnostic &&
                 spikers.Count > 3)
                 return null;
@@ -1133,6 +1191,11 @@ public sealed class TempestGame
 
         if (selectedType == Level3OriginalType.Tanker)
         {
+            if (CurrentLevel.Configuration.UsesLevel16RomWavePolicy &&
+                (tankers.Count >= Level16WaveSelection.MaximumTankers ||
+                 !Level16WaveSelection.CanAdmitOriginalType(
+                     Level3OriginalType.Tanker, CountProductionActiveEnemyUnits())))
+                return null;
             if ((CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
                  CurrentLevel.Configuration.UsesLevel12RomWavePolicy ||
                  CurrentLevel.Configuration.UsesLevel13RomWavePolicy ||
@@ -1147,7 +1210,9 @@ public sealed class TempestGame
                                     ? Level12WaveSelection.MaximumPhysicalEnemySlots
                                     : Level11WaveSelection.MaximumPhysicalEnemySlots))
                 return null;
-            int maximumTankers = CurrentLevel.Configuration.UsesLevel7RomWavePolicy ||
+            int maximumTankers = CurrentLevel.Configuration.UsesLevel16RomWavePolicy
+                ? Level16WaveSelection.MaximumTankers
+                : CurrentLevel.Configuration.UsesLevel7RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel8RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel9RomWavePolicy ||
                 (CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
@@ -1169,10 +1234,12 @@ public sealed class TempestGame
                 tankers.Count >= maximumTankers)
                 return null;
 
-            int ammunition = NextRandomInclusive(1, 2);
+            bool unlimitedAmmunition = CurrentLevel.Configuration.UsesLevel16RomWavePolicy;
+            int ammunition = unlimitedAmmunition ? 0 : NextRandomInclusive(1, 2);
             int timer = 16 + NextRandomInclusive(1, 64);
             Tanker tanker = new(egg.EdgeIndex, originalId,
-                bulletAmmunition: ammunition, bulletTimer: timer);
+                bulletAmmunition: ammunition, bulletTimer: timer,
+                unlimitedBulletAmmunition: unlimitedAmmunition);
             if (ledger.GetOriginalState(originalId) == Level3OriginalState.Egg)
                 ledger.CommitOriginalAsTanker(originalId);
             return tanker;
@@ -1180,7 +1247,9 @@ public sealed class TempestGame
 
         if (selectedType == Level3OriginalType.Fuseball)
         {
-            int maximumFuseballs = CurrentLevel.Configuration.UsesLevel14RomWavePolicy
+            int maximumFuseballs = CurrentLevel.Configuration.UsesLevel16RomWavePolicy
+                ? Level16WaveSelection.MaximumFuseballs
+                : CurrentLevel.Configuration.UsesLevel14RomWavePolicy
                 ? Level14WaveSelection.MaximumFuseballs
                 : CurrentLevel.Configuration.UsesLevel13RomWavePolicy
                     ? Level13WaveSelection.MaximumFuseballs
@@ -1577,19 +1646,21 @@ public sealed class TempestGame
                 continue;
             }
 
-            bool level14ShotCapacityAvailable =
-                !CurrentLevel.Configuration.UsesLevel14RomWavePolicy ||
+            bool levelSpecificShotCapacityAvailable =
+                (!CurrentLevel.Configuration.UsesLevel14RomWavePolicy &&
+                 !CurrentLevel.Configuration.UsesLevel16RomWavePolicy) ||
                 enemyBullets.Count < CurrentLevel.Configuration.MaximumActiveEnemyShots;
             EnemyBullet? bullet = spiker.Update(CurrentLevel,
                 () => random.NextDouble() * 120 > 88,
                 enemyBulletsTest ||
                 CurrentLevel.Configuration.NormalEnemyComposition ==
                     LevelEnemyComposition.FlippersTankersAndSpikers
-                    ? level14ShotCapacityAvailable ? NextRandomInclusive : null
+                    ? levelSpecificShotCapacityAvailable ? NextRandomInclusive : null
                     : null,
                 allowGrowthRetreatShot:
                     !CurrentLevel.Configuration.UsesLevel7SpikerFiringPolicy &&
-                    !CurrentLevel.Configuration.UsesLevel9SpikerFiringPolicy);
+                    !CurrentLevel.Configuration.UsesLevel9SpikerFiringPolicy &&
+                    !CurrentLevel.Configuration.UsesLevel16RomWavePolicy);
             if (bullet is not null)
             {
                 // Enemy bullets were already advanced this tick, so this one first moves next
@@ -1609,6 +1680,7 @@ public sealed class TempestGame
                 CurrentLevel.Configuration.UsesLevel12RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel13RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel14RomWavePolicy
+                || CurrentLevel.Configuration.UsesLevel16RomWavePolicy
                 ? CurrentLevel.Level3Ledger!.PendingGenericOriginalCount
                 : 0;
             if (HasLevel7AdmissionDiagnostic &&
@@ -1642,7 +1714,8 @@ public sealed class TempestGame
                 spiker.RestartForPendingSupply();
                 continue;
             }
-            if (CurrentLevel.Configuration.UsesLevel14RomWavePolicy &&
+            if ((CurrentLevel.Configuration.UsesLevel14RomWavePolicy ||
+                 CurrentLevel.Configuration.UsesLevel16RomWavePolicy) &&
                 pendingGenericOriginals > 0)
             {
                 spiker.RestartForPendingSupply();
@@ -1672,6 +1745,9 @@ public sealed class TempestGame
                  CurrentLevel.Configuration.UsesLevel13RomWavePolicy ||
                  CurrentLevel.Configuration.UsesLevel14RomWavePolicy) &&
                 pendingGenericOriginals == 0;
+            bool level16Conversion =
+                CurrentLevel.Configuration.UsesLevel16RomWavePolicy &&
+                Level16WaveSelection.ShouldConvertTerminalSpiker(pendingGenericOriginals);
             bool genericRomConversion = level7Conversion ||
                 (CurrentLevel.Configuration.UsesLevel8RomWavePolicy &&
                  CurrentLevel.PendingGenericEnemyUnits == 0) ||
@@ -1681,14 +1757,18 @@ public sealed class TempestGame
                     tankers.Count,
                     CountActiveAndLatentFlipperTypeUnits());
             if (terminalLevel4Conversion || terminalLevel5Conversion ||
-                terminalLevel6Conversion || level11Conversion || genericRomConversion)
+                terminalLevel6Conversion || level11Conversion || level16Conversion ||
+                genericRomConversion)
             {
                 // ROM conversion follows generic pending supply; this C# height-zero retreat
                 // boundary is an approximation, not literal ROM coordinate or timing fidelity.
                 ledger.ConvertActiveSpikerToTanker(spiker.OriginalSlotId);
+                bool unlimitedAmmunition =
+                    CurrentLevel.Configuration.UsesLevel16RomWavePolicy;
                 Tanker converted = new(spiker.EdgeIndex, spiker.OriginalSlotId,
-                    bulletAmmunition: NextRandomInclusive(1, 2),
-                    bulletTimer: 16 + NextRandomInclusive(1, 64));
+                    bulletAmmunition: unlimitedAmmunition ? 0 : NextRandomInclusive(1, 2),
+                    bulletTimer: 16 + NextRandomInclusive(1, 64),
+                    unlimitedBulletAmmunition: unlimitedAmmunition);
                 tankers.Add(converted);
                 developmentCollisionOrder.Add(converted);
             }
@@ -1722,7 +1802,8 @@ public sealed class TempestGame
                 (CurrentLevel.Configuration.UsesLevel11RomWavePolicy ||
                  CurrentLevel.Configuration.UsesLevel12RomWavePolicy ||
                  CurrentLevel.Configuration.UsesLevel13RomWavePolicy ||
-                 CurrentLevel.Configuration.UsesLevel14RomWavePolicy)
+                 CurrentLevel.Configuration.UsesLevel14RomWavePolicy ||
+                 CurrentLevel.Configuration.UsesLevel16RomWavePolicy)
                     ? CurrentLevel.Level3Ledger!.PendingGenericOriginalCount
                     : null;
             fuseball.Update(CurrentLevel, Player.EdgeIndex, NextRandomInclusive, HurryUp,
@@ -1837,12 +1918,14 @@ public sealed class TempestGame
             // Level 14's recovered two-shot limit includes Tanker bullets.
             bool levelSpecificShotCapacityAvailable =
                 (!CurrentLevel.Configuration.UsesLevel9RomWavePolicy &&
-                 !CurrentLevel.Configuration.UsesLevel14RomWavePolicy) ||
+                 !CurrentLevel.Configuration.UsesLevel14RomWavePolicy &&
+                 !CurrentLevel.Configuration.UsesLevel16RomWavePolicy) ||
                 enemyBullets.Count < CurrentLevel.Configuration.MaximumActiveEnemyShots;
             bool tankerFiringEnabled =
                 (enemyBulletsTest || CurrentLevel.UsesProductionLedger) &&
                 levelSpecificShotCapacityAvailable;
-            int shotHoldoff = CurrentLevel.Configuration.UsesLevel9RomWavePolicy
+            int shotHoldoff = CurrentLevel.Configuration.UsesLevel9RomWavePolicy ||
+                CurrentLevel.Configuration.UsesLevel16RomWavePolicy
                 ? CurrentLevel.Configuration.FlipperShotHoldoffTicks
                 : Tanker.BulletTimerResetTicks;
             TankerUpdateResult result = tanker.UpdateForDevelopment(

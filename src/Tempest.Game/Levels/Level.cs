@@ -32,6 +32,8 @@ public sealed class Level
     public double RimTurnSpeedMultiplier { get; }
     // Positive screen-space winding follows increasing lane order clockwise. For an open tube,
     // the implicit closing chord determines orientation only; it is never a playable lane.
+    // A zero-area self-touching outline uses lane 0's lobe for the scalar spinner mapping;
+    // endpoint-hinge transitions instead use the lobe containing their source lane.
     public int ClockwiseLaneIndexDelta { get; }
     public double RimTurnSpeedDegrees =>
         Configuration.Flipper.TurnSpeedDegrees *
@@ -88,7 +90,7 @@ public sealed class Level
                 "The rim-speed multiplier must be a positive finite value.");
         Configuration = configuration;
         RimTurnSpeedMultiplier = rimTurnSpeedMultiplier;
-        ClockwiseLaneIndexDelta = CalculatePolygonWindingSign(Definition.Points);
+        ClockwiseLaneIndexDelta = CalculatePolygonWindingSign(Definition.Points, laneIndex: 0);
         SpikerDevelopmentWave = spikerDevelopmentWave;
         TankerDevelopmentWave = tankerDevelopmentWave;
         nextRandomInclusive = randomInclusive ?? NextSharedRandomInclusive;
@@ -562,13 +564,17 @@ public sealed class Level
         Vector2 previous = points[PreviousEdge(hingeVertex)];
         Vector2 hinge = points[hingeVertex];
         Vector2 next = points[NextEdge(hingeVertex)];
-        int windingSign = Continuous ? CalculatePolygonWindingSign(points) : 0;
+        int windingSign = Continuous
+            ? CalculatePolygonWindingSign(points, sourceLane)
+            : 0;
         float hingeAngle = Continuous
             ? CalculateInteriorVertexAngle(previous, hinge, next, windingSign)
             : CalculateReferenceVertexAngle(previous, hinge, next);
         float signedSweep = direction > 0 ? -hingeAngle : hingeAngle;
         // Open tubes have no enclosed web side; preserve their existing directed spatial convention.
         float spatialSweep = Continuous ? direction * windingSign * hingeAngle : signedSweep;
+        RomFlipperAnglePath? romAnglePath = TryGetRomSharedCenterAnglePath(
+            points, sourceLane, destinationLane, direction, hingeVertex);
         return new DirectedLaneTransition(
             sourceLane,
             destinationLane,
@@ -578,7 +584,8 @@ public sealed class Level
             destinationFreeVertex,
             hingeIsStart,
             signedSweep,
-            spatialSweep);
+            spatialSweep,
+            romAnglePath);
     }
 
     public float CalculateFlipperTurnAngle(int sourceEdge, int destinationEdge) =>
@@ -650,7 +657,9 @@ public sealed class Level
 
         Vector2 initialVector = moving - pivot;
         Vector2 destinationVector = destination - pivot;
-        float angle = transition.SpatialSweepDegrees * progress * MathF.PI / 180;
+        float sweepDegrees = transition.RomAnglePath?.HostSweepDegrees ??
+            transition.SpatialSweepDegrees;
+        float angle = sweepDegrees * progress * MathF.PI / 180;
         float sin = MathF.Sin(angle);
         float cos = MathF.Cos(angle);
         Vector2 rotated = new(
@@ -658,7 +667,7 @@ public sealed class Level
             initialVector.X * sin + initialVector.Y * cos);
         float radius = initialVector.Length() +
             (destinationVector.Length() - initialVector.Length()) * progress;
-        if (Continuous)
+        if (Continuous && transition.RomAnglePath is null)
         {
             // Narrow concave sections can otherwise let an inward ray cross the far rim.
             radius = MathF.Min(radius, CalculateFirstPolygonBoundaryDistance(
@@ -670,6 +679,43 @@ public sealed class Level
         return transition.HingeIsStart
             ? (pivot, movedEndpoint)
             : (movedEndpoint, pivot);
+    }
+
+    private RomFlipperAnglePath? TryGetRomSharedCenterAnglePath(
+        IReadOnlyList<Vector2> points,
+        int sourceLane,
+        int destinationLane,
+        int direction,
+        int hingeVertex)
+    {
+        IReadOnlyList<byte>? laneAngles = Configuration.RomFlipperLaneAngles;
+        if (!Continuous || laneAngles is null)
+            return null;
+        if (laneAngles.Count != PlayableLaneCount)
+            throw new InvalidOperationException(
+                "ROM Flipper angle metadata must match the playable lane count.");
+
+        Vector2 sharedVertex = points[hingeVertex];
+        bool repeatedVertex = false;
+        for (int vertex = 0; vertex < points.Count; vertex++)
+        {
+            if (vertex != hingeVertex && points[vertex] == sharedVertex)
+            {
+                repeatedVertex = true;
+                break;
+            }
+        }
+
+        if (!repeatedVertex ||
+            !LaneTouchesVertex(sourceLane, sharedVertex) ||
+            !LaneTouchesVertex(destinationLane, sharedVertex))
+            return null;
+
+        return RomFlipperAnglePath.Create(
+            sourceLane, destinationLane, direction, laneAngles);
+
+        bool LaneTouchesVertex(int lane, Vector2 vertex) =>
+            points[lane] == vertex || points[NextEdge(lane)] == vertex;
     }
 
     public float CalculateLaneTransitionAngle(int sourceLane, int destinationLane)
@@ -791,7 +837,8 @@ public sealed class Level
 
     private static float Cross(Vector2 left, Vector2 right) => left.X * right.Y - left.Y * right.X;
 
-    private static int CalculatePolygonWindingSign(IReadOnlyList<Vector2> points)
+    private static int CalculatePolygonWindingSign(
+        IReadOnlyList<Vector2> points, int laneIndex)
     {
         double twiceArea = 0;
         for (int index = 0; index < points.Count; index++)
@@ -809,13 +856,67 @@ public sealed class Level
             // maps clockwise physical spinner movement to logical lane-left movement.
             if (points.All(point => Math.Abs(point.Y - points[0].Y) < 0.0001f))
                 return -1;
+
+            int lobeWinding = CalculateLaneLobeWindingSign(points, laneIndex);
+            if (lobeWinding != 0)
+                return lobeWinding;
+
             throw new InvalidOperationException(
-                "Winding-dependent movement requires a finite, nondegenerate tube outline.");
+                "Winding-dependent movement requires a finite nondegenerate outline or a closed lobe for the lane.");
         }
 
         // The same winding sign classifies convex/reflex turns and selects the inward spatial arc.
         return Math.Sign(twiceArea);
     }
+
+    internal static int CalculateLaneLobeWindingSign(
+        IReadOnlyList<Vector2> points, int laneIndex)
+    {
+        // A repeated ROM vertex splits the ordered closed walk into component loops.
+        // Level 16's lobes have opposite areas, so a transition follows its source lane's loop.
+        int pointCount = points.Count;
+        if ((uint)laneIndex >= (uint)pointCount)
+            throw new ArgumentOutOfRangeException(nameof(laneIndex));
+
+        for (int first = 0; first < pointCount; first++)
+        {
+            for (int repeated = first + 2; repeated < pointCount; repeated++)
+            {
+                if (points[first] != points[repeated])
+                    continue;
+
+                bool laneIsInFirstLobe =
+                    laneIndex >= first && laneIndex < repeated;
+                bool laneIsInSecondLobe =
+                    laneIndex >= repeated || laneIndex < first;
+                if (!laneIsInFirstLobe && !laneIsInSecondLobe)
+                    continue;
+
+                double lobeTwiceArea = 0;
+                if (laneIsInFirstLobe)
+                {
+                    for (int index = first; index < repeated; index++)
+                        lobeTwiceArea += CrossProductsDouble(points[index], points[index + 1]);
+                }
+                else
+                {
+                    for (int index = repeated; index < pointCount - 1; index++)
+                        lobeTwiceArea += CrossProductsDouble(points[index], points[index + 1]);
+                    lobeTwiceArea += CrossProductsDouble(points[pointCount - 1], points[0]);
+                    for (int index = 0; index < first; index++)
+                        lobeTwiceArea += CrossProductsDouble(points[index], points[index + 1]);
+                }
+
+                if (double.IsFinite(lobeTwiceArea) && Math.Abs(lobeTwiceArea) >= 0.0001)
+                    return Math.Sign(lobeTwiceArea);
+            }
+        }
+
+        return 0;
+    }
+
+    private static double CrossProductsDouble(Vector2 left, Vector2 right) =>
+        (double)left.X * right.Y - (double)left.Y * right.X;
 
     private static float NormalizeAngleDegrees(float angle)
     {

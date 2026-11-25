@@ -21,6 +21,11 @@ public sealed class BlasterPresentationTests
 	[InlineData(8)]
 	[InlineData(9)]
 	[InlineData(10)]
+	[InlineData(11)]
+	[InlineData(12)]
+	[InlineData(13)]
+	[InlineData(14)]
+	[InlineData(15)]
 	public void AtariBlasterBodyStaysOutsideTheVisibleTubeOnEveryPlayableLane(int displayedLevel)
 	{
 		TempestGame game = CreateGame(displayedLevel);
@@ -59,7 +64,7 @@ public sealed class BlasterPresentationTests
 	{
 		bool interiorOnLeft = false;
 		bool interiorOnRight = false;
-		for (int displayedLevel = 1; displayedLevel <= 10; displayedLevel++)
+		for (int displayedLevel = 1; displayedLevel <= 15; displayedLevel++)
 		{
 			TempestGame game = CreateGame(displayedLevel);
 			VectorRenderer renderer = new(game, atariPresentationEnabled: true);
@@ -83,6 +88,11 @@ public sealed class BlasterPresentationTests
 	[InlineData(8)]
 	[InlineData(9)]
 	[InlineData(10)]
+	[InlineData(11)]
+	[InlineData(12)]
+	[InlineData(13)]
+	[InlineData(14)]
+	[InlineData(15)]
 	public void AtariBlasterNormalRemainsOutwardWhenTravelDirectionReverses(int displayedLevel)
 	{
 		TempestGame game = CreateGame(displayedLevel);

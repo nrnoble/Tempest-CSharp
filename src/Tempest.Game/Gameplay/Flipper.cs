@@ -98,8 +98,9 @@ public sealed class Flipper : Enemy
         FlipperConfiguration tuning = level.Configuration.Flipper;
         if (programmedRouteStep == ProgrammedFlipperRouteStep.Disabled &&
             !IsTankerCargo &&
-            level.Configuration.BelowRimFlipperProgram ==
-                BelowRimFlipperProgram.Level11Repeating24)
+            level.Configuration.BelowRimFlipperProgram is
+                BelowRimFlipperProgram.Level11Repeating24 or
+                BelowRimFlipperProgram.Level16Repeating24)
             InitializeRepeating24Route(
                 level.Configuration.ProgrammedFlipperInitialDirection);
 
@@ -297,6 +298,10 @@ public sealed class Flipper : Enemy
         {
             flipper.useLevel8StraightCargoProgram = true;
             flipper.InitializeLevel8CargoRoute(initialDirection ?? 1, constantFlipProgram: false);
+        }
+        else if (tankerCargoMovementProgram == TankerCargoMovementProgram.Repeating24)
+        {
+            flipper.InitializeRepeating24Route(initialDirection ?? 1);
         }
         else if (initialDirection is int freshDirection)
         {
@@ -833,8 +838,8 @@ public sealed class Flipper : Enemy
             return;
         }
 
-        // Neal's arcade observation is a repeating 2-3-2-2-2 route; keep its route state
-        // per Flipper and retain the established lead-in only at the five-block boundary.
+        // Level 7 uses its observed 2-3-2-2-2 route; ROM $24 repeats 2-3.
+        // Keep route state per Flipper and retain the lead-in at the cycle boundary.
         programmedRouteStep = ProgrammedFlipperRouteStep.LeadIn;
         AdvanceProgrammedAlong(level, playerEdge, tuning);
     }

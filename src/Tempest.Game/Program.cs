@@ -26,11 +26,11 @@
 // --calibration-guides enables fixed DEVELOPMENT-ONLY viewport guides;
 // --background-opacity changes only the cleared background alpha for visual comparison;
 // --tube-y-gain changes DEVELOPMENT-ONLY vertical tube proportion;
-// --tube-depth-y-gain scales the depth-dependent Atari camera-origin Y displacement;
+// --tube-depth-y-gain scales the depth-dependent Atari Y contribution;
 // --tube-scale uniformly scales the DEVELOPMENT-ONLY presented tube and attached artwork;
 // --tube-vertical-offset translates the complete DEVELOPMENT-ONLY presentation in screen space;
-// Level 10 uses its accepted +50 placement; Level 15 has its own accepted presentation defaults.
-// Normal play progresses Level 1 through terminal Level 15.
+// Level 10 uses its accepted +50 placement; Levels 15 and 16 have their own accepted defaults.
+// Normal play progresses Level 1 through terminal Level 16.
 using System.Globalization;
 using System.Text.Json;
 using Raylib_cs;
@@ -291,7 +291,7 @@ if (spinnerSensitivityOptions.WasExplicitlySpecified)
 if (atariPresentationEnabled)
 {
     Console.WriteLine(
-        "DEVELOPMENT ONLY — Atari presentation candidate enabled for production Levels 1-15.");
+        "DEVELOPMENT ONLY — Atari presentation candidate enabled for production Levels 1-16.");
 }
 
 if (tubeYGainOptions.WasExplicitlySpecified)
@@ -304,8 +304,8 @@ if (tubeYGainOptions.WasExplicitlySpecified)
 if (tubeDepthYGainOptions.WasExplicitlySpecified)
 {
     Console.WriteLine(
-        $"DEVELOPMENT ONLY — Atari depth-origin Y gain {tubeDepthYGainOptions.Gain.ToString("G", CultureInfo.InvariantCulture)}; " +
-        "1 preserves the current camera-origin drift, 0 removes it; depth-size ratio is unchanged.");
+        $"DEVELOPMENT ONLY — Atari depth-dependent Y gain {tubeDepthYGainOptions.Gain.ToString("G", CultureInfo.InvariantCulture)}; " +
+        "1 preserves the current depth-Y contribution, 0 removes it; depth-size ratio is unchanged.");
 }
 
 if (tubeScaleOptions.WasExplicitlySpecified)

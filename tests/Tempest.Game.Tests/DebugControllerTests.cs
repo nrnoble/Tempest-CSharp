@@ -287,7 +287,7 @@ public sealed class DebugControllerTests
         Assert.False(DebugController.TryParseStartingLevel(
             ["--level", value], out int? selected, out string? error));
         Assert.Null(selected);
-        Assert.Contains("implemented production campaign level (currently ending at Level 15)", error);
+        Assert.Contains("implemented production campaign level (currently ending at Level 16)", error);
     }
 
     [Fact]
@@ -310,6 +310,19 @@ public sealed class DebugControllerTests
             LevelProgression.GetProductionLevel(15));
         Assert.Same(LevelConfiguration.Level15Production,
             LevelProgression.GetDirectStartLevel(15));
+    }
+
+    [Fact]
+    public void LevelSixteenIsAnImplementedProductionStart()
+    {
+        Assert.True(DebugController.TryParseStartingLevel(
+            ["--start-level", "16"], out int? selected, out string? error));
+        Assert.Equal(16, selected);
+        Assert.Null(error);
+        Assert.Same(LevelConfiguration.Level16Production,
+            LevelProgression.GetProductionLevel(16));
+        Assert.Same(LevelConfiguration.Level16Production,
+            LevelProgression.GetDirectStartLevel(16));
     }
 
     [Fact]
