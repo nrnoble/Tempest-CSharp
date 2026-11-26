@@ -208,8 +208,9 @@ the old portrait world projection with the same portrait viewport. It is
 distinct from `--legacy-presentation`, which retains the separate legacy
 4:3 presentation. `--portrait-perspective` applies only alongside the
 explicit baseline diagnostic. Level 17 production and cycle-1 presentation are
-implemented and manually accepted; tube recycling and Levels 18+ remain
-unimplemented.
+implemented and manually accepted. Level 18 production and cycle-1 presentation
+are implemented and manually accepted, remain terminal, and reuse canonical
+Shape 2/Level 2 square geometry. Level 19+ remain unimplemented.
 
 ```powershell
 dotnet run --project src\Tempest.Game -- --start-level 16

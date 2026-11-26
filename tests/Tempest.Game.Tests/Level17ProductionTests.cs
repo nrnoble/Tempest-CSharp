@@ -11,7 +11,7 @@ namespace Tempest.Game.Tests;
 public sealed class Level17ProductionTests
 {
     [Fact]
-    public void ShapePaletteAndTerminalProgressionAreBounded()
+    public void ShapePaletteAndProgressionContinueIntoLevelEighteen()
     {
         LevelConfiguration level17 = LevelConfiguration.Level17Production;
         Assert.Same(level17, LevelProgression.GetProductionLevel(17));
@@ -20,8 +20,9 @@ public sealed class Level17ProductionTests
         Assert.Equal(0, RomTubeMappingCatalog.ShapeRowForDisplayedLevel(17));
         Assert.Equal(1, level17.PaletteIndex);
         Assert.Equal(20, level17.EnemySupply);
-        Assert.Null(LevelProgression.GetNextProductionLevel(level17));
-        Assert.Null(LevelProgression.GetProductionLevel(18));
+        Assert.Same(LevelConfiguration.Level18Production,
+            LevelProgression.GetNextProductionLevel(level17));
+        Assert.Same(LevelConfiguration.Level18Production, LevelProgression.GetProductionLevel(18));
     }
 
     [Fact]

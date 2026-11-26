@@ -24,8 +24,8 @@ internal enum ProgrammedFlipperRouteStep
     Level8Turning,
     Level8Straight,
     Level8StraightTurning,
-    Level6DeepAlong,
-    Level6DeepTurning,
+    EightAdvanceAlong,
+    EightAdvanceTurning,
     Level6Straight,
     Level9Along,
     Level9Turning,
@@ -56,7 +56,7 @@ public sealed class Flipper : Enemy
     private bool useLevel9SpikeSensitiveProgram;
     private bool useLevel9StraightCargoProgram;
     private bool useStraight07Program;
-    private int level6StraightAdvances;
+    private int eightAdvanceCount;
     private bool useRepeating24Program;
 
     public Flipper(int edge = 0, float height = 0)
@@ -116,6 +116,13 @@ public sealed class Flipper : Enemy
             }
             return;
         }
+        if (programmedRouteStep == ProgrammedFlipperRouteStep.Disabled &&
+            !IsTankerCargo &&
+            level.Configuration.BelowRimFlipperProgram ==
+                BelowRimFlipperProgram.EightAdvanceTurn)
+            InitializeEightAdvanceTurnRoute(
+                level.Configuration.ProgrammedFlipperInitialDirection);
+
         if (programmedRouteStep == ProgrammedFlipperRouteStep.Disabled &&
             !IsTankerCargo &&
             level.Configuration.BelowRimFlipperProgram is
@@ -252,9 +259,9 @@ public sealed class Flipper : Enemy
             cargo.SourceLane, cargo.DestinationLane, cargo.Direction);
         flipper.ActiveTransition = transition;
         flipper.TotalTurnAngle = transition.SweepMagnitudeDegrees;
-        if (tankerCargoMovementProgram is TankerCargoMovementProgram.Level6Deep0B or
+        if (tankerCargoMovementProgram is TankerCargoMovementProgram.EightAdvanceTurn or
             TankerCargoMovementProgram.Level6Straight07)
-            flipper.InitializeLevel6CargoRoute(tankerCargoMovementProgram);
+            flipper.InitializeCargoMovementRoute(tankerCargoMovementProgram);
         else if (tankerCargoMovementProgram is
             TankerCargoMovementProgram.Level9SpikeSensitive53 or
             TankerCargoMovementProgram.Level9Straight07)
@@ -320,6 +327,8 @@ public sealed class Flipper : Enemy
             flipper.Direction = initialDirection ?? 1;
             flipper.programmedRouteStep = ProgrammedFlipperRouteStep.Level9Along;
         }
+        else if (tankerCargoMovementProgram == TankerCargoMovementProgram.EightAdvanceTurn)
+            flipper.InitializeEightAdvanceTurnRoute(initialDirection ?? 1);
         else if (tankerCargoMovementProgram == TankerCargoMovementProgram.Straight07)
         {
             flipper.useLevel8StraightCargoProgram = true;
@@ -675,12 +684,12 @@ public sealed class Flipper : Enemy
                 AdvanceProgrammedRouteBoundary(level, playerEdge, tuning);
                 break;
 
-            case ProgrammedFlipperRouteStep.Level6DeepAlong:
-                AdvanceLevel6DeepAlong(level, playerEdge, tuning);
+            case ProgrammedFlipperRouteStep.EightAdvanceAlong:
+                AdvanceEightAdvanceAlong(level, playerEdge, tuning);
                 break;
 
-            case ProgrammedFlipperRouteStep.Level6DeepTurning:
-                ContinueLevel6DeepPivot(level, playerEdge, tuning);
+            case ProgrammedFlipperRouteStep.EightAdvanceTurning:
+                ContinueEightAdvancePivot(level, playerEdge, tuning);
                 break;
 
             case ProgrammedFlipperRouteStep.Level6Straight:
@@ -693,7 +702,7 @@ public sealed class Flipper : Enemy
         }
     }
 
-    private void InitializeLevel6CargoRoute(TankerCargoMovementProgram movementProgram)
+    private void InitializeCargoMovementRoute(TankerCargoMovementProgram movementProgram)
     {
         // ROM cargo already has its release lane and direction; $0b/$07 begins there without
         // the shared C# cargo path's extra below-rim release pivot.
@@ -704,18 +713,35 @@ public sealed class Flipper : Enemy
         TotalTurnAngle = 0;
         PauseTicks = 0;
         State = FlipperState.Climbing;
-        level6StraightAdvances = 0;
+        eightAdvanceCount = 0;
         programmedRouteStep = movementProgram switch
         {
-            TankerCargoMovementProgram.Level6Deep0B =>
-                ProgrammedFlipperRouteStep.Level6DeepAlong,
+            TankerCargoMovementProgram.EightAdvanceTurn =>
+                ProgrammedFlipperRouteStep.EightAdvanceAlong,
             TankerCargoMovementProgram.Level6Straight07 =>
                 ProgrammedFlipperRouteStep.Level6Straight,
             _ => throw new ArgumentOutOfRangeException(nameof(movementProgram))
         };
     }
 
-    private void AdvanceLevel6DeepAlong(
+    private void InitializeEightAdvanceTurnRoute(int initialDirection)
+    {
+        if (initialDirection is not (-1 or 1))
+            throw new ArgumentOutOfRangeException(nameof(initialDirection));
+
+        SourceEdge = EdgeIndex;
+        DestinationEdge = EdgeIndex;
+        ActiveTransition = null;
+        TurnAngle = 0;
+        TotalTurnAngle = 0;
+        PauseTicks = 0;
+        State = FlipperState.Climbing;
+        Direction = initialDirection;
+        eightAdvanceCount = 0;
+        programmedRouteStep = ProgrammedFlipperRouteStep.EightAdvanceAlong;
+    }
+
+    private void AdvanceEightAdvanceAlong(
         Level level, int playerEdge, FlipperConfiguration tuning)
     {
         bool startedBelowRim = Height < Level.Depth;
@@ -728,19 +754,19 @@ public sealed class Flipper : Enemy
             return;
         }
 
-        level6StraightAdvances++;
-        if (level6StraightAdvances < 8)
+        eightAdvanceCount++;
+        if (eightAdvanceCount < 8)
             return;
 
         BeginProgrammedPivot(level);
-        programmedRouteStep = ProgrammedFlipperRouteStep.Level6DeepTurning;
+        programmedRouteStep = ProgrammedFlipperRouteStep.EightAdvanceTurning;
     }
 
-    private void ContinueLevel6DeepPivot(
+    private void ContinueEightAdvancePivot(
         Level level, int playerEdge, FlipperConfiguration tuning)
     {
         DirectedLaneTransition transition = ActiveTransition ??
-            throw new InvalidOperationException("A Level 6 $0b Flipper turn requires an active transition.");
+            throw new InvalidOperationException("An eight-advance Flipper turn requires an active transition.");
         // ROM $0b holds along-depth during the turn and returns directly to the eight-advance loop.
         AdvanceTurnAngle(level, tuning);
         if (TurnAngle < TotalTurnAngle)
@@ -762,8 +788,8 @@ public sealed class Flipper : Enemy
             return;
         }
 
-        level6StraightAdvances = 0;
-        programmedRouteStep = ProgrammedFlipperRouteStep.Level6DeepAlong;
+        eightAdvanceCount = 0;
+        programmedRouteStep = ProgrammedFlipperRouteStep.EightAdvanceAlong;
     }
 
     private void AdvanceLevel6Straight(

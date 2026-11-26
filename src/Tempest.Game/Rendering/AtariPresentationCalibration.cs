@@ -1,8 +1,11 @@
+using Tempest.Game.Levels;
+
 namespace Tempest.Game.Rendering;
 
 /// <summary>
 /// First-pass Atari-presentation defaults. Levels 1-16 are manually accepted
-/// project decisions. Diagnostic values remain absolute overrides.
+/// project decisions; repeated cycles reuse calibration by canonical shape.
+/// Diagnostic values remain absolute overrides.
 /// </summary>
 public readonly record struct AtariPresentationCalibration(
 	float TubeYGain,
@@ -25,8 +28,16 @@ public readonly record struct AtariPresentationCalibration(
 			tubeDepthYGainOverride ?? selected.TubeDepthYGain);
 	}
 
-	public static AtariPresentationCalibration ForDisplayedLevel(int displayedLevel) =>
-		displayedLevel switch
+	public static AtariPresentationCalibration ForDisplayedLevel(int displayedLevel)
+	{
+		if (displayedLevel > 16)
+		{
+			int shapeRow = RomTubeMappingCatalog.ResolveShapeRow(displayedLevel);
+			return ForDisplayedLevel(
+				RomTubeMappingCatalog.FirstDisplayedLevelForShapeRow(shapeRow));
+		}
+
+		return displayedLevel switch
 		{
 			1 => new(1.4f, .8f, 35),
 			2 => new(1f, 1.1f, 35),
@@ -45,10 +56,9 @@ public readonly record struct AtariPresentationCalibration(
 			15 => new(1.15f, 1f, 75f, 1f),
 			// MANUALLY ACCEPTED PROJECT DECISION: Level 16 Atari presentation defaults.
 			16 => new(1.1f, 1f, 100f, 1f),
-			// PROJECT TRANSLATION: Level 17 reuses Shape 1 and its accepted Level 1 calibration.
-			17 => new(1.4f, .8f, 35),
 			_ => throw new ArgumentOutOfRangeException(
 				nameof(displayedLevel), displayedLevel,
 				"No first-pass Atari-presentation calibration exists for this level.")
 		};
+	}
 }

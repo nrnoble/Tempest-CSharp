@@ -3632,7 +3632,7 @@ not establish arcade-fidelity acceptance.
   not establish visual acceptance or change geometry, gameplay state, or
   calibration.
 - **PROJECT DECISION — CAMPAIGN BOUNDARY:** production progression now ends at
-  accepted Level 17. Levels 18+ remain unimplemented.
+  accepted Level 18. Level 19+ remain unimplemented.
 - **MANUAL ACCEPTANCE — LEVEL 17:** Neal reports passing gameplay with no
   defects or noticeable differences from the arcade version. Flipper climb and
   rim pursuit, Tanker and Egg behavior, Pulsars, absent starting Spikes and
@@ -3819,3 +3819,45 @@ completed all 35,350 frames and the Level 17 recording completed all 2,609
 frames, ending at Level 17 Complete. The Release build completed with zero
 warnings and zero errors. Detailed playback telemetry and commands are in the
 paired 2026-11-25 final-closeout report.
+
+## Level 18 final closeout - 2026-11-26
+
+**MANUAL ACCEPTANCE - LEVEL 18:** Neal reports that medium/default Level 18
+passes manual gameplay and presentation testing. No new problems or regressions
+were observed. Acceptance covers canonical Shape 2 presentation, cycle-1
+palette and HUD, ordinary and cargo Flippers, Tankers, Pulsars, enemy shooting
+pressure, death/re-entry, natural Level 17 to 18 progression, direct startup,
+and terminal behavior. Easy/hard variants were not manually accepted.
+
+**ROM-BACKED / PROJECT TRANSLATION - MAPPING:** Level 18 has displayed
+identity 18, progression index 17, ROM `curlevel=$11`, effective `lev=$12`,
+zero-based remap index 1, ROM shape row 1, board index 1, and palette index
+1. It reuses canonical closed 16-lane Level 2 Shape 2 geometry and the
+accepted Shape 2 production projection/calibration.
+
+**ROM-BACKED / PROJECT DECISION - WAVE:** medium supply is 21 originals.
+The physical envelope is seven slots; initial active Eggs are 4. Eligibility
+is Flippers 0-3, Tanker exactly 1, Pulsars 2-5, Spikers 0, and Fuseballs 0.
+No starting or dynamic Spikes are eligible. Tankers carry exactly two distinct
+Flipper cargo identities.
+
+**PROJECT TRANSLATION - ROUTES AND FIRING:** ordinary and Tanker-cargo
+Flippers use shared `EightAdvanceTurn` behavior: eight along/depth advances,
+one held-depth lane turn, and repeat until shared rim handoff. Medium
+Flipper/Tanker host climb speed is `2.625f`. Medium shot holdoff/capacity is
+29/3; Flipper and Tanker firing use existing shared gates, while medium
+Pulsar firing remains disabled.
+
+**PROJECT TRANSLATION - PULSAR:** Level 17 preserves its accepted no-threshold,
+fixed-1 compatibility. Level 18 supplies ROM-threshold `$14` mapped to
+approximately `392.92035f`, fixed speed `1f`, and deep-side toward-rim speed
+`21/11`. Away/deep movement is fixed 1 and threshold reversal/crossing follows
+the pre-move/updated-height rules documented by the Pulsar authority. The
+threshold's overlap with the existing near-rim collision region is an
+implementation-boundary project translation, not an exact arcade-equivalence
+claim.
+
+**PROJECT DECISION - PROGRESSION AND TERMINATION:** Level 17 to 18 is a
+shared production transition through ExitZoom and Approach. Direct
+`--level 18` and `--start-level 18` resolve to the same terminal
+configuration. Level 19 remains unsupported.

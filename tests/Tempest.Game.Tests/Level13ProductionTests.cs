@@ -262,7 +262,7 @@ public sealed class Level13ProductionTests
     }
 
     [Fact]
-    public void LevelTwelveProgressesThroughSixteenAsTerminalLevel()
+    public void LevelTwelveProgressesThroughLevelEighteen()
     {
         Assert.Same(LevelConfiguration.Level13Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level12Production));
@@ -274,8 +274,10 @@ public sealed class Level13ProductionTests
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level15Production));
         Assert.Same(LevelConfiguration.Level17Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level16Production));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level17Production));
-        Assert.Same(LevelConfiguration.Level17Production,
+        Assert.Same(LevelConfiguration.Level18Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level17Production));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level18Production));
+        Assert.Same(LevelConfiguration.Level18Production,
             LevelProgression.GetLastProductionLevel());
         Assert.Same(LevelConfiguration.Level14Production, LevelProgression.GetProductionLevel(14));
         Assert.Same(LevelConfiguration.Level15Production,

@@ -22,6 +22,8 @@ public enum FlipperPivotGeometry
 public enum BelowRimFlipperProgram
 {
     Existing,
+    // ROM $0B: eight along advances followed by one lane turn, repeated to rim arrival.
+    EightAdvanceTurn,
     // ROM Level 5 $53, translated using the live C# Spike and Flipper heights.
     Level5SpikeSensitive,
     // ROM Level 9 $53, translated using post-move live C# Spike and Flipper heights.
@@ -43,6 +45,15 @@ public sealed record FlipperConfiguration(
     float TurnSpeedDegrees,
     int LanePauseTicks,
     int RimPauseTicks);
+
+public readonly record struct PulsarMovementConfiguration(
+    float? ThresholdHeight,
+    float FixedSpeed,
+    float DeepSideTowardRimSpeed)
+{
+    public static PulsarMovementConfiguration Level17Compatibility { get; } =
+        new(null, 1f, 1f);
+}
 
 /// <summary>
 /// Immutable wave data. A Level owns the mutable runtime state created from this configuration.
@@ -99,6 +110,7 @@ public sealed record LevelConfiguration(
         // PROJECT APPROXIMATION: preserve the raw value as the C# tick cadence.
         16 => Level16WaveSelection.ShotHoldoffRaw,
         17 => Level17WaveSelection.ShotHoldoffRaw,
+        18 => Level18WaveSelection.ShotHoldoffRaw,
         _ => throw new InvalidOperationException(
             $"No arcade Flipper shot holdoff is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
@@ -125,6 +137,7 @@ public sealed record LevelConfiguration(
         14 => 2,
         16 => Level16WaveSelection.DefaultMaximumActiveEnemyShots,
         17 => Level17WaveSelection.DefaultMaximumActiveEnemyShots,
+        18 => Level18WaveSelection.DefaultMaximumActiveEnemyShots,
         _ => throw new InvalidOperationException(
             $"No arcade enemy-shot capacity is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
@@ -146,6 +159,9 @@ public sealed record LevelConfiguration(
     public bool UsesLevel14RomWavePolicy { get; init; }
     public bool UsesLevel16RomWavePolicy { get; init; }
     public bool UsesLevel17RomWavePolicy { get; init; }
+    public bool UsesLevel18RomWavePolicy { get; init; }
+    public PulsarMovementConfiguration PulsarMovement { get; init; } =
+        PulsarMovementConfiguration.Level17Compatibility;
     // PROJECT DECISION: Level 15 retains the separately recovered Level 11 parameter
     // baseline; genuine Level 11 uses UsesLevel11RomWavePolicy.
     public bool UsesLevel11ParameterDevelopmentBaseline { get; init; }
@@ -160,6 +176,7 @@ public sealed record LevelConfiguration(
         UsesLevel14RomWavePolicy ||
         UsesLevel16RomWavePolicy ||
         UsesLevel17RomWavePolicy ||
+        UsesLevel18RomWavePolicy ||
         UsesLevel11ParameterDevelopmentBaseline ||
         ReferenceEquals(this, Level5Production) ||
         ReferenceEquals(this, Level6Production);
@@ -717,6 +734,44 @@ public sealed record LevelConfiguration(
         UsesLevel17RomWavePolicy = true,
         AllowsOrdinaryFlipperSelection = true,
         ProgrammedFlipperInitialDirection = 1,
-        StartingSpikeHeight = StartingSpikeHeightForDisplayedLevel(17)
+        StartingSpikeHeight = StartingSpikeHeightForDisplayedLevel(17),
+        PulsarMovement = PulsarMovementConfiguration.Level17Compatibility
+    };
+
+    // ROM-BACKED medium/default Level 18 reuses canonical Shape 2 and cycle-1 palette data.
+    public static LevelConfiguration Level18Production { get; } = new(
+        ProgressionIndex: 17,
+        DisplayedLevel: 18,
+        BoardIndex: 1,
+        PaletteIndex: 1,
+        Definition: Level2Square.Definition,
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: Level18WaveSelection.OrdinaryEnemySupply,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(Enumerable.Range(0, 16).ToArray()),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.Standard,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersTankersAndSpikers)
+    {
+        EffectiveGameplayParameterLevelOverride = 18,
+        Flipper = new(true, Level18WaveSelection.MediumFlipperTankerSpeed, 8, 21, 24),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        BelowRimFlipperProgram = BelowRimFlipperProgram.EightAdvanceTurn,
+        UsesLevel18RomWavePolicy = true,
+        AllowsOrdinaryFlipperSelection = true,
+        ProgrammedFlipperInitialDirection = 1,
+        StartingSpikeHeight = StartingSpikeHeightForDisplayedLevel(18),
+        PulsarMovement = new(
+            Level18WaveSelection.MapPulsarThresholdToHostHeight(
+                Level18WaveSelection.PulsarFlipRateRaw, Level.Depth),
+            Level18WaveSelection.FixedPulsarMovementSpeed,
+            Level18WaveSelection.DeepSidePulsarMovementSpeed)
     };
 }

@@ -18,7 +18,8 @@ public enum TankerReleaseKind
 public enum TankerCargoMovementProgram
 {
     Existing,
-    Level6Deep0B,
+    EightAdvanceTurn = 1,
+    Level6Deep0B = EightAdvanceTurn,
     Level6Straight07,
     Level9SpikeSensitive53,
     Level9Straight07,
@@ -193,6 +194,9 @@ public sealed class Tanker : Enemy
              TankerReleaseKind.SuperZapperDestruction))
             throw new ArgumentOutOfRangeException(nameof(releaseKind));
 
+        if (configuration.BelowRimFlipperProgram ==
+            BelowRimFlipperProgram.EightAdvanceTurn)
+            return TankerCargoMovementProgram.EightAdvanceTurn;
         if (configuration.UsesLevel13RomWavePolicy)
             return GetLevel9CargoMovementProgram(Height, releaseKind);
         if (configuration.UsesLevel17RomWavePolicy)
@@ -219,7 +223,7 @@ public sealed class Tanker : Enemy
         // The existing ROM-along conversion is a project approximation, but preserves the
         // ROM's $20 release branch without guessing a C# height cutoff.
         return RomAlongPositionForHeight(Height) >= Level6DeepCargoRomAlongThreshold
-            ? TankerCargoMovementProgram.Level6Deep0B
+            ? TankerCargoMovementProgram.EightAdvanceTurn
             : TankerCargoMovementProgram.Level6Straight07;
     }
 

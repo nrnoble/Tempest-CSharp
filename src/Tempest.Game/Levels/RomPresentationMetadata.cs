@@ -70,11 +70,20 @@ public static class RomTubeMappingCatalog
         if (displayedLevel < 1)
             throw new ArgumentOutOfRangeException(nameof(displayedLevel), displayedLevel,
                 "Tempest displayed levels start at 1.");
-        if (displayedLevel > 17)
+        if (displayedLevel > 18)
             throw new ArgumentOutOfRangeException(nameof(displayedLevel), displayedLevel,
-                "Only bounded Level 17 cycle reuse is supported.");
+                "Only bounded Level 18 cycle reuse is supported.");
         int cycleIndex = ((displayedLevel - 1) & 15);
         return ShapeRowsByDisplayedLevel[cycleIndex];
+    }
+
+    public static int FirstDisplayedLevelForShapeRow(int shapeRow)
+    {
+        int displayedLevelIndex = Array.IndexOf(ShapeRowsByDisplayedLevel.ToArray(), shapeRow);
+        if (displayedLevelIndex < 0)
+            throw new ArgumentOutOfRangeException(nameof(shapeRow), shapeRow,
+                "The requested ROM shape row is not mapped in the first cycle.");
+        return displayedLevelIndex + 1;
     }
 
     public static int ShapeRowForDisplayedLevel(int displayedLevel)
@@ -176,24 +185,30 @@ public static class RomPresentationMetadataCatalog
             return Level15;
         if (displayedLevel == Level16.DisplayedLevel)
             return Level16;
-        if (displayedLevel == 17)
-        {
-            return new RomPresentationMetadata(17, 0,
-                ProductionLevels[0].ScaleRaw,
-                ProductionLevels[0].CameraHeightRaw,
-                ProductionLevels[0].ScreenYOffsetLowRaw,
-                ProductionLevels[0].ScreenYOffsetHighRaw,
-                ProductionLevels[0].OpenRaw);
-        }
         if (displayedLevel < 1)
             throw new ArgumentOutOfRangeException(
                 nameof(displayedLevel),
                 displayedLevel,
                 "ROM presentation metadata starts at displayed Level 1.");
-        if (displayedLevel > 17)
-            throw new ArgumentOutOfRangeException(
-                nameof(displayedLevel), displayedLevel,
-                "Only bounded Level 17 cycle reuse is supported.");
+        if (displayedLevel > 16)
+        {
+            int shapeRow = RomTubeMappingCatalog.ResolveShapeRow(displayedLevel);
+            RomPresentationMetadata canonicalShape = ProductionLevels.SingleOrDefault(
+                metadata => metadata.TubeTableIndex == shapeRow)
+                ?? throw new ArgumentOutOfRangeException(
+                    nameof(displayedLevel), displayedLevel,
+                    $"No canonical production metadata is cataloged for shape row {shapeRow}.");
+            return new RomPresentationMetadata(
+                displayedLevel,
+                shapeRow,
+                canonicalShape.ScaleRaw,
+                canonicalShape.CameraHeightRaw,
+                canonicalShape.ScreenYOffsetLowRaw,
+                canonicalShape.ScreenYOffsetHighRaw,
+                canonicalShape.OpenRaw,
+                canonicalShape.FlipperScaleLowRaw,
+                canonicalShape.FlipperScaleHighRaw);
+        }
 
         return ProductionLevels[displayedLevel - 1];
     }

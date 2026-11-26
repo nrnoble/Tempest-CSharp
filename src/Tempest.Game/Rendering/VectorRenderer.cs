@@ -605,26 +605,32 @@ public sealed class VectorRenderer
 
 	private float TubeLocalPresentationScale => TubeScale;
 
-	private Vector2 ApplyAtariLocalPresentationToOffset(Vector2 offset) =>
-		!atariPresentationEnabled
-			? offset
-			: game.CurrentLevel.Configuration.DisplayedLevel switch
-			{
-				2 => ScaleLocalOffset(offset, new Vector2(
-					TubeScale,
-					TubeScale * TubeYGain *
-						AtariPresentationAdapter.Level2VerticalAspectFactor)),
-				6 => ScaleLocalOffset(offset, new Vector2(
-					TubeScale * AtariPresentationAdapter.Level6HorizontalPresentationScale,
-					TubeScale * TubeYGain *
-						AtariPresentationAdapter.Level6VerticalPresentationScale)),
-				5 => ScaleLocalOffset(offset, new Vector2(
-					TubeScale * AtariPresentationAdapter.Level5HorizontalPresentationScale,
-					TubeScale * TubeYGain *
-						AtariPresentationAdapter.Level5VerticalPresentationScale)),
-				_ => ScaleLocalOffset(offset,
-					new Vector2(TubeScale, TubeScale * TubeYGain))
-			};
+	private Vector2 ApplyAtariLocalPresentationToOffset(Vector2 offset)
+	{
+		if (!atariPresentationEnabled)
+			return offset;
+
+		int displayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
+		if (RomTubeMappingCatalog.ResolveShapeRow(displayedLevel) == 1)
+			return ScaleLocalOffset(offset, new Vector2(
+				TubeScale,
+				TubeScale * TubeYGain *
+					AtariPresentationAdapter.Level2VerticalAspectFactor));
+
+		return displayedLevel switch
+		{
+			6 => ScaleLocalOffset(offset, new Vector2(
+				TubeScale * AtariPresentationAdapter.Level6HorizontalPresentationScale,
+				TubeScale * TubeYGain *
+					AtariPresentationAdapter.Level6VerticalPresentationScale)),
+			5 => ScaleLocalOffset(offset, new Vector2(
+				TubeScale * AtariPresentationAdapter.Level5HorizontalPresentationScale,
+				TubeScale * TubeYGain *
+					AtariPresentationAdapter.Level5VerticalPresentationScale)),
+			_ => ScaleLocalOffset(offset,
+				new Vector2(TubeScale, TubeScale * TubeYGain))
+		};
+	}
 
 	private static Vector2 ScaleLocalOffset(Vector2 offset, Vector2 scale) =>
 		new(offset.X * scale.X, offset.Y * scale.Y);

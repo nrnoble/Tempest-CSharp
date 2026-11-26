@@ -34,20 +34,35 @@ public sealed class Pulsar : Enemy
 
     private PulsarState oldState;
 
-    public Pulsar(int edgeIndex = 0, float height = 0, int originalSlotId = -1)
+    public Pulsar(
+        int edgeIndex = 0,
+        float height = 0,
+        int originalSlotId = -1,
+        PulsarMovementConfiguration? movementConfiguration = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(edgeIndex);
         ArgumentOutOfRangeException.ThrowIfNegative(height);
         if (height > Level.Depth)
             throw new ArgumentOutOfRangeException(nameof(height));
 
+        PulsarMovementConfiguration movement = movementConfiguration ??
+            PulsarMovementConfiguration.Level17Compatibility;
+        if (!float.IsFinite(movement.FixedSpeed) || movement.FixedSpeed <= 0 ||
+            !float.IsFinite(movement.DeepSideTowardRimSpeed) ||
+            movement.DeepSideTowardRimSpeed <= 0 ||
+            movement.ThresholdHeight is float threshold &&
+            (!float.IsFinite(threshold) || threshold < 0 || threshold > Level.Depth))
+            throw new ArgumentOutOfRangeException(nameof(movementConfiguration));
+
         EdgeIndex = edgeIndex;
         Height = height;
         OriginalSlotId = originalSlotId;
+        MovementConfiguration = movement;
     }
 
     public PulsarState State { get; private set; }
     public int OriginalSlotId { get; private set; }
+    public PulsarMovementConfiguration MovementConfiguration { get; }
     public PulsarState ResumeState => oldState;
     public int TimeToFlip { get; private set; }
     public int PauseTicks { get; private set; }
@@ -58,7 +73,7 @@ public sealed class Pulsar : Enemy
     public DirectedLaneTransition? ActiveTransition { get; private set; }
 
     public void Update(Level level, int playerEdge, Func<int, int, int> randomInclusive,
-        bool hurryUp = false)
+        bool hurryUp = false, int? pendingGenericOriginalCount = null)
     {
         ArgumentNullException.ThrowIfNull(level);
         ArgumentNullException.ThrowIfNull(randomInclusive);
@@ -69,7 +84,7 @@ public sealed class Pulsar : Enemy
             case PulsarState.Climbing:
                 if (Height < Level.Depth)
                 {
-                    Height = MathF.Min(Level.Depth, Height + 1);
+                    Height = MoveTowardRim(Height, Level.Depth);
                     // The counter is incremented first, so the strict >50 decision is update 51.
                     if (TimeToFlip > FlipDecisionTicks)
                     {
@@ -104,8 +119,21 @@ public sealed class Pulsar : Enemy
 
             case PulsarState.Descending:
                 if (Height > 0)
+                    Height = MathF.Max(0, Height - MovementConfiguration.FixedSpeed);
+
+                bool reverseTowardRim = false;
+                if (MovementConfiguration.ThresholdHeight is float threshold)
                 {
-                    Height = MathF.Max(0, Height - 1);
+                    if (pendingGenericOriginalCount is null)
+                        throw new InvalidOperationException(
+                            "Threshold-aware Pulsar movement requires the shared pending-supply count.");
+                    reverseTowardRim = pendingGenericOriginalCount == 0 || Height <= threshold;
+                }
+
+                if (reverseTowardRim)
+                    State = PulsarState.Climbing;
+                else if (Height > 0)
+                {
                     if (TimeToFlip > FlipDecisionTicks)
                     {
                         if (randomInclusive(0, 1) == 1)
@@ -132,7 +160,7 @@ public sealed class Pulsar : Enemy
                     throw new InvalidOperationException("A Pulsar flip requires an active directed transition.");
                 TurnAngle += PulseFlipSpeed;
                 if (State == PulsarState.Flipping && Height < Level.Depth)
-                    Height = MathF.Min(Level.Depth, Height + 1);
+                    Height = MoveTowardRim(Height, Level.Depth);
 
                 TotalTurnAngle = transition.SweepMagnitudeDegrees;
                 if (TurnAngle >= TotalTurnAngle)
@@ -191,7 +219,10 @@ public sealed class Pulsar : Enemy
             return PulsarCollision.None;
         }
 
-        return pulsing && State is PulsarState.Climbing or PulsarState.Descending
+        bool inPulseRegion = MovementConfiguration.ThresholdHeight is not float threshold ||
+            Height > threshold;
+        return pulsing && inPulseRegion &&
+            State is PulsarState.Climbing or PulsarState.Descending
             ? PulsarCollision.PulsingLane
             : PulsarCollision.None;
     }
@@ -206,6 +237,15 @@ public sealed class Pulsar : Enemy
     public static bool IsLanePulsing(float height, bool pulsing) => height > 16 && pulsing;
 
     public override void Update() { }
+
+    private float MoveTowardRim(float height, float depth)
+    {
+        float speed = MovementConfiguration.ThresholdHeight is float threshold &&
+            height <= threshold
+            ? MovementConfiguration.DeepSideTowardRimSpeed
+            : MovementConfiguration.FixedSpeed;
+        return MathF.Min(depth, height + speed);
+    }
 
     private void BeginLanePause(PulsarState resume)
     {

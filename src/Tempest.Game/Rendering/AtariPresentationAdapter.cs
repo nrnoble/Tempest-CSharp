@@ -124,8 +124,20 @@ public static class AtariPresentationAdapter
 	// PROJECT TRANSLATION: place the scaled near rim beneath the HUD about its near-origin anchor.
 	public const float Level6VerticalPlacement = 177.21448f;
 
-	public static bool HasModelFrameMapping(int displayedLevel) =>
-		displayedLevel is 1 or 2 or 3 or 4 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or 17;
+	public static bool HasModelFrameMapping(int displayedLevel)
+	{
+		if (displayedLevel > 16)
+		{
+			if (displayedLevel > 18)
+				return false;
+			int canonicalLevel = RomTubeMappingCatalog.FirstDisplayedLevelForShapeRow(
+				RomTubeMappingCatalog.ResolveShapeRow(displayedLevel));
+			return canonicalLevel is 1 or 2;
+		}
+
+		return displayedLevel is 1 or 2 or 3 or 4 or 7 or 8 or 9 or 10 or
+			11 or 12 or 13 or 14 or 15 or 16;
+	}
 
 	public static AtariPresentationProjection ProjectLevel5(
 		float x,
@@ -356,7 +368,7 @@ public static class AtariPresentationAdapter
 			};
 		}
 
-		if (displayedLevel == 2)
+		if (RomTubeMappingCatalog.ResolveShapeRow(displayedLevel) == 1)
 		{
 			// Preserve Level 2's C# depth and shape; ROM reciprocal depth and signed Y2D would
 			// alter the established presentation frame.
@@ -518,10 +530,15 @@ public static class AtariPresentationAdapter
 			"No independent-axis Atari model-frame mapping is established for this level.");
 
 	public static (float UnitsPerRawUnit, int YOrientation) GetModelFrameMapping(
-	int displayedLevel) =>
-		displayedLevel switch
+	int displayedLevel)
+	{
+		if (displayedLevel > 16)
+			displayedLevel = RomTubeMappingCatalog.FirstDisplayedLevelForShapeRow(
+				RomTubeMappingCatalog.ResolveShapeRow(displayedLevel));
+
+		return displayedLevel switch
 		{
-			1 or 17 => (25f / 14f, 1),
+			1 => (25f / 14f, 1),
 			// Approximate Level 2 fit; comparison index alignment is not production reindexing.
 			2 => (1.436688312f, 1),
 			// Approximate Level 3 fit; the comparison-only +2 index alignment is not production reindexing.
@@ -533,6 +550,7 @@ public static class AtariPresentationAdapter
 			_ => throw new ArgumentOutOfRangeException(nameof(displayedLevel), displayedLevel,
 				"No Atari presentation model-frame mapping is established for this level.")
 		};
+	}
 
 	private static void ValidateMetadata(int displayedLevel, RomPresentationMetadata metadata)
 	{

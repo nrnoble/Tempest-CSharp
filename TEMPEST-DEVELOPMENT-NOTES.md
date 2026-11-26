@@ -4824,3 +4824,45 @@ zero errors. Full telemetry and exact commands are in the paired
 
 No Level 17 accepted behavior was reopened. Level 18+ remains untouched.
 DebugMCP was not revisited.
+
+## Level 18 final closeout - 2026-11-26
+
+**MANUAL ACCEPTANCE - LEVEL 18:** Neal reports that medium/default Level 18
+passes all manual gameplay and presentation testing. No new problems or
+regressions were observed. Acceptance covers Shape 2, cycle-1 palette, HUD,
+Flippers, Tankers, cargo, Pulsars, enemy shooting pressure, death/re-entry,
+natural Level 17 to 18 progression, direct startup, and terminal behavior.
+Easy/hard Level 18 variants were not manually accepted.
+
+**ROM-BACKED / PROJECT TRANSLATION - IDENTITY:** Level 18 uses displayed
+identity 18, progression index 17, ROM `curlevel=$11`, effective `lev=$12`,
+zero-based remap index 1, ROM shape row 1, board index 1, and palette index
+1. It reuses canonical closed 16-lane Shape 2/Level 2 geometry and the
+accepted Shape 2 production projection/calibration rather than copied
+Level 18 coordinates.
+
+**ROM-BACKED / PROJECT DECISION - WAVE:** medium supply is 21 originals in a
+seven-slot envelope. Initial active Eggs are 4; ordinary eligibility is
+Flippers 0-3, Tanker exactly 1, Pulsars 2-5, Spikers 0, and Fuseballs 0.
+Starting/dynamic Spikes are absent. Tankers carry exactly two distinct
+Flipper cargo identities outside original supply.
+
+**PROJECT TRANSLATION - SHARED ROUTES AND SPEED:** ordinary and Tanker-cargo
+Flippers share `EightAdvanceTurn`: eight advances, a held-depth lane turn,
+and repeat, with generic rim handoff. The Level 18 medium raw
+Flipper/Tanker speed `$AC` translates to shared host climb speed `2.625f`.
+Shot holdoff/capacity is 29/3; medium Pulsar firing remains disabled.
+
+**PROJECT TRANSLATION - PULSAR:** the shared Pulsar uses a nullable threshold.
+Level 17 retains no-threshold fixed-1 compatibility. Level 18 maps ROM
+threshold `$14` to approximately `392.92035f`, uses fixed 1 away/deep and
+rimward speed, and uses `21/11` on the deep-side toward-rim region.
+The threshold/gate, pulse-clock, and existing near-rim collision interaction
+remain a documented implementation boundary, not exact arcade equivalence.
+
+**PROJECT DECISION - PROGRESSION:** natural Level 17 to 18 progression,
+direct `--level 18`/`--start-level 18`, and terminal Level 18 behavior are
+shared production paths. Level 19 remains unsupported. The `lvl-17-test.json`
+recording remains unchanged and now naturally concludes with Level 18
+PlayerDying telemetry after the established boundary 1872 begins Level 18
+Approach.
