@@ -331,36 +331,79 @@ No excluded file was staged or modified.
 
 ## 30. Primary commit
 
-Primary closeout commit: **pending at report creation**. The intended subject
-is `Close accepted Level 15 Fuseball policy correction`. SHA, committed
-filenames, final AI-Logs counts, and remaining worktree material will be
-added after the authorized commit.
+**PASS — PRIMARY CLOSEOUT COMMIT CREATED.**
+
+- SHA: `c4480a06138d94a52189d598a1b40041b0fa7bf0`
+- Subject: `Close accepted Level 15 Fuseball policy correction`
+- Stat: 20 files changed, 8,792 insertions, 7 deletions.
+- AI-Logs: seven prompts and seven reports committed. `AI-Logs/Copilot.txt`
+  remains tracked and unchanged.
+
+Committed files:
+
+- `.github/copilot-instructions.md`
+- `TEMPEST-BEHAVIOR-SPEC.md`
+- `TEMPEST-DEVELOPMENT-NOTES.md`
+- `src/Tempest.Game/Levels/LevelConfiguration.cs`
+- `src/Tempest.Game/TempestGame.cs`
+- `tests/Tempest.Game.Tests/Level15FuseballPolicyTests.cs`
+- `AI-Logs/Prompts/2026-11-25-debugmcp-controlled-installation-proof-prompt.md`
+- `AI-Logs/Prompts/2026-11-25-debugmcp-post-restart-continuation-prompt.md`
+- `AI-Logs/Prompts/2026-11-25-debugmcp-prerequisite-resolution-prompt.md`
+- `AI-Logs/Prompts/2026-11-25-level11-15-17-behavior-special-case-architecture-audit-prompt.md`
+- `AI-Logs/Prompts/2026-11-25-level15-fuseball-policy-final-closeout-prompt.md`
+- `AI-Logs/Prompts/2026-11-25-level15-fuseball-shared-policy-correction-prompt.md`
+- `AI-Logs/Prompts/2026-11-25-vscode-copilot-development-tool-assessment-prompt.md`
+- `AI-Logs/Reports/2026-11-25-debugmcp-controlled-installation-proof-report.md`
+- `AI-Logs/Reports/2026-11-25-debugmcp-post-restart-continuation-report.md`
+- `AI-Logs/Reports/2026-11-25-debugmcp-prerequisite-resolution-report.md`
+- `AI-Logs/Reports/2026-11-25-level11-15-17-behavior-special-case-architecture-audit-report.md`
+- `AI-Logs/Reports/2026-11-25-level15-fuseball-policy-final-closeout-report.md`
+- `AI-Logs/Reports/2026-11-25-level15-fuseball-shared-policy-correction-report.md`
+- `AI-Logs/Reports/2026-11-25-vscode-copilot-development-tool-assessment-report.md`
+
+The only remaining unrelated untracked path is the protected
+`Reference/arcade/MBUCOD.V05.txt`; it remains untouched and excluded.
 
 ## 31. Push result
 
-Push: **pending**. A normal push to the configured upstream is authorized;
-force push is not. Command/result, local HEAD, upstream, and post-push
-ahead/behind status will be recorded after the primary push.
+**PASS.** `git push origin master` pushed the primary commit normally; no
+force push was used. Local HEAD is
+`c4480a06138d94a52189d598a1b40041b0fa7bf0`; upstream is `origin/master`;
+post-push ahead/behind is `0/0`.
 
 ## 32. Independent GitHub verification
 
-GitHub verification: **pending**. Independently retrieve the pushed commit,
-branch head, corrected source/test files, durable documentation, audit and
-correction reports, representative tooling/DebugMCP report, and
-`AI-Logs/Copilot.txt`. Retrieval failure or invalid data must be reported
-explicitly.
+**PASS — VERIFIED THROUGH THE GITHUB CONNECTOR.**
+
+- Commit lookup by primary SHA and independent `master` branch lookup both
+  returned `c4480a06138d94a52189d598a1b40041b0fa7bf0` with subject
+  `Close accepted Level 15 Fuseball policy correction`.
+- The commit reports all 20 expected paths and the 8,792/7 change totals.
+- GitHub content retrieval succeeded for both corrected source files, the
+  new Level 15 policy test, both durable behavior/development documents,
+  `.github/copilot-instructions.md`, the architecture-audit report, the
+  Level 15 correction report, the development-tool assessment report,
+  `AI-Logs/Copilot.txt`, and this closeout report.
+- The retrieved GitHub blob IDs matched the pushed content for each file.
+  No retrieval failure or invalid data was encountered.
 
 ## 33. Report-finalization commit
 
-No report-finalization commit has been created. After primary push and
-independent verification, this report may be updated and committed once as a
-report-only follow-up. No third commit is authorized.
+One report-only finalization commit is used to carry the primary SHA, push
+result, independent GitHub verification, and final repository state. Its
+subject is `Record Level 15 Fuseball closeout verification`. It is pushed and
+independently verified after this report update. Its own SHA is stated in
+the final chat closeout rather than added in a prohibited third commit.
 
 ## 34. Final Git/worktree state
 
-Final branch, HEAD, upstream, ahead/behind, staged state, tracked changes,
-untracked changes, and ignored-local-asset state are pending post-push
-verification.
+After the primary push, branch `master` matched `origin/master` at
+`c4480a06138d94a52189d598a1b40041b0fa7bf0`, with ahead/behind `0/0` and no
+staged or tracked changes. The only remaining untracked item was the
+protected `Reference/arcade/MBUCOD.V05.txt`. The report-only finalization
+commit is pushed to the same upstream; its resulting SHA and sync state are
+recorded in the final chat closeout.
 
 ## 35. Remaining untracked/unrelated material
 
@@ -383,7 +426,7 @@ out of scope unless Neal explicitly reopens it with appropriate evidence.
 
 ## 38. Completion status
 
-Behavioral acceptance and fresh automated validation are complete. Git
-staging, primary commit, push, independent GitHub verification, and any
-single report-finalization commit remain to be completed before final
-closeout.
+Behavioral acceptance, fresh automated validation, selective staging,
+primary commit/push, and independent GitHub verification are complete. The
+single report-only finalization commit carries these post-push facts; no
+third commit is used.
