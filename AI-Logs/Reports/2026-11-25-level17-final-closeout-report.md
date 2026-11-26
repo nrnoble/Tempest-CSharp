@@ -2,7 +2,7 @@
 
 Date: 2026-11-25
 
-Status: **PASS - accepted Level 17 closeout, with primary commit/push and GitHub verification pending**
+Status: **PASS - accepted Level 17 closeout, primary commit/push verified, report finalization pending**
 
 ## 1. Executive summary
 
@@ -120,21 +120,28 @@ screenshots, videos, ROM/reference material, TEMP assets, and unrelated
 untracked files were not modified or staged during closeout.
 
 ## 41-50. Publication status
+Primary commit SHA: `5587e15db16662522c18f78cdb4023cf093a1e28`.
 
-Primary commit SHA: pending.
+Primary subject: `Complete accepted Level 17 production`.
 
-Primary push: pending.
+Primary push: **PASS** - `fde09aa..5587e15 master -> master` on
+`origin/master`.
 
-Independent GitHub verification: pending.
+Independent GitHub verification: **PASS** - commit 5587e15 and its subject,
+LevelConfiguration source, closeout prompt, closeout report, and Copilot.txt
+were retrievable through the GitHub connector.
 
-Representative AI-Logs retrieval: pending.
+Representative AI-Logs retrieval: **PASS** - the closeout prompt, closeout
+report, and Copilot.txt were retrieved remotely.
 
-Report-finalization commit: to be used only if post-commit facts require a
-bounded follow-up update.
+Report-finalization commit: a single report-only follow-up commit is used to
+record the primary SHA, push result, GitHub verification, and final repository
+state.
 
-Final local repository state: pending commit/push.
+Final local repository state: `master` with the primary commit on origin.
 
-Remaining unrelated worktree material: pending final audit.
+Remaining unrelated worktree material: the untracked
+`Reference/arcade/MBUCOD.V05.txt` remains excluded and unchanged.
 
 **Level 18+ remains unimplemented.**
 
