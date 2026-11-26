@@ -3753,3 +3753,69 @@ remains outside recording identity. Visible playback uses the production
 default; headless playback and input diagnostics remain non-rendering.
 `--background-opacity` remains a global development-only diagnostic with
 default `1`.
+
+## Level 15 shared Fuseball policy correction — 2026-11-25
+
+**MANUAL ACCEPTANCE — LEVEL 15 SHARED FUSEBALL POLICY CORRECTION:** Neal
+manually tested the corrected Level 15 behavior. After generic supply reached
+zero, the remaining Fuseball entered the established terminal-rimward
+behavior and eventually reached the rim. The previously concerning
+indefinite ordinary cycling was not observed, and Level 15 otherwise played
+acceptably for this correction milestone. This is acceptance of the project
+translation, not independent ROM evidence or arcade timing comparison.
+
+**PROJECT TRANSLATION — SEMANTIC POLICY:** Level 11 continues to use genuine
+`UsesLevel11RomWavePolicy`. Level 15 continues to use
+`UsesLevel11ParameterDevelopmentBaseline`; it is not relabeled as genuine
+Level 11 ROM policy. Both use the derived
+`UsesLevel11DerivedGenericPendingSupplyPolicy` for applicable shared Spiker
+and Fuseball pending-supply lifecycle decisions. The same shared actors,
+ledger, terminal state, reconstruction, collision, and completion behavior
+remain in use. No Level-specific actor or lifecycle was added.
+
+**PROJECT ARCHITECTURE — BOUNDED AUDIT:** The Levels 11/15/17 audit found no
+separate target-level Flipper or Tanker actors, identity ledger,
+death/reconstruction engine, completion system, collision engine, or active
+rim-pursuit implementation. Below-rim strategies converge on the shared rim
+lifecycle. One Level 15 Fuseball pending-supply policy wiring omission was
+found and is corrected; the project does not have three separate
+Level 11/15/17 actor engines.
+
+**SEMANTIC LIFECYCLE POLICY REQUIREMENT:** Where configuration flags
+represent a shared semantic lifecycle policy, applicable consumers should
+use a common semantic predicate/helper rather than reconstruct equivalent
+level/policy flag sets independently. Level 15's Spiker path already used
+the Level-11-derived pending-supply policy, while its Fuseball path omitted
+it. Both actors should ask the same semantic configuration question; the
+shared predicate closes this specific synchronization gap.
+
+**ROUTE-SEMANTICS CAUTION:** Movement-strategy identifiers describe their
+actual behavior and initialization, not an assumption that a shared ROM byte
+implies identical host lifecycle semantics. Distinct initialization may be
+legitimate, but every below-rim strategy converges on the applicable shared
+lifecycle unless authoritative ROM behavior establishes otherwise. Preserve
+the existing `Straight07` / `Level17Straight07` distinction.
+
+**FUTURE-LEVEL REQUIREMENT:** Establish eligibility before applying ROM
+parameters; establish configuration; select an existing shared strategy
+where behavior matches; add a reusable strategy only for genuinely distinct
+behavior; connect it to the shared actor lifecycle; use semantic lifecycle
+predicates; and add regressions protecting applicable earlier levels. This
+is a development safeguard, not authorization to implement Level 18+.
+
+**DEFERRED FIDELITY QUESTION — NOT A CURRENT DEFECT:** During testing, Neal
+waited at least approximately 20 seconds for the terminal Fuseball to reach
+the rim and did not observe an obvious hurry-up or acceleration mode. The
+test did not establish absolute terminal-traversal timing against the arcade.
+Do not infer that Atari necessarily has a hurry-up mode, that C# is wrong,
+that traversal is too slow, or that shared terminal speed is incorrect.
+Neal explicitly defers this question. Fuseball speed, timers, movement, and
+terminal-state behavior remain unchanged.
+
+**AUTOMATED VALIDATION — CLOSEOUT:** The focused Level 11–17 Fuseball
+regression matrix passed 190 tests, including the Level 15 seed-1982 soak;
+the complete VSTest suite passed 2,075 tests. The Levels 1–16 recording
+completed all 35,350 frames and the Level 17 recording completed all 2,609
+frames, ending at Level 17 Complete. The Release build completed with zero
+warnings and zero errors. Detailed playback telemetry and commands are in the
+paired 2026-11-25 final-closeout report.

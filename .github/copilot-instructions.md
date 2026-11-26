@@ -248,6 +248,19 @@ simple lookups, or minor interactions.
 - A level-specific below-rim Flipper program ends at rim arrival unless ROM
   evidence establishes a distinct model. Rim pursuit then uses the shared
   lifecycle.
+- Configuration flags that express one shared semantic lifecycle policy
+  should, where practical, be consumed through one shared semantic
+  predicate/helper rather than reconstructed independently at each actor
+  update call site.
+- Movement-strategy identifiers describe their actual behavior and
+  initialization; a shared ROM byte does not by itself establish identical
+  host lifecycle semantics. Distinct below-rim routes must still converge on
+  the applicable shared lifecycle unless authoritative ROM behavior
+  establishes otherwise.
+- For a later level, establish eligibility before parameters, select an
+  existing matching strategy, add a reusable strategy only for distinct
+  behavior, connect it to shared actor lifecycle and policy predicates, and
+  protect applicable earlier levels with regression coverage.
 - Persistent gameplay and HUD colors resolve by active 16-level palette cycle
   and semantic role, independently of tube shape. Transient effects restore
   to the active cycle palette.

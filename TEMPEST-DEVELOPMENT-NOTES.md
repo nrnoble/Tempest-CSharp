@@ -4747,3 +4747,80 @@ is disabled.
 displayed Levels 17-19, so no starting Spikes or Spikers are eligible.
 Nonzero parameter payload may be translated only after eligibility is
 established. Level 17 remains terminal; Levels 18+ are not implemented.
+
+## Level 15 shared Fuseball policy correction final closeout — 2026-11-25
+
+**MANUAL ACCEPTANCE — LEVEL 15 SHARED FUSEBALL POLICY CORRECTION:** Neal
+manually tested Level 15 after the shared-policy correction. After generic
+supply reached zero, the remaining Fuseball entered the established
+terminal-rimward behavior and eventually reached the rim. The previously
+concerning indefinite ordinary cycling was not observed. Level 15 otherwise
+played acceptably for this correction milestone. This accepts the intended
+project behavior; it does not establish independent Level 15 ROM policy or
+absolute arcade traversal timing.
+
+**PROJECT TRANSLATION — SHARED POLICY:** Level 11 remains genuine
+`UsesLevel11RomWavePolicy`; Level 15 remains
+`UsesLevel11ParameterDevelopmentBaseline` and is not relabeled as Level 11
+ROM policy. Both use `UsesLevel11DerivedGenericPendingSupplyPolicy` where
+the shared Spiker and Fuseball lifecycles need the Level-11-derived generic
+pending-supply rule. The correction forwards policy into existing shared
+behavior; it adds no Level-specific actor, state, ledger, or lifecycle.
+
+**PROJECT ARCHITECTURE — AUDIT RESULT:** The bounded Levels 11/15/17 audit
+found no separate target-level Flipper or Tanker actors, identity ledger,
+death/reconstruction engine, completion system, collision engine, or active
+rim-pursuit implementation. Below-rim movement strategies converge on the
+shared rim lifecycle. The sole active generic-lifecycle gap was Level 15's
+Fuseball pending-supply policy wiring, now corrected and manually accepted;
+the project does not have three separate Level 11/15/17 actor engines.
+
+**SEMANTIC LIFECYCLE POLICY REQUIREMENT:** When configuration flags express
+one shared semantic lifecycle policy, applicable consumers should use a
+shared semantic predicate/helper rather than independently rebuilding
+equivalent level/policy flag sets. Level 15's Spiker path already consumed
+the Level-11-derived pending-supply policy while its Fuseball path did not;
+both actors needed to ask the same semantic configuration question. A shared
+predicate prevents this specific cross-consumer synchronization omission.
+
+**ROUTE-SEMANTICS CAUTION:** A movement-strategy identifier describes its
+actual behavior and initialization, not an assumption that a shared ROM byte
+implies identical host lifecycle semantics. Distinct route initialization
+may be legitimate; every below-rim strategy still converges on the applicable
+shared lifecycle unless authoritative ROM behavior establishes otherwise.
+The existing `Straight07` / `Level17Straight07` distinction remains unchanged.
+
+**FUTURE-LEVEL DEVELOPMENT DISCIPLINE:** Establish feature/enemy eligibility
+before applying ROM parameters; establish the level's configuration;
+select an existing shared strategy when behavior matches; add a reusable
+strategy only for genuinely distinct behavior; route it into the shared
+actor lifecycle; consume shared policies through semantic predicates; and
+add regression coverage protecting applicable earlier levels. This records
+the safeguard learned from the Level 11 policy wiring first recurring in
+Level 15; it does not authorize Level 18+ work.
+
+**DEFERRED FIDELITY QUESTION — NOT A CURRENT DEFECT:** During the same
+manual test, Neal waited at least approximately 20 seconds for the terminal
+Fuseball to reach the rim and did not observe an obvious hurry-up or
+acceleration mode. The test did not establish absolute terminal-traversal
+timing against the arcade. It does not establish that Atari has a hurry-up
+mode, that C# is wrong, that traversal is too slow, or that shared terminal
+speed is incorrect. Neal explicitly defers this question; do not change
+Fuseball speed, timers, movement, or terminal-state behavior for it.
+
+**AUTOMATED VALIDATION:** Permanent regression coverage protects Level 15
+eligibility, positive and zero pending supply, shared `TerminalRimward`,
+identity continuity, completion blocking, player-shot destruction,
+death/reconstruction, the shared policy predicate, neighboring-level policy,
+Level 11 behavior, Level 15 Spiker behavior, Level 17 Fuseball ineligibility,
+and the Level 15 seed-1982 soak. Fresh VSTest focused validation passed 190
+tests; the full suite passed 2,075 tests; the seed-1982 1,200-tick deterministic
+soak passed. `lvl1-16.json` completed all 35,350 frames (ending at Level 17
+Playing, score 134,039, 9 lives, no active enemies); `lvl-17-test.json`
+completed all 2,609 frames at Level 17 Complete (score 5,975, 8 lives, no
+active enemies). The Release solution build succeeded with zero warnings and
+zero errors. Full telemetry and exact commands are in the paired
+2026-11-25 final-closeout report.
+
+No Level 17 accepted behavior was reopened. Level 18+ remains untouched.
+DebugMCP was not revisited.

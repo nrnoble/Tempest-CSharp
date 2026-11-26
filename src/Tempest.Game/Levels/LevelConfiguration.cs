@@ -149,6 +149,9 @@ public sealed record LevelConfiguration(
     // PROJECT DECISION: Level 15 retains the separately recovered Level 11 parameter
     // baseline; genuine Level 11 uses UsesLevel11RomWavePolicy.
     public bool UsesLevel11ParameterDevelopmentBaseline { get; init; }
+    // Shared terminal actors consume pending supply for either Level-11-derived configuration.
+    public bool UsesLevel11DerivedGenericPendingSupplyPolicy =>
+        UsesLevel11RomWavePolicy || UsesLevel11ParameterDevelopmentBaseline;
     // Canonical ROM-policy levels share generic reconstruction; copied configurations stay isolated.
     public bool UsesGenericRomDeathReconstruction =>
         UsesLevel7RomWavePolicy || UsesLevel8RomWavePolicy ||
