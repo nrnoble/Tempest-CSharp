@@ -23,6 +23,8 @@ public sealed class Level17ProductionTests
         Assert.Same(LevelConfiguration.Level18Production,
             LevelProgression.GetNextProductionLevel(level17));
         Assert.Same(LevelConfiguration.Level18Production, LevelProgression.GetProductionLevel(18));
+        Assert.Same(LevelConfiguration.Level19Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level18Production));
     }
 
     [Fact]

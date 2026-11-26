@@ -267,3 +267,9 @@ simple lookups, or minor interactions.
 - The canonical 16 tube shapes are reused by later levels. Shape-specific
   geometry, projection, and calibration remain shape-keyed; displayed-level
   gameplay and cycle palette remain separate.
+ - Repeated canonical shapes must reuse effective production presentation,
+   including equivalent tube, entity, and lane screen-space output, not merely
+   equivalent geometry, metadata, model frame, or calibration objects.
+   Shape-specific projection dispatch must key by canonical shape identity/ROM
+   shape row. For each newly supported second-cycle pair, add effective-output
+   equivalence coverage to the repeated-shape regression seam.

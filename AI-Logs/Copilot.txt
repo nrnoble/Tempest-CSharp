@@ -66,6 +66,18 @@ We first need the Code Integrity event because it should tell us whether this is
 The Fuseball code remains unverified beyond the earlier 38-test run, but this output does not indicate 204 coding defects. It indicates one blocked assembly load repeated across 204 discovered tests.
 
 Reasoned for 1s
+
+## 2026-11-26 — Level 19 final closeout
+
+Neal has accepted medium/default Level 19 gameplay and corrected presentation.
+Neal also accepted the Level 3 post-correction regression. Level 19 remains
+terminal; Level 20 remains unsupported. Canonical Shape 3 dispatch is keyed by
+ROM shape row 2, and repeated-shape effective-output equivalence coverage
+protects Shapes 1/17, 2/18, and 3/19. Fresh validation passed 49 focused
+Level 17-19 tests, 157 presentation tests, 176 shared-regression tests,
+both protected recordings, 2,113 complete-suite tests, and a 0-warning,
+0-error Release build. The paired closeout report records the exact commit
+and push facts once the primary closeout commit is complete.
 Sources
 I have not restarted Windows yet. I am concerned that after reboot, this chat session will be unavailable. It has happened before.
 

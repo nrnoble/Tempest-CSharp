@@ -4866,3 +4866,50 @@ shared production paths. Level 19 remains unsupported. The `lvl-17-test.json`
 recording remains unchanged and now naturally concludes with Level 18
 PlayerDying telemetry after the established boundary 1872 begins Level 18
 Approach.
+
+## Level 19 final closeout - 2026-11-26
+
+**MANUAL ACCEPTANCE - LEVEL 19:** Neal reports that medium/default Level 19
+passes gameplay and corrected presentation testing, with no remaining Level 19
+manual testing required. Level 3 also passes manual regression testing after
+the shared Shape 3 projection correction.
+
+**ROM-BACKED / PROJECT TRANSLATION - FINAL IDENTITY:** displayed 19,
+progression 18, ROM `curlevel=$12`, effective `lev=$13`, cycle 2,
+cycle-local position 3, remap index 2, ROM shape row 2, board 2, palette 1.
+The medium configuration reuses canonical Level 3 Shape 3 geometry and cycle-1
+palette. It is terminal; easy/hard variants are unaccepted.
+
+**ROM-BACKED / PROJECT TRANSLATION - WAVE:** 22 originals, 7 physical slots,
+4 initial active Eggs, 4 maximum active Eggs, 2 maximum approaching Eggs,
+50-tick hatch interval. Flippers 0-3, one Tanker, Pulsars 2-3, no Spikers,
+Fuseballs, starting Spikes, or dynamic Spikes. Exactly two Flipper cargo
+identities are Tanker-owned outside original supply.
+
+**PROJECT TRANSLATION - SHARED BEHAVIOR:** ordinary/cargo Flippers use
+`EightAdvanceTurn`, generic rim handoff, and host Flipper/Tanker speed
+`2.71875f`. Tanker cargo retains distinct ownership, natural and shot release,
+Super Zapper, reconstruction, and completion through shared systems. Medium
+enemy shots hold off 29 ticks and allow three active shots; Flippers/Tankers
+fire, while medium Pulsars do not.
+
+**PROJECT TRANSLATION - PULSAR:** Level 19 uses threshold `$14` mapped to
+`392.92035f`, fixed 1 speed, `87/55` deep-side toward-rim speed, pulse beat
+`$04`, and shared identity/reconstruction/pulse/collision behavior.
+
+**PRESENTATION ROOT CORRECTED:** the prior implementation resolved Shape 3
+metadata/calibration for Level 19 but keyed the accepted projection composition
+by `displayedLevel == 3`. The generic branch was therefore wrong for Level 19.
+The corrected dispatch is keyed by `ResolveShapeRow(displayedLevel) == 2`.
+No Level 19-specific geometry, vertical offset, or calibration was added.
+Level 3 numerical output remains unchanged.
+
+**DURABLE EFFECTIVE-OUTPUT REQUIREMENT:** repeated canonical shapes reuse the
+effective production presentation, including projection and entity/lane output,
+not only structural geometry/metadata/calibration. Shape-specific dispatch must
+use canonical shape identity/ROM row. Permanent coverage now protects Shapes
+1/17, 2/18, and 3/19 with numerical tube/entity/lane equivalence. Future
+second-cycle additions must add their supported pair to this seam.
+
+**PROGRESSION/BOUNDARY:** natural Level 18 to 19 and direct 19 startup share
+one terminal Level 19 configuration. Level 20 remains unsupported and unimplemented.

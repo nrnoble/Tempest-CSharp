@@ -3861,3 +3861,67 @@ claim.
 shared production transition through ExitZoom and Approach. Direct
 `--level 18` and `--start-level 18` resolve to the same terminal
 configuration. Level 19 remains unsupported.
+
+## Level 19 final closeout - 2026-11-26
+
+**MANUAL ACCEPTANCE - LEVEL 19:** Neal independently tested the final Level 19
+candidate after the shared Shape 3 projection correction and reports that
+Level 19 gameplay and corrected presentation pass. Medium/default acceptance
+covers canonical Shape 3 placement, size/perspective, cycle-1 palette, HUD,
+Flippers, Tankers, Tanker cargo, Pulsars, firing pressure, absence of
+Spikers/Fuseballs/Spikes, death/re-entry, natural Level 18 to 19 progression,
+direct startup, and terminal behavior. Easy/hard variants remain unimplemented
+and unaccepted.
+
+**MANUAL REGRESSION ACCEPTANCE - LEVEL 3:** after the shared Shape 3
+projection-dispatch correction, Neal manually retested Level 3 and reports
+that accepted Shape 3 presentation remains correct.
+
+**ROM-BACKED / PROJECT TRANSLATION - IDENTITY AND WAVE:** Level 19 is
+displayed identity 19, progression index 18, ROM `curlevel=$12`, effective
+`lev=$13`, cycle 2, cycle-local position 3, zero-based remap 2, ROM shape row
+2, board index 2, and palette index 1. Medium supply is 22 originals in a
+seven-slot physical envelope with 4 initial active Eggs, 4 maximum active
+Eggs, 2 maximum approaching Eggs, and a 50-tick hatch interval. Eligibility
+is Flippers 0-3, Tanker exactly 1, Pulsars 2-3, Spikers 0, and Fuseballs 0.
+No starting or dynamic Spikes are eligible.
+
+**PROJECT TRANSLATION - SHARED ROUTES AND CARGO:** ordinary and Tanker-cargo
+Flippers use shared `EightAdvanceTurn`: eight depth advances, one held-depth
+lane turn, repeat, then shared rim pursuit. Exactly one Tanker carries two
+distinct Flipper cargo identities outside original supply. Cargo release,
+shot destruction, Super Zapper, reconstruction, and completion reuse shared
+generic systems. Medium Flipper/Tanker host climb speed is `2.71875f`.
+
+**PROJECT TRANSLATION - PULSAR AND FIRING:** Level 19 supplies ROM threshold
+`$14`, mapped to approximately `392.92035f`, fixed 1 movement, deep-side
+toward-rim `87/55`, pulse beat `$04`, and medium Pulsar firing disabled.
+Flipper/Tanker medium firing uses holdoff 29 and three active enemy-shot slots;
+shared shot movement remains host 3.
+
+**PROJECT DECISION - SHAPE AND PALETTE:** canonical Shape 3 is owned by
+Level 3 and reused by displayed Level 19. Shape-specific projection dispatch
+is keyed by canonical ROM shape row 2 rather than the displayed level that
+first introduced the shape. Palette index 1 supplies cycle-1 semantic roles
+for tube, HUD, player, enemies, and pulses independently of geometry.
+
+**EFFECTIVE-OUTPUT INVARIANT:** reusing a canonical tube shape means reusing
+its effective production presentation, not merely resolving the same geometry,
+metadata, model frame, or calibration objects. When a supported displayed level
+repeats a canonical shape, equivalent canonical model-space tube and
+entity/lane inputs must produce equivalent effective production screen-space
+coordinates, except for explicitly level/cycle-specific roles such as HUD
+identity and palette.
+
+**REGRESSION SEAM:** permanent numerical-equivalence coverage protects
+Level 1/17 (Shape 1), Level 2/18 (Shape 2), and Level 3/19 (Shape 3) for
+representative near/middle/far tube and entity/lane points, including logical
+and portrait-host coordinates. For future second-cycle levels, add the newly
+supported pair as a distinct effective-output equivalence case; do not add
+fake unsupported configurations.
+
+**PROJECT DECISION - PROGRESSION AND TERMINATION:** natural Level 18 to Level
+19 progression uses the existing ExitZoom and Approach paths. Direct
+`--level 19` and `--start-level 19` use the same terminal production
+configuration. Level 19 is terminal; Level 20 and later production are
+unsupported and unreachable.

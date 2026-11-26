@@ -111,6 +111,7 @@ public sealed record LevelConfiguration(
         16 => Level16WaveSelection.ShotHoldoffRaw,
         17 => Level17WaveSelection.ShotHoldoffRaw,
         18 => Level18WaveSelection.ShotHoldoffRaw,
+        19 => Level19WaveSelection.ShotHoldoffRaw,
         _ => throw new InvalidOperationException(
             $"No arcade Flipper shot holdoff is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
@@ -138,6 +139,7 @@ public sealed record LevelConfiguration(
         16 => Level16WaveSelection.DefaultMaximumActiveEnemyShots,
         17 => Level17WaveSelection.DefaultMaximumActiveEnemyShots,
         18 => Level18WaveSelection.DefaultMaximumActiveEnemyShots,
+        19 => Level19WaveSelection.DefaultMaximumActiveEnemyShots,
         _ => throw new InvalidOperationException(
             $"No arcade enemy-shot capacity is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
@@ -160,6 +162,9 @@ public sealed record LevelConfiguration(
     public bool UsesLevel16RomWavePolicy { get; init; }
     public bool UsesLevel17RomWavePolicy { get; init; }
     public bool UsesLevel18RomWavePolicy { get; init; }
+    public bool UsesLevel19RomWavePolicy { get; init; }
+    public bool UsesLevel18Or19RomWavePolicy =>
+        UsesLevel18RomWavePolicy || UsesLevel19RomWavePolicy;
     public PulsarMovementConfiguration PulsarMovement { get; init; } =
         PulsarMovementConfiguration.Level17Compatibility;
     // PROJECT DECISION: Level 15 retains the separately recovered Level 11 parameter
@@ -177,6 +182,7 @@ public sealed record LevelConfiguration(
         UsesLevel16RomWavePolicy ||
         UsesLevel17RomWavePolicy ||
         UsesLevel18RomWavePolicy ||
+        UsesLevel19RomWavePolicy ||
         UsesLevel11ParameterDevelopmentBaseline ||
         ReferenceEquals(this, Level5Production) ||
         ReferenceEquals(this, Level6Production);
@@ -773,5 +779,42 @@ public sealed record LevelConfiguration(
                 Level18WaveSelection.PulsarFlipRateRaw, Level.Depth),
             Level18WaveSelection.FixedPulsarMovementSpeed,
             Level18WaveSelection.DeepSidePulsarMovementSpeed)
+    };
+
+    // ROM-BACKED medium/default Level 19 reuses canonical Shape 3 and cycle-1 palette data.
+    public static LevelConfiguration Level19Production { get; } = new(
+        ProgressionIndex: 18,
+        DisplayedLevel: 19,
+        BoardIndex: 2,
+        PaletteIndex: 1,
+        Definition: Level3Mixed.Definition,
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: Level19WaveSelection.OrdinaryEnemySupply,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(Enumerable.Range(0, 16).ToArray()),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.Standard,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersTankersAndSpikers)
+    {
+        EffectiveGameplayParameterLevelOverride = 19,
+        Flipper = new(true, Level19WaveSelection.MediumFlipperTankerSpeed, 8, 21, 24),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        BelowRimFlipperProgram = BelowRimFlipperProgram.EightAdvanceTurn,
+        UsesLevel19RomWavePolicy = true,
+        AllowsOrdinaryFlipperSelection = true,
+        ProgrammedFlipperInitialDirection = 1,
+        StartingSpikeHeight = StartingSpikeHeightForDisplayedLevel(19),
+        PulsarMovement = new(
+            Level19WaveSelection.MapPulsarThresholdToHostHeight(
+                Level19WaveSelection.PulsarFlipRateRaw, Level.Depth),
+            Level19WaveSelection.FixedPulsarMovementSpeed,
+            Level19WaveSelection.DeepSidePulsarMovementSpeed)
     };
 }

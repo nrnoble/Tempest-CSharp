@@ -32,6 +32,7 @@ public sealed class StartLevelTests
     [InlineData(16)]
     [InlineData(17)]
     [InlineData(18)]
+    [InlineData(19)]
     public void ProductionStartsUseFreshProductionState(int level)
     {
         string[] args = ["--start-level", level.ToString()];
@@ -148,15 +149,15 @@ public sealed class StartLevelTests
     }
 
     [Fact]
-    public void TerminalLevelEighteenCompletionRestartsAtLevelOne()
+    public void TerminalLevelNineteenCompletionRestartsAtLevelOne()
     {
-        TempestGame game = new(startingProductionLevel: 18, startingLives: 5);
+        TempestGame game = new(startingProductionLevel: 19, startingLives: 5);
         game.Score.Add(1234);
 
         CompleteWaveAndExit(game);
 
         Assert.True(game.LevelComplete);
-        Assert.Same(LevelConfiguration.Level18Production, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level19Production, game.CurrentLevel.Configuration);
         game.RunOneStep(restartPressed: true);
         Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
         Assert.Equal(0, game.Score.Score);
@@ -171,7 +172,7 @@ public sealed class StartLevelTests
             ["--start-level"], ["--start-level", "--lives", "5"],
             ["--start-level", "abc"], ["--start-level", "0"],
             ["--start-level", "-1"],
-            ["--start-level", "19"],
+            ["--start-level", "20"],
             ["--start-level", "999999999999999"], ["--start-level=11"],
             ["--start-level", "11", "--start-level", "12"],
             ["--start-level", "11", "--level", "11"],
@@ -187,6 +188,7 @@ public sealed class StartLevelTests
         Assert.True(DebugController.TryParseStartingLevel(["--level", "14"], out _, out _));
         Assert.True(DebugController.TryParseStartingLevel(["--start-level", "13"], out _, out _));
         Assert.True(DebugController.TryParseStartingLevel(["--start-level", "14"], out _, out _));
+        Assert.True(DebugController.TryParseStartingLevel(["--start-level", "19"], out _, out _));
         Assert.True(DebugController.TryParseStartingLevel(["--start-level", "15"], out _, out _));
         Assert.True(DebugController.TryParseStartingLevel(["--level", "15"], out _, out _));
         Assert.True(DebugController.TryParseStartingLevel(["--level", "18"], out _, out _));
@@ -295,7 +297,7 @@ public sealed class StartLevelTests
     [Theory]
     [InlineData("--level")]
     [InlineData("--start-level")]
-    public void DirectProductionStartsContinueThroughEighteenAndStopThere(string option)
+    public void DirectProductionStartsContinueThroughNineteenAndStopThere(string option)
     {
         string[] args = [option, "11", "--lives", "7"];
         Assert.True(DebugController.TryParseStartingLevel(args, out int? level, out _));
@@ -440,8 +442,22 @@ public sealed class StartLevelTests
             game.RunOneStep();
         Assert.Equal(LevelState.Playing, game.State);
         CompleteWaveAndExit(game);
+        Assert.False(game.LevelComplete);
+        Assert.Same(LevelConfiguration.Level19Production, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Approach, game.State);
+        Assert.Equal(18, game.CurrentApproach!.ExitedLevel);
+        Assert.Equal(1234, game.Score.Score);
+        Assert.Equal(4, game.Player.Lives);
+        Assert.Equal(LevelConfiguration.Level19Production.InitialActiveEggCount, game.Eggs.Count);
+        Assert.Equal(AtariPresentationCalibration.ForDisplayedLevel(3),
+            AtariPresentationCalibration.ForDisplayedLevel(19));
+
+        for (int tick = 0; tick < LevelApproach.DurationTicks; tick++)
+            game.RunOneStep();
+        Assert.Equal(LevelState.Playing, game.State);
+        CompleteWaveAndExit(game);
         Assert.True(game.LevelComplete);
-        Assert.Same(LevelConfiguration.Level18Production, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level19Production, game.CurrentLevel.Configuration);
         game.RunOneStep(restartPressed: true);
         Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
         Assert.Equal(0, game.Score.Score);

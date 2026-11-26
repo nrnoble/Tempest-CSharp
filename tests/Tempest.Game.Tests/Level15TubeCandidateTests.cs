@@ -409,6 +409,7 @@ public sealed class Level15TubeCandidateTests
         Assert.Same(LevelConfiguration.Level16Production, LevelProgression.GetProductionLevel(16));
         Assert.Same(LevelConfiguration.Level17Production, LevelProgression.GetProductionLevel(17));
         Assert.Same(LevelConfiguration.Level18Production, LevelProgression.GetProductionLevel(18));
-        Assert.Same(LevelConfiguration.Level18Production, LevelProgression.GetLastProductionLevel());
+        Assert.Same(LevelConfiguration.Level19Production, LevelProgression.GetProductionLevel(19));
+        Assert.Same(LevelConfiguration.Level19Production, LevelProgression.GetLastProductionLevel());
     }
 }

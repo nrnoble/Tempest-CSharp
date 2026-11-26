@@ -514,7 +514,7 @@ public sealed class TempestGame
             CurrentLevel.UpdateEggRelease();
             if (CurrentLevel.UsesProductionLedger)
                 CurrentLevel.UpdateLevel3MixedEggs(
-                    CurrentLevel.Configuration.UsesLevel18RomWavePolicy
+                    CurrentLevel.Configuration.UsesLevel18Or19RomWavePolicy
                         ? CountProductionActiveEnemyUnitsIncludingPulsars()
                         : CountProductionActiveEnemyUnits(),
                     NextRandomInclusive);
@@ -1022,6 +1022,10 @@ public sealed class TempestGame
         {
             if (egg.OriginalSlotId >= 0)
                 throw new InvalidOperationException("A Level 3 Egg cannot hold both identity namespaces.");
+            if (CurrentLevel.Configuration.UsesLevel19RomWavePolicy &&
+                !Level19WaveSelection.CanAdmitCargoFlipper(
+                    CountProductionActiveEnemyUnitsIncludingPulsars()))
+                return null;
             if (CurrentLevel.Configuration.UsesLevel18RomWavePolicy &&
                 !Level18WaveSelection.CanAdmitCargoFlipper(
                     CountProductionActiveEnemyUnitsIncludingPulsars()))
@@ -1177,6 +1181,19 @@ public sealed class TempestGame
                     return null;
                 selectedType = level18SelectedType.Value;
             }
+            else if (CurrentLevel.Configuration.UsesLevel19RomWavePolicy)
+            {
+                Level3OriginalType? level19SelectedType = Level19WaveSelection.SelectOriginalType(
+                    NextRandomInclusive,
+                    tankers.Count,
+                    spikers.Count,
+                    pulsars.Count,
+                    CountProductionActiveEnemyUnitsIncludingPulsars(),
+                    CountActiveAndLatentFlipperTypeUnits());
+                if (level19SelectedType is null)
+                    return null;
+                selectedType = level19SelectedType.Value;
+            }
             else if (CurrentLevel.Configuration.UsesLevel14RomWavePolicy)
             {
                 Level3OriginalType? level14SelectedType = Level14WaveSelection.SelectOriginalType(
@@ -1202,6 +1219,7 @@ public sealed class TempestGame
                 !CurrentLevel.Configuration.UsesLevel8RomWavePolicy &&
                 !CurrentLevel.Configuration.UsesLevel16RomWavePolicy &&
                 !CurrentLevel.Configuration.UsesLevel18RomWavePolicy &&
+                !CurrentLevel.Configuration.UsesLevel19RomWavePolicy &&
                 !HasLevel5AdmissionDiagnostic &&
                 !HasLevel6AdmissionDiagnostic)
                 Level3WaveSelection.SelectTwoFlipperCargo(NextRandomInclusive);
@@ -1235,6 +1253,12 @@ public sealed class TempestGame
 
         if (selectedType == Level3OriginalType.Tanker)
         {
+            if (CurrentLevel.Configuration.UsesLevel19RomWavePolicy &&
+                (tankers.Count >= Level19WaveSelection.MaximumTankers ||
+                 !Level19WaveSelection.CanAdmitOriginalType(
+                     Level3OriginalType.Tanker,
+                     CountProductionActiveEnemyUnitsIncludingPulsars())))
+                return null;
             if (CurrentLevel.Configuration.UsesLevel18RomWavePolicy &&
                 (tankers.Count >= Level18WaveSelection.MaximumTankers ||
                  !Level18WaveSelection.CanAdmitOriginalType(
@@ -1265,7 +1289,9 @@ public sealed class TempestGame
                                     ? Level12WaveSelection.MaximumPhysicalEnemySlots
                                     : Level11WaveSelection.MaximumPhysicalEnemySlots))
                 return null;
-            int maximumTankers = CurrentLevel.Configuration.UsesLevel18RomWavePolicy
+            int maximumTankers = CurrentLevel.Configuration.UsesLevel19RomWavePolicy
+                ? Level19WaveSelection.MaximumTankers
+                : CurrentLevel.Configuration.UsesLevel18RomWavePolicy
                 ? Level18WaveSelection.MaximumTankers
                 : CurrentLevel.Configuration.UsesLevel17RomWavePolicy
                 ? Level17WaveSelection.MaximumTankers
@@ -1295,15 +1321,17 @@ public sealed class TempestGame
 
             bool unlimitedAmmunition = CurrentLevel.Configuration.UsesLevel16RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel17RomWavePolicy ||
-                CurrentLevel.Configuration.UsesLevel18RomWavePolicy;
+                CurrentLevel.Configuration.UsesLevel18Or19RomWavePolicy;
             int ammunition = unlimitedAmmunition ? 0 : NextRandomInclusive(1, 2);
             int timer = 16 + NextRandomInclusive(1, 64);
             Tanker tanker = new(egg.EdgeIndex, originalId,
-                climbSpeed: CurrentLevel.Configuration.UsesLevel18RomWavePolicy
-                    ? Level18WaveSelection.MediumFlipperTankerSpeed
-                    : CurrentLevel.Configuration.UsesLevel17RomWavePolicy
-                    ? Level17WaveSelection.MediumFlipperTankerSpeed
-                    : Tanker.DevelopmentClimbSpeed,
+                climbSpeed: CurrentLevel.Configuration.UsesLevel19RomWavePolicy
+                    ? Level19WaveSelection.MediumFlipperTankerSpeed
+                    : CurrentLevel.Configuration.UsesLevel18RomWavePolicy
+                        ? Level18WaveSelection.MediumFlipperTankerSpeed
+                        : CurrentLevel.Configuration.UsesLevel17RomWavePolicy
+                            ? Level17WaveSelection.MediumFlipperTankerSpeed
+                            : Tanker.DevelopmentClimbSpeed,
                 bulletAmmunition: ammunition, bulletTimer: timer,
                 unlimitedBulletAmmunition: unlimitedAmmunition);
             if (ledger.GetOriginalState(originalId) == Level3OriginalState.Egg)
@@ -1313,14 +1341,19 @@ public sealed class TempestGame
 
         if (selectedType == Level3OriginalType.Pulsar)
         {
-            int maximumPulsars = CurrentLevel.Configuration.UsesLevel18RomWavePolicy
-                ? Level18WaveSelection.MaximumPulsars
-                : Level17WaveSelection.MaximumPulsars;
-            bool pulsarSlotAvailable = CurrentLevel.Configuration.UsesLevel18RomWavePolicy
-                ? Level18WaveSelection.CanAdmitOriginalType(
+            int maximumPulsars = CurrentLevel.Configuration.UsesLevel19RomWavePolicy
+                ? Level19WaveSelection.MaximumPulsars
+                : CurrentLevel.Configuration.UsesLevel18RomWavePolicy
+                    ? Level18WaveSelection.MaximumPulsars
+                    : Level17WaveSelection.MaximumPulsars;
+            bool pulsarSlotAvailable = CurrentLevel.Configuration.UsesLevel19RomWavePolicy
+                ? Level19WaveSelection.CanAdmitOriginalType(
                     Level3OriginalType.Pulsar, CountProductionActiveEnemyUnitsIncludingPulsars())
-                : Level17WaveSelection.CanAdmitOriginalType(
-                    Level3OriginalType.Pulsar, CountProductionActiveEnemyUnits());
+                : CurrentLevel.Configuration.UsesLevel18RomWavePolicy
+                    ? Level18WaveSelection.CanAdmitOriginalType(
+                        Level3OriginalType.Pulsar, CountProductionActiveEnemyUnitsIncludingPulsars())
+                    : Level17WaveSelection.CanAdmitOriginalType(
+                        Level3OriginalType.Pulsar, CountProductionActiveEnemyUnits());
             if (pulsars.Count >= maximumPulsars || !pulsarSlotAvailable)
                 return null;
             if (ledger.GetOriginalState(originalId) == Level3OriginalState.Egg)
@@ -2016,7 +2049,7 @@ public sealed class TempestGame
                  !CurrentLevel.Configuration.UsesLevel14RomWavePolicy &&
                  !CurrentLevel.Configuration.UsesLevel16RomWavePolicy &&
                  !CurrentLevel.Configuration.UsesLevel17RomWavePolicy &&
-                 !CurrentLevel.Configuration.UsesLevel18RomWavePolicy) ||
+                 !CurrentLevel.Configuration.UsesLevel18Or19RomWavePolicy) ||
                 enemyBullets.Count < CurrentLevel.Configuration.MaximumActiveEnemyShots;
             bool tankerFiringEnabled =
                 (enemyBulletsTest || CurrentLevel.UsesProductionLedger) &&
@@ -2024,7 +2057,7 @@ public sealed class TempestGame
             int shotHoldoff = CurrentLevel.Configuration.UsesLevel9RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel16RomWavePolicy ||
                 CurrentLevel.Configuration.UsesLevel17RomWavePolicy ||
-                CurrentLevel.Configuration.UsesLevel18RomWavePolicy
+                CurrentLevel.Configuration.UsesLevel18Or19RomWavePolicy
                 ? CurrentLevel.Configuration.FlipperShotHoldoffTicks
                 : Tanker.BulletTimerResetTicks;
             TankerUpdateResult result = tanker.UpdateForDevelopment(

@@ -20,8 +20,10 @@ public sealed class Level18ProductionTests
         Assert.Same(level18, LevelProgression.GetDirectStartLevel(18));
         Assert.Same(level18, LevelProgression.GetNextProductionLevel(
             LevelConfiguration.Level17Production));
-        Assert.Null(LevelProgression.GetNextProductionLevel(level18));
-        Assert.Null(LevelProgression.GetProductionLevel(19));
+        Assert.Same(LevelConfiguration.Level19Production,
+            LevelProgression.GetNextProductionLevel(level18));
+        Assert.Same(LevelConfiguration.Level19Production,
+            LevelProgression.GetProductionLevel(19));
         Assert.Same(LevelConfiguration.Level2Square.Definition, level18.Definition);
         Assert.Equal((17, 18, 18, 1, 1, 1, 1),
             (level18.ProgressionIndex, level18.DisplayedLevel,
@@ -731,10 +733,11 @@ public sealed class Level18ProductionTests
             AtariHudVector.ResolveScoreColor(18));
         Assert.Equal(Raylib_cs.Color.Green, AtariHudVector.ResolveReserveLifeColor(18));
         Assert.Equal(Raylib_cs.Color.Red, AtariHudVector.ResolveLevelColor(18));
+        Assert.NotNull(RomPresentationMetadataCatalog.ForDisplayedLevel(19));
+        Assert.Equal(AtariPresentationCalibration.ForDisplayedLevel(3),
+            AtariPresentationCalibration.ForDisplayedLevel(19));
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => RomPresentationMetadataCatalog.ForDisplayedLevel(19));
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => AtariPresentationCalibration.ForDisplayedLevel(19));
+            () => RomPresentationMetadataCatalog.ForDisplayedLevel(20));
 
         static AtariPresentationProjection Project(
             LevelConfiguration configuration,
@@ -759,8 +762,10 @@ public sealed class Level18ProductionTests
             [option, "18"], out int? displayedLevel, out string? error));
         Assert.Equal(18, displayedLevel);
         Assert.Null(error);
-        Assert.False(Debug.DebugController.TryParseStartingLevel(
-            [option, "19"], out _, out _));
+        Assert.True(Debug.DebugController.TryParseStartingLevel(
+            [option, "19"], out int? level19, out string? level19Error));
+        Assert.Equal(19, level19);
+        Assert.Null(level19Error);
 
         TempestGame game = new(startingProductionLevel: displayedLevel, startingLives: 9);
         Assert.Same(LevelConfiguration.Level18Production, game.CurrentLevel.Configuration);

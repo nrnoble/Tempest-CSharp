@@ -70,9 +70,9 @@ public static class RomTubeMappingCatalog
         if (displayedLevel < 1)
             throw new ArgumentOutOfRangeException(nameof(displayedLevel), displayedLevel,
                 "Tempest displayed levels start at 1.");
-        if (displayedLevel > 18)
+        if (displayedLevel > 19)
             throw new ArgumentOutOfRangeException(nameof(displayedLevel), displayedLevel,
-                "Only bounded Level 18 cycle reuse is supported.");
+                "Only bounded Level 19 cycle reuse is supported.");
         int cycleIndex = ((displayedLevel - 1) & 15);
         return ShapeRowsByDisplayedLevel[cycleIndex];
     }

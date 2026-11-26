@@ -128,11 +128,11 @@ public static class AtariPresentationAdapter
 	{
 		if (displayedLevel > 16)
 		{
-			if (displayedLevel > 18)
+			if (displayedLevel > 19)
 				return false;
 			int canonicalLevel = RomTubeMappingCatalog.FirstDisplayedLevelForShapeRow(
 				RomTubeMappingCatalog.ResolveShapeRow(displayedLevel));
-			return canonicalLevel is 1 or 2;
+			return canonicalLevel is 1 or 2 or 3;
 		}
 
 		return displayedLevel is 1 or 2 or 3 or 4 or 7 or 8 or 9 or 10 or
@@ -402,10 +402,11 @@ public static class AtariPresentationAdapter
 			};
 		}
 
-		if (displayedLevel == 3)
+		if (RomTubeMappingCatalog.ResolveShapeRow(displayedLevel) == 2)
 		{
-			// Keep Level 3's established C# depth progression; the Atari reciprocal and signed
-			// Y2D terms would clip the near rim and reverse its near-to-far center progression.
+			// Preserve the canonical Shape 3 production composition for every repeated cycle.
+			// The Atari reciprocal and signed Y2D terms would clip the near rim and reverse
+			// its near-to-far center progression for this shape owner.
 			float denominator = z + zOffset;
 			EnsureFinite(denominator, "Level 3 camera denominator");
 			if (denominator == 0)
