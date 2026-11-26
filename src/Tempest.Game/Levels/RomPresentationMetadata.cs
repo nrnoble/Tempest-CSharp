@@ -61,15 +61,56 @@ public static class RomTubeMappingCatalog
         Array.AsReadOnly(new[] { 0, 1, 2, 3, 4, 5, 6, 7, 13, 9, 8, 12, 14, 15, 10, 11 });
 
     public static IReadOnlyList<int> DisplayedLevels1To16 => ShapeRowsByDisplayedLevel;
+    public static IReadOnlyList<int> FirstCycleShapeRows => ShapeRowsByDisplayedLevel;
+
+    // ROM-BACKED get_tube_no: subtract 16 repeatedly, then remap the retained 16-level index.
+    // Level 17 therefore resolves to shape row 0 / canonical Level 1 geometry.
+    public static int ResolveShapeRow(int displayedLevel)
+    {
+        if (displayedLevel < 1)
+            throw new ArgumentOutOfRangeException(nameof(displayedLevel), displayedLevel,
+                "Tempest displayed levels start at 1.");
+        if (displayedLevel > 17)
+            throw new ArgumentOutOfRangeException(nameof(displayedLevel), displayedLevel,
+                "Only bounded Level 17 cycle reuse is supported.");
+        int cycleIndex = ((displayedLevel - 1) & 15);
+        return ShapeRowsByDisplayedLevel[cycleIndex];
+    }
 
     public static int ShapeRowForDisplayedLevel(int displayedLevel)
     {
-        if (displayedLevel is < 1 or > 16)
+        if (displayedLevel is < 1)
             throw new ArgumentOutOfRangeException(nameof(displayedLevel), displayedLevel,
-                "Rev. 2 tube remapping is defined for displayed Levels 1 through 16.");
+                "Rev. 2 tube remapping starts at displayed Level 1.");
+        if (displayedLevel > 16)
+            return ResolveShapeRow(displayedLevel);
 
         return ShapeRowsByDisplayedLevel[displayedLevel - 1];
     }
+}
+
+public static class RomPaletteCatalog
+{
+    // ROM-BACKED raw blocks. Host entity-role RGB remains a bounded project translation.
+    public static IReadOnlyList<byte> FirstCycleRaw =>
+        Array.AsReadOnly(new byte[] { 0x00, 0x04, 0x08, 0x0C, 0xC3, 0x07, 0x0B, 0x0B });
+    public static IReadOnlyList<byte> SecondCycleRaw =>
+        Array.AsReadOnly(new byte[] { 0x00, 0x07, 0x0B, 0x08, 0x44, 0x03, 0x0C, 0x0C });
+
+    public static int PaletteIndexForDisplayedLevel(int displayedLevel)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(displayedLevel, 1);
+        return (displayedLevel - 1) / 16;
+    }
+
+    public static IReadOnlyList<byte> RawBlockForPaletteIndex(int paletteIndex) =>
+        paletteIndex switch
+        {
+            0 => FirstCycleRaw,
+            1 => SecondCycleRaw,
+            _ => throw new ArgumentOutOfRangeException(nameof(paletteIndex), paletteIndex,
+                "Only the bounded Levels 1-32 palette cycles are cataloged.")
+        };
 }
 
 public static class RomPresentationMetadataCatalog
@@ -135,11 +176,24 @@ public static class RomPresentationMetadataCatalog
             return Level15;
         if (displayedLevel == Level16.DisplayedLevel)
             return Level16;
-        if (displayedLevel < 1 || displayedLevel > Level16.DisplayedLevel)
+        if (displayedLevel == 17)
+        {
+            return new RomPresentationMetadata(17, 0,
+                ProductionLevels[0].ScaleRaw,
+                ProductionLevels[0].CameraHeightRaw,
+                ProductionLevels[0].ScreenYOffsetLowRaw,
+                ProductionLevels[0].ScreenYOffsetHighRaw,
+                ProductionLevels[0].OpenRaw);
+        }
+        if (displayedLevel < 1)
             throw new ArgumentOutOfRangeException(
                 nameof(displayedLevel),
                 displayedLevel,
-                "ROM presentation metadata is defined only for Levels 1 through 16.");
+                "ROM presentation metadata starts at displayed Level 1.");
+        if (displayedLevel > 17)
+            throw new ArgumentOutOfRangeException(
+                nameof(displayedLevel), displayedLevel,
+                "Only bounded Level 17 cycle reuse is supported.");
 
         return ProductionLevels[displayedLevel - 1];
     }

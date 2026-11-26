@@ -207,7 +207,9 @@ compatibility alias and is redundant for ordinary interactive launches.
 the old portrait world projection with the same portrait viewport. It is
 distinct from `--legacy-presentation`, which retains the separate legacy
 4:3 presentation. `--portrait-perspective` applies only alongside the
-explicit baseline diagnostic. Level 17 and tube recycling are not implemented.
+explicit baseline diagnostic. Level 17 production and cycle-1 presentation are
+implemented and manually accepted; tube recycling and Levels 18+ remain
+unimplemented.
 
 ```powershell
 dotnet run --project src\Tempest.Game -- --start-level 16

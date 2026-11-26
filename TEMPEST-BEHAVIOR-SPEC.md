@@ -3541,8 +3541,9 @@ behaves like the accepted direct-start version. This is campaign-integration
 acceptance, not new gameplay-fidelity evidence. No further promotion work is
 required.
 
-Production progression is `9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15`. Level 15
-is terminal while Level 16 remains unimplemented. Both `--level 15` and
+At this accepted-promotion checkpoint, production progression was
+`9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15`. Level 15 was terminal while Level 16
+remained unimplemented. Both `--level 15` and
 `--start-level 15` use the accepted production configuration. Score and lives
 carry, between-level Super Zapper behavior, Approach, the active HUD transition,
 and active Level 15 calibration are preserved. The accepted calibration remains
@@ -3630,14 +3631,26 @@ not establish arcade-fidelity acceptance.
   determine a side, rendering remains fail-fast. This render-only rule does
   not establish visual acceptance or change geometry, gameplay state, or
   calibration.
-- **PROJECT DECISION — CAMPAIGN BOUNDARY:** Level 15 progresses to production
-  Level 16; direct startup and natural progression share that configuration.
-  Level 16 is terminal for this milestone. Level 17 and tube recycling remain
-  unimplemented.
-- **ACCEPTANCE STATUS:** direct Level 16 gameplay, enemy behavior, handedness,
-  timing and presentation still require Neal's manual review. The presentation
-  candidate is available for calibration; no final Level 16 values are
-  selected or accepted.
+- **PROJECT DECISION — CAMPAIGN BOUNDARY:** production progression now ends at
+  accepted Level 17. Levels 18+ remain unimplemented.
+- **MANUAL ACCEPTANCE — LEVEL 17:** Neal reports passing gameplay with no
+  defects or noticeable differences from the arcade version. Flipper climb and
+  rim pursuit, Tanker and Egg behavior, Pulsars, absent starting Spikes and
+  Spikers, Shape 1 production projection, ordinary and transient rails, and
+  cycle-1 colors are accepted. Levels 1-16 recorded playback remains accepted
+  after the shared corrections.
+- **ROM-BACKED / PROJECT TRANSLATION — LEVEL 17:** canonical shape row 0 and
+  cycle palette 1 are reused independently. Shape 1 uses Y gain 1.4, tube scale
+  0.8, vertical offset 35, and depth-Y gain 1. Medium supply is 20; Flippers
+  are 0-3, Tankers 1-1, Spikers 0-0, Pulsars 2-5, and Fuseballs 0-0. Tanker
+  cargo is exactly two Flippers; ordinary/cargo below-rim behavior uses ROM
+  `$07`, then shared rim pursuit. Enemy-shot holdoff/capacity is 32/3.
+- **ARCHITECTURAL REQUIREMENT:** feature eligibility is established before
+  parameter application. Enemy core behavior remains shared. Below-rim Flipper
+  programs terminate at rim arrival. Palette roles resolve through the active
+  16-level cycle, independently of tube shape. Recycled 16-shape geometry
+  reuses canonical definitions; gameplay and color remain independently
+  resolved.
 
 ## Level 16 shared-center Flipper transition translation — 2026-11-24
 

@@ -125,7 +125,7 @@ public static class AtariPresentationAdapter
 	public const float Level6VerticalPlacement = 177.21448f;
 
 	public static bool HasModelFrameMapping(int displayedLevel) =>
-		displayedLevel is 1 or 2 or 3 or 4 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16;
+		displayedLevel is 1 or 2 or 3 or 4 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or 17;
 
 	public static AtariPresentationProjection ProjectLevel5(
 		float x,
@@ -326,10 +326,10 @@ public static class AtariPresentationAdapter
 			};
 		}
 
-		if (displayedLevel == 1)
+		if (metadata.TubeTableIndex == 0)
 		{
-			// Level 1 retains the established C# depth progression; its ROM reciprocal and Y2D
-			// terms do not preserve the known-good near/far relationship in this presentation pipeline.
+			// Shape 1 retains the established C# depth progression. Repeated cycle geometry
+			// (including Level 17) must use this branch rather than a displayed-level-specific copy.
 			float denominator = z + zOffset;
 			EnsureFinite(denominator, "Level 1 camera denominator");
 			if (denominator == 0)
@@ -521,7 +521,7 @@ public static class AtariPresentationAdapter
 	int displayedLevel) =>
 		displayedLevel switch
 		{
-			1 => (25f / 14f, 1),
+			1 or 17 => (25f / 14f, 1),
 			// Approximate Level 2 fit; comparison index alignment is not production reindexing.
 			2 => (1.436688312f, 1),
 			// Approximate Level 3 fit; the comparison-only +2 index alignment is not production reindexing.

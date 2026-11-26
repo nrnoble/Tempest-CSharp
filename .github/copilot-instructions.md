@@ -236,3 +236,21 @@ repository action and explain why. The former underscore-based `TEMPEST_...`
 format is obsolete for new prompts; do not require both formats or rewrite
 historical prompts/reports. Do not require tokens for trivial questions,
 simple lookups, or minor interactions.
+
+## 10. Enemy, palette, and tube architecture requirements
+
+- Establish enemy or gameplay-feature eligibility before applying ROM
+  parameters. A valid nonzero parameter does not imply that the feature is
+  active.
+- Keep enemy and gameplay-object core behavior shared across levels. Level
+  configurations select eligibility, supply, speed, timing, cargo, firing,
+  and movement programs rather than duplicating per-level actor engines.
+- A level-specific below-rim Flipper program ends at rim arrival unless ROM
+  evidence establishes a distinct model. Rim pursuit then uses the shared
+  lifecycle.
+- Persistent gameplay and HUD colors resolve by active 16-level palette cycle
+  and semantic role, independently of tube shape. Transient effects restore
+  to the active cycle palette.
+- The canonical 16 tube shapes are reused by later levels. Shape-specific
+  geometry, projection, and calibration remain shape-keyed; displayed-level
+  gameplay and cycle palette remain separate.

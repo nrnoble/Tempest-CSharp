@@ -91,6 +91,36 @@ public static class AtariHudVector
 	public static readonly Color LevelColor = Color.Blue;
 	public static readonly Color ReserveLifeColor = Color.Yellow;
 
+	public static Color ResolveScoreColor(int displayedLevel) =>
+		CyclePaletteResolver.ResolvePaletteIndex(displayedLevel) switch
+		{
+			0 => ScoreColor,
+			1 => CyclePaletteResolver.Cyan,
+			_ => throw new InvalidOperationException("Unsupported Tempest palette.")
+		};
+
+	public static Color ResolveHighScoreColor(int displayedLevel) =>
+		ResolveScoreColor(displayedLevel);
+
+	public static Color ResolveInitialsColor(int displayedLevel) =>
+		ResolveScoreColor(displayedLevel);
+
+	public static Color ResolveLevelColor(int displayedLevel) =>
+		CyclePaletteResolver.ResolvePaletteIndex(displayedLevel) switch
+		{
+			0 => LevelColor,
+			1 => Color.Red,
+			_ => throw new InvalidOperationException("Unsupported Tempest palette.")
+		};
+
+	public static Color ResolveReserveLifeColor(int displayedLevel) =>
+		CyclePaletteResolver.ResolvePaletteIndex(displayedLevel) switch
+		{
+			0 => ReserveLifeColor,
+			1 => Color.Green,
+			_ => throw new InvalidOperationException("Unsupported Tempest palette.")
+		};
+
 	// ROM/DISASSEMBLY BACKED glyph coordinates; PROJECT TRANSLATION:
 	// C# distinguishes pen-up DVG moves/advance from visible pen-down strokes.
 	private static readonly IReadOnlyDictionary<char, Vector2[][]> RomHudGlyphStrokes =
@@ -224,26 +254,32 @@ public static class AtariHudVector
 				"Atari HUD scales must be positive and finite.");
 
 		List<AtariHudLine> lines = [];
+		int displayedLevel = game.CurrentLevel.Configuration.DisplayedLevel;
+		Color scoreColor = ResolveScoreColor(displayedLevel);
+		Color highScoreColor = ResolveHighScoreColor(displayedLevel);
+		Color initialsColor = ResolveInitialsColor(displayedLevel);
+		Color levelColor = ResolveLevelColor(displayedLevel);
+		Color reserveLifeColor = ResolveReserveLifeColor(displayedLevel);
 
 		char[] scoreField = FormatFixedSixPositionScore(game.Score.Score);
 		DrawRightJustifiedField(scoreField,
 			calibration.ResolvedScoreRight,
 			calibration.ResolvedScoreBaselineY,
 			calibration.ResolvedScoreScale,
-			ScoreColor, lines);
+			scoreColor, lines);
 
 		DrawFixedText("38930",
 			calibration.ResolvedHighScoreStartX,
 			calibration.ResolvedHighScoreBaselineY,
 			calibration.ResolvedHighScoreScale,
-			HighScoreColor, lines);
+			highScoreColor, lines);
 		DrawFixedText("AAA",
 			calibration.ResolvedHighScoreStartX +
 				(InitialsStartX - HighScoreStartX) *
 				(calibration.ResolvedHighScoreScale / HighScoreGlyphScale),
 			calibration.ResolvedHighScoreBaselineY,
 			calibration.ResolvedHighScoreScale,
-			InitialsColor, lines);
+			initialsColor, lines);
 
 		char[] levelField = FormatFixedTwoPositionLevel(
 			game.CurrentLevel.Configuration.DisplayedLevel);
@@ -251,7 +287,7 @@ public static class AtariHudVector
 			calibration.ResolvedLevelStartX,
 			calibration.ResolvedLevelBaselineY,
 			calibration.ResolvedLevelScale,
-			LevelColor, lines);
+			levelColor, lines);
 
 		int reserveCount = GetReserveLifeCount(game.Player.Lives);
 		for (int index = 0; index < reserveCount; index++)
@@ -261,6 +297,7 @@ public static class AtariHudVector
 			AddNominalBlaster(originX,
 				calibration.ResolvedReserveLifeBaselineY,
 				calibration.ResolvedReserveLifeScale,
+				reserveLifeColor,
 				lines);
 		}
 
@@ -338,6 +375,7 @@ public static class AtariHudVector
 		float originX,
 		float baselineY,
 		float scale,
+		Color color,
 		List<AtariHudLine> lines)
 	{
 		Vector2[] points =
@@ -351,7 +389,7 @@ public static class AtariHudVector
 			Vector2 next = new(
 				originX + point.X * scale,
 				baselineY - point.Y * scale);
-			lines.Add(new AtariHudLine(previous, next, ReserveLifeColor));
+			lines.Add(new AtariHudLine(previous, next, color));
 			previous = next;
 		}
 	}

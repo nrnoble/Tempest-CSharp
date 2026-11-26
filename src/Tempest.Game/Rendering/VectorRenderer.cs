@@ -684,7 +684,9 @@ public sealed class VectorRenderer
 			DrawPlayerShots(game.CurrentLevel.Definition.Points);
 			DrawFlippers(game.CurrentLevel.Definition.Points);
 			DrawSpikers((start, end) => Raylib.DrawLineV(start, end, SpikerColor));
-			DrawTankers((start, end) => Raylib.DrawLineV(start, end, TankerColor));
+			DrawTankers((start, end) => Raylib.DrawLineV(start, end,
+				CyclePaletteResolver.ResolveTankerColor(
+					game.CurrentLevel.Configuration.DisplayedLevel)));
 			DrawFuseballs((start, end, color) => Raylib.DrawLineV(start, end, color));
 			DrawPulsars((start, end, color) => Raylib.DrawLineV(start, end, color));
 			DrawEnemyBullets(
@@ -1316,18 +1318,25 @@ public sealed class VectorRenderer
 
 	public void DrawEggs(Action<Vector2, Vector2> drawPoint)
 	{
+		DrawEggs((point, size, _) => drawPoint(point, size));
+	}
+
+	public void DrawEggs(Action<Vector2, Vector2, Color> drawPoint)
+	{
 		foreach (Egg egg in Eggs)
 		{
 			Vector2 size = new(EggPointSize, EggPointSize);
 			Vector2 anchor = ProjectEgg(egg);
 			Vector2 topLeft = anchor - Vector2.One;
-			drawPoint(topLeft, size);
+			drawPoint(topLeft, size,
+				CyclePaletteResolver.ResolveEggColor(
+					game.CurrentLevel.Configuration.DisplayedLevel));
 		}
 	}
 
 	private void DrawEggs()
 	{
-		DrawEggs((point, size) => Raylib.DrawRectangleV(point, size, Color.Red));
+		DrawEggs((point, size, color) => Raylib.DrawRectangleV(point, size, color));
 	}
 
 	private bool IsPulsingLane(int edge) => game.Pulsars.Any(pulsar =>
@@ -1340,6 +1349,8 @@ public sealed class VectorRenderer
 		game.CurrentLevel.Configuration.PaletteIndex switch
 		{
 			0 => PaletteZeroBlasterLaneColor,
+			1 => CyclePaletteResolver.ResolveBlasterLaneColor(
+				game.CurrentLevel.Configuration.DisplayedLevel),
 			_ => throw new InvalidOperationException(
 				$"No Blaster-lane color is configured for palette {game.CurrentLevel.Configuration.PaletteIndex}.")
 		};
@@ -1353,8 +1364,10 @@ public sealed class VectorRenderer
 			2 => SpikerColor,
 			3 => Color.Red,
 			4 => PulsarColor,
-			5 => TankerColor,
-			6 => Color.Blue,
+			5 => CyclePaletteResolver.ResolveTankerColor(
+				game.CurrentLevel.Configuration.DisplayedLevel),
+			6 => CyclePaletteResolver.ResolveTubeColor(
+				game.CurrentLevel.Configuration.DisplayedLevel),
 			_ => throw new InvalidOperationException("Invalid Super Zapper rail color index.")
 		};
 
@@ -1364,7 +1377,8 @@ public sealed class VectorRenderer
 		Vector2[] nearRim = new Vector2[points.Count];
 		Vector2[] farRim = new Vector2[points.Count];
 		// Atari patches longitudinal rail colors, not the rim connections ($b44b, $c358).
-		Color tubeColor = Color.Blue;
+		Color tubeColor = CyclePaletteResolver.ResolveTubeColor(
+			game.CurrentLevel.Configuration.DisplayedLevel);
 		Color railColor = ResolveSuperZapperRailColor();
 		int playerLane = game.Player.EdgeIndex;
 		int nextPlayerLaneBoundary = game.CurrentLevel.NextEdge(playerLane);
@@ -1560,12 +1574,14 @@ public sealed class VectorRenderer
 
 		if (drawLine is null)
 		{
-			Raylib.DrawLineV(p1, point3, Color.Red);
-			Raylib.DrawLineV(point5, p2, Color.Red);
-			Raylib.DrawLineV(point6, point5, Color.Red);
-			Raylib.DrawLineV(point2, point3, Color.Red);
-			Raylib.DrawLineV(point6, p1, Color.Red);
-			Raylib.DrawLineV(point2, p2, Color.Red);
+			Color flipperColor = CyclePaletteResolver.ResolveFlipperColor(
+				game.CurrentLevel.Configuration.DisplayedLevel);
+			Raylib.DrawLineV(p1, point3, flipperColor);
+			Raylib.DrawLineV(point5, p2, flipperColor);
+			Raylib.DrawLineV(point6, point5, flipperColor);
+			Raylib.DrawLineV(point2, point3, flipperColor);
+			Raylib.DrawLineV(point6, p1, flipperColor);
+			Raylib.DrawLineV(point2, p2, flipperColor);
 		}
 		else
 		{

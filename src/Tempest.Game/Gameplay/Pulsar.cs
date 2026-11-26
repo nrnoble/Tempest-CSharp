@@ -34,7 +34,7 @@ public sealed class Pulsar : Enemy
 
     private PulsarState oldState;
 
-    public Pulsar(int edgeIndex = 0, float height = 0)
+    public Pulsar(int edgeIndex = 0, float height = 0, int originalSlotId = -1)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(edgeIndex);
         ArgumentOutOfRangeException.ThrowIfNegative(height);
@@ -43,9 +43,11 @@ public sealed class Pulsar : Enemy
 
         EdgeIndex = edgeIndex;
         Height = height;
+        OriginalSlotId = originalSlotId;
     }
 
     public PulsarState State { get; private set; }
+    public int OriginalSlotId { get; private set; }
     public PulsarState ResumeState => oldState;
     public int TimeToFlip { get; private set; }
     public int PauseTicks { get; private set; }

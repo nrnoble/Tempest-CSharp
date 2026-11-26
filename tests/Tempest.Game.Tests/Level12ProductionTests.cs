@@ -123,8 +123,10 @@ public sealed class Level12ProductionTests
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level14Production));
         Assert.Same(LevelConfiguration.Level16Production,
             LevelProgression.GetNextProductionLevel(LevelConfiguration.Level15Production));
-        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level16Production));
-        Assert.Same(LevelConfiguration.Level16Production,
+        Assert.Same(LevelConfiguration.Level17Production,
+            LevelProgression.GetNextProductionLevel(LevelConfiguration.Level16Production));
+        Assert.Null(LevelProgression.GetNextProductionLevel(LevelConfiguration.Level17Production));
+        Assert.Same(LevelConfiguration.Level17Production,
             LevelProgression.GetLastProductionLevel());
 
         TempestGame game = new(startingProductionLevel: 12, startingLives: 4);
@@ -224,7 +226,7 @@ public sealed class Level12ProductionTests
         Assert.Equal((25f / 14f, -1),
             AtariPresentationAdapter.GetModelFrameMapping(16));
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => RomPresentationMetadataCatalog.ForDisplayedLevel(17));
+            () => RomPresentationMetadataCatalog.ForDisplayedLevel(18));
     }
 
     [Fact]

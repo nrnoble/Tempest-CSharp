@@ -55,6 +55,7 @@ public sealed class Flipper : Enemy
     private bool useLevel8StraightCargoProgram;
     private bool useLevel9SpikeSensitiveProgram;
     private bool useLevel9StraightCargoProgram;
+    private bool useStraight07Program;
     private int level6StraightAdvances;
     private bool useRepeating24Program;
 
@@ -96,6 +97,25 @@ public sealed class Flipper : Enemy
     public void Update(Level level, int playerEdge, Func<int, int, int>? randomInclusive = null)
     {
         FlipperConfiguration tuning = level.Configuration.Flipper;
+        if ((useStraight07Program && Height < Level.Depth) ||
+            (!IsTankerCargo &&
+             Height < Level.Depth &&
+             level.Configuration.BelowRimFlipperProgram == BelowRimFlipperProgram.Straight07))
+        {
+            useStraight07Program = true;
+            if (Height < Level.Depth)
+                Height = MathF.Min(Level.Depth, Height + tuning.ClimbSpeed);
+            if (Height >= Level.Depth)
+            {
+                Height = Level.Depth;
+                RimPursuitDirection ??= level.FindReferenceShortestDirection(
+                    EdgeIndex, playerEdge, randomInclusive ?? ((_, _) => 0));
+                Direction = RimPursuitDirection.Value;
+                useStraight07Program = false;
+                HandOffToRim(tuning);
+            }
+            return;
+        }
         if (programmedRouteStep == ProgrammedFlipperRouteStep.Disabled &&
             !IsTankerCargo &&
             level.Configuration.BelowRimFlipperProgram is
@@ -259,6 +279,12 @@ public sealed class Flipper : Enemy
             flipper.useLevel8StraightCargoProgram = true;
             flipper.InitializeLevel8CargoRoute(cargo.Direction, constantFlipProgram: false);
         }
+        else if (tankerCargoMovementProgram == TankerCargoMovementProgram.Level17Straight07)
+        {
+            flipper.useStraight07Program = true;
+            flipper.State = FlipperState.Climbing;
+            flipper.Direction = cargo.Direction;
+        }
         else if (tankerCargoMovementProgram != TankerCargoMovementProgram.Existing)
             throw new ArgumentOutOfRangeException(nameof(tankerCargoMovementProgram));
         else if (useLevel8ConstantFlipProgram || useLevel8StraightCargoProgram)
@@ -298,6 +324,12 @@ public sealed class Flipper : Enemy
         {
             flipper.useLevel8StraightCargoProgram = true;
             flipper.InitializeLevel8CargoRoute(initialDirection ?? 1, constantFlipProgram: false);
+        }
+        else if (tankerCargoMovementProgram == TankerCargoMovementProgram.Level17Straight07)
+        {
+            flipper.useStraight07Program = true;
+            flipper.State = FlipperState.Climbing;
+            flipper.Direction = initialDirection ?? 1;
         }
         else if (tankerCargoMovementProgram == TankerCargoMovementProgram.Repeating24)
         {

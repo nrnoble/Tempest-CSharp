@@ -220,12 +220,11 @@ public sealed class Level16AtariPresentationTests
     }
 
     [Fact]
-    public void AtariPresentationCandidateDoesNotClaimLevelSeventeen()
+    public void LevelSeventeenUsesBoundedShapeOnePresentationCandidate()
     {
-        Assert.Null(LevelProgression.GetProductionLevel(17));
-        Assert.False(AtariPresentationAdapter.HasModelFrameMapping(17));
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => AtariPresentationAdapter.GetModelFrameMapping(17));
+        Assert.Same(LevelConfiguration.Level17Production, LevelProgression.GetProductionLevel(17));
+        Assert.Equal(RomTubeMappingCatalog.ShapeRowForDisplayedLevel(1),
+            RomTubeMappingCatalog.ShapeRowForDisplayedLevel(17));
     }
 
     [Fact]

@@ -56,8 +56,9 @@ public sealed class RomPresentationMetadataTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(
             () => RomPresentationMetadataCatalog.ForDisplayedLevel(0));
+        Assert.NotNull(RomPresentationMetadataCatalog.ForDisplayedLevel(17));
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => RomPresentationMetadataCatalog.ForDisplayedLevel(17));
+            () => RomPresentationMetadataCatalog.ForDisplayedLevel(18));
     }
 
     [Fact]
@@ -75,7 +76,7 @@ public sealed class RomPresentationMetadataTests
         Assert.Throws<ArgumentOutOfRangeException>(
             () => RomTubeMappingCatalog.ShapeRowForDisplayedLevel(0));
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => RomTubeMappingCatalog.ShapeRowForDisplayedLevel(17));
+            () => RomTubeMappingCatalog.ResolveShapeRow(18));
     }
 
     [Fact]

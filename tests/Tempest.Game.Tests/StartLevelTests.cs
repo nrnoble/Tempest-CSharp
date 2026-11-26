@@ -96,7 +96,7 @@ public sealed class StartLevelTests
     }
 
     [Fact]
-    public void NaturalLevelFifteenToSixteenProgressionCarriesCampaignState()
+    public void NaturalLevelFifteenToSeventeenProgressionCarriesCampaignState()
     {
         TempestGame game = new(startingProductionLevel: 15, startingLives: 5);
         game.Score.Add(1234);
@@ -110,25 +110,34 @@ public sealed class StartLevelTests
         Assert.Equal(LevelState.Approach, game.State);
         Assert.Equal(15, game.CurrentApproach!.ExitedLevel);
         Assert.Equal(1234, game.Score.Score);
+
+        for (int tick = 0; tick < LevelApproach.DurationTicks; tick++)
+            game.RunOneStep();
+        Assert.Equal(LevelState.Playing, game.State);
+        CompleteWaveAndExit(game);
+
+        Assert.False(game.LevelComplete);
+        Assert.Same(LevelConfiguration.Level17Production, game.CurrentLevel.Configuration);
+        Assert.Equal(LevelState.Approach, game.State);
+        Assert.Equal(16, game.CurrentApproach!.ExitedLevel);
+        Assert.Equal(1234, game.Score.Score);
         Assert.Equal(5, game.Player.Lives);
         Assert.Equal(SuperZapperSystem.InitialCharges, game.SuperZapperChargesRemaining);
         Assert.Equal(0, game.SuperZapper.FlashTicksRemaining);
         Assert.Equal(LevelConfiguration.Level16Production.InitialActiveEggCount, game.Eggs.Count);
-        Assert.Equal(16, game.Spikes.Count);
-        Assert.All(game.Spikes, spike =>
-            Assert.Equal(LevelConfiguration.Level16StartingSpikeHeight, spike.Height));
+        Assert.Empty(game.Spikes);
     }
 
     [Fact]
-    public void TerminalLevelSixteenCompletionRestartsAtLevelOne()
+    public void TerminalLevelSeventeenCompletionRestartsAtLevelOne()
     {
-        TempestGame game = new(startingProductionLevel: 16, startingLives: 5);
+        TempestGame game = new(startingProductionLevel: 17, startingLives: 5);
         game.Score.Add(1234);
 
         CompleteWaveAndExit(game);
 
         Assert.True(game.LevelComplete);
-        Assert.Same(LevelConfiguration.Level16Production, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level17Production, game.CurrentLevel.Configuration);
         game.RunOneStep(restartPressed: true);
         Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
         Assert.Equal(0, game.Score.Score);
@@ -143,7 +152,7 @@ public sealed class StartLevelTests
             ["--start-level"], ["--start-level", "--lives", "5"],
             ["--start-level", "abc"], ["--start-level", "0"],
             ["--start-level", "-1"],
-            ["--start-level", "17"],
+            ["--start-level", "18"],
             ["--start-level", "999999999999999"], ["--start-level=11"],
             ["--start-level", "11", "--start-level", "12"],
             ["--start-level", "11", "--level", "11"],
@@ -266,7 +275,7 @@ public sealed class StartLevelTests
     [Theory]
     [InlineData("--level")]
     [InlineData("--start-level")]
-    public void DirectProductionStartsContinueThroughSixteenAndStopThere(string option)
+    public void DirectProductionStartsContinueThroughSeventeenAndStopThere(string option)
     {
         string[] args = [option, "11", "--lives", "7"];
         Assert.True(DebugController.TryParseStartingLevel(args, out int? level, out _));
@@ -387,8 +396,18 @@ public sealed class StartLevelTests
             game.RunOneStep();
         Assert.Equal(LevelState.Playing, game.State);
         CompleteWaveAndExit(game);
+        Assert.False(game.LevelComplete);
+        Assert.Same(LevelConfiguration.Level17Production, game.CurrentLevel.Configuration);
+        Assert.Equal(1234, game.Score.Score);
+        Assert.Equal(4, game.Player.Lives);
+        Assert.Empty(game.Spikes);
+
+        for (int tick = 0; tick < LevelApproach.DurationTicks; tick++)
+            game.RunOneStep();
+        Assert.Equal(LevelState.Playing, game.State);
+        CompleteWaveAndExit(game);
         Assert.True(game.LevelComplete);
-        Assert.Same(LevelConfiguration.Level16Production, game.CurrentLevel.Configuration);
+        Assert.Same(LevelConfiguration.Level17Production, game.CurrentLevel.Configuration);
         game.RunOneStep(restartPressed: true);
         Assert.Same(LevelConfiguration.Level1, game.CurrentLevel.Configuration);
         Assert.Equal(0, game.Score.Score);

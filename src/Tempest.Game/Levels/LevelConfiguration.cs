@@ -31,7 +31,9 @@ public enum BelowRimFlipperProgram
     Level11Repeating24,
     // ROM Level 12 $19: flip constantly, moving on ticks between flips.
     Level12ConstantFlip,
-    Level16Repeating24
+    Level16Repeating24,
+    // ROM Level 17 $07: move straight toward the rim with no below-rim flip/reversal.
+    Straight07
 }
 
 // REFERENCE VERIFIED: Incitti lv=0/1 values; exact gameplay fidelity remains unverified.
@@ -96,6 +98,7 @@ public sealed record LevelConfiguration(
         14 => Level14WaveSelection.ShotHoldoffRaw,
         // PROJECT APPROXIMATION: preserve the raw value as the C# tick cadence.
         16 => Level16WaveSelection.ShotHoldoffRaw,
+        17 => Level17WaveSelection.ShotHoldoffRaw,
         _ => throw new InvalidOperationException(
             $"No arcade Flipper shot holdoff is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
@@ -121,6 +124,7 @@ public sealed record LevelConfiguration(
         13 => 2,
         14 => 2,
         16 => Level16WaveSelection.DefaultMaximumActiveEnemyShots,
+        17 => Level17WaveSelection.DefaultMaximumActiveEnemyShots,
         _ => throw new InvalidOperationException(
             $"No arcade enemy-shot capacity is defined for effective gameplay Level {EffectiveGameplayParameterLevel}.")
     };
@@ -141,6 +145,7 @@ public sealed record LevelConfiguration(
     public bool UsesLevel13RomWavePolicy { get; init; }
     public bool UsesLevel14RomWavePolicy { get; init; }
     public bool UsesLevel16RomWavePolicy { get; init; }
+    public bool UsesLevel17RomWavePolicy { get; init; }
     // PROJECT DECISION: Level 15 retains the separately recovered Level 11 parameter
     // baseline; genuine Level 11 uses UsesLevel11RomWavePolicy.
     public bool UsesLevel11ParameterDevelopmentBaseline { get; init; }
@@ -151,6 +156,7 @@ public sealed record LevelConfiguration(
         UsesLevel12RomWavePolicy || UsesLevel13RomWavePolicy ||
         UsesLevel14RomWavePolicy ||
         UsesLevel16RomWavePolicy ||
+        UsesLevel17RomWavePolicy ||
         UsesLevel11ParameterDevelopmentBaseline ||
         ReferenceEquals(this, Level5Production) ||
         ReferenceEquals(this, Level6Production);
@@ -176,6 +182,28 @@ public sealed record LevelConfiguration(
     // PROJECT TRANSLATION: convert ROM along-coordinate $A0 to C# far-end-to-rim height.
     public const float Level16StartingSpikeHeight =
         (0xF0 - Level16WaveSelection.StartingSpikeHeightRaw) * Level.Depth / 224f;
+    // ROM-BACKED: wave_spikeht payload, indexed by effective level modulo 16.
+    // A $00 payload is dormant even if other parameter-table fields exist.
+    public static IReadOnlyList<byte> RomSpikeHeightRawByCyclePosition { get; } =
+        Array.AsReadOnly(new byte[]
+        {
+            0x00, 0x00, 0x00, 0xE0,
+            0xD8, 0xD4, 0xD0, 0xC8,
+            0xC0, 0xB8, 0xB0, 0xA8,
+            0xA0, 0xA0, 0xA0, 0xA8
+        });
+
+    public static float? StartingSpikeHeightForDisplayedLevel(int displayedLevel)
+    {
+        if (displayedLevel < 1)
+            throw new ArgumentOutOfRangeException(nameof(displayedLevel));
+
+        byte rawHeight = RomSpikeHeightRawByCyclePosition[(displayedLevel - 1) % 16];
+        return rawHeight == 0
+            ? null
+            : (0xF0 - rawHeight) * Level.Depth / 224f;
+    }
+
     // ROM-BACKED: Level 15's wave_spikeht entry is a raw along coordinate, not a C# height.
     // PROJECT TRANSLATION: invert its $10-$F0 span into the C# far-end-to-rim depth domain.
     public const byte Level15StartingSpikeHeightRaw = 0xA0;
@@ -655,5 +683,37 @@ public sealed record LevelConfiguration(
         AllowsOrdinaryFlipperSelection = false,
         StartingSpikeHeight = Level16StartingSpikeHeight,
         RomFlipperLaneAngles = LevelLoader.Level16RomEvidence.Angles
+    };
+
+    // ROM-BACKED medium/default Level 17 medium data. Hard/easy differences remain deferred.
+    public static LevelConfiguration Level17Production { get; } = new(
+        ProgressionIndex: 16,
+        DisplayedLevel: 17,
+        BoardIndex: 0,
+        PaletteIndex: 1,
+        Definition: LevelLoader.LoadLevel1(),
+        Depth: Level.Depth,
+        Position: Level.Position,
+        InitialPlayerLane: 7,
+        InitialPlayerLanePosition: 0.5f,
+        EnemySupply: Level17WaveSelection.OrdinaryEnemySupply,
+        InitialActiveEggCount: 4,
+        ReserveReleaseIntervalTicks: 50,
+        MaximumActiveEggs: 4,
+        MaximumApproachingEggs: 2,
+        HatchSelectionIntervalTicks: 50,
+        SpawnLaneSequence: Array.AsReadOnly(Enumerable.Range(0, 16).ToArray()),
+        EggDirectionSequence: Array.AsReadOnly(new[] { 1, -1 }),
+        ExitPolicy: LevelExitPolicy.Standard,
+        NormalEnemyComposition: LevelEnemyComposition.FlippersTankersAndSpikers)
+    {
+        EffectiveGameplayParameterLevelOverride = 17,
+        Flipper = new(true, Level17WaveSelection.MediumFlipperTankerSpeed, 8, 21, 24),
+        FlipperPivotMode = FlipperPivotGeometry.EndpointHinge,
+        BelowRimFlipperProgram = BelowRimFlipperProgram.Straight07,
+        UsesLevel17RomWavePolicy = true,
+        AllowsOrdinaryFlipperSelection = true,
+        ProgrammedFlipperInitialDirection = 1,
+        StartingSpikeHeight = StartingSpikeHeightForDisplayedLevel(17)
     };
 }

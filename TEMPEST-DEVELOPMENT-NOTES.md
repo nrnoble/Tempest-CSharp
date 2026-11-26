@@ -4726,10 +4726,24 @@ Level 16.
 `--background-opacity` diagnostic remains unchanged, with ordinary opaque
 black default `1`; there is no Level-16-specific opacity default.
 
-**PROJECT DECISION — CAMPAIGN BOUNDARY:** direct startup and natural
-progression use Level 16's production configuration. Level 16 is the current
-completed terminal campaign level. Level 17 and later work has not started.
+**MANUAL ACCEPTANCE — LEVEL 17:** Neal reports that Level 17 passes manual
+gameplay testing and currently finds no defects or noticeable differences from
+the arcade version. This acceptance covers ordinary rail and Shape 1
+projection, Flipper climb/rim behavior, Tanker and Egg roles, Pulsar behavior,
+cycle-1 presentation, accepted HUD colors, absence of starting Spikes and
+Spikers, and preserved Levels 1-16 recorded playback.
 
-No Level 16 gameplay tuning or timing was performed during closeout. The ROM
-completion byte `$0116` and literal interpretation of raw ROM timing/speed
-values remain whole-game evidence limitations, not reported Level 16 blockers.
+**ROM-BACKED / PROJECT TRANSLATION — LEVEL 17:** production uses canonical
+Shape 1/row 0 reused from Level 1, cycle palette 1, and the Level 17
+medium/default wave policy. Ordinary supply is 20; Flippers are 0-3, Tankers
+1-1, Spikers 0-0, Pulsars 2-5, and Fuseballs 0-0. Tanker cargo is exactly two
+Flippers. Ordinary and cargo Flippers use ROM `$07` below the rim, with the
+Tanker-cargo route removed at rim arrival; shared rim pursuit takes ownership.
+The shared Flipper/Tanker climb speed is `2.53125f`. Enemy-shot holdoff is 32
+ticks and the medium/default active-shot capacity is 3; medium Pulsar firing
+is disabled.
+
+**ROM-BACKED ELIGIBILITY:** `wave_spikeht` cycle positions 1-3 are zero for
+displayed Levels 17-19, so no starting Spikes or Spikers are eligible.
+Nonzero parameter payload may be translated only after eligibility is
+established. Level 17 remains terminal; Levels 18+ are not implemented.
