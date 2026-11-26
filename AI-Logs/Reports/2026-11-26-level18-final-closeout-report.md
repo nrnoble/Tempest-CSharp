@@ -105,8 +105,21 @@ Protected recordings, screenshots, videos, ROM/reference assets, TEMP material,
 generated output, `Reference/arcade/MBUCOD.V05.txt`, and unrelated state remain
 untracked or unstaged.
 
-Primary commit, push, independent GitHub verification, optional
-report-finalization commit, and post-push repository state remain pending.
+**Primary commit:** `3034c227ae855061c6f2ae8bb193cc9e43405566`,
+subject `Complete accepted Level 18 production`.
+
+**Push:** `git push origin master` completed normally:
+`0ce7e53..3034c22 master -> master`.
+
+**Independent GitHub verification:** PASS through the GitHub connector.
+The commit is visible on `master`; its 34-file inventory and subject/trailer
+were retrieved. Representative GitHub retrieval also confirmed
+`Level18WaveSelection.cs` and this closeout report at the primary commit.
+
+**Post-push repository state:** local `HEAD` is
+`3034c227ae855061c6f2ae8bb193cc9e43405566`, tracking `origin/master`,
+with 0 local/0 upstream divergence. The only remaining untracked path is
+unrelated protected `Reference/arcade/MBUCOD.V05.txt`.
 
 ## Evidence classifications
 
